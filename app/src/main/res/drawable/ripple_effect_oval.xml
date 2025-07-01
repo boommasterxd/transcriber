@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/samsung_blue_ripple"> <!-- Deine Samsung-Blau-Ripple-Farbe -->
+
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="@android:color/white" /> <!-- Maskenfarbe, nicht die Ripple-Farbe -->
+        </shape>
+    </item>
+
+    <!-- Optional: Ein ungebundener Ripple, falls der Button keinen eigenen Hintergrund hat
+         oder du sicherstellen willst, dass der Ripple immer rund ist,
+         unabhängig vom Button-Hintergrund.
+         Wenn deine Buttons bereits einen runden Hintergrund haben (@drawable/rounded_content_copy_24),
+         ist dieser Teil möglicherweise nicht unbedingt nötig, aber er schadet auch nicht.
+    -->
+    <item android:drawable="@drawable/oval_background_for_ripple" />
+</ripple>
