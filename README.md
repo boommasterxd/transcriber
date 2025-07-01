@@ -1,4 +1,4 @@
-# Assistant
+# Assistant v1.1
 
 Dies ist ein Android-Projekt, das mit Android Studio erstellt wurde.
 
