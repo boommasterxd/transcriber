@@ -7,12 +7,14 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
 import android.text.style.ForegroundColorSpan;
 import android.util.Base64;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -112,6 +114,47 @@ public class MainActivity extends AppCompatActivity {
             "\\#\\# Ausblick  \n" +
             "\\* Es werden Fallstudien und zukünftige Potenziale diskutiert.";
 
+    String markdownDescription = "# Anleitung: Google AI Studio API Key und App-Nutzung\n" +
+            "\n" +
+            "Diese Anleitung erklärt, wie Sie einen API-Key von Google AI Studio erhalten und die App verwenden, um aus Ihren Audiodateien automatisch Transkriptionen und Zusammenfassungen zu erstellen.\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "## 1. Google AI Studio API Key erhalten\n" +
+            "\n" +
+            "Ein API-Key ist notwendig, damit die App auf die KI-Dienste von Google zugreifen kann. Sie benötigen diesen nur einmal bei der Ersteinrichtung.\n" +
+            "\n" +
+            "### Schritte:\n" +
+            "* **Besuche Google AI Studio:** Öffnen Sie die Webseite [aistudio.google.com](https://aistudio.google.com/) in Ihrem Browser.\n" +
+            "* **Anmelden:** Melden Sie sich mit Ihrem Google-Konto an.\n" +
+            "* **API-Key erstellen:**\n" +
+            "    * Klicken Sie in der linken Navigationsleiste auf **\"Get API key\"**.\n" +
+            "    * Klicken Sie auf **\"Create API key in new project\"**.\n" +
+            "    * Ihr API-Key wird nun generiert und angezeigt.\n" +
+            "* **Kopieren und Sichern:** Kopieren Sie den API-Key. Sie werden ihn in der App einfügen müssen.\n" +
+            "\n" +
+            "**Wichtig:** Behandeln Sie Ihren API-Key wie ein Passwort und teilen Sie ihn nicht mit anderen.\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "## 2. App-Nutzung: Von der Audiodatei zur Zusammenfassung\n" +
+            "\n" +
+            "Der Prozess ist einfach und schnell.\n" +
+            "\n" +
+            "### So funktioniert's:\n" +
+            "* **API-Key eingeben:**\n" +
+            "    * Starten Sie die App.\n" +
+            "    * Fügen Sie beim ersten Start Ihren kopierten API-Key in das dafür vorgesehene Feld ein.\n" +
+            "* **Audio-Datei teilen:**\n" +
+            "    * Wählen Sie eine beliebige Audiodatei auf Ihrem Gerät aus.\n" +
+            "    * Nutzen Sie die \\\"Teilen\\\"-Funktion Ihres Betriebssystems und wählen Sie die App als Ziel aus.\n" +
+            "* **Automatische Verarbeitung:**\n" +
+            "    * Die App empfängt die Datei und sendet sie automatisch an die Google AI.\n" +
+            "    * Die KI erstellt eine wortwörtliche **Transkription** und eine strukturierte **Zusammenfassung** des Inhalts.\n" +
+            "* **Ergebnis kopieren oder teilen:**\n" +
+            "    * Nach kurzer Zeit zeigt die App das fertige Ergebnis an.\n" +
+            "    * Sie können den gesamten Text (Transkription und Zusammenfassung) einfach in Ihre Zwischenablage **kopieren** oder direkt mit anderen Apps **teilen**.";
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -123,6 +166,7 @@ public class MainActivity extends AppCompatActivity {
                         builder.headingTextSizeMultipliers(new float[]{1.15f, 1.0f, .9f, 0.8f, 0.7f, 0.6f});
 
                         int textPrimaryColor = ContextCompat.getColor(MainActivity.this, R.color.text_primary);
+                        int samsungBlueColor = ContextCompat.getColor(MainActivity.this, R.color.samsung_blue);
                         // Überschriften schwarz färben
                         builder.headingBreakColor(textPrimaryColor); // Farbe für die Linie unter der Überschrift (optional)
                         builder.headingTypeface(null); // Behält die Standard-Schriftart bei
@@ -130,6 +174,8 @@ public class MainActivity extends AppCompatActivity {
                         builder.headingBreakHeight(0);
 
                         builder.bulletWidth(dpToPx(6)); // Größe der Aufzählungspunkte
+
+                        builder.linkColor(samsungBlueColor); // Linkfarbe anpassen
                     }
 
                     @Override
@@ -163,10 +209,16 @@ public class MainActivity extends AppCompatActivity {
         bottomSheetDialog.setContentView(bottomSheetView);
 
         EditText apiKeyEditText = bottomSheetView.findViewById(R.id.apiKeyEditText);
-        Button saveApiKeyButton = bottomSheetView.findViewById(R.id.saveApiKeyButton);
+        ImageButton saveApiKeyButton = bottomSheetView.findViewById(R.id.saveApiKeyButton);
+        ImageButton showHidePasswordButton = bottomSheetView.findViewById(R.id.showHidePasswordButton);
+        TextView descriptionTextView = bottomSheetView.findViewById(R.id.descriptionTextView);
+        LinearLayout inputLayout = bottomSheetView.findViewById(R.id.inputLayout);
+        ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
         SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
         apiKeyEditText.setText(prefs.getString("api_key", ""));
+
+        markwon.setMarkdown(descriptionTextView, markdownDescription);
 
         saveApiKeyButton.setOnClickListener(v -> {
             String key = apiKeyEditText.getText().toString().trim();
@@ -175,11 +227,26 @@ public class MainActivity extends AppCompatActivity {
                 editor.putString("api_key", key);
                 editor.apply();
                 apiKey = key;
-                bottomSheetDialog.dismiss();
-                showDescriptionDialog();
+                Toast.makeText(this, "API-Schlüssel erfolgreich gespeichert", Toast.LENGTH_SHORT).show();
+                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_success);
             } else {
                 Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
+                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
             }
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default);
+            }, 3000); // 2 Sekunden Verzögerung
+        });
+
+        showHidePasswordButton.setOnClickListener(v -> {
+            if (apiKeyEditText.getInputType() == (InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD)) {
+                apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                showHidePasswordButton.setImageResource(R.drawable.rounded_visibility_off_24); // Auge zu Icon
+            } else {
+                apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                showHidePasswordButton.setImageResource(R.drawable.rounded_visibility_24); // Auge auf Icon
+            }
+            apiKeyEditText.setSelection(apiKeyEditText.getText().length());
         });
 
 
@@ -189,9 +256,21 @@ public class MainActivity extends AppCompatActivity {
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
 
+                scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+                    behavior.setDraggable(scrollY == 0);
+                });
+
                 behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
                     @Override
                     public void onStateChanged(@NonNull View bottomSheet, int newState) {
+                        if (newState != BottomSheetBehavior.STATE_EXPANDED) {
+                            behavior.setDraggable(true);
+                        } else {
+                            // Wenn es sich ausdehnt, setze den anfänglichen ziehbaren Zustand basierend auf der Scroll-Position.
+                            // Dies behandelt auch nicht scrollbare Inhalte korrekt (scrollY ist 0).
+                            behavior.setDraggable(scrollView.getScrollY() == 0);
+                        }
+
                         if (newState == BottomSheetBehavior.STATE_HIDDEN) {
                             bottomSheetDialog.dismiss();
                         }
@@ -205,41 +284,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         bottomSheetDialog.setOnDismissListener(dialog -> {
-            if (apiKey == null || apiKey.isEmpty()) {
-                finish();
-            }
-        });
-        bottomSheetDialog.show();
-    }
 
+            finish();
 
-    private void showDescriptionDialog() {
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
-        @SuppressLint("InflateParams") View bottomSheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_description, null);
-        bottomSheetDialog.setContentView(bottomSheetView);
-
-        bottomSheetDialog.setOnShowListener(dialog -> {
-            BottomSheetDialog d = (BottomSheetDialog) dialog;
-            FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
-
-                behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
-                    @Override
-                    public void onStateChanged(@NonNull View bottomSheet, int newState) {
-                        if (newState == BottomSheetBehavior.STATE_HIDDEN) {
-                            bottomSheetDialog.dismiss();
-                        }
-                    }
-
-                    @Override
-                    public void onSlide(@NonNull View bottomSheet, float slideOffset) {
-                    }
-                });
-            }
         });
 
-        bottomSheetDialog.setOnDismissListener(dialog -> finish());
+
         bottomSheetDialog.show();
     }
 
@@ -286,13 +336,20 @@ public class MainActivity extends AppCompatActivity {
             FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
-                scrollView.getViewTreeObserver().addOnScrollChangedListener(() -> behavior.setDraggable(scrollView.getScrollY() == 0));
+
+                scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+                    behavior.setDraggable(scrollY == 0);
+                });
 
                 behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
                     @Override
                     public void onStateChanged(@NonNull View bottomSheet, int newState) {
-                        scrollView.setNestedScrollingEnabled(newState == BottomSheetBehavior.STATE_EXPANDED);
 
+                        if (newState != BottomSheetBehavior.STATE_EXPANDED) {
+                            behavior.setDraggable(true);
+                        } else {
+                            behavior.setDraggable(scrollView.getScrollY() == 0);
+                        }
                         if (newState == BottomSheetBehavior.STATE_HIDDEN) {
                             bottomSheetDialog.dismiss();
                         }
@@ -318,7 +375,10 @@ public class MainActivity extends AppCompatActivity {
                 if (progressBar != null) progressBar.setVisibility(View.GONE);
                 if (transcriptionTextView != null) {
                     transcriptionTextView.setVisibility(View.VISIBLE);
-                    transcriptionTextView.setText("Kein API-Schlüssel festgelegt. Bitte starten Sie die App neu und geben Sie einen Schlüssel ein.");
+                    transcriptionTextView.setText("Kein API-Schlüssel festgelegt. Bitte starten Sie die App über den Homescreen und geben Sie einen API-Schlüssel ein.");
+                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                    params.bottomMargin = dpToPx(32); // 32dp Abstand
+                    transcriptionTextView.setLayoutParams(params);
                 }
             });
             return;
@@ -332,6 +392,9 @@ public class MainActivity extends AppCompatActivity {
                     if (transcriptionTextView != null) {
                         transcriptionTextView.setVisibility(View.VISIBLE);
                         transcriptionTextView.setText("Fehler beim Öffnen der Audiodatei.");
+                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                        params.bottomMargin = dpToPx(32); // 32dp Abstand
+                        transcriptionTextView.setLayoutParams(params);
                     }
                 });
                 return;
@@ -355,6 +418,9 @@ public class MainActivity extends AppCompatActivity {
                     if (transcriptionTextView != null) {
                         transcriptionTextView.setVisibility(View.VISIBLE);
                         transcriptionTextView.setText("Fehler beim Lesen der Audiodatei: " + e.getMessage());
+                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                        params.bottomMargin = dpToPx(32); // 32dp Abstand
+                        transcriptionTextView.setLayoutParams(params);
                     }
                 });
             }
@@ -416,6 +482,9 @@ public class MainActivity extends AppCompatActivity {
             generationConfig.put("topK", 40);
             generationConfig.put("topP", 0.95);
             generationConfig.put("maxOutputTokens", 65536);
+            JSONObject thinkingBudget = new JSONObject();
+            thinkingBudget.put("thinkingBudget", 0);
+            generationConfig.put("thinkingConfig", thinkingBudget);
             generationConfig.put("responseMimeType", "text/plain");
             requestBodyJson.put("generationConfig", generationConfig);
 
@@ -425,6 +494,9 @@ public class MainActivity extends AppCompatActivity {
                 if (transcriptionTextView != null) {
                     transcriptionTextView.setVisibility(View.VISIBLE);
                     transcriptionTextView.setText("Fehler beim Erstellen der Anfrage: " + e.getMessage());
+                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                    params.bottomMargin = dpToPx(32); // 32dp Abstand
+                    transcriptionTextView.setLayoutParams(params);
                 }
             });
             return;
@@ -448,6 +520,9 @@ public class MainActivity extends AppCompatActivity {
                     if (transcriptionTextView != null) {
                         transcriptionTextView.setVisibility(View.VISIBLE);
                         transcriptionTextView.setText("Fehler bei der Transkription: " + e.getMessage());
+                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                        params.bottomMargin = dpToPx(32); // 32dp Abstand
+                        transcriptionTextView.setLayoutParams(params);
                     }
                 });
             }
