@@ -25,10 +25,27 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp"
-            android:text="@string/erklaerung"
+            android:text="@string/api_key_eingeben"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/apiKeyEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="@string/api_key_hint"
+            android:inputType="textPassword"
+            android:textColor="@color/text_secondary"
+            android:textColorHint="@color/text_secondary" />
+
+        <Button
+            android:id="@+id/saveApiKeyButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            android:text="@string/speichern" />
 
         <TextView
             android:id="@+id/transcriptionTextView"
