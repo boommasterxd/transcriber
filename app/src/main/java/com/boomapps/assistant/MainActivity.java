@@ -373,31 +373,50 @@ public class MainActivity extends AppCompatActivity {
     private void sendGeminiRequest(byte[] audioBytes, String mimeType) {
         OkHttpClient client = new OkHttpClient();
 
-        String modelId = "gemini-1.5-flash";
+        String modelId = "gemini-2.5-flash";
         String url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelId + ":generateContent?key=" + apiKey;
 
         JSONObject requestBodyJson = new JSONObject();
         try {
+            // System Instruction
+            JSONObject systemInstruction = new JSONObject();
+            JSONArray systemParts = new JSONArray();
+            JSONObject systemPart = new JSONObject();
+            systemPart.put("text", promptText);
+            systemParts.put(systemPart);
+            systemInstruction.put("role", "user");
+            systemInstruction.put("parts", systemParts);
+            requestBodyJson.put("systemInstruction", systemInstruction);
+
+            // Contents
             JSONArray contents = new JSONArray();
             JSONObject content = new JSONObject();
+            content.put("role", "user");
+
             JSONArray parts = new JSONArray();
 
-            JSONObject textPart = new JSONObject();
-            textPart.put("text", promptText);
-
             JSONObject audioPart = new JSONObject();
-            audioPart.put("inlineData", Base64.encodeToString(audioBytes, Base64.NO_WRAP));
-            audioPart.put("mimeType", mimeType);
+            JSONObject inlineData = new JSONObject();
+            inlineData.put("mimeType", mimeType);
+            inlineData.put("data", Base64.encodeToString(audioBytes, Base64.NO_WRAP));
+            audioPart.put("inlineData", inlineData);
 
-            parts.put(textPart);
+            JSONObject textPart = new JSONObject();
+            textPart.put("text", "Bitte transkribiere diese Audiodatei. Gib die Transkription und die Zusammenfassung aus.");
+
             parts.put(audioPart);
+            parts.put(textPart);
             content.put("parts", parts);
             contents.put(content);
-
-            JSONObject generationConfig = new JSONObject();
-            generationConfig.put("responseMimeType", "text/plain");
-
             requestBodyJson.put("contents", contents);
+
+            // Generation Config
+            JSONObject generationConfig = new JSONObject();
+            generationConfig.put("temperature", 1);
+            generationConfig.put("topK", 40);
+            generationConfig.put("topP", 0.95);
+            generationConfig.put("maxOutputTokens", 65536);
+            generationConfig.put("responseMimeType", "text/plain");
             requestBodyJson.put("generationConfig", generationConfig);
 
         } catch (JSONException e) {
@@ -490,4 +509,3 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 }
-
