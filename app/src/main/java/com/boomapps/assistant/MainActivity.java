@@ -3,13 +3,17 @@ package com.boomapps.assistant;
 import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.style.ForegroundColorSpan;
+import android.util.Base64;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -25,28 +29,27 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.firebase.ai.FirebaseAI;
-import com.google.firebase.ai.GenerativeModel;
-import com.google.firebase.ai.java.GenerativeModelFutures;
-import com.google.firebase.ai.type.Content;
-import com.google.firebase.ai.type.GenerateContentResponse;
-import com.google.firebase.ai.type.GenerativeBackend;
 
 import org.commonmark.node.Heading;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonSpansFactory;
 import io.noties.markwon.core.MarkwonTheme;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 /**
  * @noinspection deprecation
@@ -59,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton shareButton;
     private ImageButton copyButton;
     private Markwon markwon;
+    private String apiKey;
 
     String promptText = "Anweisung an das KI-Modell:\n" +
             "\n" +
@@ -108,12 +112,6 @@ public class MainActivity extends AppCompatActivity {
             "\\#\\# Ausblick  \n" +
             "\\* Es werden Fallstudien und zukünftige Potenziale diskutiert.";
 
-    // Create a `GenerativeModel` instance with a model that supports your use case
-    GenerativeModel ai = FirebaseAI.getInstance(GenerativeBackend.googleAI())
-            .generativeModel("gemini-2.5-flash");
-
-    GenerativeModelFutures model = GenerativeModelFutures.from(ai);
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -155,9 +153,65 @@ public class MainActivity extends AppCompatActivity {
             showBottomSheetDialog();
             transcribeAudio(audioUri);
         } else {
-            showDescriptionDialog();
+            showApiKeyDialog();
         }
     }
+
+    private void showApiKeyDialog() {
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        @SuppressLint("InflateParams") View bottomSheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_description, null);
+        bottomSheetDialog.setContentView(bottomSheetView);
+
+        EditText apiKeyEditText = bottomSheetView.findViewById(R.id.apiKeyEditText);
+        Button saveApiKeyButton = bottomSheetView.findViewById(R.id.saveApiKeyButton);
+
+        SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
+        apiKeyEditText.setText(prefs.getString("api_key", ""));
+
+        saveApiKeyButton.setOnClickListener(v -> {
+            String key = apiKeyEditText.getText().toString().trim();
+            if (!key.isEmpty()) {
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putString("api_key", key);
+                editor.apply();
+                apiKey = key;
+                bottomSheetDialog.dismiss();
+                showDescriptionDialog();
+            } else {
+                Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+
+        bottomSheetDialog.setOnShowListener(dialog -> {
+            BottomSheetDialog d = (BottomSheetDialog) dialog;
+            FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
+
+                behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
+                    @Override
+                    public void onStateChanged(@NonNull View bottomSheet, int newState) {
+                        if (newState == BottomSheetBehavior.STATE_HIDDEN) {
+                            bottomSheetDialog.dismiss();
+                        }
+                    }
+
+                    @Override
+                    public void onSlide(@NonNull View bottomSheet, float slideOffset) {
+                    }
+                });
+            }
+        });
+
+        bottomSheetDialog.setOnDismissListener(dialog -> {
+            if (apiKey == null || apiKey.isEmpty()) {
+                finish();
+            }
+        });
+        bottomSheetDialog.show();
+    }
+
 
     private void showDescriptionDialog() {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
@@ -256,6 +310,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void transcribeAudio(Uri audioUri) {
+        SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
+        apiKey = prefs.getString("api_key", null);
+
+        if (apiKey == null || apiKey.isEmpty()) {
+            runOnUiThread(() -> {
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                if (transcriptionTextView != null) {
+                    transcriptionTextView.setVisibility(View.VISIBLE);
+                    transcriptionTextView.setText("Kein API-Schlüssel festgelegt. Bitte starten Sie die App neu und geben Sie einen Schlüssel ein.");
+                }
+            });
+            return;
+        }
+
         try {
             InputStream audioStream = getContentResolver().openInputStream(audioUri);
             if (audioStream == null) {
@@ -279,47 +347,7 @@ public class MainActivity extends AppCompatActivity {
             try (InputStream stream = resolver.openInputStream(audioUri)) {
                 if (stream != null) {
                     byte[] audioBytes = getBytes(stream);
-
-                    // Provide a prompt that includes the audio specified above and text
-                    Content prompt = new Content.Builder()
-                            .addInlineData(audioBytes, mimeType)  // Specify the appropriate audio MIME type
-                            .addText(promptText)
-                            .build();
-
-                    ExecutorService executor = Executors.newSingleThreadExecutor();
-
-                    // To generate text output, call `generateContent` with the prompt
-                    ListenableFuture<GenerateContentResponse> response = model.generateContent(prompt);
-                    Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
-                        @Override
-                        public void onSuccess(GenerateContentResponse result) {
-                            String text = result.getText();
-                            if (text == null || text.isEmpty()) {
-                                text = "Fehler: Keine Transkription erhalten.";
-
-                            }
-                            String finalText = text;
-                            runOnUiThread(() -> {
-                                if (progressBar != null) progressBar.setVisibility(View.GONE);
-                                if (transcriptionTextView != null) {
-                                    transcriptionTextView.setVisibility(View.VISIBLE);
-                                    buttonContainer.setVisibility(View.VISIBLE);
-                                    markwon.setMarkdown(transcriptionTextView, finalText);
-                                }
-                            });
-                        }
-
-                        @Override
-                        public void onFailure(Throwable t) {
-                            runOnUiThread(() -> {
-                                if (progressBar != null) progressBar.setVisibility(View.GONE);
-                                if (transcriptionTextView != null) {
-                                    transcriptionTextView.setVisibility(View.VISIBLE);
-                                    transcriptionTextView.setText("Fehler bei der Transkription: " + t.getMessage());
-                                }
-                            });
-                        }
-                    }, executor);
+                    sendGeminiRequest(audioBytes, mimeType);
                 }
             } catch (IOException e) {
                 runOnUiThread(() -> {
@@ -329,7 +357,6 @@ public class MainActivity extends AppCompatActivity {
                         transcriptionTextView.setText("Fehler beim Lesen der Audiodatei: " + e.getMessage());
                     }
                 });
-                return;
             }
 
         } catch (Exception e) {
@@ -342,6 +369,106 @@ public class MainActivity extends AppCompatActivity {
             });
         }
     }
+
+    private void sendGeminiRequest(byte[] audioBytes, String mimeType) {
+        OkHttpClient client = new OkHttpClient();
+
+        String modelId = "gemini-1.5-flash";
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelId + ":generateContent?key=" + apiKey;
+
+        JSONObject requestBodyJson = new JSONObject();
+        try {
+            JSONArray contents = new JSONArray();
+            JSONObject content = new JSONObject();
+            JSONArray parts = new JSONArray();
+
+            JSONObject textPart = new JSONObject();
+            textPart.put("text", promptText);
+
+            JSONObject audioPart = new JSONObject();
+            audioPart.put("inlineData", Base64.encodeToString(audioBytes, Base64.NO_WRAP));
+            audioPart.put("mimeType", mimeType);
+
+            parts.put(textPart);
+            parts.put(audioPart);
+            content.put("parts", parts);
+            contents.put(content);
+
+            JSONObject generationConfig = new JSONObject();
+            generationConfig.put("responseMimeType", "text/plain");
+
+            requestBodyJson.put("contents", contents);
+            requestBodyJson.put("generationConfig", generationConfig);
+
+        } catch (JSONException e) {
+            runOnUiThread(() -> {
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                if (transcriptionTextView != null) {
+                    transcriptionTextView.setVisibility(View.VISIBLE);
+                    transcriptionTextView.setText("Fehler beim Erstellen der Anfrage: " + e.getMessage());
+                }
+            });
+            return;
+        }
+
+        RequestBody body = RequestBody.create(
+                requestBodyJson.toString(),
+                MediaType.get("application/json; charset=utf-8")
+        );
+
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                runOnUiThread(() -> {
+                    if (progressBar != null) progressBar.setVisibility(View.GONE);
+                    if (transcriptionTextView != null) {
+                        transcriptionTextView.setVisibility(View.VISIBLE);
+                        transcriptionTextView.setText("Fehler bei der Transkription: " + e.getMessage());
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String responseBodyString = response.body().string();
+                        JSONObject responseBody = new JSONObject(responseBodyString);
+                        JSONArray candidates = responseBody.getJSONArray("candidates");
+                        JSONObject firstCandidate = candidates.getJSONObject(0);
+                        JSONObject content = firstCandidate.getJSONObject("content");
+                        JSONArray parts = content.getJSONArray("parts");
+                        JSONObject firstPart = parts.getJSONObject(0);
+                        String text = firstPart.getString("text");
+
+                        if (text.isEmpty()) {
+                            text = "Fehler: Keine Transkription erhalten.";
+                        }
+                        String finalText = text;
+                        runOnUiThread(() -> {
+                            if (progressBar != null) progressBar.setVisibility(View.GONE);
+                            if (transcriptionTextView != null) {
+                                transcriptionTextView.setVisibility(View.VISIBLE);
+                                buttonContainer.setVisibility(View.VISIBLE);
+                                markwon.setMarkdown(transcriptionTextView, finalText);
+                            }
+                        });
+                    } catch (JSONException e) {
+                        onFailure(call, new IOException("Fehler beim Parsen der Antwort", e));
+                    }
+                } else {
+                    String errorBody = response.body() != null ? response.body().string() : "Unbekannter Fehler";
+                    onFailure(call, new IOException("Unerwarteter Code " + response + "\n" + errorBody));
+                }
+            }
+        });
+    }
+
 
     private byte[] getBytes(InputStream inputStream) throws IOException {
         ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
@@ -363,3 +490,4 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 }
+

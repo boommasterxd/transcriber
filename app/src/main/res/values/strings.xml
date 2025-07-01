@@ -5,4 +5,7 @@
     <string name="description">Teilen Sie eine Audio-Datei mit der App, um automatisch eine Transkription sowie eine Zusammenfassung des Inhalts zu erhalten. Die App unterstützt verschiedene Audioformate und liefert Ihnen schnell und zuverlässig eine schriftliche Version Ihrer Aufnahme. Ideal, um Gespräche, Vorträge oder Notizen festzuhalten und später einfach nachzulesen.</string>
     <string name="transkription_teilen">Transkription teilen</string>
     <string name="transkription_kopieren">Transkription kopieren</string>
+    <string name="api_key_eingeben">API-Schlüssel eingeben</string>
+    <string name="api_key_hint">Gib hier deinen API-Schlüssel ein</string>
+    <string name="speichern">Speichern</string>
 </resources>
