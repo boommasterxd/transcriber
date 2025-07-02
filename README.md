@@ -1,4 +1,4 @@
-# Assistant
+# Assistant v1.1
 
 "Assistant" is an Android application that leverages the Google Gemini API to transcribe audio files and generate summaries. The app is designed with a clean, modern interface that supports both light and dark modes, and features adaptive icons that adjust to the system theme.
 
