@@ -17,6 +17,8 @@ import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -60,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
     private Markwon markwon;
     private String apiKey;
     private GeminiApiManager geminiApiManager;
+    private EditText apiKeyEditText;
+    private LinearLayout inputLayout;
 
     String promptText = "Anweisung an das KI-Modell:\n" +
             "\n" +
@@ -236,11 +240,11 @@ public class MainActivity extends AppCompatActivity {
         @SuppressLint("InflateParams") View bottomSheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_description, null);
         bottomSheetDialog.setContentView(bottomSheetView);
 
-        EditText apiKeyEditText = bottomSheetView.findViewById(R.id.apiKeyEditText);
+        apiKeyEditText = bottomSheetView.findViewById(R.id.apiKeyEditText);
         ImageButton saveApiKeyButton = bottomSheetView.findViewById(R.id.saveApiKeyButton);
         ImageButton showHidePasswordButton = bottomSheetView.findViewById(R.id.showHidePasswordButton);
         TextView descriptionTextView = bottomSheetView.findViewById(R.id.descriptionTextView);
-        LinearLayout inputLayout = bottomSheetView.findViewById(R.id.inputLayout);
+        inputLayout = bottomSheetView.findViewById(R.id.inputLayout);
         ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
         // Load saved API key
@@ -253,19 +257,18 @@ public class MainActivity extends AppCompatActivity {
         markwon.setMarkdown(descriptionTextView, markdownDescription);
 
         // Save the API key when the save button is clicked
-        saveApiKeyButton.setOnClickListener(v -> {
-            String key = apiKeyEditText.getText().toString().trim();
-            if (!key.isEmpty()) {
-                KeyStoreManager.saveApiKey(this, key);
-                apiKey = key;
-                Toast.makeText(this, "API-Schlüssel erfolgreich gespeichert", Toast.LENGTH_SHORT).show();
-                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_success);
-            } else {
-                Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
-                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
+        saveApiKeyButton.setOnClickListener(v -> saveApiKey());
+
+        apiKeyEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                saveApiKey();
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.hideSoftInputFromWindow(apiKeyEditText.getWindowToken(), 0);
+                }
+                return true;
             }
-            // Reset background after 2 seconds
-            new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 2000);
+            return false;
         });
 
         // Toggle password visibility
@@ -318,6 +321,25 @@ public class MainActivity extends AppCompatActivity {
 
 
         bottomSheetDialog.show();
+    }
+
+    /**
+     * Saves the API key entered by the user.
+     * Validates the input and provides feedback to the user.
+     */
+    private void saveApiKey() {
+        String key = apiKeyEditText.getText().toString().trim();
+        if (!key.isEmpty()) {
+            KeyStoreManager.saveApiKey(this, key);
+            apiKey = key;
+            Toast.makeText(this, "API-Schlüssel erfolgreich gespeichert", Toast.LENGTH_SHORT).show();
+            inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_success);
+        } else {
+            Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
+            inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
+        }
+        // Reset background after 2 seconds
+        new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 2000);
     }
 
     /**
