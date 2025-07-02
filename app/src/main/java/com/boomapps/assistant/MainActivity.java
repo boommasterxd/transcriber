@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -61,8 +63,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView transcriptionTextView;
     private ProgressBar progressBar;
     private LinearLayout buttonContainer;
-    private ImageButton shareButton;
-    private ImageButton copyButton;
     private Markwon markwon;
     private String apiKey;
 
@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
             "\n" +
             "Formatierungsregeln für die Zusammenfassung:\n" +
             "\n" +
-            "* Verwende Markdown-Syntax für Überschriften (\\#), Listen (\\*, \\-, \\+), Fettgedruckt \\*\\*Text\\*\\*, Kursiv \\*Text\\* und andere Elemente, wo angebracht.  \n" +
+            "* Verwende Markdown-Syntax für Überschriften (\\#), Listen (\\*, \\-, \\+), Fettgedruckt \\*\\*Text\\*\\*, Kursiv \\*Text\\* und andere Elemente, wo angebracht, wie zum Beispiel Trennlinien.  \n" +
             "* Für Aufgaben oder Handlungsaufforderungen, erstelle einen eigenen Abschnitt, z.B. \"Aufgaben\" oder \"Nächste Schritte\", und liste die Punkte als ungeordnete Liste auf.  \n" +
             "* Halte die Sprache klar und direkt.\n" +
             "\n" +
@@ -98,6 +98,8 @@ public class MainActivity extends AppCompatActivity {
             "Guten Tag zusammen. Ich möchte heute über die Fortschritte in der künstlichen Intelligenz sprechen. Insbesondere über die Anwendung von neuronalen Netzen in der Bilderkennung. Neurale Netze haben hier erstaunliche Ergebnisse geliefert, besonders in der medizinischen Diagnostik. Es gibt jedoch auch Herausforderungen, wie die Notwendigkeit großer Datenmengen für das Training und die Interpretierbarkeit der Modelle. Bitte stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind. Im weiteren Verlauf werde ich einige Fallstudien vorstellen und die zukünftigen Potenziale beleuchten.\n" +
             "\n" +
             "\\# Zusammenfassung der KI-Fortschritte\n" +
+            "\n" +
+            "---\n" +
             "\n" +
             "Dieser Vortrag behandelt die Fortschritte in der künstlichen Intelligenz, speziell die Nutzung neuronaler Netze für die Bilderkennung.\n" +
             "\n" +
@@ -169,7 +171,6 @@ public class MainActivity extends AppCompatActivity {
                         int samsungBlueColor = ContextCompat.getColor(MainActivity.this, R.color.samsung_blue);
                         // Überschriften schwarz färben
                         builder.headingBreakColor(textPrimaryColor); // Farbe für die Linie unter der Überschrift (optional)
-                        builder.headingTypeface(null); // Behält die Standard-Schriftart bei
 
                         builder.headingBreakHeight(0);
 
@@ -233,9 +234,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
                 inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
             }
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default);
-            }, 3000); // 2 Sekunden Verzögerung
+            new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 3000); // 2 Sekunden Verzögerung
         });
 
         showHidePasswordButton.setOnClickListener(v -> {
@@ -256,9 +255,7 @@ public class MainActivity extends AppCompatActivity {
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
 
-                scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-                    behavior.setDraggable(scrollY == 0);
-                });
+                scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> behavior.setDraggable(scrollY == 0));
 
                 behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
                     @Override
@@ -283,11 +280,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        bottomSheetDialog.setOnDismissListener(dialog -> {
-
-            finish();
-
-        });
+        bottomSheetDialog.setOnDismissListener(dialog -> finish());
 
 
         bottomSheetDialog.show();
@@ -301,8 +294,8 @@ public class MainActivity extends AppCompatActivity {
         transcriptionTextView = bottomSheetView.findViewById(R.id.transcriptionTextView);
         progressBar = bottomSheetView.findViewById(R.id.progressBar);
         buttonContainer = bottomSheetView.findViewById(R.id.buttonContainer);
-        shareButton = bottomSheetView.findViewById(R.id.shareButton);
-        copyButton = bottomSheetView.findViewById(R.id.copyButton);
+        ImageButton shareButton = bottomSheetView.findViewById(R.id.shareButton);
+        ImageButton copyButton = bottomSheetView.findViewById(R.id.copyButton);
 
         ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
@@ -337,9 +330,7 @@ public class MainActivity extends AppCompatActivity {
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
 
-                scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-                    behavior.setDraggable(scrollY == 0);
-                });
+                scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> behavior.setDraggable(scrollY == 0));
 
                 behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
                     @Override
@@ -367,6 +358,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void transcribeAudio(Uri audioUri) {
+        if (!isNetworkAvailable()) {
+            runOnUiThread(() -> {
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                if (transcriptionTextView != null) {
+                    transcriptionTextView.setVisibility(View.VISIBLE);
+                    transcriptionTextView.setText("Keine Internetverbindung. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.");
+                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                    params.bottomMargin = dpToPx(32); // 32dp Abstand
+                    transcriptionTextView.setLayoutParams(params);
+                }
+            });
+            return;
+        }
+
         SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
         apiKey = prefs.getString("api_key", null);
 
@@ -454,6 +459,7 @@ public class MainActivity extends AppCompatActivity {
             systemInstruction.put("parts", systemParts);
             requestBodyJson.put("systemInstruction", systemInstruction);
 
+
             // Contents
             JSONArray contents = new JSONArray();
             JSONObject content = new JSONObject();
@@ -502,11 +508,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        RequestBody body = RequestBody.create(
-                requestBodyJson.toString(),
-                MediaType.get("application/json; charset=utf-8")
-        );
-
+        RequestBody body = RequestBody.create(requestBodyJson.toString(), MediaType.get("application/json; charset=utf-8"));
         Request request = new Request.Builder()
                 .url(url)
                 .post(body)
@@ -519,7 +521,7 @@ public class MainActivity extends AppCompatActivity {
                     if (progressBar != null) progressBar.setVisibility(View.GONE);
                     if (transcriptionTextView != null) {
                         transcriptionTextView.setVisibility(View.VISIBLE);
-                        transcriptionTextView.setText("Fehler bei der Transkription: " + e.getMessage());
+                        transcriptionTextView.setText("Fehler bei der Anfrage: " + e.getMessage());
                         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
                         params.bottomMargin = dpToPx(32); // 32dp Abstand
                         transcriptionTextView.setLayoutParams(params);
@@ -529,42 +531,74 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                if (response.isSuccessful() && response.body() != null) {
+                final String responseBody = response.body() != null ? response.body().string() : null;
+
+                if (response.isSuccessful() && responseBody != null) {
                     try {
-                        String responseBodyString = response.body().string();
-                        JSONObject responseBody = new JSONObject(responseBodyString);
-                        JSONArray candidates = responseBody.getJSONArray("candidates");
+                        JSONObject responseBodyJson = new JSONObject(responseBody);
+                        JSONArray candidates = responseBodyJson.getJSONArray("candidates");
                         JSONObject firstCandidate = candidates.getJSONObject(0);
                         JSONObject content = firstCandidate.getJSONObject("content");
                         JSONArray parts = content.getJSONArray("parts");
                         JSONObject firstPart = parts.getJSONObject(0);
-                        String text = firstPart.getString("text");
+                        String transcription = firstPart.getString("text");
 
-                        if (text.isEmpty()) {
-                            text = "Fehler: Keine Transkription erhalten.";
-                        }
-                        String finalText = text;
                         runOnUiThread(() -> {
                             if (progressBar != null) progressBar.setVisibility(View.GONE);
                             if (transcriptionTextView != null) {
                                 transcriptionTextView.setVisibility(View.VISIBLE);
+                                markwon.setMarkdown(transcriptionTextView, transcription);
                                 buttonContainer.setVisibility(View.VISIBLE);
-                                markwon.setMarkdown(transcriptionTextView, finalText);
                             }
                         });
                     } catch (JSONException e) {
-                        onFailure(call, new IOException("Fehler beim Parsen der Antwort", e));
+                        runOnUiThread(() -> {
+                            if (progressBar != null) progressBar.setVisibility(View.GONE);
+                            if (transcriptionTextView != null) {
+                                transcriptionTextView.setVisibility(View.VISIBLE);
+                                transcriptionTextView.setText("Fehler beim Parsen der Antwort: " + e.getMessage());
+                                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                                params.bottomMargin = dpToPx(32); // 32dp Abstand
+                                transcriptionTextView.setLayoutParams(params);
+                            }
+                        });
                     }
                 } else {
-                    String errorBody = response.body() != null ? response.body().string() : "Unbekannter Fehler";
-                    onFailure(call, new IOException("Unerwarteter Code " + response + "\n" + errorBody));
+                    runOnUiThread(() -> {
+                        if (progressBar != null) progressBar.setVisibility(View.GONE);
+                        if (transcriptionTextView != null) {
+                            transcriptionTextView.setVisibility(View.VISIBLE);
+                            String errorMessage = "Fehler bei der Transkription";
+                            if (responseBody != null) {
+                                try {
+                                    JSONObject errorJson = new JSONObject(responseBody);
+                                    JSONObject error = errorJson.getJSONObject("error");
+                                    errorMessage = "API-Fehler: " + error.getString("message");
+                                } catch (JSONException e) {
+                                    errorMessage = "Fehler: " + response.code() + " " + response.message();
+                                }
+                            } else {
+                                errorMessage = "Fehler: " + response.code() + " " + response.message();
+                            }
+                            transcriptionTextView.setText(errorMessage);
+                            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                            params.bottomMargin = dpToPx(32); // 32dp Abstand
+                            transcriptionTextView.setLayoutParams(params);
+                        }
+                    });
                 }
             }
         });
     }
 
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(this.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
 
-    private byte[] getBytes(InputStream inputStream) throws IOException {
+    public byte[] getBytes(InputStream inputStream) throws IOException {
         ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
         int bufferSize = 1024;
         byte[] buffer = new byte[bufferSize];
