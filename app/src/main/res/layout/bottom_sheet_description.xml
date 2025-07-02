@@ -85,7 +85,7 @@
                         android:foreground="@drawable/ripple_effect_oval"
                         android:padding="8dp"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/rounded_visibility_24" />
+                        android:src="@drawable/ic_rounded_visibility" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -105,7 +105,7 @@
                         android:foreground="@drawable/ripple_effect_oval"
                         android:padding="8dp"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/rounded_save_24" />
+                        android:src="@drawable/ic_rounded_save" />
                 </LinearLayout>
 
             </LinearLayout>

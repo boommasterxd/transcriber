@@ -56,6 +56,10 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 /**
+ * The main activity of the application.
+ * This class handles the user interface, processes incoming audio files,
+ * and interacts with the Google Gemini API to generate transcriptions and summaries.
+ *
  * @noinspection deprecation
  */
 public class MainActivity extends AppCompatActivity {
@@ -97,10 +101,9 @@ public class MainActivity extends AppCompatActivity {
             "\n" +
             "Guten Tag zusammen. Ich möchte heute über die Fortschritte in der künstlichen Intelligenz sprechen. Insbesondere über die Anwendung von neuronalen Netzen in der Bilderkennung. Neurale Netze haben hier erstaunliche Ergebnisse geliefert, besonders in der medizinischen Diagnostik. Es gibt jedoch auch Herausforderungen, wie die Notwendigkeit großer Datenmengen für das Training und die Interpretierbarkeit der Modelle. Bitte stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind. Im weiteren Verlauf werde ich einige Fallstudien vorstellen und die zukünftigen Potenziale beleuchten.\n" +
             "\n" +
-            "\\# Zusammenfassung der KI-Fortschritte\n" +
-            "\n" +
             "---\n" +
             "\n" +
+            "\\# Zusammenfassung der KI-Fortschritte\n" +
             "Dieser Vortrag behandelt die Fortschritte in der künstlichen Intelligenz, speziell die Nutzung neuronaler Netze für die Bilderkennung.\n" +
             "\n" +
             "\\#\\# Hauptergebnisse und Anwendungen  \n" +
@@ -157,6 +160,10 @@ public class MainActivity extends AppCompatActivity {
             "    * Nach kurzer Zeit zeigt die App das fertige Ergebnis an.\n" +
             "    * Sie können den gesamten Text (Transkription und Zusammenfassung) einfach in Ihre Zwischenablage **kopieren** oder direkt mit anderen Apps **teilen**.";
 
+    /**
+     * Called when the activity is first created. Initializes the UI, Markwon, and handles the incoming intent.
+     * @param savedInstanceState If the activity is being re-initialized after previously being shut down then this Bundle contains the data it most recently supplied in onSaveInstanceState(Bundle). Otherwise it is null.
+     */
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -164,19 +171,19 @@ public class MainActivity extends AppCompatActivity {
                 .usePlugin(new AbstractMarkwonPlugin() {
                     @Override
                     public void configureTheme(@NonNull MarkwonTheme.Builder builder) {
-                        // Überschriften-Textgrößen-Multiplikatoren (wie in Ihrem Code)
+                        // Set heading text size multipliers
                         builder.headingTextSizeMultipliers(new float[]{1.15f, 1.0f, .9f, 0.8f, 0.7f, 0.6f});
 
                         int textPrimaryColor = ContextCompat.getColor(MainActivity.this, R.color.text_primary);
                         int samsungBlueColor = ContextCompat.getColor(MainActivity.this, R.color.samsung_blue);
-                        // Überschriften schwarz färben
-                        builder.headingBreakColor(textPrimaryColor); // Farbe für die Linie unter der Überschrift (optional)
+                        // Set heading color to primary text color
+                        builder.headingBreakColor(textPrimaryColor); // Color for the line under the heading (optional)
 
                         builder.headingBreakHeight(0);
 
-                        builder.bulletWidth(dpToPx(6)); // Größe der Aufzählungspunkte
+                        builder.bulletWidth(dpToPx(6)); // Size of the bullet points
 
-                        builder.linkColor(samsungBlueColor); // Linkfarbe anpassen
+                        builder.linkColor(samsungBlueColor); // Adjust link color
                     }
 
                     @Override
@@ -190,12 +197,14 @@ public class MainActivity extends AppCompatActivity {
                 .build();
 
         Uri audioUri;
+        // Handle getting the URI from the intent based on Android version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             audioUri = getIntent().getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
         } else {
             audioUri = getIntent().getParcelableExtra(Intent.EXTRA_STREAM);
         }
 
+        // If an audio URI is present, start transcription. Otherwise, show the API key dialog.
         if (audioUri != null) {
             showBottomSheetDialog();
             transcribeAudio(audioUri);
@@ -204,6 +213,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Displays a bottom sheet dialog for the user to enter and save their Google AI Studio API key.
+     * Also shows instructions on how to obtain the key.
+     */
     private void showApiKeyDialog() {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
         @SuppressLint("InflateParams") View bottomSheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_description, null);
@@ -216,11 +229,14 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout inputLayout = bottomSheetView.findViewById(R.id.inputLayout);
         ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
+        // Load saved API key
         SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
         apiKeyEditText.setText(prefs.getString("api_key", ""));
 
+        // Set the instructional markdown text
         markwon.setMarkdown(descriptionTextView, markdownDescription);
 
+        // Save the API key when the save button is clicked
         saveApiKeyButton.setOnClickListener(v -> {
             String key = apiKeyEditText.getText().toString().trim();
             if (!key.isEmpty()) {
@@ -234,27 +250,30 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
                 inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
             }
-            new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 3000); // 2 Sekunden Verzögerung
+            // Reset background after 2 seconds
+            new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 2000);
         });
 
+        // Toggle password visibility
         showHidePasswordButton.setOnClickListener(v -> {
             if (apiKeyEditText.getInputType() == (InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD)) {
                 apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-                showHidePasswordButton.setImageResource(R.drawable.rounded_visibility_off_24); // Auge zu Icon
+                showHidePasswordButton.setImageResource(R.drawable.ic_rounded_visibility_off); // Eye off Icon
             } else {
                 apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                showHidePasswordButton.setImageResource(R.drawable.rounded_visibility_24); // Auge auf Icon
+                showHidePasswordButton.setImageResource(R.drawable.ic_rounded_visibility); // Eye Icon
             }
             apiKeyEditText.setSelection(apiKeyEditText.getText().length());
         });
 
-
+        // Configure the bottom sheet behavior
         bottomSheetDialog.setOnShowListener(dialog -> {
             BottomSheetDialog d = (BottomSheetDialog) dialog;
             FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
 
+                // Make the bottom sheet draggable only when the scroll view is at the top
                 scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> behavior.setDraggable(scrollY == 0));
 
                 behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
@@ -263,8 +282,7 @@ public class MainActivity extends AppCompatActivity {
                         if (newState != BottomSheetBehavior.STATE_EXPANDED) {
                             behavior.setDraggable(true);
                         } else {
-                            // Wenn es sich ausdehnt, setze den anfänglichen ziehbaren Zustand basierend auf der Scroll-Position.
-                            // Dies behandelt auch nicht scrollbare Inhalte korrekt (scrollY ist 0).
+                            // When expanded, set initial draggable state based on scroll position
                             behavior.setDraggable(scrollView.getScrollY() == 0);
                         }
 
@@ -275,17 +293,22 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onSlide(@NonNull View bottomSheet, float slideOffset) {
+                        // No action needed here
                     }
                 });
             }
         });
 
+        // Finish the activity when the dialog is dismissed
         bottomSheetDialog.setOnDismissListener(dialog -> finish());
 
 
         bottomSheetDialog.show();
     }
 
+    /**
+     * Displays the bottom sheet dialog that shows the transcription progress and the final result.
+     */
     private void showBottomSheetDialog() {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
         @SuppressLint("InflateParams") View bottomSheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_dialog, null);
@@ -299,6 +322,7 @@ public class MainActivity extends AppCompatActivity {
 
         ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
+        // Share the transcription text
         shareButton.setOnClickListener(v -> {
             String text = transcriptionTextView.getText().toString();
             if (!text.isEmpty()) {
@@ -309,6 +333,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Copy the transcription text to the clipboard
         copyButton.setOnClickListener(v -> {
             String text = transcriptionTextView.getText().toString();
             if (!text.isEmpty()) {
@@ -324,12 +349,14 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Configure the bottom sheet behavior
         bottomSheetDialog.setOnShowListener(dialog -> {
             BottomSheetDialog d = (BottomSheetDialog) dialog;
             FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
 
+                // Make the bottom sheet draggable only when the scroll view is at the top
                 scrollView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> behavior.setDraggable(scrollY == 0));
 
                 behavior.setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
@@ -348,16 +375,24 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onSlide(@NonNull View bottomSheet, float slideOffset) {
+                        // No action needed here
                     }
                 });
             }
         });
 
+        // Finish the activity when the dialog is dismissed
         bottomSheetDialog.setOnDismissListener(dialog -> finish());
         bottomSheetDialog.show();
     }
 
+    /**
+     * Starts the audio transcription process.
+     * Checks for network availability and a valid API key before proceeding.
+     * @param audioUri The URI of the audio file to be transcribed.
+     */
     private void transcribeAudio(Uri audioUri) {
+        // Check for network connection
         if (!isNetworkAvailable()) {
             runOnUiThread(() -> {
                 if (progressBar != null) progressBar.setVisibility(View.GONE);
@@ -365,16 +400,18 @@ public class MainActivity extends AppCompatActivity {
                     transcriptionTextView.setVisibility(View.VISIBLE);
                     transcriptionTextView.setText("Keine Internetverbindung. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.");
                     LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                    params.bottomMargin = dpToPx(32); // 32dp Abstand
+                    params.bottomMargin = dpToPx(32); // 32dp margin
                     transcriptionTextView.setLayoutParams(params);
                 }
             });
             return;
         }
 
+        // Load API key from SharedPreferences
         SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
         apiKey = prefs.getString("api_key", null);
 
+        // Check if API key is available
         if (apiKey == null || apiKey.isEmpty()) {
             runOnUiThread(() -> {
                 if (progressBar != null) progressBar.setVisibility(View.GONE);
@@ -382,7 +419,7 @@ public class MainActivity extends AppCompatActivity {
                     transcriptionTextView.setVisibility(View.VISIBLE);
                     transcriptionTextView.setText("Kein API-Schlüssel festgelegt. Bitte starten Sie die App über den Homescreen und geben Sie einen API-Schlüssel ein.");
                     LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                    params.bottomMargin = dpToPx(32); // 32dp Abstand
+                    params.bottomMargin = dpToPx(32); // 32dp margin
                     transcriptionTextView.setLayoutParams(params);
                 }
             });
@@ -390,6 +427,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         try {
+            // Get InputStream from the audio URI
             InputStream audioStream = getContentResolver().openInputStream(audioUri);
             if (audioStream == null) {
                 runOnUiThread(() -> {
@@ -398,20 +436,22 @@ public class MainActivity extends AppCompatActivity {
                         transcriptionTextView.setVisibility(View.VISIBLE);
                         transcriptionTextView.setText("Fehler beim Öffnen der Audiodatei.");
                         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                        params.bottomMargin = dpToPx(32); // 32dp Abstand
+                        params.bottomMargin = dpToPx(32); // 32dp margin
                         transcriptionTextView.setLayoutParams(params);
                     }
                 });
                 return;
             }
 
+            // Get MIME type of the audio file
             String mimeType = getContentResolver().getType(audioUri);
             if (mimeType == null) {
-                mimeType = "application/octet-stream"; // Fallback
+                mimeType = "application/octet-stream"; // Fallback MIME type
             }
 
             ContentResolver resolver = getApplicationContext().getContentResolver();
 
+            // Convert audio stream to byte array and send the request
             try (InputStream stream = resolver.openInputStream(audioUri)) {
                 if (stream != null) {
                     byte[] audioBytes = getBytes(stream);
@@ -424,7 +464,7 @@ public class MainActivity extends AppCompatActivity {
                         transcriptionTextView.setVisibility(View.VISIBLE);
                         transcriptionTextView.setText("Fehler beim Lesen der Audiodatei: " + e.getMessage());
                         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                        params.bottomMargin = dpToPx(32); // 32dp Abstand
+                        params.bottomMargin = dpToPx(32); // 32dp margin
                         transcriptionTextView.setLayoutParams(params);
                     }
                 });
@@ -441,6 +481,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Constructs and sends a request to the Google Gemini API with the audio data.
+     * Handles the asynchronous response from the API.
+     * @param audioBytes The audio data as a byte array.
+     * @param mimeType The MIME type of the audio file.
+     */
     private void sendGeminiRequest(byte[] audioBytes, String mimeType) {
         OkHttpClient client = new OkHttpClient();
 
@@ -460,19 +506,21 @@ public class MainActivity extends AppCompatActivity {
             requestBodyJson.put("systemInstruction", systemInstruction);
 
 
-            // Contents
+            // Contents (User prompt with audio)
             JSONArray contents = new JSONArray();
             JSONObject content = new JSONObject();
             content.put("role", "user");
 
             JSONArray parts = new JSONArray();
 
+            // Audio part
             JSONObject audioPart = new JSONObject();
             JSONObject inlineData = new JSONObject();
             inlineData.put("mimeType", mimeType);
             inlineData.put("data", Base64.encodeToString(audioBytes, Base64.NO_WRAP));
             audioPart.put("inlineData", inlineData);
 
+            // Text part
             JSONObject textPart = new JSONObject();
             textPart.put("text", "Bitte transkribiere diese Audiodatei. Gib die Transkription und die Zusammenfassung aus.");
 
@@ -501,7 +549,7 @@ public class MainActivity extends AppCompatActivity {
                     transcriptionTextView.setVisibility(View.VISIBLE);
                     transcriptionTextView.setText("Fehler beim Erstellen der Anfrage: " + e.getMessage());
                     LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                    params.bottomMargin = dpToPx(32); // 32dp Abstand
+                    params.bottomMargin = dpToPx(32); // 32dp margin
                     transcriptionTextView.setLayoutParams(params);
                 }
             });
@@ -514,6 +562,7 @@ public class MainActivity extends AppCompatActivity {
                 .post(body)
                 .build();
 
+        // Asynchronous API call
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -523,7 +572,7 @@ public class MainActivity extends AppCompatActivity {
                         transcriptionTextView.setVisibility(View.VISIBLE);
                         transcriptionTextView.setText("Fehler bei der Anfrage: " + e.getMessage());
                         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                        params.bottomMargin = dpToPx(32); // 32dp Abstand
+                        params.bottomMargin = dpToPx(32); // 32dp margin
                         transcriptionTextView.setLayoutParams(params);
                     }
                 });
@@ -535,6 +584,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (response.isSuccessful() && responseBody != null) {
                     try {
+                        // Parse the successful response
                         JSONObject responseBodyJson = new JSONObject(responseBody);
                         JSONArray candidates = responseBodyJson.getJSONArray("candidates");
                         JSONObject firstCandidate = candidates.getJSONObject(0);
@@ -543,6 +593,7 @@ public class MainActivity extends AppCompatActivity {
                         JSONObject firstPart = parts.getJSONObject(0);
                         String transcription = firstPart.getString("text");
 
+                        // Update UI with the result
                         runOnUiThread(() -> {
                             if (progressBar != null) progressBar.setVisibility(View.GONE);
                             if (transcriptionTextView != null) {
@@ -552,18 +603,20 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
                     } catch (JSONException e) {
+                        // Handle JSON parsing errors
                         runOnUiThread(() -> {
                             if (progressBar != null) progressBar.setVisibility(View.GONE);
                             if (transcriptionTextView != null) {
                                 transcriptionTextView.setVisibility(View.VISIBLE);
                                 transcriptionTextView.setText("Fehler beim Parsen der Antwort: " + e.getMessage());
                                 LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                                params.bottomMargin = dpToPx(32); // 32dp Abstand
+                                params.bottomMargin = dpToPx(32); // 32dp margin
                                 transcriptionTextView.setLayoutParams(params);
                             }
                         });
                     }
                 } else {
+                    // Handle API errors
                     runOnUiThread(() -> {
                         if (progressBar != null) progressBar.setVisibility(View.GONE);
                         if (transcriptionTextView != null) {
@@ -582,7 +635,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                             transcriptionTextView.setText(errorMessage);
                             LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                            params.bottomMargin = dpToPx(32); // 32dp Abstand
+                            params.bottomMargin = dpToPx(32); // 32dp margin
                             transcriptionTextView.setLayoutParams(params);
                         }
                     });
@@ -591,6 +644,10 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Checks if a network connection is available.
+     * @return true if a network connection is available, false otherwise.
+     */
     private boolean isNetworkAvailable() {
         ConnectivityManager connectivityManager
                 = (ConnectivityManager) getSystemService(this.CONNECTIVITY_SERVICE);
@@ -598,6 +655,12 @@ public class MainActivity extends AppCompatActivity {
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
+    /**
+     * Reads an InputStream and converts it to a byte array.
+     * @param inputStream The InputStream to be read.
+     * @return A byte array containing the data from the InputStream.
+     * @throws IOException if an I/O error occurs.
+     */
     public byte[] getBytes(InputStream inputStream) throws IOException {
         ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
         int bufferSize = 1024;
@@ -610,6 +673,11 @@ public class MainActivity extends AppCompatActivity {
         return byteBuffer.toByteArray();
     }
 
+    /**
+     * Converts a value from density-independent pixels (dp) to pixels (px).
+     * @param dp The value in dp.
+     * @return The corresponding value in px.
+     */
     private int dpToPx(int dp) {
         return (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
