@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.text.Selection;
 import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -273,6 +274,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Toggle password visibility
         showHidePasswordButton.setOnClickListener(v -> {
+            int selection = apiKeyEditText.getSelectionStart();
             if (apiKeyEditText.getInputType() == (InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD)) {
                 apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
                 showHidePasswordButton.setImageResource(R.drawable.ic_rounded_visibility_off); // Eye off Icon
@@ -280,7 +282,7 @@ public class MainActivity extends AppCompatActivity {
                 apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
                 showHidePasswordButton.setImageResource(R.drawable.ic_rounded_visibility); // Eye Icon
             }
-            apiKeyEditText.setSelection(apiKeyEditText.getText().length());
+            apiKeyEditText.setSelection(selection);
         });
 
         // Configure the bottom sheet behavior
