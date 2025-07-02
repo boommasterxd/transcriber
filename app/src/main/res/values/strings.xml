@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Transcriber</string>
+    <string name="transkription">Transkription</string>
+    <string name="erklaerung">Erklärung</string>
+    <string name="description">Beschreibung</string>
+    <string name="transkription_teilen">Transkription teilen</string>
+    <string name="transkription_kopieren">Transkription kopieren</string>
+    <string name="api_key_eingeben">API einrichten</string>
+    <string name="api_key_hint">Hier API-Key eingeben</string>
+    <string name="speichern">Speichern</string>
+</resources>

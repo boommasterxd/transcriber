@@ -1,0 +1,29 @@
+<resources>
+    <!-- Bottom Sheet Dialog Theme -->
+    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/BottomSheetStyle</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorControlActivated">@color/samsung_blue</item>
+        <item name="android:colorControlNormal">@color/samsung_blue_dark</item>
+        <item name="android:colorControlHighlight">@color/samsung_blue_ripple</item>
+    </style>
+
+    <style name="BottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@drawable/bottom_sheet_background</item>
+        <item name="android:colorControlActivated">@color/samsung_blue</item>
+        <item name="android:colorControlNormal">@color/samsung_blue_dark</item>
+        <item name="android:colorControlHighlight">@color/samsung_blue_ripple</item>
+    </style>
+
+    <style name="Theme.App.Transparent" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item> <!-- Set to true if you want the background to dim -->
+        <item name="android:colorControlActivated">@color/samsung_blue</item>
+        <item name="android:colorControlNormal">@color/samsung_blue_dark</item>
+        <item name="android:colorControlHighlight">@color/samsung_blue_ripple</item>
+    </style>
+</resources>
