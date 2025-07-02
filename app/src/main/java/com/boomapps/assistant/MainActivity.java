@@ -77,8 +77,9 @@ public class MainActivity extends AppCompatActivity {
             "Aufgabe:\n" +
             "\n" +
             "1. Transkribiere die gesamte Audioaufnahme Wort für Wort.  \n" +
-            "2. Erstelle eine prägnante, gut strukturierte und lesbare Zusammenfassung der Transkription im Markdown-Format.  \n" +
-            "3. Extrahiere alle explizit genannten Aufgaben oder Handlungsaufforderungen aus der Transkription und liste sie gesondert in der Zusammenfassung auf.\n" +
+            "2. Bei Gesprächen mit mehreren Personen, versuche verschiedene Sprecher zu identifizieren und die Transkription entsprechend zu formatieren (z.B. Sprecher 1:, Sprecher 2:). \n" +
+            "3. Erstelle eine prägnante, gut strukturierte und lesbare Zusammenfassung der Transkription im Markdown-Format.  \n" +
+            "4. Extrahiere alle explizit genannten Aufgaben oder Handlungsaufforderungen aus der Transkription und liste sie gesondert in der Zusammenfassung auf.\n" +
             "\n" +
             "Formatierungsregeln für die Zusammenfassung:\n" +
             "\n" +
@@ -156,6 +157,7 @@ public class MainActivity extends AppCompatActivity {
             "* **Automatische Verarbeitung:**\n" +
             "    * Die App empfängt die Datei und sendet sie automatisch an die Google AI.\n" +
             "    * Die KI erstellt eine wortwörtliche **Transkription** und eine strukturierte **Zusammenfassung** des Inhalts.\n" +
+            "* **Sprecheridentifikation:** Bei Gesprächen mit mehreren Personen versucht die KI, verschiedene Sprecher zu identifizieren und die Transkription entsprechend zu formatieren.\n" +
             "* **Ergebnis kopieren oder teilen:**\n" +
             "    * Nach kurzer Zeit zeigt die App das fertige Ergebnis an.\n" +
             "    * Sie können den gesamten Text (Transkription und Zusammenfassung) einfach in Ihre Zwischenablage **kopieren** oder direkt mit anderen Apps **teilen**.";
