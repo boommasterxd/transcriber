@@ -8,11 +8,5 @@
         </shape>
     </item>
 
-    <!-- Optional: Ein ungebundener Ripple, falls der Button keinen eigenen Hintergrund hat
-         oder du sicherstellen willst, dass der Ripple immer rund ist,
-         unabhängig vom Button-Hintergrund.
-         Wenn deine Buttons bereits einen runden Hintergrund haben (@drawable/rounded_content_copy_24),
-         ist dieser Teil möglicherweise nicht unbedingt nötig, aber er schadet auch nicht.
-    -->
     <item android:drawable="@drawable/oval_background_for_ripple" />
 </ripple>
