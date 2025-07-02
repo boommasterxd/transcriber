@@ -82,7 +82,7 @@
                         android:foreground="@drawable/ripple_effect_oval"
                         android:padding="8dp"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/rounded_content_copy_24" />
+                        android:src="@drawable/ic_rounded_content_copy" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -102,7 +102,7 @@
                         android:foreground="@drawable/ripple_effect_oval"
                         android:padding="8dp"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/rounded_share_24" />
+                        android:src="@drawable/ic_rounded_share" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>

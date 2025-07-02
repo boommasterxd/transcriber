@@ -22,10 +22,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.boomapps.assistant" />
-                  <option name="mobileSdkAppId" value="1:669306157818:android:8be085097576ec609c6743" />
-                  <option name="projectId" value="assistant-boomapps" />
-                  <option name="projectNumber" value="669306157818" />
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
