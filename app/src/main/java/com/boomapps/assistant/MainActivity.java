@@ -169,6 +169,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Migration logic from old SharedPreferences
+        migrateApiKey();
+
         markwon = Markwon.builder(this)
                 .usePlugin(new AbstractMarkwonPlugin() {
                     @Override
@@ -232,8 +236,10 @@ public class MainActivity extends AppCompatActivity {
         ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
         // Load saved API key
-        SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
-        apiKeyEditText.setText(prefs.getString("api_key", ""));
+        apiKey = KeyStoreManager.getApiKey(this);
+        if (apiKey != null) {
+            apiKeyEditText.setText(apiKey);
+        }
 
         // Set the instructional markdown text
         markwon.setMarkdown(descriptionTextView, markdownDescription);
@@ -242,9 +248,7 @@ public class MainActivity extends AppCompatActivity {
         saveApiKeyButton.setOnClickListener(v -> {
             String key = apiKeyEditText.getText().toString().trim();
             if (!key.isEmpty()) {
-                SharedPreferences.Editor editor = prefs.edit();
-                editor.putString("api_key", key);
-                editor.apply();
+                KeyStoreManager.saveApiKey(this, key);
                 apiKey = key;
                 Toast.makeText(this, "API-Schlüssel erfolgreich gespeichert", Toast.LENGTH_SHORT).show();
                 inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_success);
@@ -409,9 +413,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Load API key from SharedPreferences
-        SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
-        apiKey = prefs.getString("api_key", null);
+        // Load API key from KeyStore
+        apiKey = KeyStoreManager.getApiKey(this);
 
         // Check if API key is available
         if (apiKey == null || apiKey.isEmpty()) {
@@ -686,5 +689,23 @@ public class MainActivity extends AppCompatActivity {
                 dp,
                 this.getResources().getDisplayMetrics()
         );
+    }
+
+    /**
+     * Migrates the API key from the old insecure SharedPreferences to the new secure KeyStoreManager.
+     */
+    private void migrateApiKey() {
+        SharedPreferences oldPrefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
+        String oldApiKey = oldPrefs.getString("api_key", null);
+
+        if (oldApiKey != null && !oldApiKey.isEmpty()) {
+            // Key exists in old storage, migrate it to the new secure storage
+            KeyStoreManager.saveApiKey(this, oldApiKey);
+
+            // Clear the old SharedPreferences
+            SharedPreferences.Editor editor = oldPrefs.edit();
+            editor.clear();
+            editor.apply();
+        }
     }
 }
