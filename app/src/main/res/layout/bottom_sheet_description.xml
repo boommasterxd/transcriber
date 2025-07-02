@@ -54,11 +54,12 @@
 
                 <EditText
                     android:id="@+id/apiKeyEditText"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:autofillHints="false"
+                    android:cursorVisible="true"
                     android:background="@android:color/transparent"
                     android:hint="@string/api_key_hint"
                     android:inputType="textPassword"
