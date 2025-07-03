@@ -2,6 +2,7 @@ package com.boomapps.assistant;
 
 import android.annotation.SuppressLint;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
@@ -13,10 +14,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.text.style.ForegroundColorSpan;
-import android.util.Base64;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -35,9 +37,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import org.commonmark.node.Heading;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -47,13 +46,6 @@ import io.noties.markwon.AbstractMarkwonPlugin;
 import io.noties.markwon.Markwon;
 import io.noties.markwon.MarkwonSpansFactory;
 import io.noties.markwon.core.MarkwonTheme;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 
 /**
  * The main activity of the application.
@@ -69,30 +61,39 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout buttonContainer;
     private Markwon markwon;
     private String apiKey;
+    private GeminiApiManager geminiApiManager;
+    private EditText apiKeyEditText;
+    private LinearLayout inputLayout;
 
-    String promptText = "Anweisung an das KI-Modell:\n" +
-            "\n" +
+    private final String promptText =
             "Du bist ein fortschrittliches KI-Modell, spezialisiert auf Audioverarbeitung und Textzusammenfassung. Deine Aufgabe ist es, eine gegebene Audioaufnahme präzise zu transkribieren und anschließend eine gut formatierte Zusammenfassung dieser Transkription in Markdown zu erstellen.\n" +
+            "\n" +
+            "**Wichtige Verhaltensregeln:**\n" +
+            "1.  **Fallunterscheidung:** Prüfe zuerst, ob eine Audiodatei im Input vorhanden ist.\n" +
+            "    * **Wenn eine Audiodatei vorhanden ist:** Führe die unten beschriebene Aufgabe (Transkription & Zusammenfassung) aus.\n" +
+            "    * **Wenn KEINE Audiodatei vorhanden ist:** Breche sofort ab und antworte ausschließlich mit dem exakten Satz: `Es wurde keine zu transkribierende Audiodatei erkannt.` Führe keine weiteren Schritte aus.\n" +
+            "2.  **Beispiel-Inhalte nicht ausgeben:** Die Abschnitte \"Beispiel für Eingabe\" und \"Erwartete Ausgabe\" dienen nur als Muster für dich. Gib deren Inhalt unter keinen Umständen als Teil deiner Antwort aus.\n" +
             "\n" +
             "Aufgabe:\n" +
             "\n" +
-            "1. Transkribiere die gesamte Audioaufnahme Wort für Wort.  \n" +
-            "2. Erstelle eine prägnante, gut strukturierte und lesbare Zusammenfassung der Transkription im Markdown-Format.  \n" +
-            "3. Extrahiere alle explizit genannten Aufgaben oder Handlungsaufforderungen aus der Transkription und liste sie gesondert in der Zusammenfassung auf.\n" +
+            "1. Transkribiere die gesamte Audioaufnahme Wort für Wort.\n" +
+            "2. Erstelle eine prägnante, gut strukturierte und lesbare Zusammenfassung der Transkription im Markdown-Format.\n" +
+            "3. Extrahiere alle explizit genannten Aufgaben, Termine oder Handlungsaufforderungen aus der Transkription und liste sie gesondert in der Zusammenfassung auf.\n" +
             "\n" +
             "Formatierungsregeln für die Zusammenfassung:\n" +
             "\n" +
-            "* Verwende Markdown-Syntax für Überschriften (\\#), Listen (\\*, \\-, \\+), Fettgedruckt \\*\\*Text\\*\\*, Kursiv \\*Text\\* und andere Elemente, wo angebracht, wie zum Beispiel Trennlinien.  \n" +
-            "* Für Aufgaben oder Handlungsaufforderungen, erstelle einen eigenen Abschnitt, z.B. \"Aufgaben\" oder \"Nächste Schritte\", und liste die Punkte als ungeordnete Liste auf.  \n" +
+            "* Verwende Markdown-Syntax für Überschriften (#), Listen (*, -, +), Fettgedruckt **Text**, Kursiv *Text* und andere Elemente, wo angebracht, wie zum Beispiel Trennlinien.\n" +
+            "* Für Aufgaben, Termine oder Handlungsaufforderungen, erstelle einen eigenen Abschnitt, z.B. \"Aufgaben\" oder \"Nächste Schritte\", und liste die Punkte als ungeordnete Liste auf.\n" +
             "* Halte die Sprache klar und direkt.\n" +
             "\n" +
             "Erforderliche Ausgabe:\n" +
             "\n" +
             "Deine Ausgabe muss aus zwei Hauptteilen bestehen:\n" +
             "\n" +
-            "1. Vollständige Transkription: Der gesamte Text der Audioaufnahme.  \n" +
+            "1. Vollständige Transkription: Der gesamte Text der Audioaufnahme.\n" +
             "2. Zusammenfassung (Markdown): Eine Markdown-formatierte Zusammenfassung, die den oben genannten Regeln entspricht.\n" +
             "\n" +
+            "**Beispiel-Fall (Nie dem Nutzer ausgeben):**\n" +
             "Beispiel für Eingabe (Audio-Inhalt):\n" +
             "\n" +
             "\"Guten Tag zusammen. Ich möchte heute über die Fortschritte in der künstlichen Intelligenz sprechen. Insbesondere über die Anwendung von neuronalen Netzen in der Bilderkennung. Neurale Netze haben hier erstaunliche Ergebnisse geliefert, besonders in der medizinischen Diagnostik. Es gibt jedoch auch Herausforderungen, wie die Notwendigkeit großer Datenmengen für das Training und die Interpretierbarkeit der Modelle. Bitte stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind. Im weiteren Verlauf werde ich einige Fallstudien vorstellen und die zukünftigen Potenziale beleuchten.\"\n" +
@@ -103,21 +104,21 @@ public class MainActivity extends AppCompatActivity {
             "\n" +
             "---\n" +
             "\n" +
-            "\\# Zusammenfassung der KI-Fortschritte\n" +
+            "# Zusammenfassung der KI-Fortschritte\n" +
             "Dieser Vortrag behandelt die Fortschritte in der künstlichen Intelligenz, speziell die Nutzung neuronaler Netze für die Bilderkennung.\n" +
             "\n" +
-            "\\#\\# Hauptergebnisse und Anwendungen  \n" +
-            "\\* Hervorragende Ergebnisse wurden in der medizinischen Diagnostik erzielt.\n" +
+            "## Hauptergebnisse und Anwendungen\n" +
+            "* Hervorragende Ergebnisse wurden in der medizinischen Diagnostik erzielt.\n" +
             "\n" +
-            "\\#\\# Herausforderungen  \n" +
-            "\\* Bedarf an großen Trainingsdatenmengen.  \n" +
-            "\\* Schwierigkeit der Modellinterpretierbarkeit.\n" +
+            "## Herausforderungen\n" +
+            "* Bedarf an großen Trainingsdatenmengen.\n" +
+            "* Schwierigkeit der Modellinterpretierbarkeit.\n" +
             "\n" +
-            "\\#\\# Aufgaben  \n" +
-            "\\* Stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind.\n" +
+            "## Aufgaben\n" +
+            "* Stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind.\n" +
             "\n" +
-            "\\#\\# Ausblick  \n" +
-            "\\* Es werden Fallstudien und zukünftige Potenziale diskutiert.";
+            "## Ausblick\n" +
+            "* Es werden Fallstudien und zukünftige Potenziale diskutiert.";
 
     String markdownDescription = "# Anleitung: Google AI Studio API Key und App-Nutzung\n" +
             "\n" +
@@ -162,11 +163,16 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Called when the activity is first created. Initializes the UI, Markwon, and handles the incoming intent.
+     *
      * @param savedInstanceState If the activity is being re-initialized after previously being shut down then this Bundle contains the data it most recently supplied in onSaveInstanceState(Bundle). Otherwise it is null.
      */
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Migration logic from old SharedPreferences
+        migrateApiKey();
+
         markwon = Markwon.builder(this)
                 .usePlugin(new AbstractMarkwonPlugin() {
                     @Override
@@ -214,6 +220,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * Migrates the API key from the old insecure SharedPreferences to the new secure KeyStoreManager.
+     */
+    private void migrateApiKey() {
+        SharedPreferences oldPrefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
+        String oldApiKey = oldPrefs.getString("api_key", null);
+
+        if (oldApiKey != null && !oldApiKey.isEmpty()) {
+            // Key exists in old storage, migrate it to the new secure storage
+            KeyStoreManager.saveApiKey(this, oldApiKey);
+
+            // Clear the old SharedPreferences
+            SharedPreferences.Editor editor = oldPrefs.edit();
+            editor.clear();
+            editor.apply();
+        }
+    }
+
+    /**
      * Displays a bottom sheet dialog for the user to enter and save their Google AI Studio API key.
      * Also shows instructions on how to obtain the key.
      */
@@ -222,40 +246,40 @@ public class MainActivity extends AppCompatActivity {
         @SuppressLint("InflateParams") View bottomSheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_description, null);
         bottomSheetDialog.setContentView(bottomSheetView);
 
-        EditText apiKeyEditText = bottomSheetView.findViewById(R.id.apiKeyEditText);
+        apiKeyEditText = bottomSheetView.findViewById(R.id.apiKeyEditText);
         ImageButton saveApiKeyButton = bottomSheetView.findViewById(R.id.saveApiKeyButton);
         ImageButton showHidePasswordButton = bottomSheetView.findViewById(R.id.showHidePasswordButton);
         TextView descriptionTextView = bottomSheetView.findViewById(R.id.descriptionTextView);
-        LinearLayout inputLayout = bottomSheetView.findViewById(R.id.inputLayout);
+        inputLayout = bottomSheetView.findViewById(R.id.inputLayout);
         ScrollView scrollView = bottomSheetView.findViewById(R.id.scrollView);
 
         // Load saved API key
-        SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
-        apiKeyEditText.setText(prefs.getString("api_key", ""));
+        apiKey = KeyStoreManager.getApiKey(this);
+        if (apiKey != null) {
+            apiKeyEditText.setText(apiKey);
+        }
 
         // Set the instructional markdown text
         markwon.setMarkdown(descriptionTextView, markdownDescription);
 
         // Save the API key when the save button is clicked
-        saveApiKeyButton.setOnClickListener(v -> {
-            String key = apiKeyEditText.getText().toString().trim();
-            if (!key.isEmpty()) {
-                SharedPreferences.Editor editor = prefs.edit();
-                editor.putString("api_key", key);
-                editor.apply();
-                apiKey = key;
-                Toast.makeText(this, "API-Schlüssel erfolgreich gespeichert", Toast.LENGTH_SHORT).show();
-                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_success);
-            } else {
-                Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
-                inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
+        saveApiKeyButton.setOnClickListener(v -> saveApiKey());
+
+        apiKeyEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                saveApiKey();
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.hideSoftInputFromWindow(apiKeyEditText.getWindowToken(), 0);
+                }
+                return true;
             }
-            // Reset background after 2 seconds
-            new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 2000);
+            return false;
         });
 
         // Toggle password visibility
         showHidePasswordButton.setOnClickListener(v -> {
+            int selection = apiKeyEditText.getSelectionStart();
             if (apiKeyEditText.getInputType() == (InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD)) {
                 apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
                 showHidePasswordButton.setImageResource(R.drawable.ic_rounded_visibility_off); // Eye off Icon
@@ -263,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
                 apiKeyEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
                 showHidePasswordButton.setImageResource(R.drawable.ic_rounded_visibility); // Eye Icon
             }
-            apiKeyEditText.setSelection(apiKeyEditText.getText().length());
+            apiKeyEditText.setSelection(selection);
         });
 
         // Configure the bottom sheet behavior
@@ -304,6 +328,25 @@ public class MainActivity extends AppCompatActivity {
 
 
         bottomSheetDialog.show();
+    }
+
+    /**
+     * Saves the API key entered by the user.
+     * Validates the input and provides feedback to the user.
+     */
+    private void saveApiKey() {
+        String key = apiKeyEditText.getText().toString().trim();
+        if (!key.isEmpty()) {
+            KeyStoreManager.saveApiKey(this, key);
+            apiKey = key;
+            Toast.makeText(this, "API-Schlüssel erfolgreich gespeichert", Toast.LENGTH_SHORT).show();
+            inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_success);
+        } else {
+            Toast.makeText(this, "API-Schlüssel darf nicht leer sein", Toast.LENGTH_SHORT).show();
+            inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_error);
+        }
+        // Reset background after 2 seconds
+        new Handler(Looper.getMainLooper()).postDelayed(() -> inputLayout.setBackgroundResource(R.drawable.api_input_background_rounded_default), 2000);
     }
 
     /**
@@ -389,6 +432,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Starts the audio transcription process.
      * Checks for network availability and a valid API key before proceeding.
+     *
      * @param audioUri The URI of the audio file to be transcribed.
      */
     private void transcribeAudio(Uri audioUri) {
@@ -407,9 +451,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Load API key from SharedPreferences
-        SharedPreferences prefs = getSharedPreferences("api_key_prefs", MODE_PRIVATE);
-        apiKey = prefs.getString("api_key", null);
+        // Load API key from KeyStore
+        apiKey = KeyStoreManager.getApiKey(this);
 
         // Check if API key is available
         if (apiKey == null || apiKey.isEmpty()) {
@@ -425,6 +468,8 @@ public class MainActivity extends AppCompatActivity {
             });
             return;
         }
+
+        geminiApiManager = new GeminiApiManager(apiKey);
 
         try {
             // Get InputStream from the audio URI
@@ -455,7 +500,34 @@ public class MainActivity extends AppCompatActivity {
             try (InputStream stream = resolver.openInputStream(audioUri)) {
                 if (stream != null) {
                     byte[] audioBytes = getBytes(stream);
-                    sendGeminiRequest(audioBytes, mimeType);
+                    String userPrompt = "Bitte transkribiere diese Audiodatei. Gib die Transkription und die Zusammenfassung aus.";
+                    geminiApiManager.generateContent(audioBytes, mimeType, promptText, userPrompt, new GeminiApiManager.GeminiApiResponseListener() {
+                        @Override
+                        public void onSuccess(String response) {
+                            runOnUiThread(() -> {
+                                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                                if (transcriptionTextView != null) {
+                                    transcriptionTextView.setVisibility(View.VISIBLE);
+                                    markwon.setMarkdown(transcriptionTextView, response);
+                                    buttonContainer.setVisibility(View.VISIBLE);
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onFailure(String error) {
+                            runOnUiThread(() -> {
+                                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                                if (transcriptionTextView != null) {
+                                    transcriptionTextView.setVisibility(View.VISIBLE);
+                                    transcriptionTextView.setText(error);
+                                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
+                                    params.bottomMargin = dpToPx(32); // 32dp margin
+                                    transcriptionTextView.setLayoutParams(params);
+                                }
+                            });
+                        }
+                    });
                 }
             } catch (IOException e) {
                 runOnUiThread(() -> {
@@ -482,181 +554,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Constructs and sends a request to the Google Gemini API with the audio data.
-     * Handles the asynchronous response from the API.
-     * @param audioBytes The audio data as a byte array.
-     * @param mimeType The MIME type of the audio file.
-     */
-    private void sendGeminiRequest(byte[] audioBytes, String mimeType) {
-        OkHttpClient client = new OkHttpClient();
-
-        String modelId = "gemini-2.5-flash";
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelId + ":generateContent?key=" + apiKey;
-
-        JSONObject requestBodyJson = new JSONObject();
-        try {
-            // System Instruction
-            JSONObject systemInstruction = new JSONObject();
-            JSONArray systemParts = new JSONArray();
-            JSONObject systemPart = new JSONObject();
-            systemPart.put("text", promptText);
-            systemParts.put(systemPart);
-            systemInstruction.put("role", "user");
-            systemInstruction.put("parts", systemParts);
-            requestBodyJson.put("systemInstruction", systemInstruction);
-
-
-            // Contents (User prompt with audio)
-            JSONArray contents = new JSONArray();
-            JSONObject content = new JSONObject();
-            content.put("role", "user");
-
-            JSONArray parts = new JSONArray();
-
-            // Audio part
-            JSONObject audioPart = new JSONObject();
-            JSONObject inlineData = new JSONObject();
-            inlineData.put("mimeType", mimeType);
-            inlineData.put("data", Base64.encodeToString(audioBytes, Base64.NO_WRAP));
-            audioPart.put("inlineData", inlineData);
-
-            // Text part
-            JSONObject textPart = new JSONObject();
-            textPart.put("text", "Bitte transkribiere diese Audiodatei. Gib die Transkription und die Zusammenfassung aus.");
-
-            parts.put(audioPart);
-            parts.put(textPart);
-            content.put("parts", parts);
-            contents.put(content);
-            requestBodyJson.put("contents", contents);
-
-            // Generation Config
-            JSONObject generationConfig = new JSONObject();
-            generationConfig.put("temperature", 1);
-            generationConfig.put("topK", 40);
-            generationConfig.put("topP", 0.95);
-            generationConfig.put("maxOutputTokens", 65536);
-            JSONObject thinkingBudget = new JSONObject();
-            thinkingBudget.put("thinkingBudget", 0);
-            generationConfig.put("thinkingConfig", thinkingBudget);
-            generationConfig.put("responseMimeType", "text/plain");
-            requestBodyJson.put("generationConfig", generationConfig);
-
-        } catch (JSONException e) {
-            runOnUiThread(() -> {
-                if (progressBar != null) progressBar.setVisibility(View.GONE);
-                if (transcriptionTextView != null) {
-                    transcriptionTextView.setVisibility(View.VISIBLE);
-                    transcriptionTextView.setText("Fehler beim Erstellen der Anfrage: " + e.getMessage());
-                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                    params.bottomMargin = dpToPx(32); // 32dp margin
-                    transcriptionTextView.setLayoutParams(params);
-                }
-            });
-            return;
-        }
-
-        RequestBody body = RequestBody.create(requestBodyJson.toString(), MediaType.get("application/json; charset=utf-8"));
-        Request request = new Request.Builder()
-                .url(url)
-                .post(body)
-                .build();
-
-        // Asynchronous API call
-        client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                runOnUiThread(() -> {
-                    if (progressBar != null) progressBar.setVisibility(View.GONE);
-                    if (transcriptionTextView != null) {
-                        transcriptionTextView.setVisibility(View.VISIBLE);
-                        transcriptionTextView.setText("Fehler bei der Anfrage: " + e.getMessage());
-                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                        params.bottomMargin = dpToPx(32); // 32dp margin
-                        transcriptionTextView.setLayoutParams(params);
-                    }
-                });
-            }
-
-            @Override
-            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                final String responseBody = response.body() != null ? response.body().string() : null;
-
-                if (response.isSuccessful() && responseBody != null) {
-                    try {
-                        // Parse the successful response
-                        JSONObject responseBodyJson = new JSONObject(responseBody);
-                        JSONArray candidates = responseBodyJson.getJSONArray("candidates");
-                        JSONObject firstCandidate = candidates.getJSONObject(0);
-                        JSONObject content = firstCandidate.getJSONObject("content");
-                        JSONArray parts = content.getJSONArray("parts");
-                        JSONObject firstPart = parts.getJSONObject(0);
-                        String transcription = firstPart.getString("text");
-
-                        // Update UI with the result
-                        runOnUiThread(() -> {
-                            if (progressBar != null) progressBar.setVisibility(View.GONE);
-                            if (transcriptionTextView != null) {
-                                transcriptionTextView.setVisibility(View.VISIBLE);
-                                markwon.setMarkdown(transcriptionTextView, transcription);
-                                buttonContainer.setVisibility(View.VISIBLE);
-                            }
-                        });
-                    } catch (JSONException e) {
-                        // Handle JSON parsing errors
-                        runOnUiThread(() -> {
-                            if (progressBar != null) progressBar.setVisibility(View.GONE);
-                            if (transcriptionTextView != null) {
-                                transcriptionTextView.setVisibility(View.VISIBLE);
-                                transcriptionTextView.setText("Fehler beim Parsen der Antwort: " + e.getMessage());
-                                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                                params.bottomMargin = dpToPx(32); // 32dp margin
-                                transcriptionTextView.setLayoutParams(params);
-                            }
-                        });
-                    }
-                } else {
-                    // Handle API errors
-                    runOnUiThread(() -> {
-                        if (progressBar != null) progressBar.setVisibility(View.GONE);
-                        if (transcriptionTextView != null) {
-                            transcriptionTextView.setVisibility(View.VISIBLE);
-                            String errorMessage = "Fehler bei der Transkription";
-                            if (responseBody != null) {
-                                try {
-                                    JSONObject errorJson = new JSONObject(responseBody);
-                                    JSONObject error = errorJson.getJSONObject("error");
-                                    errorMessage = "API-Fehler: " + error.getString("message");
-                                } catch (JSONException e) {
-                                    errorMessage = "Fehler: " + response.code() + " " + response.message();
-                                }
-                            } else {
-                                errorMessage = "Fehler: " + response.code() + " " + response.message();
-                            }
-                            transcriptionTextView.setText(errorMessage);
-                            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) transcriptionTextView.getLayoutParams();
-                            params.bottomMargin = dpToPx(32); // 32dp margin
-                            transcriptionTextView.setLayoutParams(params);
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    /**
      * Checks if a network connection is available.
+     *
      * @return true if a network connection is available, false otherwise.
      */
     private boolean isNetworkAvailable() {
         ConnectivityManager connectivityManager
-                = (ConnectivityManager) getSystemService(this.CONNECTIVITY_SERVICE);
+                = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
     /**
      * Reads an InputStream and converts it to a byte array.
+     *
      * @param inputStream The InputStream to be read.
      * @return A byte array containing the data from the InputStream.
      * @throws IOException if an I/O error occurs.
@@ -675,6 +586,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Converts a value from density-independent pixels (dp) to pixels (px).
+     *
      * @param dp The value in dp.
      * @return The corresponding value in px.
      */
