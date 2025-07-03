@@ -65,29 +65,35 @@ public class MainActivity extends AppCompatActivity {
     private EditText apiKeyEditText;
     private LinearLayout inputLayout;
 
-    String promptText = "Anweisung an das KI-Modell:\n" +
-            "\n" +
+    private final String promptText =
             "Du bist ein fortschrittliches KI-Modell, spezialisiert auf Audioverarbeitung und Textzusammenfassung. Deine Aufgabe ist es, eine gegebene Audioaufnahme präzise zu transkribieren und anschließend eine gut formatierte Zusammenfassung dieser Transkription in Markdown zu erstellen.\n" +
+            "\n" +
+            "**Wichtige Verhaltensregeln:**\n" +
+            "1.  **Fallunterscheidung:** Prüfe zuerst, ob eine Audiodatei im Input vorhanden ist.\n" +
+            "    * **Wenn eine Audiodatei vorhanden ist:** Führe die unten beschriebene Aufgabe (Transkription & Zusammenfassung) aus.\n" +
+            "    * **Wenn KEINE Audiodatei vorhanden ist:** Breche sofort ab und antworte ausschließlich mit dem exakten Satz: `Es wurde keine zu transkribierende Audiodatei erkannt.` Führe keine weiteren Schritte aus.\n" +
+            "2.  **Beispiel-Inhalte nicht ausgeben:** Die Abschnitte \"Beispiel für Eingabe\" und \"Erwartete Ausgabe\" dienen nur als Muster für dich. Gib deren Inhalt unter keinen Umständen als Teil deiner Antwort aus.\n" +
             "\n" +
             "Aufgabe:\n" +
             "\n" +
-            "1. Transkribiere die gesamte Audioaufnahme Wort für Wort.  \n" +
-            "2. Erstelle eine prägnante, gut strukturierte und lesbare Zusammenfassung der Transkription im Markdown-Format.  \n" +
-            "3. Extrahiere alle explizit genannten Aufgaben oder Handlungsaufforderungen aus der Transkription und liste sie gesondert in der Zusammenfassung auf.\n" +
+            "1. Transkribiere die gesamte Audioaufnahme Wort für Wort.\n" +
+            "2. Erstelle eine prägnante, gut strukturierte und lesbare Zusammenfassung der Transkription im Markdown-Format.\n" +
+            "3. Extrahiere alle explizit genannten Aufgaben, Termine oder Handlungsaufforderungen aus der Transkription und liste sie gesondert in der Zusammenfassung auf.\n" +
             "\n" +
             "Formatierungsregeln für die Zusammenfassung:\n" +
             "\n" +
-            "* Verwende Markdown-Syntax für Überschriften (\\#), Listen (\\*, \\-, \\+), Fettgedruckt \\*\\*Text\\*\\*, Kursiv \\*Text\\* und andere Elemente, wo angebracht, wie zum Beispiel Trennlinien.  \n" +
-            "* Für Aufgaben oder Handlungsaufforderungen, erstelle einen eigenen Abschnitt, z.B. \"Aufgaben\" oder \"Nächste Schritte\", und liste die Punkte als ungeordnete Liste auf.  \n" +
+            "* Verwende Markdown-Syntax für Überschriften (#), Listen (*, -, +), Fettgedruckt **Text**, Kursiv *Text* und andere Elemente, wo angebracht, wie zum Beispiel Trennlinien.\n" +
+            "* Für Aufgaben, Termine oder Handlungsaufforderungen, erstelle einen eigenen Abschnitt, z.B. \"Aufgaben\" oder \"Nächste Schritte\", und liste die Punkte als ungeordnete Liste auf.\n" +
             "* Halte die Sprache klar und direkt.\n" +
             "\n" +
             "Erforderliche Ausgabe:\n" +
             "\n" +
             "Deine Ausgabe muss aus zwei Hauptteilen bestehen:\n" +
             "\n" +
-            "1. Vollständige Transkription: Der gesamte Text der Audioaufnahme.  \n" +
+            "1. Vollständige Transkription: Der gesamte Text der Audioaufnahme.\n" +
             "2. Zusammenfassung (Markdown): Eine Markdown-formatierte Zusammenfassung, die den oben genannten Regeln entspricht.\n" +
             "\n" +
+            "**Beispiel-Fall (Nie dem Nutzer ausgeben):**\n" +
             "Beispiel für Eingabe (Audio-Inhalt):\n" +
             "\n" +
             "\"Guten Tag zusammen. Ich möchte heute über die Fortschritte in der künstlichen Intelligenz sprechen. Insbesondere über die Anwendung von neuronalen Netzen in der Bilderkennung. Neurale Netze haben hier erstaunliche Ergebnisse geliefert, besonders in der medizinischen Diagnostik. Es gibt jedoch auch Herausforderungen, wie die Notwendigkeit großer Datenmengen für das Training und die Interpretierbarkeit der Modelle. Bitte stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind. Im weiteren Verlauf werde ich einige Fallstudien vorstellen und die zukünftigen Potenziale beleuchten.\"\n" +
@@ -98,21 +104,21 @@ public class MainActivity extends AppCompatActivity {
             "\n" +
             "---\n" +
             "\n" +
-            "\\# Zusammenfassung der KI-Fortschritte\n" +
+            "# Zusammenfassung der KI-Fortschritte\n" +
             "Dieser Vortrag behandelt die Fortschritte in der künstlichen Intelligenz, speziell die Nutzung neuronaler Netze für die Bilderkennung.\n" +
             "\n" +
-            "\\#\\# Hauptergebnisse und Anwendungen  \n" +
-            "\\* Hervorragende Ergebnisse wurden in der medizinischen Diagnostik erzielt.\n" +
+            "## Hauptergebnisse und Anwendungen\n" +
+            "* Hervorragende Ergebnisse wurden in der medizinischen Diagnostik erzielt.\n" +
             "\n" +
-            "\\#\\# Herausforderungen  \n" +
-            "\\* Bedarf an großen Trainingsdatenmengen.  \n" +
-            "\\* Schwierigkeit der Modellinterpretierbarkeit.\n" +
+            "## Herausforderungen\n" +
+            "* Bedarf an großen Trainingsdatenmengen.\n" +
+            "* Schwierigkeit der Modellinterpretierbarkeit.\n" +
             "\n" +
-            "\\#\\# Aufgaben  \n" +
-            "\\* Stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind.\n" +
+            "## Aufgaben\n" +
+            "* Stellen Sie sicher, dass bis nächste Woche alle relevanten Daten für die Fallstudien gesammelt sind.\n" +
             "\n" +
-            "\\#\\# Ausblick  \n" +
-            "\\* Es werden Fallstudien und zukünftige Potenziale diskutiert.";
+            "## Ausblick\n" +
+            "* Es werden Fallstudien und zukünftige Potenziale diskutiert.";
 
     String markdownDescription = "# Anleitung: Google AI Studio API Key und App-Nutzung\n" +
             "\n" +
