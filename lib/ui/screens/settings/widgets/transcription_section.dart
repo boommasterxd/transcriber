@@ -58,6 +58,7 @@ class TranscriptionSection extends ConsumerWidget {
                     isLast: i == WhisperCatalog.models.length - 1,
                     onSelect: () => ctrl.setWhisperModel(m.id),
                     onDownload: () => managerCtrl.downloadWhisper(m.id),
+                    onDelete: () => managerCtrl.deleteWhisper(m.id),
                   ),
               ],
             ),

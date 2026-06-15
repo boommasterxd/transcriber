@@ -58,6 +58,7 @@ class SummarySection extends ConsumerWidget {
                     isLast: i == GemmaCatalog.models.length - 1,
                     onSelect: () => ctrl.setGemmaModel(m.id),
                     onDownload: () => managerCtrl.downloadGemma(m.id),
+                    onDelete: () => managerCtrl.deleteGemma(m.id),
                   ),
               ],
             ),

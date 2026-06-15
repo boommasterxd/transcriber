@@ -12,6 +12,7 @@ import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
 import '../data/models/transcription_language.dart';
 import 'connections_controller.dart';
+import 'model_manager_controller.dart';
 import 'providers.dart';
 
 /// Holds and persists [AppSettings]. Seeded synchronously from
@@ -90,37 +91,52 @@ class HomeModelStatus {
   final bool warning;
 }
 
-/// Computes a state-aware label for the active models, flagging cloud stages
-/// that aren't connected yet so the chip can warn instead of showing a model
-/// that can't actually run.
+/// Computes a state-aware label for the active models. Flags cloud stages
+/// without an API key AND on-device stages whose selected model isn't
+/// downloaded — so the chip never claims a model that can't actually run.
 final homeModelStatusProvider = Provider<HomeModelStatus>((ref) {
   final s = ref.watch(settingsControllerProvider);
   final connections = ref.watch(connectionsControllerProvider);
+  final manager = ref.watch(modelManagerControllerProvider);
   final t = ref.watch(stringsProvider);
-  var warning = false;
 
-  String stage(bool isLocal, String localName, RemoteProviderId provider, String modelId) {
-    if (isLocal) return localName;
-    final connected = connections[provider] ?? false;
-    if (!connected) {
-      warning = true;
-      return '${RemoteCatalog.provider(provider).name} · ${t.keyMissing}';
+  /// Returns an issue label for a stage, or null when it's ready.
+  String? issueFor({
+    required bool isLocal,
+    required String localName,
+    required bool localDownloaded,
+    required RemoteProviderId provider,
+  }) {
+    if (isLocal) {
+      return localDownloaded ? null : '$localName · ${t.notLoaded}';
     }
-    return modelId;
+    final connected = connections[provider] ?? false;
+    return connected ? null : '${RemoteCatalog.provider(provider).name} · ${t.keyMissing}';
   }
 
-  final asr = stage(
-    s.asrMode.isLocal,
-    WhisperCatalog.byId(s.whisperModelId).displayName,
-    s.asrProvider,
-    s.asrModelId(s.asrProvider),
+  final asrIssue = issueFor(
+    isLocal: s.asrMode.isLocal,
+    localName: WhisperCatalog.byId(s.whisperModelId).displayName,
+    localDownloaded: manager.whisperStatus(s.whisperModelId).isDownloaded,
+    provider: s.asrProvider,
   );
-  final summary = stage(
-    s.summaryMode.isLocal,
-    GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first,
-    s.summaryProvider,
-    s.summaryModelId(s.summaryProvider),
+  final summaryIssue = issueFor(
+    isLocal: s.summaryMode.isLocal,
+    localName: GemmaCatalog.byId(s.gemmaModelId).displayName,
+    localDownloaded: manager.gemmaStatus(s.gemmaModelId).isDownloaded,
+    provider: s.summaryProvider,
   );
 
-  return HomeModelStatus(label: '$asr · $summary', fullyLocal: s.isFullyLocal, warning: warning);
+  final issue = asrIssue ?? summaryIssue;
+  if (issue != null) {
+    return HomeModelStatus(label: issue, fullyLocal: s.isFullyLocal, warning: true);
+  }
+
+  final asr = s.asrMode.isLocal
+      ? WhisperCatalog.byId(s.whisperModelId).displayName
+      : s.asrModelId(s.asrProvider);
+  final summary = s.summaryMode.isLocal
+      ? GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first
+      : s.summaryModelId(s.summaryProvider);
+  return HomeModelStatus(label: '$asr · $summary', fullyLocal: s.isFullyLocal, warning: false);
 });

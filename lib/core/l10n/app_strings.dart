@@ -121,6 +121,9 @@ class AppStrings {
     required this.audioDelTitle,
     required this.audioDelSub,
     required this.keyMissing,
+    required this.notLoaded,
+    required this.deleteModelConfirm,
+    required this.cancel,
     required this.obSkip,
     required this.obNext,
     required this.obStart,
@@ -192,7 +195,7 @@ class AppStrings {
   final String errorTitle, retry, dismiss, modelMissingTitle, modelMissingBody, goToSettings;
   final String downloading, todoSingular, todoPlural;
   final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
-  final String keyMissing;
+  final String keyMissing, notLoaded, deleteModelConfirm, cancel;
   final String obSkip, obNext, obStart;
   final String obWelcomeT, obWelcomeS;
   final String obHiw1T, obHiw1S, obHiw2T, obHiw2S, obHiw3T, obHiw3S;
@@ -313,6 +316,9 @@ class AppStrings {
     audioDelTitle: 'Audio gelöscht',
     audioDelSub: 'Nach der Verarbeitung automatisch entfernt',
     keyMissing: 'Schlüssel fehlt',
+    notLoaded: 'nicht geladen',
+    deleteModelConfirm: 'Dieses Modell vom Gerät entfernen? Du kannst es jederzeit erneut laden.',
+    cancel: 'Abbrechen',
     obSkip: 'Überspringen',
     obNext: 'Weiter',
     obStart: "Los geht's",
@@ -443,6 +449,9 @@ class AppStrings {
     audioDelTitle: 'Audio deleted',
     audioDelSub: 'Automatically removed after processing',
     keyMissing: 'Key missing',
+    notLoaded: 'not downloaded',
+    deleteModelConfirm: 'Remove this model from the device? You can download it again anytime.',
+    cancel: 'Cancel',
     obSkip: 'Skip',
     obNext: 'Next',
     obStart: 'Get started',
