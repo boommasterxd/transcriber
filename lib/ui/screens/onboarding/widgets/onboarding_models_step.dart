@@ -24,8 +24,12 @@ class OnboardingModelsStep extends ConsumerStatefulWidget {
   ConsumerState<OnboardingModelsStep> createState() => _OnboardingModelsStepState();
 }
 
-class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep> {
+class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep>
+    with AutomaticKeepAliveClientMixin {
   bool _advanced = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   static const _whisperId = WhisperCatalog.defaultId; // Whisper Base (recommended)
   static const _gemmaId = GemmaCatalog.defaultId; // Gemma 3 1B (recommended)
@@ -54,6 +58,7 @@ class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin
     final t = ref.watch(stringsProvider);
 
     return Column(
