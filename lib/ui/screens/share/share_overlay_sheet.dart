@@ -228,11 +228,6 @@ class _ProcessingBody extends ConsumerWidget {
             step2Label: t.shStep2,
             activeStepIsSecond: !transcribing,
           ),
-          const SizedBox(height: 30),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 300),
-            child: const SkeletonLines(),
-          ),
         ],
       ),
     );

@@ -175,11 +175,15 @@ class ProcessingPipeline {
   }) async {
     final languageCode = settings.transcriptionLanguage.code;
     if (settings.asrMode.isLocal) {
+      // whisper_kit returns empty text for the literal language 'auto', so for
+      // auto-detect we fall back to the app's UI language (the best signal we
+      // have) — a concrete code that actually transcribes.
+      final lang = languageCode == 'auto' ? settings.language.code : languageCode;
       final wav = await _converter.toWhisperWav(audioPath);
       return WhisperTranscriptionService(
         settings.whisperModelId,
         threads: settings.whisperThreads,
-      ).transcribe(wav, languageCode: languageCode);
+      ).transcribe(wav, languageCode: lang);
     }
     final client = RemoteClientFactory.create(settings.asrProvider, apiKey);
     return RemoteTranscriptionService(client, settings.asrModelId(settings.asrProvider))
