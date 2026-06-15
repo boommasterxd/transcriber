@@ -58,7 +58,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           FadeEdges(
             topHeight: 54,
             bottomHeight: 92,
-            child: ListView(
+            builder: (context, controller) => ListView(
+              controller: controller,
               padding: const EdgeInsets.only(top: 56, bottom: 104),
               children: [
                 Padding(

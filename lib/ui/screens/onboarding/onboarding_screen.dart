@@ -28,7 +28,8 @@ class OnboardingScreen extends ConsumerWidget {
           Expanded(
             child: FadeEdges(
               topHeight: 22,
-              child: SingleChildScrollView(
+              builder: (context, controller) => SingleChildScrollView(
+                controller: controller,
                 padding: const EdgeInsets.fromLTRB(28, 4, 28, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

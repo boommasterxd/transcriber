@@ -6,6 +6,7 @@ import '../core/theme/app_accent.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
+import '../services/platform/app_icon_service.dart';
 import '../services/processing/processing_profile.dart';
 import 'providers.dart';
 
@@ -23,7 +24,11 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setBrightness(Brightness brightness) =>
       _persist(state.copyWith(brightness: brightness));
 
-  Future<void> setAccent(AppAccent accent) => _persist(state.copyWith(accent: accent));
+  Future<void> setAccent(AppAccent accent) async {
+    await _persist(state.copyWith(accent: accent));
+    // Recolor the Android launcher icon to match.
+    await const AppIconService().setIcon(accent.id);
+  }
 
   Future<void> setLanguage(AppLanguage language) => _persist(state.copyWith(language: language));
 

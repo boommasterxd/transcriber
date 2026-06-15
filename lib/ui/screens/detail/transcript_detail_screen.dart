@@ -85,7 +85,8 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
             Expanded(
               child: FadeEdges(
                 topHeight: 16,
-                child: ListView(
+                builder: (context, controller) => ListView(
+                  controller: controller,
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
                   children: [
                     DetailAudioPlayer(audioPath: note.audioPath, durationSec: note.durationSec),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/l10n/app_strings.dart';
 import 'core/theme/app_theme.dart';
 import 'data/models/transcript_note.dart';
+import 'services/platform/app_icon_service.dart';
 import 'state/settings_controller.dart';
 import 'state/providers.dart';
 import 'ui/navigation.dart';
@@ -53,7 +54,10 @@ class _RootGateState extends ConsumerState<_RootGate> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _setupShareIntents());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupShareIntents();
+      _syncLauncherIcon();
+    });
   }
 
   Future<void> _setupShareIntents() async {
@@ -61,6 +65,11 @@ class _RootGateState extends ConsumerState<_RootGate> {
     final initial = await service.initialSharedAudio();
     if (initial != null) _handleShared(initial);
     service.listen(_handleShared);
+  }
+
+  Future<void> _syncLauncherIcon() async {
+    final accent = ref.read(settingsControllerProvider).accent;
+    await const AppIconService().setIcon(accent.id);
   }
 
   void _handleShared(String path) {

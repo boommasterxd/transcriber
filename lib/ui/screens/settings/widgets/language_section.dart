@@ -25,7 +25,14 @@ class LanguageSection extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(t.uiLang, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
+              Flexible(
+                child: Text(
+                  t.uiLang,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
+                ),
+              ),
+              const SizedBox(width: 12),
               PillSegment(
                 items: const [SegmentItem(label: 'Deutsch'), SegmentItem(label: 'English')],
                 selectedIndex: settings.language == AppLanguage.de ? 0 : 1,
@@ -37,13 +44,29 @@ class LanguageSection extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(t.transLang, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
-              Row(
-                children: [
-                  Text(t.autoLang, style: TextStyle(fontSize: 14, color: palette.muted)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right_rounded, size: 18, color: palette.faint),
-                ],
+              Flexible(
+                child: Text(
+                  t.transLang,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        t.autoLang,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 14, color: palette.muted),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right_rounded, size: 18, color: palette.faint),
+                  ],
+                ),
               ),
             ],
           ),

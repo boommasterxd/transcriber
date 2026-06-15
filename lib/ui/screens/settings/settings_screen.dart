@@ -50,7 +50,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
             Expanded(
               child: FadeEdges(
-                child: ListView(
+                builder: (context, controller) => ListView(
+                  controller: controller,
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 36),
                   children: [
                     SectionLabel(t.setAsr, padding: const EdgeInsets.fromLTRB(6, 12, 6, 9)),
