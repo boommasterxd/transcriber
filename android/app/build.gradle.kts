@@ -37,7 +37,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+            // arm64-v8a only: every real Android device is arm64. x86_64 is just
+            // for emulators and would double the packaging cost of the large
+            // ffmpeg-kit / flutter_gemma native libraries.
+            abiFilters.add("arm64-v8a")
         }
     }
 
