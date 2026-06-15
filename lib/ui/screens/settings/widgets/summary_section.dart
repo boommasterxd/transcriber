@@ -5,13 +5,11 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/catalog/gemma_catalog.dart';
-import '../../../../data/models/inference_backend.dart';
 import '../../../../data/models/processing_mode.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/model_manager_controller.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
-import '../../../widgets/segmented_control.dart';
 import '../../../widgets/surfaces.dart';
 import 'downloadable_model_tile.dart';
 import 'provider_connect_card.dart';
@@ -67,12 +65,6 @@ class SummarySection extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
           _HfTokenField(initial: settings.hfToken, onChanged: ctrl.setHfToken),
-          const SizedBox(height: 12),
-          _BackendField(
-            selected: settings.gemmaBackend,
-            german: t.isDe,
-            onChanged: ctrl.setGemmaBackend,
-          ),
         ] else ...[
           ProviderPicker(
             allowed: RemoteProviderId.values,
@@ -91,40 +83,6 @@ class SummarySection extends ConsumerWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Compute-backend selector (Auto/GPU/CPU/NPU) for the on-device summary model.
-class _BackendField extends StatelessWidget {
-  const _BackendField({required this.selected, required this.german, required this.onChanged});
-
-  final InferenceBackend selected;
-  final bool german;
-  final ValueChanged<InferenceBackend> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return SurfaceCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Backend', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
-          const SizedBox(height: 4),
-          Text(
-            german ? 'GPU am schnellsten · NPU ist geräteabhängig' : 'GPU is fastest · NPU is device-dependent',
-            style: TextStyle(fontSize: 12.5, color: palette.muted),
-          ),
-          const SizedBox(height: 12),
-          AnimatedSegmentedControl(
-            options: [for (final b in InferenceBackend.values) SegmentOption(b.label)],
-            selectedIndex: InferenceBackend.values.indexOf(selected),
-            onChanged: (i) => onChanged(InferenceBackend.values[i]),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -11,6 +11,7 @@ import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/appearance_section.dart';
+import 'widgets/backend_section.dart';
 import 'widgets/language_section.dart';
 import 'widgets/privacy_section.dart';
 import 'widgets/summary_section.dart';
@@ -26,6 +27,7 @@ class SettingsScreen extends ConsumerWidget {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final manager = ref.watch(modelManagerControllerProvider);
+    final summaryLocal = ref.watch(settingsControllerProvider.select((s) => s.summaryMode.isLocal));
 
     final storage = _storageSummary(manager, t);
 
@@ -58,6 +60,10 @@ class SettingsScreen extends ConsumerWidget {
                     const TranscriptionSection(),
                     SectionLabel(t.setLlm),
                     const SummarySection(),
+                    if (summaryLocal) ...[
+                      const SectionLabel('Backend'),
+                      const BackendSection(),
+                    ],
                     SectionLabel(t.setLang),
                     const LanguageSection(),
                     SectionLabel(t.setAppear),
