@@ -1,0 +1,51 @@
+name: transcriber
+description: Sprachnachrichten lokal transkribieren und zusammenfassen.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^3.3.2
+
+  # On-device ML
+  whisper_kit: ^0.3.1
+  flutter_gemma: ^0.16.5
+
+  # Audio capture / playback / conversion
+  record: ^7.1.0
+  just_audio: ^0.10.5
+  ffmpeg_kit_flutter_new: ^4.2.1
+
+  # Platform integration
+  receive_sharing_intent: ^1.8.1
+  file_picker: ^11.0.2
+  permission_handler: ^12.0.3
+  path_provider: ^2.1.5
+  path: ^1.9.1
+
+  # Persistence
+  shared_preferences: ^2.5.5
+  flutter_secure_storage: ^10.3.1
+
+  # Networking (cloud providers)
+  http: ^1.6.0
+
+  # Misc
+  google_fonts: ^8.1.0
+  uuid: ^4.5.3
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
