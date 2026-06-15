@@ -92,13 +92,17 @@ class WhisperEngine {
     final dynamic response = await whisper.transcribe(transcribeRequest: request);
     final text = (response.text as String?)?.trim() ?? '';
     if (text.isEmpty) {
-      // Surface a precise, on-screen diagnostic (no adb needed). The WAV size
-      // tells us whether conversion produced real audio (so the model/audio is
-      // at fault) or a near-empty file (a conversion problem).
-      final kb = (await File(wavPath).length()) ~/ 1024;
+      // Surface a precise, on-screen diagnostic (no adb needed): the WAV size
+      // shows whether conversion produced real audio, and the model size shows
+      // whether the (large) weights downloaded completely.
+      final wavKb = (await File(wavPath).length()) ~/ 1024;
+      var modelMb = -1;
+      try {
+        modelMb = (await File(await _modelFile(modelId)).length()) ~/ (1024 * 1024);
+      } catch (_) {}
       throw Exception(
-        'Whisper lieferte 0 Zeichen — Modell "$modelId", Sprache "$lang", '
-        'WAV $kb KB, $threads Threads.',
+        'Whisper lieferte 0 Zeichen — Modell "$modelId" (${modelMb}MB), '
+        'Sprache "$lang", WAV $wavKb KB, $threads Threads.',
       );
     }
     return TranscriptionResult(text: text, segments: _segments(response, text));
