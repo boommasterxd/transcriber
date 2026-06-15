@@ -54,7 +54,7 @@ class RemoteCatalog {
 
   /// Default chat/summary model id per provider (used until the user picks one).
   static const Map<RemoteProviderId, String> defaultChatModelId = {
-    RemoteProviderId.anthropic: 'claude-sonnet-4-5',
+    RemoteProviderId.anthropic: 'claude-sonnet-4-6',
     RemoteProviderId.openai: 'gpt-4o',
     RemoteProviderId.google: 'gemini-2.5-flash',
     RemoteProviderId.openrouter: 'openrouter/auto',

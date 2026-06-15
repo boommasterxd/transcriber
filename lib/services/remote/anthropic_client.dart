@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../service_exceptions.dart';
 import '../transcription/transcription_service.dart';
 import 'remote_api_client.dart';
+import 'remote_http.dart';
 
 /// Anthropic Messages API client. Anthropic has no audio/ASR endpoint, so
 /// transcription must use OpenAI/Google or an on-device model.
@@ -24,9 +25,12 @@ class AnthropicClient implements RemoteApiClient {
   @override
   Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
     if (forTranscription) return const []; // Anthropic has no ASR models.
-    final response = await _http.get(
-      Uri.parse('https://api.anthropic.com/v1/models?limit=100'),
-      headers: {'x-api-key': apiKey, 'anthropic-version': _version},
+    final response = await guardTimeout(
+      _http.get(
+        Uri.parse('https://api.anthropic.com/v1/models?limit=100'),
+        headers: {'x-api-key': apiKey, 'anthropic-version': _version},
+      ),
+      remoteListTimeout,
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
@@ -48,21 +52,24 @@ class AnthropicClient implements RemoteApiClient {
     required String user,
     required String modelId,
   }) async {
-    final response = await _http.post(
-      Uri.parse(_endpoint),
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': _version,
-        'content-type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': modelId,
-        'max_tokens': 1024,
-        'system': system,
-        'messages': [
-          {'role': 'user', 'content': user},
-        ],
-      }),
+    final response = await guardTimeout(
+      _http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': _version,
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': modelId,
+          'max_tokens': 2048,
+          'system': system,
+          'messages': [
+            {'role': 'user', 'content': user},
+          ],
+        }),
+      ),
+      remoteChatTimeout,
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
