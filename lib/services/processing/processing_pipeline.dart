@@ -136,6 +136,7 @@ class ProcessingPipeline {
         settings.gemmaModelId,
         fallbackTitle: fallbackTitle,
         hfToken: settings.hfToken,
+        backendId: settings.gemmaBackend.id,
       );
     } else {
       final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);

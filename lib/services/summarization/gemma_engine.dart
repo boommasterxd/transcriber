@@ -22,7 +22,21 @@ class GemmaEngine {
   static final GemmaEngine instance = GemmaEngine._();
 
   String? _loadedModelId;
+  String? _loadedBackendId;
   InferenceModel? _model;
+
+  PreferredBackend? _backend(String backendId) {
+    switch (backendId) {
+      case 'gpu':
+        return PreferredBackend.gpu;
+      case 'cpu':
+        return PreferredBackend.cpu;
+      case 'npu':
+        return PreferredBackend.npu;
+      default:
+        return null; // auto — let the plugin choose (GPU with CPU fallback).
+    }
+  }
 
   ModelType _modelType(String id) {
     switch (id) {
@@ -87,17 +101,19 @@ class GemmaEngine {
     await builder.install();
   }
 
-  /// Ensures [spec] is the active, loaded model (installing from cache if needed).
-  Future<void> _ensureActive(GemmaModelSpec spec, String? hfToken) async {
-    if (_loadedModelId == spec.id && _model != null) return;
+  /// Ensures [spec] is the active, loaded model on the chosen [backendId]
+  /// (installing from cache if needed; reloading if model or backend changed).
+  Future<void> _ensureActive(GemmaModelSpec spec, String? hfToken, String backendId) async {
+    if (_loadedModelId == spec.id && _loadedBackendId == backendId && _model != null) return;
     // Re-running install for an already-downloaded model just activates it.
     await _install(spec, hfToken, null);
     _model = await FlutterGemma.getActiveModel(
       maxTokens: spec.maxTokens,
-      preferredBackend: PreferredBackend.gpu,
+      preferredBackend: _backend(backendId),
       supportAudio: spec.supportsAudio,
     );
     _loadedModelId = spec.id;
+    _loadedBackendId = backendId;
   }
 
   /// Summarizes a transcript into structured output using a fresh session.
@@ -107,8 +123,9 @@ class GemmaEngine {
     required bool german,
     required String fallbackTitle,
     String? hfToken,
+    String backendId = 'auto',
   }) async {
-    await _ensureActive(spec, hfToken);
+    await _ensureActive(spec, hfToken, backendId);
     final session = await _model!.createSession();
     try {
       await session.addQueryChunk(
@@ -127,11 +144,17 @@ class GemmaEngine {
 
 /// [SummarizationService] backed by an on-device Gemma model.
 class GemmaSummarizationService implements SummarizationService {
-  GemmaSummarizationService(this.modelId, {required this.fallbackTitle, this.hfToken});
+  GemmaSummarizationService(
+    this.modelId, {
+    required this.fallbackTitle,
+    this.hfToken,
+    this.backendId = 'auto',
+  });
 
   final String modelId;
   final String fallbackTitle;
   final String? hfToken;
+  final String backendId;
 
   @override
   Future<SummaryResult> summarize(String transcript, {required bool german}) =>
@@ -141,5 +164,6 @@ class GemmaSummarizationService implements SummarizationService {
         german: german,
         fallbackTitle: fallbackTitle,
         hfToken: hfToken,
+        backendId: backendId,
       );
 }

@@ -7,6 +7,7 @@ import '../data/catalog/gemma_catalog.dart';
 import '../data/catalog/remote_catalog.dart';
 import '../data/catalog/whisper_catalog.dart';
 import '../data/models/app_settings.dart';
+import '../data/models/inference_backend.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
 import '../data/models/transcription_language.dart';
@@ -40,6 +41,9 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setWhisperModel(String id) => _persist(state.copyWith(whisperModelId: id));
 
   Future<void> setGemmaModel(String id) => _persist(state.copyWith(gemmaModelId: id));
+
+  Future<void> setGemmaBackend(InferenceBackend backend) =>
+      _persist(state.copyWith(gemmaBackend: backend));
 
   Future<void> setAsrProvider(RemoteProviderId provider) =>
       _persist(state.copyWith(asrProvider: provider));
