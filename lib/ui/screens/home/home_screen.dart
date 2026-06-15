@@ -27,7 +27,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _query = '';
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+    final result = await FilePicker.pickFiles(type: FileType.audio);
     final path = result?.files.single.path;
     if (path == null || !mounted) return;
     await AppNavigator.startProcessing(
