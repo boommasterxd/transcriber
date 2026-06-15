@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/l10n/app_strings.dart';
 import '../core/theme/app_accent.dart';
+import '../data/catalog/gemma_catalog.dart';
+import '../data/catalog/remote_catalog.dart';
+import '../data/catalog/whisper_catalog.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
@@ -53,4 +56,17 @@ final settingsControllerProvider =
 final stringsProvider = Provider<AppStrings>((ref) {
   final language = ref.watch(settingsControllerProvider.select((s) => s.language));
   return AppStrings.of(language);
+});
+
+/// Compact label of the currently active models, e.g. "Whisper Base · Gemma 3"
+/// (on-device) or "Anthropic · Claude Sonnet 4.5" (cloud).
+final activeModelLabelProvider = Provider<String>((ref) {
+  final s = ref.watch(settingsControllerProvider);
+  if (s.mode.isLocal) {
+    final asr = WhisperCatalog.byId(s.whisperModelId).displayName;
+    final llm = GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first;
+    return '$asr · $llm';
+  }
+  final provider = RemoteCatalog.provider(s.provider).name;
+  return '$provider · ${s.currentRemoteModel.displayName}';
 });

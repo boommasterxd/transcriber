@@ -1,0 +1,201 @@
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_accent.dart';
+import '../../core/theme/app_palette.dart';
+
+/// Primary accent pill button with optional leading/trailing icon.
+class PillButton extends StatelessWidget {
+  const PillButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.trailingIcon,
+    this.height = 58,
+    this.outlined = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final IconData? trailingIcon;
+  final double height;
+  final bool outlined;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final fg = outlined ? palette.accent : palette.onAccent;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: outlined ? Colors.transparent : palette.accent,
+          borderRadius: BorderRadius.circular(9999),
+          border: outlined ? Border.all(color: palette.line2, width: 1.5) : null,
+          boxShadow: outlined
+              ? null
+              : [
+                  BoxShadow(
+                    color: palette.accent.withValues(alpha: 0.36),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (icon != null) ...[Icon(icon, color: fg, size: 19), const SizedBox(width: 9)],
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: fg),
+              ),
+            ),
+            if (trailingIcon != null) ...[const SizedBox(width: 9), Icon(trailingIcon, color: fg, size: 19)],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular surface button (back, settings, share, close).
+class IconCircleButton extends StatelessWidget {
+  const IconCircleButton({super.key, required this.icon, required this.onTap, this.size = 42});
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: palette.surface,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: palette.shadow, blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Icon(icon, size: size * 0.45, color: palette.body),
+      ),
+    );
+  }
+}
+
+/// Item for a [PillSegment].
+class SegmentItem {
+  const SegmentItem({required this.label, this.icon});
+  final String label;
+  final IconData? icon;
+}
+
+/// Segmented pill toggle (e.g. Hell/Dunkel, Deutsch/English).
+class PillSegment extends StatelessWidget {
+  const PillSegment({
+    super.key,
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<SegmentItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: palette.chip, borderRadius: BorderRadius.circular(9999)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < items.length; i++)
+            GestureDetector(
+              onTap: () => onSelected(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+                decoration: BoxDecoration(
+                  color: i == selectedIndex ? palette.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (items[i].icon != null) ...[
+                      Icon(
+                        items[i].icon,
+                        size: 15,
+                        color: i == selectedIndex ? palette.accent : palette.muted,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      items[i].label,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: i == selectedIndex ? palette.accent : palette.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Row of selectable accent color swatches.
+class AccentSwatches extends StatelessWidget {
+  const AccentSwatches({super.key, required this.selected, required this.onSelected, this.size = 40});
+
+  final AppAccent selected;
+  final ValueChanged<AppAccent> onSelected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Row(
+      children: [
+        for (final accent in AppAccent.values)
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: GestureDetector(
+              onTap: () => onSelected(accent),
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: accent.color,
+                  shape: BoxShape.circle,
+                  boxShadow: accent == selected
+                      ? [
+                          BoxShadow(color: palette.surface, spreadRadius: 3),
+                          BoxShadow(color: accent.color, spreadRadius: 5),
+                        ]
+                      : [BoxShadow(color: palette.shadow, blurRadius: 8)],
+                ),
+                child: accent == selected
+                    ? const Icon(Icons.check, color: Colors.white, size: 16)
+                    : null,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
