@@ -26,11 +26,22 @@ class AppearanceSection extends ConsumerWidget {
         children: [
           AnimatedSegmentedControl(
             options: [
+              SegmentOption(t.system, icon: Icons.brightness_auto_outlined),
               SegmentOption(t.light, icon: Icons.light_mode_outlined),
               SegmentOption(t.dark, icon: Icons.dark_mode_outlined),
             ],
-            selectedIndex: settings.isDark ? 1 : 0,
-            onChanged: (i) => ctrl.setBrightness(i == 1 ? Brightness.dark : Brightness.light),
+            selectedIndex: switch (settings.themeMode) {
+              ThemeMode.system => 0,
+              ThemeMode.light => 1,
+              ThemeMode.dark => 2,
+            },
+            onChanged: (i) => ctrl.setThemeMode(
+              switch (i) {
+                1 => ThemeMode.light,
+                2 => ThemeMode.dark,
+                _ => ThemeMode.system,
+              },
+            ),
           ),
           Divider(height: 28, color: palette.line),
           Text(

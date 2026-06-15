@@ -56,6 +56,7 @@ class AppStrings {
     required this.setPriv,
     required this.uiLang,
     required this.theme,
+    required this.system,
     required this.light,
     required this.dark,
     required this.accentC,
@@ -143,7 +144,7 @@ class AppStrings {
       micPermissionTitle,
       micPermissionBody;
   final String setTitle, setAppear, setAsr, setLlm, setLang, setPriv, uiLang;
-  final String theme, light, dark, accentC, dl, delete, runningLocal, autoLang, transLang;
+  final String theme, system, light, dark, accentC, dl, delete, runningLocal, autoLang, transLang;
   final String proc, modeLocalT, modeLocalS, modeRemoteT, modeRemoteS, noteLocal, noteRemote;
   final String provider,
       apiKey,
@@ -212,6 +213,7 @@ class AppStrings {
     setPriv: 'Datenschutz',
     uiLang: 'App-Sprache',
     theme: 'Erscheinungsbild',
+    system: 'System',
     light: 'Hell',
     dark: 'Dunkel',
     accentC: 'Akzentfarbe',
@@ -313,6 +315,7 @@ class AppStrings {
     setPriv: 'Privacy',
     uiLang: 'App language',
     theme: 'Appearance',
+    system: 'System',
     light: 'Light',
     dark: 'Dark',
     accentC: 'Accent color',

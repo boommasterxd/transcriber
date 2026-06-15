@@ -18,7 +18,7 @@ class TranscriberApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final brightness = ref.watch(settingsControllerProvider.select((s) => s.brightness));
+    final themeMode = ref.watch(settingsControllerProvider.select((s) => s.themeMode));
     final accent = ref.watch(settingsControllerProvider.select((s) => s.accent));
     final language = ref.watch(settingsControllerProvider.select((s) => s.language));
 
@@ -28,7 +28,7 @@ class TranscriberApp extends ConsumerWidget {
       navigatorKey: navigatorKey,
       theme: AppTheme.build(Brightness.light, accent),
       darkTheme: AppTheme.build(Brightness.dark, accent),
-      themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
+      themeMode: themeMode,
       locale: Locale(language.code),
       supportedLocales: const [Locale('de'), Locale('en')],
       localizationsDelegates: const [

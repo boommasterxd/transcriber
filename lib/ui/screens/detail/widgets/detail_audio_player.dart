@@ -13,7 +13,7 @@ import '../../../widgets/waveforms.dart';
 class DetailAudioPlayer extends StatefulWidget {
   const DetailAudioPlayer({super.key, required this.audioPath, required this.durationSec});
 
-  final String? audioPath;
+  final String audioPath;
   final int durationSec;
 
   @override
@@ -27,7 +27,7 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
   Duration _position = Duration.zero;
   Duration _total = Duration.zero;
 
-  bool get _hasAudio => widget.audioPath != null && File(widget.audioPath!).existsSync();
+  bool get _hasAudio => File(widget.audioPath).existsSync();
 
   @override
   void initState() {
@@ -39,7 +39,7 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
     final player = AudioPlayer();
     _player = player;
     try {
-      final duration = await player.setFilePath(widget.audioPath!);
+      final duration = await player.setFilePath(widget.audioPath);
       _total = duration ?? Duration(seconds: widget.durationSec);
       player.positionStream.listen((p) {
         if (mounted) setState(() => _position = p);

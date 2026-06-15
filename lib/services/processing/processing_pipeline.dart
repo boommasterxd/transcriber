@@ -112,14 +112,15 @@ class ProcessingPipeline {
     required String apiKey,
     void Function(double progress)? onModelProgress,
   }) async {
+    final languageCode = settings.transcriptionLanguage.code;
     if (settings.asrMode.isLocal) {
       final wav = await _converter.toWhisperWav(audioPath);
       return WhisperTranscriptionService(settings.whisperModelId, onProgress: onModelProgress)
-          .transcribe(wav, languageCode: 'auto');
+          .transcribe(wav, languageCode: languageCode);
     }
     final client = RemoteClientFactory.create(settings.asrProvider, apiKey);
     return RemoteTranscriptionService(client, settings.asrModelId(settings.asrProvider))
-        .transcribe(audioPath, languageCode: 'auto');
+        .transcribe(audioPath, languageCode: languageCode);
   }
 
   Future<SummaryResult> _summarize({

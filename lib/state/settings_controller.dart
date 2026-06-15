@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Brightness;
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/l10n/app_strings.dart';
@@ -6,6 +6,7 @@ import '../core/theme/app_accent.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
+import '../data/models/transcription_language.dart';
 import '../services/platform/app_icon_service.dart';
 import '../services/processing/processing_profile.dart';
 import 'providers.dart';
@@ -21,8 +22,10 @@ class SettingsController extends Notifier<AppSettings> {
     await ref.read(settingsRepositoryProvider).save(next);
   }
 
-  Future<void> setBrightness(Brightness brightness) =>
-      _persist(state.copyWith(brightness: brightness));
+  Future<void> setThemeMode(ThemeMode mode) => _persist(state.copyWith(themeMode: mode));
+
+  Future<void> setTranscriptionLanguage(TranscriptionLanguage language) =>
+      _persist(state.copyWith(transcriptionLanguage: language));
 
   Future<void> setAccent(AppAccent accent) async {
     await _persist(state.copyWith(accent: accent));

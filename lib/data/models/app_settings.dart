@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Brightness;
+import 'package:flutter/material.dart' show ThemeMode;
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_accent.dart';
@@ -7,6 +7,7 @@ import '../catalog/gemma_catalog.dart';
 import '../catalog/whisper_catalog.dart';
 import 'processing_mode.dart';
 import 'remote_provider.dart';
+import 'transcription_language.dart';
 
 /// Immutable snapshot of all user preferences.
 ///
@@ -16,9 +17,10 @@ import 'remote_provider.dart';
 /// are stored separately in secure storage.
 class AppSettings {
   const AppSettings({
-    required this.brightness,
+    required this.themeMode,
     required this.accent,
     required this.language,
+    required this.transcriptionLanguage,
     required this.asrMode,
     required this.summaryMode,
     required this.whisperModelId,
@@ -32,9 +34,11 @@ class AppSettings {
     required this.hfToken,
   });
 
-  final Brightness brightness;
+  /// System / Light / Dark — `system` follows the OS setting.
+  final ThemeMode themeMode;
   final AppAccent accent;
   final AppLanguage language;
+  final TranscriptionLanguage transcriptionLanguage;
 
   final ProcessingMode asrMode;
   final ProcessingMode summaryMode;
@@ -53,7 +57,6 @@ class AppSettings {
   final bool onboarded;
   final String hfToken;
 
-  bool get isDark => brightness == Brightness.dark;
   bool get isFullyLocal => asrMode.isLocal && summaryMode.isLocal;
 
   String summaryModelId(RemoteProviderId p) =>
@@ -63,9 +66,10 @@ class AppSettings {
       asrModelByProvider[p] ?? RemoteCatalog.asrDefault(p);
 
   factory AppSettings.initial() => AppSettings(
-        brightness: Brightness.light,
+        themeMode: ThemeMode.system,
         accent: AppAccent.violet,
         language: AppLanguage.de,
+        transcriptionLanguage: TranscriptionLanguage.auto,
         asrMode: ProcessingMode.onDevice,
         summaryMode: ProcessingMode.onDevice,
         whisperModelId: WhisperCatalog.defaultId,
@@ -74,15 +78,16 @@ class AppSettings {
         summaryProvider: RemoteProviderId.anthropic,
         chatModelByProvider: const {},
         asrModelByProvider: const {},
-        autoDeleteAudio: true,
+        autoDeleteAudio: false,
         onboarded: false,
         hfToken: '',
       );
 
   AppSettings copyWith({
-    Brightness? brightness,
+    ThemeMode? themeMode,
     AppAccent? accent,
     AppLanguage? language,
+    TranscriptionLanguage? transcriptionLanguage,
     ProcessingMode? asrMode,
     ProcessingMode? summaryMode,
     String? whisperModelId,
@@ -96,9 +101,10 @@ class AppSettings {
     String? hfToken,
   }) =>
       AppSettings(
-        brightness: brightness ?? this.brightness,
+        themeMode: themeMode ?? this.themeMode,
         accent: accent ?? this.accent,
         language: language ?? this.language,
+        transcriptionLanguage: transcriptionLanguage ?? this.transcriptionLanguage,
         asrMode: asrMode ?? this.asrMode,
         summaryMode: summaryMode ?? this.summaryMode,
         whisperModelId: whisperModelId ?? this.whisperModelId,
@@ -113,9 +119,10 @@ class AppSettings {
       );
 
   Map<String, dynamic> toJson() => {
-        'brightness': brightness == Brightness.dark ? 'dark' : 'light',
+        'themeMode': themeMode.name,
         'accent': accent.id,
         'language': language.code,
+        'transcriptionLanguage': transcriptionLanguage.code,
         'asrMode': asrMode.id,
         'summaryMode': summaryMode.id,
         'whisperModelId': whisperModelId,
@@ -140,9 +147,10 @@ class AppSettings {
     ProcessingMode mode(String key) => ProcessingMode.fromId((j[key] as String?) ?? legacyMode);
 
     return AppSettings(
-      brightness: j['brightness'] == 'dark' ? Brightness.dark : Brightness.light,
+      themeMode: _themeModeFrom(j),
       accent: AppAccent.fromId(j['accent'] as String?),
       language: AppLanguage.fromCode(j['language'] as String?),
+      transcriptionLanguage: TranscriptionLanguage.fromCode(j['transcriptionLanguage'] as String?),
       asrMode: mode('asrMode'),
       summaryMode: mode('summaryMode'),
       whisperModelId: j['whisperModelId'] as String? ?? WhisperCatalog.defaultId,
@@ -151,10 +159,23 @@ class AppSettings {
       summaryProvider: RemoteProviderId.fromId(j['summaryProvider'] as String?),
       chatModelByProvider: parseMap('chatModelByProvider'),
       asrModelByProvider: parseMap('asrModelByProvider'),
-      autoDeleteAudio: j['autoDeleteAudio'] as bool? ?? true,
+      autoDeleteAudio: j['autoDeleteAudio'] as bool? ?? false,
       onboarded: j['onboarded'] as bool? ?? false,
       hfToken: hfToken,
     );
+  }
+
+  static ThemeMode _themeModeFrom(Map<String, dynamic> j) {
+    final raw = j['themeMode'] as String?;
+    if (raw != null) {
+      return ThemeMode.values.firstWhere((m) => m.name == raw, orElse: () => ThemeMode.system);
+    }
+    // Back-compat: older builds stored a light/dark brightness.
+    return switch (j['brightness']) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => ThemeMode.system,
+    };
   }
 
   static RemoteProviderId _asrProviderFromId(String? id) {
