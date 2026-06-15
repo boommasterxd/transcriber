@@ -85,18 +85,22 @@ jobs:
       # wiping the partial each time, so the build never has to download it.
       - name: Pre-install NDK (with retry)
         run: |
-          NDK_VER=28.2.13676358
+          # The app pins 28.2.x; Flutter/most plugins use the 27.x default. Install
+          # both up front so the Gradle build never has to (its on-demand fetch
+          # intermittently corrupts with "Archive is not a ZIP archive").
           SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           SDKMGR=$(find "$SDK/cmdline-tools" -name sdkmanager | sort -V | tail -1)
           echo "Using $SDKMGR"
-          for i in 1 2 3 4; do
-            rm -rf "$SDK/ndk/$NDK_VER"
-            if yes | "$SDKMGR" "ndk;$NDK_VER"; then
-              echo "NDK $NDK_VER installed."; break
-            fi
-            echo "Attempt $i failed; retrying in $((i*5))s"; sleep $((i*5))
+          for NDK_VER in 27.0.12077973 28.2.13676358; do
+            for i in 1 2 3 4; do
+              rm -rf "$SDK/ndk/$NDK_VER"
+              if yes | "$SDKMGR" "ndk;$NDK_VER"; then
+                echo "NDK $NDK_VER installed."; break
+              fi
+              echo "NDK $NDK_VER attempt $i failed; retrying in $((i*5))s"; sleep $((i*5))
+            done
+            test -d "$SDK/ndk/$NDK_VER"
           done
-          test -d "$SDK/ndk/$NDK_VER"
 
       - name: Build
         run: |
