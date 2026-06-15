@@ -18,13 +18,10 @@ class ShareActivity : FlutterActivity() {
     private val channelName = "app/share"
     private var sharedPath: String? = null
 
+    // shareMain is a top-level @pragma('vm:entry-point') function in the main
+    // library (lib/main.dart), so the default entrypoint-library resolution
+    // finds it in AOT/release builds.
     override fun getDartEntrypointFunctionName(): String = "shareMain"
-
-    // shareMain lives in lib/share_entrypoint.dart, not lib/main.dart — Flutter
-    // looks for a named entrypoint in the main library by default and finds
-    // nothing (blank transparent screen) unless we point it at the right file.
-    override fun getDartEntrypointLibraryUri(): String? =
-        "package:transcriber/share_entrypoint.dart"
 
     // Transparent window — required so the source app shows through.
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent

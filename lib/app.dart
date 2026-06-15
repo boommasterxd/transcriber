@@ -70,26 +70,33 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
   void _showCrashIfAny() {
     final prefs = ref.read(sharedPreferencesProvider);
     final crash = prefs.getString('last_crash');
-    if (crash == null || crash.isEmpty) return;
+    final shareDiag = prefs.getString('share_diag');
+    final parts = [
+      if (shareDiag != null && shareDiag.isNotEmpty) 'SHARE: $shareDiag',
+      if (crash != null && crash.isNotEmpty) 'CRASH:\n$crash',
+    ];
+    if (parts.isEmpty) return;
+    final text = parts.join('\n\n');
     final ctx = navigatorKey.currentContext ?? context;
     showDialog<void>(
       context: ctx,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Letzter Crash'),
+        title: const Text('Diagnose'),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: SelectableText(crash, style: const TextStyle(fontSize: 12)),
+            child: SelectableText(text, style: const TextStyle(fontSize: 12)),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Clipboard.setData(ClipboardData(text: crash)),
+            onPressed: () => Clipboard.setData(ClipboardData(text: text)),
             child: const Text('Kopieren'),
           ),
           TextButton(
             onPressed: () {
               prefs.remove('last_crash');
+              prefs.remove('share_diag');
               Navigator.of(dialogCtx).pop();
             },
             child: const Text('Schließen'),

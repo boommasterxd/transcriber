@@ -7,7 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'data/repositories/settings_repository.dart';
+import 'share_entrypoint.dart';
 import 'state/providers.dart';
+
+/// Entry point for the translucent ShareActivity (the see-through share
+/// overlay). Defined here in the main library — not in share_entrypoint.dart —
+/// because Flutter resolves a named Dart entrypoint against the root library in
+/// AOT/release builds; a named entrypoint in another file is unreliable there.
+@pragma('vm:entry-point')
+Future<void> shareMain() => runShareEntrypoint();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
