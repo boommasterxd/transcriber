@@ -20,7 +20,7 @@ import 'widgets/onboarding_models_step.dart';
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
-  static const _stepCount = 4;
+  static const _stepCount = 5;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -194,17 +194,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         );
       case 3:
-      default:
         return _StepBody(
           title: t.obPrivacyT,
           subtitle: t.obPrivacyS,
-          child: Column(
-            children: [
-              const PrivacySection(),
-              const SizedBox(height: 24),
-              _ReadyBanner(strings: t),
-            ],
-          ),
+          child: const PrivacySection(),
+        );
+      case 4:
+      default:
+        return Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: _ReadyBanner(strings: t),
         );
     }
   }
@@ -369,9 +368,10 @@ class _TimelineRow extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 11),
+          child: SizedBox(
+            height: 46,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: palette.ink)),

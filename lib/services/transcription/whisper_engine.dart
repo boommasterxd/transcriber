@@ -54,21 +54,18 @@ class WhisperEngine {
   }
 
   /// Transcribes a 16 kHz mono WAV file with the given model id and thread count.
+  ///
+  /// No `onDownloadProgress` callback is passed: whisper_kit ships the [Whisper]
+  /// instance to a background isolate, and a closure capturing app state would
+  /// be unsendable. Weights are pre-fetched via [download] instead.
   Future<TranscriptionResult> transcribeWith(
     String modelId,
     String wavPath, {
     String? languageCode,
     int threads = 4,
-    void Function(double progress)? onProgress,
   }) async {
     final dir = await _modelDir();
-    final whisper = Whisper(
-      model: _model(modelId),
-      modelDir: dir,
-      onDownloadProgress: (received, total) {
-        if (total > 0) onProgress?.call(received / total);
-      },
-    );
+    final whisper = Whisper(model: _model(modelId), modelDir: dir);
     final request = TranscribeRequest(
       audio: wavPath,
       language: (languageCode == null || languageCode.isEmpty) ? 'auto' : languageCode,
@@ -115,11 +112,10 @@ class WhisperEngine {
 
 /// [TranscriptionService] backed by an on-device Whisper model.
 class WhisperTranscriptionService implements TranscriptionService {
-  WhisperTranscriptionService(this.modelId, {this.threads = 4, this.onProgress});
+  WhisperTranscriptionService(this.modelId, {this.threads = 4});
 
   final String modelId;
   final int threads;
-  final void Function(double progress)? onProgress;
 
   @override
   Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) =>
@@ -128,6 +124,5 @@ class WhisperTranscriptionService implements TranscriptionService {
         audioPath,
         languageCode: languageCode,
         threads: threads,
-        onProgress: onProgress,
       );
 }

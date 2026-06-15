@@ -58,7 +58,6 @@ class TranscriptionSection extends ConsumerWidget {
                     downloadLabel: t.dl,
                     status: manager.whisperStatus(m.id),
                     selected: settings.whisperModelId == m.id,
-                    recommended: m.recommended,
                     isLast: i == WhisperCatalog.models.length - 1,
                     onSelect: () => ctrl.setWhisperModel(m.id),
                     onDownload: () => managerCtrl.downloadWhisper(m.id),

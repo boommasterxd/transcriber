@@ -118,7 +118,6 @@ class ProcessingPipeline {
       return WhisperTranscriptionService(
         settings.whisperModelId,
         threads: settings.whisperThreads,
-        onProgress: onModelProgress,
       ).transcribe(wav, languageCode: languageCode);
     }
     final client = RemoteClientFactory.create(settings.asrProvider, apiKey);

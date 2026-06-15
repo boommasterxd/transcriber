@@ -66,6 +66,25 @@ class PrivacySection extends ConsumerWidget {
                 ],
               ),
             ),
+          Divider(height: 26, color: palette.line),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: palette.mintSoft, borderRadius: BorderRadius.circular(11)),
+                child: Icon(Icons.shield_outlined, size: 18, color: palette.mint),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Text(
+                  t.privacyStatement,
+                  style: TextStyle(fontSize: 12.5, height: 1.45, color: palette.body),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

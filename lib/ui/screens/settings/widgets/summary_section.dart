@@ -58,7 +58,6 @@ class SummarySection extends ConsumerWidget {
                     downloadLabel: t.dl,
                     status: manager.gemmaStatus(m.id),
                     selected: settings.gemmaModelId == m.id,
-                    recommended: m.recommended,
                     isLast: i == GemmaCatalog.models.length - 1,
                     onSelect: () => ctrl.setGemmaModel(m.id),
                     onDownload: () => managerCtrl.downloadGemma(m.id),

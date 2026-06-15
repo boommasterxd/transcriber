@@ -23,7 +23,6 @@ class DownloadableModelTile extends ConsumerWidget {
     required this.onSelect,
     required this.onDownload,
     this.onDelete,
-    this.recommended = false,
   });
 
   final IconData icon;
@@ -36,7 +35,6 @@ class DownloadableModelTile extends ConsumerWidget {
   final VoidCallback onSelect;
   final Future<void> Function() onDownload;
   final Future<void> Function()? onDelete;
-  final bool recommended;
 
   Future<void> _guard(BuildContext context, Future<void> Function() action) async {
     try {
@@ -105,7 +103,6 @@ class DownloadableModelTile extends ConsumerWidget {
       title: title,
       subtitle: subtitle,
       isLast: isLast,
-      badge: recommended ? _RecommendedPill(label: ref.watch(stringsProvider).recommended) : null,
       trailing: trailing,
       onTap: () {
         if (status.isDownloaded) {
@@ -114,25 +111,6 @@ class DownloadableModelTile extends ConsumerWidget {
           _guard(context, onDownload);
         }
       },
-    );
-  }
-}
-
-/// Small accent pill marking a recommended model.
-class _RecommendedPill extends StatelessWidget {
-  const _RecommendedPill({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(9999)),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: palette.accentDeep),
-      ),
     );
   }
 }

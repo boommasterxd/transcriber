@@ -124,6 +124,7 @@ class AppStrings {
     required this.notLoaded,
     required this.deleteModelConfirm,
     required this.cancel,
+    required this.privacyStatement,
     required this.recommended,
     required this.asrExplain,
     required this.summaryExplain,
@@ -204,7 +205,7 @@ class AppStrings {
   final String errorTitle, retry, dismiss, modelMissingTitle, modelMissingBody, goToSettings;
   final String downloading, todoSingular, todoPlural;
   final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
-  final String keyMissing, notLoaded, deleteModelConfirm, cancel;
+  final String keyMissing, notLoaded, deleteModelConfirm, cancel, privacyStatement;
   final String recommended, asrExplain, summaryExplain;
   final String obModelsT, obModelsS, obSimple, obAdvanced, obRecommendedSetup, obDownloadGo;
   final String obSkip, obNext, obStart;
@@ -330,6 +331,7 @@ class AppStrings {
     notLoaded: 'nicht geladen',
     deleteModelConfirm: 'Dieses Modell vom Gerät entfernen? Du kannst es jederzeit erneut laden.',
     cancel: 'Abbrechen',
+    privacyStatement: 'Keine Telemetrie, kein Tracking – wir sammeln niemals Daten. Nur im Cloud-Modus werden Audio & Text zur Verarbeitung an den von dir gewählten Anbieter gesendet.',
     recommended: 'Empfohlen',
     asrExplain: 'Transkription = Sprache → Text',
     summaryExplain: 'Zusammenfassung = Kernpunkte & To-dos',
@@ -472,6 +474,7 @@ class AppStrings {
     notLoaded: 'not downloaded',
     deleteModelConfirm: 'Remove this model from the device? You can download it again anytime.',
     cancel: 'Cancel',
+    privacyStatement: 'No telemetry, no tracking — we never collect data. Only in cloud mode are audio & text sent to your chosen provider for processing.',
     recommended: 'Recommended',
     asrExplain: 'Transcription = speech → text',
     summaryExplain: 'Summary = key points & to-dos',
