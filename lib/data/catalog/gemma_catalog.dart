@@ -17,7 +17,11 @@ const int _mb = 1024 * 1024;
 class GemmaCatalog {
   const GemmaCatalog._();
 
-  static const List<GemmaModelSpec> models = [
+  /// Sorted alphabetically by display name for the settings list.
+  static final List<GemmaModelSpec> models = List.of(_models)
+    ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+
+  static const List<GemmaModelSpec> _models = [
     GemmaModelSpec(
       id: 'smollm_135m',
       displayName: 'SmolLM 135M',
@@ -27,16 +31,6 @@ class GemmaCatalog {
       downloadUrl:
           'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_seq128_q8_ekv1280.task',
       maxTokens: 1280,
-    ),
-    GemmaModelSpec(
-      id: 'functiongemma_270m',
-      displayName: 'FunctionGemma 270M',
-      sizeBytes: 284 * _mb,
-      badge: ModelBadge.fast,
-      modelTypeId: 'functionGemma',
-      downloadUrl:
-          'https://huggingface.co/litert-community/functiongemma-270m/resolve/main/functiongemma-270m-it-q8.litertlm',
-      maxTokens: 2048,
     ),
     GemmaModelSpec(
       id: 'gemma3_270m',

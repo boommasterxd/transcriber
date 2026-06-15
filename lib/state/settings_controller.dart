@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/l10n/app_strings.dart';
 import '../core/theme/app_accent.dart';
+import '../data/catalog/gemma_catalog.dart';
+import '../data/catalog/remote_catalog.dart';
+import '../data/catalog/whisper_catalog.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
 import '../data/models/transcription_language.dart';
-import '../services/platform/app_icon_service.dart';
-import '../services/processing/processing_profile.dart';
+import 'connections_controller.dart';
 import 'providers.dart';
 
 /// Holds and persists [AppSettings]. Seeded synchronously from
@@ -27,11 +29,7 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setTranscriptionLanguage(TranscriptionLanguage language) =>
       _persist(state.copyWith(transcriptionLanguage: language));
 
-  Future<void> setAccent(AppAccent accent) async {
-    await _persist(state.copyWith(accent: accent));
-    // Recolor the Android launcher icon to match.
-    await const AppIconService().setIcon(accent.id);
-  }
+  Future<void> setAccent(AppAccent accent) => _persist(state.copyWith(accent: accent));
 
   Future<void> setLanguage(AppLanguage language) => _persist(state.copyWith(language: language));
 
@@ -75,9 +73,47 @@ final stringsProvider = Provider<AppStrings>((ref) {
   return AppStrings.of(language);
 });
 
-/// Compact label of the currently active models for the home pill, e.g.
-/// "Whisper Base · Claude Sonnet 4.5".
-final activeModelLabelProvider = Provider<String>((ref) {
+/// Status of the currently configured models for the home/sidebar chip.
+class HomeModelStatus {
+  const HomeModelStatus({required this.label, required this.fullyLocal, required this.warning});
+  final String label;
+  final bool fullyLocal;
+
+  /// True when a selected cloud stage has no API key yet (needs attention).
+  final bool warning;
+}
+
+/// Computes a state-aware label for the active models, flagging cloud stages
+/// that aren't connected yet so the chip can warn instead of showing a model
+/// that can't actually run.
+final homeModelStatusProvider = Provider<HomeModelStatus>((ref) {
   final s = ref.watch(settingsControllerProvider);
-  return ProcessingProfile.resolve(s).combinedLabel;
+  final connections = ref.watch(connectionsControllerProvider);
+  final t = ref.watch(stringsProvider);
+  var warning = false;
+
+  String stage(bool isLocal, String localName, RemoteProviderId provider, String modelId) {
+    if (isLocal) return localName;
+    final connected = connections[provider] ?? false;
+    if (!connected) {
+      warning = true;
+      return '${RemoteCatalog.provider(provider).name} · ${t.keyMissing}';
+    }
+    return modelId;
+  }
+
+  final asr = stage(
+    s.asrMode.isLocal,
+    WhisperCatalog.byId(s.whisperModelId).displayName,
+    s.asrProvider,
+    s.asrModelId(s.asrProvider),
+  );
+  final summary = stage(
+    s.summaryMode.isLocal,
+    GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first,
+    s.summaryProvider,
+    s.summaryModelId(s.summaryProvider),
+  );
+
+  return HomeModelStatus(label: '$asr · $summary', fullyLocal: s.isFullyLocal, warning: warning);
 });

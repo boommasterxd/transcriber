@@ -120,6 +120,7 @@ class AppStrings {
     required this.tabFile,
     required this.audioDelTitle,
     required this.audioDelSub,
+    required this.keyMissing,
   });
 
   final AppLanguage language;
@@ -170,6 +171,7 @@ class AppStrings {
   final String errorTitle, retry, dismiss, modelMissingTitle, modelMissingBody, goToSettings;
   final String downloading, todoSingular, todoPlural;
   final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
+  final String keyMissing;
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -284,6 +286,7 @@ class AppStrings {
     tabFile: 'Datei',
     audioDelTitle: 'Audio gelöscht',
     audioDelSub: 'Nach der Verarbeitung automatisch entfernt',
+    keyMissing: 'Schlüssel fehlt',
   );
 
   static const AppStrings _en = AppStrings(
@@ -392,5 +395,6 @@ class AppStrings {
     tabFile: 'File',
     audioDelTitle: 'Audio deleted',
     audioDelSub: 'Automatically removed after processing',
+    keyMissing: 'Key missing',
   );
 }

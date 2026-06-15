@@ -93,8 +93,7 @@ class _Sidebar extends ConsumerWidget {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final notes = ref.watch(notesControllerProvider);
-    final activeLabel = ref.watch(activeModelLabelProvider);
-    final isLocal = ref.watch(settingsControllerProvider.select((s) => s.isFullyLocal));
+    final status = ref.watch(homeModelStatusProvider);
 
     final filtered = query.isEmpty
         ? notes
@@ -158,24 +157,33 @@ class _Sidebar extends ConsumerWidget {
                   onTap: () => AppNavigator.openSettings(context),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                    decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(9999)),
+                    decoration: BoxDecoration(
+                      color: status.warning ? palette.coralSoft : palette.accentSoft,
+                      borderRadius: BorderRadius.circular(9999),
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: isLocal ? palette.mint : palette.accent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
+                        status.warning
+                            ? Icon(Icons.warning_amber_rounded, size: 13, color: palette.coral)
+                            : Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: status.fullyLocal ? palette.mint : palette.accent,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            activeLabel,
+                            status.label,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: palette.accentDeep),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: status.warning ? palette.coralInk : palette.accentDeep,
+                            ),
                           ),
                         ),
                       ],

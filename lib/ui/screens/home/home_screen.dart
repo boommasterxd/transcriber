@@ -43,8 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final notes = ref.watch(notesControllerProvider);
-    final activeLabel = ref.watch(activeModelLabelProvider);
-    final isLocal = ref.watch(settingsControllerProvider.select((s) => s.isFullyLocal));
+    final modelStatus = ref.watch(homeModelStatusProvider);
 
     final filtered = _query.isEmpty
         ? notes
@@ -108,9 +107,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 22),
                   child: ActiveModelPill(
-                    label: activeLabel,
+                    label: modelStatus.label,
                     activeText: t.modelActive,
-                    isLocal: isLocal,
+                    isLocal: modelStatus.fullyLocal,
+                    warning: modelStatus.warning,
                     onTap: () => AppNavigator.openSettings(context),
                   ),
                 ),

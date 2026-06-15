@@ -51,14 +51,28 @@ class _RootGate extends ConsumerStatefulWidget {
   ConsumerState<_RootGate> createState() => _RootGateState();
 }
 
-class _RootGateState extends ConsumerState<_RootGate> {
+class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupShareIntents();
-      _syncLauncherIcon();
-    });
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _setupShareIntents());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Switch the launcher icon only while backgrounded — toggling the active
+    // launcher alias while in use would kill the running app.
+    if (state == AppLifecycleState.paused) {
+      final accent = ref.read(settingsControllerProvider).accent;
+      const AppIconService().setIcon(accent.id);
+    }
   }
 
   Future<void> _setupShareIntents() async {
@@ -66,11 +80,6 @@ class _RootGateState extends ConsumerState<_RootGate> {
     final initial = await service.initialSharedAudio();
     if (initial != null) _handleShared(initial);
     service.listen(_handleShared);
-  }
-
-  Future<void> _syncLauncherIcon() async {
-    final accent = ref.read(settingsControllerProvider).accent;
-    await const AppIconService().setIcon(accent.id);
   }
 
   void _handleShared(String path) {
