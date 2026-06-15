@@ -8,6 +8,7 @@ import '../service_exceptions.dart';
 import '../transcription/transcription_service.dart';
 import 'mime_utils.dart';
 import 'remote_api_client.dart';
+import 'remote_http.dart';
 
 /// Google Gemini client. Chat via `generateContent`; transcription by sending
 /// the audio inline to a multimodal Gemini model; model listing via `models`.
@@ -24,7 +25,10 @@ class GoogleClient implements RemoteApiClient {
 
   @override
   Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
-    final response = await _http.get(Uri.parse('$_base/models?key=$apiKey&pageSize=200'));
+    final response = await guardTimeout(
+      _http.get(Uri.parse('$_base/models?key=$apiKey&pageSize=200')),
+      remoteListTimeout,
+    );
     if (response.statusCode != 200) {
       throw RemoteApiException(
         'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
@@ -75,6 +79,14 @@ class GoogleClient implements RemoteApiClient {
     required String model,
   }) async {
     final bytes = await File(audioPath).readAsBytes();
+    // Gemini's inline_data is base64 (≈ +33%) and the request caps out around
+    // 20 MB. Guard with a clear error rather than letting it fail opaquely.
+    if (bytes.length > 14 * 1024 * 1024) {
+      throw RemoteApiException(
+        'Audio zu groß für Gemini-Inline-Transkription (${bytes.length ~/ (1024 * 1024)} MB; '
+        'Limit ~14 MB). Nutze ein kürzeres Audio, OpenAI oder die Transkription auf dem Gerät.',
+      );
+    }
     final prompt = languageCode == null || languageCode.isEmpty || languageCode == 'auto'
         ? 'Transcribe this audio verbatim. Return only the transcript text.'
         : 'Transcribe this audio verbatim in language "$languageCode". Return only the transcript text.';
@@ -91,19 +103,26 @@ class GoogleClient implements RemoteApiClient {
         },
       ],
     };
-    final text = (await _generateContent(model, body)).trim();
+    final text = (await _generateContent(model, body, timeout: remoteTranscribeTimeout)).trim();
     return TranscriptionResult(
       text: text,
       segments: text.isEmpty ? const [] : [TranscriptLine(time: '0:00', text: text)],
     );
   }
 
-  Future<String> _generateContent(String modelId, Map<String, dynamic> body) async {
+  Future<String> _generateContent(
+    String modelId,
+    Map<String, dynamic> body, {
+    Duration timeout = remoteChatTimeout,
+  }) async {
     final uri = Uri.parse('$_base/models/$modelId:generateContent?key=$apiKey');
-    final response = await _http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
+    final response = await guardTimeout(
+      _http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ),
+      timeout,
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(

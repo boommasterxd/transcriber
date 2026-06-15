@@ -7,6 +7,7 @@ import '../../data/models/transcript_note.dart';
 import '../service_exceptions.dart';
 import '../transcription/transcription_service.dart';
 import 'remote_api_client.dart';
+import 'remote_http.dart';
 
 /// Base client for OpenAI-style `/chat/completions` APIs. Reused by OpenAI and
 /// OpenRouter (which is wire-compatible).
@@ -26,20 +27,23 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     required String user,
     required String modelId,
   }) async {
-    final response = await _http.post(
-      Uri.parse('$baseUrl/chat/completions'),
-      headers: {
-        'Authorization': 'Bearer $apiKey',
-        'Content-Type': 'application/json',
-        ...extraHeaders,
-      },
-      body: jsonEncode({
-        'model': modelId,
-        'messages': [
-          {'role': 'system', 'content': system},
-          {'role': 'user', 'content': user},
-        ],
-      }),
+    final response = await guardTimeout(
+      _http.post(
+        Uri.parse('$baseUrl/chat/completions'),
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+          ...extraHeaders,
+        },
+        body: jsonEncode({
+          'model': modelId,
+          'messages': [
+            {'role': 'system', 'content': system},
+            {'role': 'user', 'content': user},
+          ],
+        }),
+      ),
+      remoteChatTimeout,
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
@@ -56,9 +60,12 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
 
   @override
   Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
-    final response = await _http.get(
-      Uri.parse('$baseUrl/models'),
-      headers: {'Authorization': 'Bearer $apiKey', ...extraHeaders},
+    final response = await guardTimeout(
+      _http.get(
+        Uri.parse('$baseUrl/models'),
+        headers: {'Authorization': 'Bearer $apiKey', ...extraHeaders},
+      ),
+      remoteListTimeout,
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
@@ -95,16 +102,20 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     String? languageCode,
     required String model,
   }) async {
+    // Only Whisper supports `verbose_json` (with timestamped segments). The
+    // newer gpt-4o-transcribe models reject it — request plain `json` there and
+    // fall back to a single segment from the full text below.
+    final wantsSegments = model.toLowerCase().contains('whisper');
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/audio/transcriptions'))
       ..headers['Authorization'] = 'Bearer $apiKey'
       ..fields['model'] = model
-      ..fields['response_format'] = 'verbose_json';
+      ..fields['response_format'] = wantsSegments ? 'verbose_json' : 'json';
     if (languageCode != null && languageCode.isNotEmpty && languageCode != 'auto') {
       request.fields['language'] = languageCode;
     }
     request.files.add(await http.MultipartFile.fromPath('file', audioPath));
 
-    final streamed = await _http.send(request);
+    final streamed = await guardTimeout(_http.send(request), remoteTranscribeTimeout);
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode != 200) {
       throw RemoteApiException(
