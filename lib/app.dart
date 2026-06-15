@@ -11,6 +11,7 @@ import 'state/providers.dart';
 import 'ui/navigation.dart';
 import 'ui/screens/home/home_screen.dart';
 import 'ui/screens/onboarding/onboarding_screen.dart';
+import 'ui/screens/tablet/tablet_home_screen.dart';
 
 /// Root widget: wires theme, localization and the share-intent listener.
 class TranscriberApp extends ConsumerWidget {
@@ -85,6 +86,14 @@ class _RootGateState extends ConsumerState<_RootGate> {
     final onboarded = ref.watch(settingsControllerProvider.select((s) => s.onboarded));
     // Touch strings so the widget rebuilds on language change.
     ref.watch(stringsProvider.select((AppStrings s) => s.language));
-    return onboarded ? const HomeScreen() : const OnboardingScreen();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Wide screens (tablets) use the split-view and skip onboarding.
+        final isTablet = constraints.maxWidth >= 720;
+        if (isTablet) return const TabletHomeScreen();
+        return onboarded ? const HomeScreen() : const OnboardingScreen();
+      },
+    );
   }
 }

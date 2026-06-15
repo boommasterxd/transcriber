@@ -15,6 +15,7 @@ import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/surfaces.dart';
 import '../../widgets/todo_tile.dart';
+import 'widgets/audio_deleted_notice.dart';
 import 'widgets/detail_audio_player.dart';
 import 'widgets/processed_with_card.dart';
 
@@ -89,10 +90,11 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
                   controller: controller,
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
                   children: [
-                    if (note.audioPath != null) ...[
-                      DetailAudioPlayer(audioPath: note.audioPath!, durationSec: note.durationSec),
-                      const SizedBox(height: 18),
-                    ],
+                    if (note.audioPath != null)
+                      DetailAudioPlayer(audioPath: note.audioPath!, durationSec: note.durationSec)
+                    else
+                      AudioDeletedNotice(strings: t),
+                    const SizedBox(height: 18),
                     _SummaryCard(gist: note.gist, label: t.shSummary),
                     const SizedBox(height: 16),
                     _MetaChips(note: note, strings: t),

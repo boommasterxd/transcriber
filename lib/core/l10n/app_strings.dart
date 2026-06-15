@@ -114,6 +114,12 @@ class AppStrings {
     required this.downloading,
     required this.todoSingular,
     required this.todoPlural,
+    required this.tabEmptyTitle,
+    required this.tabEmptySub,
+    required this.tabRecord,
+    required this.tabFile,
+    required this.audioDelTitle,
+    required this.audioDelSub,
   });
 
   final AppLanguage language;
@@ -163,6 +169,7 @@ class AppStrings {
   final String mSpkTemplate, voiceNote, recordingLabel, justNow, processingTitle;
   final String errorTitle, retry, dismiss, modelMissingTitle, modelMissingBody, goToSettings;
   final String downloading, todoSingular, todoPlural;
+  final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -271,6 +278,12 @@ class AppStrings {
     downloading: 'Wird geladen…',
     todoSingular: 'To-do',
     todoPlural: 'To-dos',
+    tabEmptyTitle: 'Wähle ein Transkript',
+    tabEmptySub: 'Links auswählen – oder ein neues Audio aufnehmen oder importieren.',
+    tabRecord: 'Aufnehmen',
+    tabFile: 'Datei',
+    audioDelTitle: 'Audio gelöscht',
+    audioDelSub: 'Nach der Verarbeitung automatisch entfernt',
   );
 
   static const AppStrings _en = AppStrings(
@@ -373,5 +386,11 @@ class AppStrings {
     downloading: 'Downloading…',
     todoSingular: 'to-do',
     todoPlural: 'to-dos',
+    tabEmptyTitle: 'Select a transcript',
+    tabEmptySub: 'Pick one on the left — or record or import a new audio.',
+    tabRecord: 'Record',
+    tabFile: 'File',
+    audioDelTitle: 'Audio deleted',
+    audioDelSub: 'Automatically removed after processing',
   );
 }
