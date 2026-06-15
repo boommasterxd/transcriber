@@ -13,6 +13,7 @@ import '../../../data/models/transcript_note.dart';
 import '../../../state/notes_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
+import '../../widgets/note_actions.dart';
 import '../../widgets/surfaces.dart';
 import '../../widgets/todo_tile.dart';
 import 'widgets/audio_deleted_notice.dart';
@@ -55,6 +56,14 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
     SharePlus.instance.share(ShareParams(text: body, subject: note.title));
   }
 
+  Future<void> _delete(TranscriptNote note) async {
+    final t = ref.read(stringsProvider);
+    if (await confirmDeleteNote(context, t)) {
+      await deleteNoteWithUndo(ref, note, t);
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -82,6 +91,7 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
               german: t.isDe,
               onBack: () => Navigator.of(context).pop(),
               onShare: () => _share(note),
+              onDelete: () => _delete(note),
             ),
             Expanded(
               child: FadeEdges(
@@ -159,11 +169,13 @@ class _Header extends StatelessWidget {
     required this.german,
     required this.onBack,
     required this.onShare,
+    required this.onDelete,
   });
   final TranscriptNote note;
   final bool german;
   final VoidCallback onBack;
   final VoidCallback onShare;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +203,9 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          IconCircleButton(icon: Icons.delete_outline_rounded, onTap: onDelete),
+          const SizedBox(width: 8),
           IconCircleButton(icon: Icons.ios_share_rounded, onTap: onShare),
         ],
       ),

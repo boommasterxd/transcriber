@@ -13,6 +13,7 @@ import '../../../data/models/transcript_note.dart';
 import '../../../state/notes_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
+import '../../widgets/note_actions.dart';
 import '../../widgets/surfaces.dart';
 import '../../widgets/todo_tile.dart';
 import '../../widgets/waveforms.dart';
@@ -57,6 +58,14 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane> {
     );
   }
 
+  Future<void> _delete(TranscriptNote note) async {
+    final t = ref.read(stringsProvider);
+    if (await confirmDeleteNote(context, t)) {
+      // The tablet home clears the selection automatically once the note is gone.
+      await deleteNoteWithUndo(ref, note, t);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -68,7 +77,7 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane> {
 
     return Column(
       children: [
-        _Header(note: note, german: t.isDe, onShare: () => _share(note)),
+        _Header(note: note, german: t.isDe, onShare: () => _share(note), onDelete: () => _delete(note)),
         Expanded(
           child: FadeEdges(
             topHeight: 16,
@@ -129,10 +138,16 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.note, required this.german, required this.onShare});
+  const _Header({
+    required this.note,
+    required this.german,
+    required this.onShare,
+    required this.onDelete,
+  });
   final TranscriptNote note;
   final bool german;
   final VoidCallback onShare;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +181,9 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          IconCircleButton(icon: Icons.delete_outline_rounded, size: 44, onTap: onDelete),
+          const SizedBox(width: 8),
           IconCircleButton(icon: Icons.ios_share_rounded, size: 44, onTap: onShare),
         ],
       ),

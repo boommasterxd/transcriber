@@ -159,6 +159,10 @@ class AppStrings {
     required this.obReadyS,
     required this.svcChannelName,
     required this.svcChannelDesc,
+    required this.deleteNoteTitle,
+    required this.deleteNoteBody,
+    required this.noteDeleted,
+    required this.undo,
   });
 
   final AppLanguage language;
@@ -219,6 +223,7 @@ class AppStrings {
   final String obTranscribeT, obTranscribeS, obSummaryT, obSummaryS;
   final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
   final String svcChannelName, svcChannelDesc;
+  final String deleteNoteTitle, deleteNoteBody, noteDeleted, undo;
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -372,6 +377,10 @@ class AppStrings {
     obReadyS: 'Du kannst alle Einstellungen später jederzeit anpassen.',
     svcChannelName: 'Zusammenfassung',
     svcChannelDesc: 'Läuft, während eine Zusammenfassung auf dem Gerät erstellt wird.',
+    deleteNoteTitle: 'Transkript löschen?',
+    deleteNoteBody: 'Dieses Transkript wird dauerhaft entfernt.',
+    noteDeleted: 'Transkript gelöscht',
+    undo: 'Rückgängig',
   );
 
   static const AppStrings _en = AppStrings(
@@ -519,5 +528,9 @@ class AppStrings {
     obReadyS: 'You can adjust every setting later in Settings.',
     svcChannelName: 'Summarization',
     svcChannelDesc: 'Runs while a summary is being generated on your device.',
+    deleteNoteTitle: 'Delete transcript?',
+    deleteNoteBody: 'This transcript will be permanently removed.',
+    noteDeleted: 'Transcript deleted',
+    undo: 'Undo',
   );
 }

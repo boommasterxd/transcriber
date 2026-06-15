@@ -9,6 +9,7 @@ import '../../../state/notes_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
 import '../../widgets/buttons.dart';
+import '../../widgets/note_actions.dart';
 import '../../widgets/surfaces.dart';
 import '../../widgets/waveforms.dart';
 import 'tablet_detail_pane.dart';
@@ -214,11 +215,26 @@ class _Sidebar extends ConsumerWidget {
                       ),
                     ),
                     for (final note in group.notes)
-                      _SidebarRow(
-                        note: note,
-                        strings: t,
-                        selected: note.id == selectedId,
-                        onTap: () => onSelect(note.id),
+                      Dismissible(
+                        key: ValueKey(note.id),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (_) => deleteNoteWithUndo(ref, note, t),
+                        background: Container(
+                          margin: const EdgeInsets.only(bottom: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          alignment: Alignment.centerRight,
+                          decoration: BoxDecoration(
+                            color: palette.coral,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+                        ),
+                        child: _SidebarRow(
+                          note: note,
+                          strings: t,
+                          selected: note.id == selectedId,
+                          onTap: () => onSelect(note.id),
+                        ),
                       ),
                   ],
                 ],

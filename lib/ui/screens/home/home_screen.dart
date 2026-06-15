@@ -9,6 +9,7 @@ import '../../../state/notes_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
 import '../../widgets/buttons.dart';
+import '../../widgets/note_actions.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/active_model_pill.dart';
 import 'widgets/home_search_bar.dart';
@@ -131,11 +132,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           children: [
                             for (var i = 0; i < group.notes.length; i++)
-                              NoteListItem(
-                                note: group.notes[i],
-                                strings: t,
-                                isLast: i == group.notes.length - 1,
-                                onTap: () => AppNavigator.openDetail(context, group.notes[i].id),
+                              Dismissible(
+                                key: ValueKey(group.notes[i].id),
+                                direction: DismissDirection.endToStart,
+                                onDismissed: (_) => deleteNoteWithUndo(ref, group.notes[i], t),
+                                background: const _SwipeDeleteBackground(),
+                                child: NoteListItem(
+                                  note: group.notes[i],
+                                  strings: t,
+                                  isLast: i == group.notes.length - 1,
+                                  onTap: () => AppNavigator.openDetail(context, group.notes[i].id),
+                                ),
                               ),
                           ],
                         ),
@@ -202,6 +209,22 @@ class _FilePickTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Red trash background revealed when swiping a note left to delete it.
+class _SwipeDeleteBackground extends StatelessWidget {
+  const _SwipeDeleteBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      color: palette.coral,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
     );
   }
 }
