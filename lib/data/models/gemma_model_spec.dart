@@ -14,7 +14,7 @@ class GemmaModelSpec {
     required this.downloadUrl,
     required this.maxTokens,
     this.supportsAudio = false,
-    this.needsHfToken = true,
+    this.needsHfToken = false,
   });
 
   final String id;

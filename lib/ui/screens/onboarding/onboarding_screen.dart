@@ -8,7 +8,6 @@ import '../../../state/model_manager_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/effects.dart';
-import '../../widgets/surfaces.dart';
 import '../settings/widgets/appearance_section.dart';
 import '../settings/widgets/language_section.dart';
 import '../settings/widgets/privacy_section.dart';
@@ -28,19 +27,29 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
+  final PageController _pageController = PageController();
   int _step = 0;
 
+  static const _slide = Duration(milliseconds: 320);
+  static const _curve = Curves.easeOutCubic;
+
   bool get _isLast => _step == OnboardingScreen._stepCount - 1;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _next() {
     if (_isLast) {
       ref.read(settingsControllerProvider.notifier).completeOnboarding();
     } else {
-      setState(() => _step++);
+      _pageController.nextPage(duration: _slide, curve: _curve);
     }
   }
 
-  void _prev() => setState(() => _step = (_step - 1).clamp(0, OnboardingScreen._stepCount - 1));
+  void _prev() => _pageController.previousPage(duration: _slide, curve: _curve);
   void _finish() => ref.read(settingsControllerProvider.notifier).completeOnboarding();
 
   /// A model step may only advance once it's functionally configured: an
@@ -99,31 +108,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onSkip: _finish,
               ),
               Expanded(
-                child: FadeEdges(
-                  topHeight: 14,
-                  builder: (context, controller) => SingleChildScrollView(
-                    controller: controller,
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 600),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (child, anim) => FadeTransition(
-                              opacity: anim,
-                              child: SlideTransition(
-                                position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
-                                    .animate(anim),
-                                child: child,
-                              ),
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (i) => setState(() => _step = i),
+                  children: [
+                    for (var i = 0; i < OnboardingScreen._stepCount; i++)
+                      SingleChildScrollView(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 600),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+                              child: _stepContentFor(i, t),
                             ),
-                            child: KeyedSubtree(key: ValueKey(_step), child: _stepContent(t)),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                  ],
                 ),
               ),
               Padding(
@@ -163,8 +165,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Widget _stepContent(AppStrings t) {
-    switch (_step) {
+  Widget _stepContentFor(int step, AppStrings t) {
+    switch (step) {
       case 0:
         return _WelcomeStep(strings: t);
       case 1:

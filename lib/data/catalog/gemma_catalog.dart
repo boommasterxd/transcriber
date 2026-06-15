@@ -1,17 +1,12 @@
 import '../models/gemma_model_spec.dart';
 import '../models/model_badge.dart';
 
-/// On-device summary models available through the `flutter_gemma` package.
+/// On-device summary models from the `flutter_gemma` package.
 ///
-/// This mirrors flutter_gemma's supported text/multimodal LLMs. Vision-only
-/// (FastVLM) and embedding models are intentionally excluded since they can't
-/// produce text summaries. Audio-capable Gemma 3n / Gemma 4 models can also
-/// transcribe.
-///
-/// Download URLs point at the canonical LiteRT (`.litertlm`) / MediaPipe
-/// (`.task`) artifacts on Hugging Face. Several repos are gated and require a
-/// free Hugging Face token (configured in settings). Keep these in one place so
-/// they're easy to update if an upstream path changes.
+/// All entries are **public** LiteRT/MediaPipe artifacts on Hugging Face
+/// (`litert-community` etc.) that download **without an access token**. URLs use
+/// the `/resolve/main/` form and are taken from the flutter_gemma example app.
+/// Audio-capable Gemma 4 models can also transcribe.
 const int _mb = 1024 * 1024;
 
 class GemmaCatalog {
@@ -29,7 +24,7 @@ class GemmaCatalog {
       badge: ModelBadge.veryFast,
       modelTypeId: 'general',
       downloadUrl:
-          'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_seq128_q8_ekv1280.task',
+          'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_multi-prefill-seq_q8_ekv1280.task',
       maxTokens: 1280,
     ),
     GemmaModelSpec(
@@ -39,7 +34,7 @@ class GemmaCatalog {
       badge: ModelBadge.veryFast,
       modelTypeId: 'gemmaIt',
       downloadUrl:
-          'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma-3-270m-it-q8.litertlm',
+          'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma3-270m-it-q8.task',
       maxTokens: 2048,
     ),
     GemmaModelSpec(
@@ -59,8 +54,8 @@ class GemmaCatalog {
       badge: ModelBadge.balanced,
       modelTypeId: 'gemmaIt',
       downloadUrl:
-          'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-      maxTokens: 4096,
+          'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
+      maxTokens: 2048,
     ),
     GemmaModelSpec(
       id: 'qwen3_06b',
@@ -69,7 +64,7 @@ class GemmaCatalog {
       badge: ModelBadge.balanced,
       modelTypeId: 'qwen3',
       downloadUrl:
-          'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B_multi-prefill-seq_q8_ekv4096.litertlm',
+          'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
       maxTokens: 4096,
     ),
     GemmaModelSpec(
@@ -89,7 +84,7 @@ class GemmaCatalog {
       badge: ModelBadge.reasoning,
       modelTypeId: 'deepSeek',
       downloadUrl:
-          'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv1280.task',
+          'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',
       maxTokens: 4096,
     ),
     GemmaModelSpec(
@@ -99,18 +94,7 @@ class GemmaCatalog {
       badge: ModelBadge.multimodal,
       modelTypeId: 'gemma4',
       downloadUrl:
-          'https://huggingface.co/google/gemma-4-e2b-it-litert/resolve/main/gemma-4-e2b-it-int4.litertlm',
-      maxTokens: 4096,
-      supportsAudio: true,
-    ),
-    GemmaModelSpec(
-      id: 'gemma3n_e2b',
-      displayName: 'Gemma 3n · E2B',
-      sizeBytes: 3100 * _mb,
-      badge: ModelBadge.multimodal,
-      modelTypeId: 'gemmaIt',
-      downloadUrl:
-          'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
+          'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
       maxTokens: 4096,
       supportsAudio: true,
     ),
@@ -119,9 +103,9 @@ class GemmaCatalog {
       displayName: 'Phi-4 Mini',
       sizeBytes: 3900 * _mb,
       badge: ModelBadge.reasoning,
-      modelTypeId: 'phi',
+      modelTypeId: 'general',
       downloadUrl:
-          'https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task',
+          'https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.task',
       maxTokens: 4096,
     ),
     GemmaModelSpec(
@@ -131,18 +115,7 @@ class GemmaCatalog {
       badge: ModelBadge.multimodal,
       modelTypeId: 'gemma4',
       downloadUrl:
-          'https://huggingface.co/google/gemma-4-e4b-it-litert/resolve/main/gemma-4-e4b-it-int4.litertlm',
-      maxTokens: 4096,
-      supportsAudio: true,
-    ),
-    GemmaModelSpec(
-      id: 'gemma3n_e4b',
-      displayName: 'Gemma 3n · E4B',
-      sizeBytes: 6500 * _mb,
-      badge: ModelBadge.multimodal,
-      modelTypeId: 'gemmaIt',
-      downloadUrl:
-          'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task',
+          'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
       maxTokens: 4096,
       supportsAudio: true,
     ),
@@ -153,7 +126,5 @@ class GemmaCatalog {
   static GemmaModelSpec byId(String id) =>
       models.firstWhere((m) => m.id == id, orElse: () => models.firstWhere((m) => m.id == defaultId));
 
-  /// Models that can also transcribe audio on-device (multimodal).
-  static List<GemmaModelSpec> get audioCapable =>
-      models.where((m) => m.supportsAudio).toList();
+  static List<GemmaModelSpec> get audioCapable => models.where((m) => m.supportsAudio).toList();
 }
