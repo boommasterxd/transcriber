@@ -27,6 +27,7 @@ class AppSettings {
     required this.whisperModelId,
     required this.gemmaModelId,
     required this.gemmaBackend,
+    required this.whisperThreads,
     required this.asrProvider,
     required this.summaryProvider,
     required this.chatModelByProvider,
@@ -50,6 +51,9 @@ class AppSettings {
 
   /// Preferred compute backend for the on-device summary model.
   final InferenceBackend gemmaBackend;
+
+  /// CPU thread count for on-device Whisper transcription (whisper.cpp).
+  final int whisperThreads;
 
   final RemoteProviderId asrProvider;
   final RemoteProviderId summaryProvider;
@@ -80,6 +84,7 @@ class AppSettings {
         whisperModelId: WhisperCatalog.defaultId,
         gemmaModelId: GemmaCatalog.defaultId,
         gemmaBackend: InferenceBackend.auto,
+        whisperThreads: 4,
         asrProvider: RemoteProviderId.openai,
         summaryProvider: RemoteProviderId.anthropic,
         chatModelByProvider: const {},
@@ -99,6 +104,7 @@ class AppSettings {
     String? whisperModelId,
     String? gemmaModelId,
     InferenceBackend? gemmaBackend,
+    int? whisperThreads,
     RemoteProviderId? asrProvider,
     RemoteProviderId? summaryProvider,
     Map<RemoteProviderId, String>? chatModelByProvider,
@@ -117,6 +123,7 @@ class AppSettings {
         whisperModelId: whisperModelId ?? this.whisperModelId,
         gemmaModelId: gemmaModelId ?? this.gemmaModelId,
         gemmaBackend: gemmaBackend ?? this.gemmaBackend,
+        whisperThreads: whisperThreads ?? this.whisperThreads,
         asrProvider: asrProvider ?? this.asrProvider,
         summaryProvider: summaryProvider ?? this.summaryProvider,
         chatModelByProvider: chatModelByProvider ?? this.chatModelByProvider,
@@ -136,6 +143,7 @@ class AppSettings {
         'whisperModelId': whisperModelId,
         'gemmaModelId': gemmaModelId,
         'gemmaBackend': gemmaBackend.id,
+        'whisperThreads': whisperThreads,
         'asrProvider': asrProvider.id,
         'summaryProvider': summaryProvider.id,
         'chatModelByProvider': chatModelByProvider.map((k, v) => MapEntry(k.id, v)),
@@ -165,6 +173,7 @@ class AppSettings {
       whisperModelId: j['whisperModelId'] as String? ?? WhisperCatalog.defaultId,
       gemmaModelId: j['gemmaModelId'] as String? ?? GemmaCatalog.defaultId,
       gemmaBackend: InferenceBackend.fromId(j['gemmaBackend'] as String?),
+      whisperThreads: (j['whisperThreads'] as num?)?.toInt() ?? 4,
       asrProvider: _asrProviderFromId(j['asrProvider'] as String?),
       summaryProvider: RemoteProviderId.fromId(j['summaryProvider'] as String?),
       chatModelByProvider: parseMap('chatModelByProvider'),

@@ -45,6 +45,9 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setGemmaBackend(InferenceBackend backend) =>
       _persist(state.copyWith(gemmaBackend: backend));
 
+  Future<void> setWhisperThreads(int threads) =>
+      _persist(state.copyWith(whisperThreads: threads.clamp(1, 8)));
+
   Future<void> setAsrProvider(RemoteProviderId provider) =>
       _persist(state.copyWith(asrProvider: provider));
 

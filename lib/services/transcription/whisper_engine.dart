@@ -53,11 +53,12 @@ class WhisperEngine {
     if (await file.exists()) await file.delete();
   }
 
-  /// Transcribes a 16 kHz mono WAV file with the given model id.
+  /// Transcribes a 16 kHz mono WAV file with the given model id and thread count.
   Future<TranscriptionResult> transcribeWith(
     String modelId,
     String wavPath, {
     String? languageCode,
+    int threads = 4,
     void Function(double progress)? onProgress,
   }) async {
     final dir = await _modelDir();
@@ -71,6 +72,7 @@ class WhisperEngine {
     final request = TranscribeRequest(
       audio: wavPath,
       language: (languageCode == null || languageCode.isEmpty) ? 'auto' : languageCode,
+      threads: threads,
       isTranslate: false,
     );
     final dynamic response = await whisper.transcribe(transcribeRequest: request);
@@ -113,9 +115,10 @@ class WhisperEngine {
 
 /// [TranscriptionService] backed by an on-device Whisper model.
 class WhisperTranscriptionService implements TranscriptionService {
-  WhisperTranscriptionService(this.modelId, {this.onProgress});
+  WhisperTranscriptionService(this.modelId, {this.threads = 4, this.onProgress});
 
   final String modelId;
+  final int threads;
   final void Function(double progress)? onProgress;
 
   @override
@@ -124,6 +127,7 @@ class WhisperTranscriptionService implements TranscriptionService {
         modelId,
         audioPath,
         languageCode: languageCode,
+        threads: threads,
         onProgress: onProgress,
       );
 }

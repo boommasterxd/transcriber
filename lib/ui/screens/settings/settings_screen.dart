@@ -27,7 +27,9 @@ class SettingsScreen extends ConsumerWidget {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final manager = ref.watch(modelManagerControllerProvider);
-    final summaryLocal = ref.watch(settingsControllerProvider.select((s) => s.summaryMode.isLocal));
+    final showBackend = ref.watch(
+      settingsControllerProvider.select((s) => s.summaryMode.isLocal || s.asrMode.isLocal),
+    );
 
     final storage = _storageSummary(manager, t);
 
@@ -60,7 +62,7 @@ class SettingsScreen extends ConsumerWidget {
                     const TranscriptionSection(),
                     SectionLabel(t.setLlm),
                     const SummarySection(),
-                    if (summaryLocal) ...[
+                    if (showBackend) ...[
                       const SectionLabel('Backend'),
                       const BackendSection(),
                     ],
