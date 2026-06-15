@@ -44,7 +44,9 @@ class TranscriptionSection extends ConsumerWidget {
           cloudLabel: t.modeRemoteT,
         ),
         const SizedBox(height: 12),
-        if (isLocal)
+        if (isLocal) ...[
+          StageExplainer(text: t.summaryQualityHint),
+          const SizedBox(height: 10),
           SurfaceCard(
             clip: true,
             child: Column(
@@ -65,8 +67,8 @@ class TranscriptionSection extends ConsumerWidget {
                   ),
               ],
             ),
-          )
-        else ...[
+          ),
+        ] else ...[
           ProviderPicker(
             allowed: RemoteCatalog.asrProviders,
             selected: provider,

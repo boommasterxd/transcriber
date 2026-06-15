@@ -53,14 +53,17 @@ class ProcessingPipeline {
         !await WhisperEngine.instance.isDownloaded(settings.whisperModelId)) {
       throw ModelNotDownloadedException(strings.modelMissingBody);
     }
-    if (settings.summaryMode.isLocal &&
+    // The summary stage only matters when summarization is enabled.
+    final summaryLocal = settings.summarizeEnabled && settings.summaryMode.isLocal;
+    final summaryCloud = settings.summarizeEnabled && settings.summaryMode.isCloud;
+    if (summaryLocal &&
         !await GemmaEngine.instance.isDownloaded(GemmaCatalog.byId(settings.gemmaModelId))) {
       throw ModelNotDownloadedException(strings.modelMissingBody);
     }
     if (settings.asrMode.isCloud && asrApiKey.isEmpty) {
       throw MissingApiKeyException(strings.connectFirst);
     }
-    if (settings.summaryMode.isCloud && summaryApiKey.isEmpty) {
+    if (summaryCloud && summaryApiKey.isEmpty) {
       throw MissingApiKeyException(strings.connectFirst);
     }
 
@@ -73,7 +76,7 @@ class ProcessingPipeline {
     // thread (and it survives backgrounding). The service is started here, while
     // the app is in the foreground — Android 12+ forbids starting one from the
     // background, so we must not defer it.
-    if (settings.asrMode.isLocal || settings.summaryMode.isLocal) {
+    if (settings.asrMode.isLocal || summaryLocal) {
       return ProcessingForegroundService(
         notificationTitle: strings.processingTitle,
         notificationText: strings.shTranscribe,
@@ -130,17 +133,25 @@ class ProcessingPipeline {
       onModelProgress: onModelProgress,
     );
 
-    onStep?.call(ProcessingStep.summarizing);
-    final summary = await _summarize(
-      transcript: transcription.text,
-      settings: settings,
-      apiKey: summaryApiKey,
-      german: german,
-      fallbackTitle: fallbackTitle,
-    );
+    // Skip the AI summary entirely when the user turned it off — the note then
+    // holds just the transcript.
+    final SummaryResult summary;
+    if (settings.summarizeEnabled) {
+      onStep?.call(ProcessingStep.summarizing);
+      summary = await _summarize(
+        transcript: transcription.text,
+        settings: settings,
+        apiKey: summaryApiKey,
+        german: german,
+        fallbackTitle: fallbackTitle,
+      );
+    } else {
+      summary = SummaryResult(title: fallbackTitle, gist: '', points: const [], todos: const []);
+    }
 
     final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
     final profile = ProcessingProfile.resolve(settings);
+    final noSummary = !settings.summarizeEnabled;
 
     final retainedPath = settings.autoDeleteAudio ? null : audioPath;
     if (settings.autoDeleteAudio) _deleteQuietly(audioPath);
@@ -153,11 +164,11 @@ class ProcessingPipeline {
       durationSec: durationSec,
       createdAt: DateTime.now(),
       asrIsLocal: profile.asr.isLocal,
-      summaryIsLocal: profile.summary.isLocal,
+      summaryIsLocal: noSummary ? true : profile.summary.isLocal,
       asrName: profile.asr.name,
       asrSub: profile.asr.sub,
-      llmName: profile.summary.name,
-      llmSub: profile.summary.sub,
+      llmName: noSummary ? strings.summaryOff : profile.summary.name,
+      llmSub: noSummary ? '' : profile.summary.sub,
       gist: summary.gist,
       points: summary.points,
       todos: summary.todos.map((t) => TodoItem(text: t)).toList(),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,51 +58,7 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showCrashIfAny();
-      _setupShareIntents();
-    });
-  }
-
-  /// Surfaces a native crash captured by CrashCapture (e.g. the translucent
-  /// ShareActivity) so it can be read/copied without adb.
-  void _showCrashIfAny() {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final crash = prefs.getString('last_crash');
-    final shareDiag = prefs.getString('share_diag');
-    final parts = [
-      if (shareDiag != null && shareDiag.isNotEmpty) 'SHARE: $shareDiag',
-      if (crash != null && crash.isNotEmpty) 'CRASH:\n$crash',
-    ];
-    if (parts.isEmpty) return;
-    final text = parts.join('\n\n');
-    final ctx = navigatorKey.currentContext ?? context;
-    showDialog<void>(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Diagnose'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(text, style: const TextStyle(fontSize: 12)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Clipboard.setData(ClipboardData(text: text)),
-            child: const Text('Kopieren'),
-          ),
-          TextButton(
-            onPressed: () {
-              prefs.remove('last_crash');
-              prefs.remove('share_diag');
-              Navigator.of(dialogCtx).pop();
-            },
-            child: const Text('Schließen'),
-          ),
-        ],
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _setupShareIntents());
   }
 
   @override

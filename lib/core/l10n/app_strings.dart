@@ -163,6 +163,10 @@ class AppStrings {
     required this.deleteNoteBody,
     required this.noteDeleted,
     required this.undo,
+    required this.summaryQualityHint,
+    required this.summarizeTitle,
+    required this.summarizeSub,
+    required this.summaryOff,
   });
 
   final AppLanguage language;
@@ -224,6 +228,7 @@ class AppStrings {
   final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
   final String svcChannelName, svcChannelDesc;
   final String deleteNoteTitle, deleteNoteBody, noteDeleted, undo;
+  final String summaryQualityHint, summarizeTitle, summarizeSub, summaryOff;
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -381,6 +386,10 @@ class AppStrings {
     deleteNoteBody: 'Dieses Transkript wird dauerhaft entfernt.',
     noteDeleted: 'Transkript gelöscht',
     undo: 'Rückgängig',
+    summaryQualityHint: 'Größeres Modell = langsamer, aber bessere Qualität.',
+    summarizeTitle: 'Zusammenfassen',
+    summarizeSub: 'Aus = nur das rohe Transkript, keine KI-Zusammenfassung',
+    summaryOff: 'Keine Zusammenfassung',
   );
 
   static const AppStrings _en = AppStrings(
@@ -532,5 +541,9 @@ class AppStrings {
     deleteNoteBody: 'This transcript will be permanently removed.',
     noteDeleted: 'Transcript deleted',
     undo: 'Undo',
+    summaryQualityHint: 'Bigger model = slower, but better quality.',
+    summarizeTitle: 'Summarize',
+    summarizeSub: 'Off = raw transcript only, no AI summary',
+    summaryOff: 'No summary',
   );
 }

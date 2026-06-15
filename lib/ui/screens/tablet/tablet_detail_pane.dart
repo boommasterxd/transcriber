@@ -206,8 +206,9 @@ class _LeftColumn extends StatelessWidget {
           DetailAudioPlayer(audioPath: note.audioPath!, durationSec: note.durationSec)
         else
           AudioDeletedNotice(strings: strings),
-        const SizedBox(height: 16),
-        Container(
+        if (note.gist.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
           padding: const EdgeInsets.all(17),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
@@ -242,7 +243,8 @@ class _LeftColumn extends StatelessWidget {
               ),
             ],
           ),
-        ),
+          ),
+        ],
         const SizedBox(height: 16),
         _Label(strings.processedWith),
         const SizedBox(height: 12),

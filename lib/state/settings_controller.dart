@@ -67,6 +67,9 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setAutoDelete(bool value) => _persist(state.copyWith(autoDeleteAudio: value));
 
+  Future<void> setSummarizeEnabled(bool value) =>
+      _persist(state.copyWith(summarizeEnabled: value));
+
   Future<void> setHfToken(String token) => _persist(state.copyWith(hfToken: token));
 
   Future<void> completeOnboarding() => _persist(state.copyWith(onboarded: true));
@@ -120,23 +123,30 @@ final homeModelStatusProvider = Provider<HomeModelStatus>((ref) {
     localDownloaded: manager.whisperStatus(s.whisperModelId).isDownloaded,
     provider: s.asrProvider,
   );
-  final summaryIssue = issueFor(
-    isLocal: s.summaryMode.isLocal,
-    localName: GemmaCatalog.byId(s.gemmaModelId).displayName,
-    localDownloaded: manager.gemmaStatus(s.gemmaModelId).isDownloaded,
-    provider: s.summaryProvider,
-  );
+  // When summarization is off, the summary model/key doesn't matter.
+  final summaryIssue = s.summarizeEnabled
+      ? issueFor(
+          isLocal: s.summaryMode.isLocal,
+          localName: GemmaCatalog.byId(s.gemmaModelId).displayName,
+          localDownloaded: manager.gemmaStatus(s.gemmaModelId).isDownloaded,
+          provider: s.summaryProvider,
+        )
+      : null;
+
+  final fullyLocal = s.asrMode.isLocal && (!s.summarizeEnabled || s.summaryMode.isLocal);
 
   final issue = asrIssue ?? summaryIssue;
   if (issue != null) {
-    return HomeModelStatus(label: issue, fullyLocal: s.isFullyLocal, warning: true);
+    return HomeModelStatus(label: issue, fullyLocal: fullyLocal, warning: true);
   }
 
   final asr = s.asrMode.isLocal
       ? WhisperCatalog.byId(s.whisperModelId).displayName
       : s.asrModelId(s.asrProvider);
-  final summary = s.summaryMode.isLocal
-      ? GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first
-      : s.summaryModelId(s.summaryProvider);
-  return HomeModelStatus(label: '$asr · $summary', fullyLocal: s.isFullyLocal, warning: false);
+  final summary = !s.summarizeEnabled
+      ? t.summaryOff
+      : (s.summaryMode.isLocal
+          ? GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first
+          : s.summaryModelId(s.summaryProvider));
+  return HomeModelStatus(label: '$asr · $summary', fullyLocal: fullyLocal, warning: false);
 });

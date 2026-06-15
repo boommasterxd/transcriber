@@ -27,7 +27,7 @@ class BackendSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (settings.summaryMode.isLocal) ...[
+          if (settings.summarizeEnabled && settings.summaryMode.isLocal) ...[
             Text(
               german ? 'Backend (Zusammenfassung)' : 'Backend (summary)',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
@@ -44,7 +44,7 @@ class BackendSection extends ConsumerWidget {
               style: TextStyle(fontSize: 12.5, color: palette.muted),
             ),
           ],
-          if (settings.summaryMode.isLocal && settings.asrMode.isLocal)
+          if (settings.summarizeEnabled && settings.summaryMode.isLocal && settings.asrMode.isLocal)
             Divider(height: 28, color: palette.line),
           if (settings.asrMode.isLocal) ...[
             Row(

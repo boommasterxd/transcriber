@@ -28,7 +28,9 @@ class SettingsScreen extends ConsumerWidget {
     final t = ref.watch(stringsProvider);
     final manager = ref.watch(modelManagerControllerProvider);
     final showBackend = ref.watch(
-      settingsControllerProvider.select((s) => s.summaryMode.isLocal || s.asrMode.isLocal),
+      settingsControllerProvider.select(
+        (s) => (s.summarizeEnabled && s.summaryMode.isLocal) || s.asrMode.isLocal,
+      ),
     );
 
     final storage = _storageSummary(manager, t);

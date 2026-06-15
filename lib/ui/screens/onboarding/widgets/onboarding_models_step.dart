@@ -123,6 +123,8 @@ class _RecommendedCard extends ConsumerWidget {
           StageExplainer(text: t.asrExplain),
           const SizedBox(height: 6),
           StageExplainer(text: t.summaryExplain),
+          const SizedBox(height: 6),
+          StageExplainer(text: t.summaryQualityHint),
           const SizedBox(height: 14),
           _RecRow(
             icon: Icons.graphic_eq_rounded,
