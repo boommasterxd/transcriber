@@ -5,13 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/l10n/app_strings.dart';
 import 'core/theme/app_theme.dart';
 import 'core/toast.dart';
-import 'data/models/transcript_note.dart';
 import 'services/platform/app_icon_service.dart';
 import 'state/settings_controller.dart';
 import 'state/providers.dart';
 import 'ui/navigation.dart';
 import 'ui/screens/home/home_screen.dart';
 import 'ui/screens/onboarding/onboarding_screen.dart';
+import 'ui/screens/share/share_overlay_sheet.dart';
 import 'ui/screens/tablet/tablet_home_screen.dart';
 
 /// Root widget: wires theme, localization and the share-intent listener.
@@ -85,11 +85,9 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
   }
 
   void _handleShared(String path) {
-    AppNavigator.startProcessingFromRoot(
-      audioPath: path,
-      source: NoteSource.shared,
-      fileName: path.split('/').last,
-    );
+    // Shared audio is processed in an overlay sheet (over the app) rather than a
+    // full-screen route, so the result can be previewed and explicitly saved.
+    ShareOverlaySheet.show(audioPath: path, fileName: path.split('/').last);
   }
 
   @override

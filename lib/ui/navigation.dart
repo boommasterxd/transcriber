@@ -64,19 +64,4 @@ class AppNavigator {
     final nav = Navigator.of(context);
     return replace ? nav.pushReplacement(route) : nav.push(route);
   }
-
-  /// Same as [startProcessing] but using the root navigator (for share intents).
-  static Future<void> startProcessingFromRoot({
-    required String audioPath,
-    required NoteSource source,
-    String? fileName,
-  }) {
-    final nav = navigatorKey.currentState;
-    if (nav == null) return Future.value();
-    return nav.push(
-      _fadeSlideRoute(
-        ProcessingScreen(audioPath: audioPath, source: source, fileName: fileName),
-      ),
-    );
-  }
 }
