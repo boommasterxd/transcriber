@@ -19,7 +19,8 @@ class WhisperCatalog {
       id: 'base',
       displayName: 'Whisper Base',
       sizeBytes: 142 * _mb,
-      badge: ModelBadge.fast,
+      badge: ModelBadge.recommended,
+      recommended: true,
     ),
     WhisperModelSpec(
       id: 'small',

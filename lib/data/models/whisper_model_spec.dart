@@ -10,10 +10,12 @@ class WhisperModelSpec {
     required this.displayName,
     required this.sizeBytes,
     required this.badge,
+    this.recommended = false,
   });
 
   final String id;
   final String displayName;
   final int sizeBytes;
   final ModelBadge badge;
+  final bool recommended;
 }

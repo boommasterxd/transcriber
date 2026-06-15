@@ -14,6 +14,7 @@ import 'downloadable_model_tile.dart';
 import 'provider_connect_card.dart';
 import 'provider_picker.dart';
 import 'remote_model_list.dart';
+import 'stage_explainer.dart';
 import 'stage_mode_toggle.dart';
 
 /// Summary stage: on-device Gemma, or any cloud provider + a live model list.
@@ -33,6 +34,8 @@ class SummarySection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        StageExplainer(text: t.summaryExplain),
+        const SizedBox(height: 12),
         StageModeToggle(
           isLocal: isLocal,
           onChanged: (local) =>
@@ -55,6 +58,7 @@ class SummarySection extends ConsumerWidget {
                     downloadLabel: t.dl,
                     status: manager.gemmaStatus(m.id),
                     selected: settings.gemmaModelId == m.id,
+                    recommended: m.recommended,
                     isLast: i == GemmaCatalog.models.length - 1,
                     onSelect: () => ctrl.setGemmaModel(m.id),
                     onDownload: () => managerCtrl.downloadGemma(m.id),

@@ -8,11 +8,11 @@ import '../../../state/model_manager_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/effects.dart';
+import '../../widgets/surfaces.dart';
 import '../settings/widgets/appearance_section.dart';
 import '../settings/widgets/language_section.dart';
 import '../settings/widgets/privacy_section.dart';
-import '../settings/widgets/summary_section.dart';
-import '../settings/widgets/transcription_section.dart';
+import 'widgets/onboarding_models_step.dart';
 
 /// First-run setup wizard. Five steps that configure the app up-front, reusing
 /// the same per-stage settings sections so transcription and summary are chosen
@@ -20,7 +20,7 @@ import '../settings/widgets/transcription_section.dart';
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
-  static const _stepCount = 5;
+  static const _stepCount = 4;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -62,20 +62,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final connectHint = german ? 'Verbinde einen Anbieter, um fortzufahren.' : 'Connect a provider to continue.';
     final downloadHint = german ? 'Lade das Modell herunter, um fortzufahren.' : 'Download the model to continue.';
 
-    switch (_step) {
-      case 1: // transcription
-        final ready = settings.asrMode.isLocal || (connections[settings.asrProvider] ?? false);
-        return (ready: ready, hint: ready ? null : connectHint);
-      case 2: // summary
-        if (settings.summaryMode.isLocal) {
-          final ready = manager.gemmaStatus(settings.gemmaModelId).isDownloaded;
-          return (ready: ready, hint: ready ? null : downloadHint);
-        }
-        final ready = connections[settings.summaryProvider] ?? false;
-        return (ready: ready, hint: ready ? null : connectHint);
-      default:
-        return (ready: true, hint: null);
-    }
+    if (_step != 1) return (ready: true, hint: null);
+
+    // Models step: each stage must be functionally ready — an on-device model
+    // actually downloaded, or a cloud provider connected.
+    final asrReady = settings.asrMode.isLocal
+        ? manager.whisperStatus(settings.whisperModelId).isDownloaded
+        : (connections[settings.asrProvider] ?? false);
+    final summaryReady = settings.summaryMode.isLocal
+        ? manager.gemmaStatus(settings.gemmaModelId).isDownloaded
+        : (connections[settings.summaryProvider] ?? false);
+
+    if (asrReady && summaryReady) return (ready: true, hint: null);
+
+    final missingDownload =
+        (settings.asrMode.isLocal && !asrReady) || (settings.summaryMode.isLocal && !summaryReady);
+    return (ready: false, hint: missingDownload ? downloadHint : connectHint);
   }
 
   @override
@@ -114,13 +116,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   onPageChanged: (i) => setState(() => _step = i),
                   children: [
                     for (var i = 0; i < OnboardingScreen._stepCount; i++)
-                      SingleChildScrollView(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 600),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
-                              child: _stepContentFor(i, t),
+                      FadeEdges(
+                        topHeight: 14,
+                        builder: (context, controller) => SingleChildScrollView(
+                          controller: controller,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 600),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+                                child: _stepContentFor(i, t),
+                              ),
                             ),
                           ),
                         ),
@@ -171,17 +177,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return _WelcomeStep(strings: t);
       case 1:
         return _StepBody(
-          title: t.obTranscribeT,
-          subtitle: t.obTranscribeS,
-          child: const TranscriptionSection(),
+          title: t.obModelsT,
+          subtitle: t.obModelsS,
+          child: const OnboardingModelsStep(),
         );
       case 2:
-        return _StepBody(
-          title: t.obSummaryT,
-          subtitle: t.obSummaryS,
-          child: const SummarySection(),
-        );
-      case 3:
         return _StepBody(
           title: t.obLookT,
           subtitle: t.obLookS,
@@ -193,7 +193,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ],
           ),
         );
-      case 4:
+      case 3:
       default:
         return _StepBody(
           title: t.obPrivacyT,

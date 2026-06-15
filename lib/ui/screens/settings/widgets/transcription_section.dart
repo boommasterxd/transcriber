@@ -13,6 +13,7 @@ import 'downloadable_model_tile.dart';
 import 'provider_connect_card.dart';
 import 'provider_picker.dart';
 import 'remote_model_list.dart';
+import 'stage_explainer.dart';
 import 'stage_mode_toggle.dart';
 
 /// Transcription stage: on-device Whisper, or a cloud ASR provider (OpenAI /
@@ -33,6 +34,8 @@ class TranscriptionSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        StageExplainer(text: t.asrExplain),
+        const SizedBox(height: 12),
         StageModeToggle(
           isLocal: isLocal,
           onChanged: (local) =>
@@ -55,6 +58,7 @@ class TranscriptionSection extends ConsumerWidget {
                     downloadLabel: t.dl,
                     status: manager.whisperStatus(m.id),
                     selected: settings.whisperModelId == m.id,
+                    recommended: m.recommended,
                     isLast: i == WhisperCatalog.models.length - 1,
                     onSelect: () => ctrl.setWhisperModel(m.id),
                     onDownload: () => managerCtrl.downloadWhisper(m.id),

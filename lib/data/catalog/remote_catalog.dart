@@ -68,4 +68,14 @@ class RemoteCatalog {
 
   static String chatDefault(RemoteProviderId id) => defaultChatModelId[id] ?? 'gpt-4o';
   static String asrDefault(RemoteProviderId id) => defaultAsrModelId[id] ?? 'gpt-4o-transcribe';
+
+  /// Page where the user creates an API key for each provider.
+  static const Map<RemoteProviderId, String> keyUrl = {
+    RemoteProviderId.anthropic: 'https://console.anthropic.com/settings/keys',
+    RemoteProviderId.openai: 'https://platform.openai.com/api-keys',
+    RemoteProviderId.google: 'https://aistudio.google.com/app/apikey',
+    RemoteProviderId.openrouter: 'https://openrouter.ai/keys',
+  };
+
+  static String keyUrlFor(RemoteProviderId id) => keyUrl[id] ?? 'https://huggingface.co';
 }

@@ -47,11 +47,30 @@ class ProcessingErrorView extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: palette.ink),
               ),
               const SizedBox(height: 10),
-              Text(
-                isModelMissing ? strings.modelMissingBody : error.toString(),
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, height: 1.5, color: palette.muted),
-              ),
+              if (isModelMissing)
+                Text(
+                  strings.modelMissingBody,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, height: 1.5, color: palette.muted),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: palette.chip,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        error.toString(),
+                        style: TextStyle(fontSize: 13, height: 1.45, color: palette.body),
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 28),
               if (isModelMissing)
                 PillButton(label: strings.goToSettings, icon: Icons.settings_outlined, onTap: onOpenSettings)

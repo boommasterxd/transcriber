@@ -14,6 +14,7 @@ class ModelTile extends StatelessWidget {
     this.leading,
     this.leadingColor,
     this.isLast = false,
+    this.badge,
   });
 
   final String title;
@@ -23,6 +24,9 @@ class ModelTile extends StatelessWidget {
   final Widget? leading;
   final Color? leadingColor;
   final bool isLast;
+
+  /// Optional small badge shown next to the title (e.g. "Empfohlen").
+  final Widget? badge;
 
   @override
   Widget build(BuildContext context) {
@@ -53,9 +57,17 @@ class ModelTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
+                        ),
+                      ),
+                      if (badge != null) ...[const SizedBox(width: 8), badge!],
+                    ],
                   ),
                   const SizedBox(height: 1),
                   Text(subtitle, style: TextStyle(fontSize: 12.5, color: palette.muted)),

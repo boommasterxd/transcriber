@@ -51,11 +51,12 @@ class GemmaCatalog {
       id: 'gemma3_1b',
       displayName: 'Gemma 3 · 1B',
       sizeBytes: 530 * _mb,
-      badge: ModelBadge.balanced,
+      badge: ModelBadge.recommended,
       modelTypeId: 'gemmaIt',
       downloadUrl:
           'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
       maxTokens: 2048,
+      recommended: true,
     ),
     GemmaModelSpec(
       id: 'qwen3_06b',

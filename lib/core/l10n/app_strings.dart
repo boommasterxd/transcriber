@@ -124,6 +124,15 @@ class AppStrings {
     required this.notLoaded,
     required this.deleteModelConfirm,
     required this.cancel,
+    required this.recommended,
+    required this.asrExplain,
+    required this.summaryExplain,
+    required this.obModelsT,
+    required this.obModelsS,
+    required this.obSimple,
+    required this.obAdvanced,
+    required this.obRecommendedSetup,
+    required this.obDownloadGo,
     required this.obSkip,
     required this.obNext,
     required this.obStart,
@@ -196,6 +205,8 @@ class AppStrings {
   final String downloading, todoSingular, todoPlural;
   final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
   final String keyMissing, notLoaded, deleteModelConfirm, cancel;
+  final String recommended, asrExplain, summaryExplain;
+  final String obModelsT, obModelsS, obSimple, obAdvanced, obRecommendedSetup, obDownloadGo;
   final String obSkip, obNext, obStart;
   final String obWelcomeT, obWelcomeS;
   final String obHiw1T, obHiw1S, obHiw2T, obHiw2S, obHiw3T, obHiw3S;
@@ -319,6 +330,15 @@ class AppStrings {
     notLoaded: 'nicht geladen',
     deleteModelConfirm: 'Dieses Modell vom Gerät entfernen? Du kannst es jederzeit erneut laden.',
     cancel: 'Abbrechen',
+    recommended: 'Empfohlen',
+    asrExplain: 'Transkription = Sprache → Text',
+    summaryExplain: 'Zusammenfassung = Kernpunkte & To-dos',
+    obModelsT: 'Modelle',
+    obModelsS: 'Lade die empfohlenen Modelle – oder richte es selbst ein.',
+    obSimple: 'Einfach',
+    obAdvanced: 'Erweitert',
+    obRecommendedSetup: 'Empfohlenes Setup',
+    obDownloadGo: 'Herunterladen & los',
     obSkip: 'Überspringen',
     obNext: 'Weiter',
     obStart: "Los geht's",
@@ -452,6 +472,15 @@ class AppStrings {
     notLoaded: 'not downloaded',
     deleteModelConfirm: 'Remove this model from the device? You can download it again anytime.',
     cancel: 'Cancel',
+    recommended: 'Recommended',
+    asrExplain: 'Transcription = speech → text',
+    summaryExplain: 'Summary = key points & to-dos',
+    obModelsT: 'Models',
+    obModelsS: 'Download the recommended models — or set it up yourself.',
+    obSimple: 'Simple',
+    obAdvanced: 'Advanced',
+    obRecommendedSetup: 'Recommended setup',
+    obDownloadGo: 'Download & go',
     obSkip: 'Skip',
     obNext: 'Next',
     obStart: 'Get started',

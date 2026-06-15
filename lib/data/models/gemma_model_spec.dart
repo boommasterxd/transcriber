@@ -15,6 +15,7 @@ class GemmaModelSpec {
     required this.maxTokens,
     this.supportsAudio = false,
     this.needsHfToken = false,
+    this.recommended = false,
   });
 
   final String id;
@@ -38,6 +39,9 @@ class GemmaModelSpec {
 
   /// Whether the download host requires a Hugging Face access token.
   final bool needsHfToken;
+
+  /// Highlighted as the suggested default for non-technical users.
+  final bool recommended;
 
   /// File name used when persisting the model on disk.
   String get fileName => downloadUrl.split('/').last;

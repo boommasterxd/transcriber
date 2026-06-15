@@ -89,9 +89,20 @@ class ModelManagerController extends Notifier<ModelManagerState> {
         onProgress: (p) => _setWhisper(id, ModelStatus(status: DownloadStatus.downloading, progress: p)),
       );
       _setWhisper(id, const ModelStatus(status: DownloadStatus.downloaded, progress: 1));
+      _autoSelectWhisper(id);
     } catch (_) {
       _setWhisper(id, const ModelStatus(status: DownloadStatus.notDownloaded));
       rethrow;
+    }
+  }
+
+  /// Selects [id] when it's the only downloaded ASR model, or when the current
+  /// selection isn't downloaded — so a freshly downloaded model is used.
+  void _autoSelectWhisper(String id) {
+    final downloaded = WhisperCatalog.models.where((m) => state.whisperStatus(m.id).isDownloaded);
+    final current = ref.read(settingsControllerProvider).whisperModelId;
+    if (downloaded.length == 1 || !downloaded.any((m) => m.id == current)) {
+      ref.read(settingsControllerProvider.notifier).setWhisperModel(id);
     }
   }
 
@@ -112,9 +123,18 @@ class ModelManagerController extends Notifier<ModelManagerState> {
         onProgress: (p) => _setGemma(id, ModelStatus(status: DownloadStatus.downloading, progress: p)),
       );
       _setGemma(id, const ModelStatus(status: DownloadStatus.downloaded, progress: 1));
+      _autoSelectGemma(id);
     } catch (_) {
       _setGemma(id, const ModelStatus(status: DownloadStatus.notDownloaded));
       rethrow;
+    }
+  }
+
+  void _autoSelectGemma(String id) {
+    final downloaded = GemmaCatalog.models.where((m) => state.gemmaStatus(m.id).isDownloaded);
+    final current = ref.read(settingsControllerProvider).gemmaModelId;
+    if (downloaded.length == 1 || !downloaded.any((m) => m.id == current)) {
+      ref.read(settingsControllerProvider.notifier).setGemmaModel(id);
     }
   }
 

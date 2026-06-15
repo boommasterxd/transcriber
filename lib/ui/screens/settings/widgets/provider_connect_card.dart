@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -34,6 +35,77 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
         .read(connectionsControllerProvider.notifier)
         .connect(widget.provider, _keyController.text);
     _keyController.clear();
+  }
+
+  Future<void> _openKeyPage() async {
+    try {
+      await launchUrl(
+        Uri.parse(RemoteCatalog.keyUrlFor(widget.provider)),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {}
+  }
+
+  void _showKeyHelp() {
+    final palette = context.palette;
+    final t = ref.read(stringsProvider);
+    final german = t.isDe;
+    final name = RemoteCatalog.provider(widget.provider).name;
+    final steps = german
+        ? [
+            '1. Bei $name anmelden oder registrieren.',
+            '2. Die Seite „API Keys" öffnen (Button unten).',
+            '3. Neuen Schlüssel erstellen, kopieren und hier einfügen.',
+          ]
+        : [
+            '1. Sign in or sign up at $name.',
+            '2. Open the "API keys" page (button below).',
+            '3. Create a new key, copy it and paste it here.',
+          ];
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: palette.surface,
+        title: Text(
+          german ? 'API-Schlüssel von $name' : '$name API key',
+          style: TextStyle(color: palette.ink, fontSize: 17, fontWeight: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final s in steps)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(s, style: TextStyle(fontSize: 14, height: 1.4, color: palette.body)),
+              ),
+            const SizedBox(height: 6),
+            Text(
+              german
+                  ? 'Hinweis: Cloud-Anbieter rechnen nach Nutzung ab.'
+                  : 'Note: cloud providers charge based on usage.',
+              style: TextStyle(fontSize: 12.5, color: palette.muted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(t.cancel, style: TextStyle(color: palette.muted, fontWeight: FontWeight.w700)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _openKeyPage();
+            },
+            child: Text(
+              german ? 'Seite öffnen' : 'Open page',
+              style: TextStyle(color: palette.accent, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -128,6 +200,21 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
                 ),
                 const SizedBox(height: 9),
                 Text(t.keyHint, style: TextStyle(fontSize: 12, color: palette.faint)),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _showKeyHelp,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.help_outline_rounded, size: 15, color: palette.accent),
+                      const SizedBox(width: 6),
+                      Text(
+                        t.isDe ? 'Wie bekomme ich einen Schlüssel?' : 'How do I get a key?',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: palette.accent),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
     );

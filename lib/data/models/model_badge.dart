@@ -2,15 +2,15 @@ import '../../core/l10n/app_strings.dart';
 
 /// Short qualitative label shown next to a model (speed / quality hint).
 enum ModelBadge {
-  veryFast('Sehr schnell', 'Very fast'),
+  veryFast('Klein & schnell', 'Small & fast'),
   fast('Schnell', 'Fast'),
   balanced('Ausgewogen', 'Balanced'),
-  accurate('Sehr genau', 'Most accurate'),
-  detailed('Detailliert', 'Detailed'),
+  accurate('Beste Qualität', 'Best quality'),
+  detailed('Detaillierter', 'More detailed'),
   recommended('Empfohlen', 'Recommended'),
   mostCapable('Stärkste', 'Most capable'),
   cheap('Schnell & günstig', 'Fast & cheap'),
-  reasoning('Reasoning', 'Reasoning'),
+  reasoning('Stark im Denken', 'Strong reasoning'),
   multimodal('Multimodal · Audio', 'Multimodal · Audio'),
   openSource('Open Source', 'Open Source');
 
