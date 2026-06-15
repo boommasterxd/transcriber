@@ -34,33 +34,7 @@ class WhisperEngine {
     );
   }
 
-  /// Transcribes a 16 kHz mono WAV file.
-  Future<TranscriptionResult> transcribe(
-    String wavPath, {
-    String? languageCode,
-    void Function(double progress)? onProgress,
-  }) async {
-    final dir = await _modelDir();
-    final whisper = Whisper(
-      model: WhisperModel.base,
-      modelDir: dir,
-      onDownloadProgress: (received, total) {
-        if (total > 0) onProgress?.call(received / total);
-      },
-    );
-
-    final request = TranscribeRequest(
-      audio: wavPath,
-      language: (languageCode == null || languageCode.isEmpty) ? 'auto' : languageCode,
-      isTranslate: false,
-    );
-
-    final dynamic response = await whisper.transcribe(transcribeRequest: request);
-    final text = (response.text as String?)?.trim() ?? '';
-    return TranscriptionResult(text: text, segments: _segments(response, text));
-  }
-
-  /// Builds a Whisper instance bound to a specific model id (used internally).
+  /// Transcribes a 16 kHz mono WAV file using the given model id.
   Future<TranscriptionResult> transcribeWith(
     String modelId,
     String wavPath, {

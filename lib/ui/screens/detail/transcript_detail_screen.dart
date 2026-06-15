@@ -59,7 +59,8 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final notes = ref.watch(notesControllerProvider);
-    final note = notes.where((n) => n.id == widget.noteId).firstOrNull;
+    final matches = notes.where((n) => n.id == widget.noteId);
+    final note = matches.isEmpty ? null : matches.first;
 
     if (note == null) {
       return Scaffold(
