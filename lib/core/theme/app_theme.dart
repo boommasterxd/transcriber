@@ -37,6 +37,20 @@ class AppTheme {
       scaffoldBackgroundColor: palette.bg,
       textTheme: textTheme,
       splashFactory: InkRipple.splashFactory,
+      // Rounded, floating snackbars/toasts that match the app's surfaces.
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: palette.ink,
+        contentTextStyle: GoogleFonts.plusJakartaSans(
+          color: palette.bg,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        actionTextColor: palette.accent,
+        elevation: 6,
+        insetPadding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
       extensions: <ThemeExtension<dynamic>>[palette],
     );
   }
