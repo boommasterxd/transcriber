@@ -25,7 +25,12 @@ class AudioConverter {
     final outFile = File(output);
     if (await outFile.exists()) await outFile.delete();
 
-    final cmd = '-y -i "$input" -ar $_targetSampleRate -ac 1 -c:a pcm_s16le "$output"';
+    // whisper.cpp reads a *canonical* PCM WAV. ffmpeg otherwise adds a LIST/INFO
+    // metadata chunk (and may carry a cover-art video stream from m4a/mp3),
+    // which can make whisper's minimal reader find 0 samples → empty transcript.
+    // -vn drops cover art, -map_metadata -1 + -bitexact strip all extra chunks.
+    final cmd = '-y -i "$input" -vn -map_metadata -1 -bitexact '
+        '-ar $_targetSampleRate -ac 1 -c:a pcm_s16le -f wav "$output"';
     final session = await FFmpegKit.execute(cmd);
     final returnCode = await session.getReturnCode();
 

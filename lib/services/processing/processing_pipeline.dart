@@ -131,17 +131,6 @@ class ProcessingPipeline {
       onModelProgress: onModelProgress,
     );
 
-    // Surface an empty on-device transcription as a clear, on-screen error
-    // (the WAV converted fine but Whisper returned nothing) instead of silently
-    // saving an empty note — this is the visible diagnostic when adb isn't handy.
-    if (settings.asrMode.isLocal && transcription.text.trim().isEmpty) {
-      throw ProcessingException(
-        'Whisper hat keinen Text erkannt (Modell "${settings.whisperModelId}", '
-        'Sprache "${settings.transcriptionLanguage.code}"). Die Audiodatei wurde '
-        'konvertiert, aber das Modell lieferte 0 Zeichen.',
-      );
-    }
-
     onStep?.call(ProcessingStep.summarizing);
     final summary = await _summarize(
       transcript: transcription.text,
