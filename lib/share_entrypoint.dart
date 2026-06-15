@@ -25,9 +25,6 @@ Future<void> runShareEntrypoint() async {
   FlutterForegroundTask.initCommunicationPort();
 
   final prefs = await SharedPreferences.getInstance();
-  // Diagnostic marker: proves the entrypoint actually ran (surfaced in-app on
-  // next launch). Lets us tell "entrypoint never ran" from "ran but didn't draw".
-  await prefs.setString('share_diag', 'shareMain ran ${DateTime.now().toIso8601String()}');
   final settingsRepo = SettingsRepository(prefs);
   final settings = await settingsRepo.load();
   final connections = await settingsRepo.connectedProviders();
@@ -79,16 +76,20 @@ class _ShareHost extends ConsumerStatefulWidget {
 }
 
 class _ShareHostState extends ConsumerState<_ShareHost> {
-  String? _path;
-  bool _resolved = false;
+  bool _opened = false;
 
   @override
   void initState() {
     super.initState();
-    _loadPath();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _open());
   }
 
-  Future<void> _loadPath() async {
+  /// Loads the shared path, then presents the overlay as a real modal bottom
+  /// sheet — so it slides up from the bottom and supports drag-to-dismiss, just
+  /// like the in-app overlay. Finishing the activity returns to the source app.
+  Future<void> _open() async {
+    if (_opened) return;
+    _opened = true;
     String? path;
     try {
       path = await _channel.invokeMethod<String>('getInitialSharedPath');
@@ -96,45 +97,36 @@ class _ShareHostState extends ConsumerState<_ShareHost> {
       path = null;
     }
     if (!mounted) return;
-    setState(() {
-      _path = path;
-      _resolved = true;
-    });
-    if (path == null) _finish();
+    if (path == null) {
+      _finish();
+      return;
+    }
+    final isTablet = MediaQuery.of(context).size.width >= 720;
+    final sharedPath = path;
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      constraints: isTablet ? const BoxConstraints(maxWidth: 600) : null,
+      builder: (sheetCtx) => ShareSheetContent(
+        audioPath: sharedPath,
+        fileName: sharedPath.split('/').last,
+        onFinished: () => Navigator.of(sheetCtx).pop(),
+      ),
+    );
+    // Sheet dismissed (saved, closed, dragged or scrim-tapped) → close the
+    // translucent activity and return to the app the audio was shared from.
+    _finish();
   }
 
   void _finish() => _channel.invokeMethod('finish');
 
   @override
   Widget build(BuildContext context) {
-    final path = _path;
-    final isTablet = MediaQuery.of(context).size.width >= 720;
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _finish,
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-          if (_resolved && path != null)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isTablet ? 600 : double.infinity),
-                child: ShareSheetContent(
-                  audioPath: path,
-                  fileName: path.split('/').last,
-                  onFinished: _finish,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+    // The sheet itself is presented as a modal route above; the page is just a
+    // transparent surface so the source app shows through behind the scrim.
+    return const Scaffold(backgroundColor: Colors.transparent);
   }
 }
