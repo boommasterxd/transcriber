@@ -126,7 +126,15 @@ class GemmaEngine {
     _loadedBackendId = backendId;
   }
 
-  /// Summarizes a transcript into structured output using a fresh session.
+  /// Summarizes a transcript into structured output using a fresh chat.
+  ///
+  /// Uses the high-level chat API: the system prompt is passed natively via
+  /// `systemInstruction` (NOT prepended to the user message — for `.litertlm`
+  /// FFI models a hand-built prompt makes the model decode straight to
+  /// `<end_of_turn>` and return nothing). The response is consumed as a token
+  /// stream so the work yields to the event loop between tokens, keeping the UI
+  /// responsive. `createChat`/`generateChatResponseAsync` are identical for
+  /// `.task` (MediaPipe) and `.litertlm` (FFI) models.
   Future<SummaryResult> summarize(
     GemmaModelSpec spec,
     String transcript, {
@@ -136,18 +144,22 @@ class GemmaEngine {
     String backendId = 'auto',
   }) async {
     await _ensureActive(spec, hfToken, backendId);
-    final session = await _model!.createSession();
+    final chat = await _model!.createChat(
+      modelType: _modelType(spec.modelTypeId),
+      systemInstruction: SummaryPrompt.system(german),
+      topK: 1, // greedy decoding — deterministic JSON output
+    );
     try {
-      await session.addQueryChunk(
-        Message.text(
-          text: '${SummaryPrompt.system(german)}\n\n${SummaryPrompt.user(transcript, german: german)}',
-          isUser: true,
-        ),
+      await chat.addQuery(
+        Message.text(text: SummaryPrompt.user(transcript, german: german), isUser: true),
       );
-      final text = await session.getResponse();
-      return SummaryPrompt.parse(text, fallbackTitle: fallbackTitle);
+      final buffer = StringBuffer();
+      await for (final response in chat.generateChatResponseAsync()) {
+        if (response is TextResponse) buffer.write(response.token);
+      }
+      return SummaryPrompt.parse(buffer.toString(), fallbackTitle: fallbackTitle);
     } finally {
-      await session.close();
+      await chat.close();
     }
   }
 }
