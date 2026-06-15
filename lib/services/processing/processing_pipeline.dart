@@ -68,44 +68,47 @@ class ProcessingPipeline {
     // isolate) so the heavy core never has to.
     final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
 
-    // If any stage runs on-device, run the whole pipeline inside a foreground
-    // service so it survives the app being backgrounded. The service is started
-    // here, while the app is in the foreground — Android 12+ forbids starting a
-    // foreground service from the background, so we must not defer it.
-    if (settings.asrMode.isLocal || settings.summaryMode.isLocal) {
-      return ProcessingForegroundService(
+    // Any on-device stage runs the pipeline on the MAIN isolate (whisper_kit and
+    // ffmpeg are unreliable nested in a background isolate). A bare foreground
+    // service is started here — while the app is in the foreground, since
+    // Android 12+ forbids starting one from the background — purely to keep the
+    // process alive (and hold a wake lock) so work survives backgrounding.
+    final useService = settings.asrMode.isLocal || settings.summaryMode.isLocal;
+    if (useService) {
+      await ProcessingKeepAlive.start(
         notificationTitle: strings.processingTitle,
         notificationText: strings.shTranscribe,
         channelName: strings.svcChannelName,
         channelDescription: strings.svcChannelDesc,
-      ).run(
+      );
+    }
+    try {
+      return await _core(
         audioPath: audioPath,
         source: source,
         settings: settings,
+        strings: strings,
         asrApiKey: asrApiKey,
         summaryApiKey: summaryApiKey,
         knownDurationSec: durationSec,
-        onStep: onStep,
+        onStep: (step) {
+          if (useService) {
+            ProcessingKeepAlive.update(
+              step == ProcessingStep.transcribing ? strings.shTranscribe : strings.shSummarize,
+            );
+          }
+          onStep?.call(step);
+        },
         onModelProgress: onModelProgress,
       );
+    } finally {
+      if (useService) await ProcessingKeepAlive.stop();
     }
-
-    return _core(
-      audioPath: audioPath,
-      source: source,
-      settings: settings,
-      strings: strings,
-      asrApiKey: asrApiKey,
-      summaryApiKey: summaryApiKey,
-      knownDurationSec: durationSec,
-      onStep: onStep,
-      onModelProgress: onModelProgress,
-    );
   }
 
-  /// The heavy pipeline body (transcribe → summarize → assemble). Runs either on
-  /// the main isolate (all-cloud) or inside the foreground-service isolate (any
-  /// on-device stage); it never starts a service itself.
+  /// The heavy pipeline body (transcribe → summarize → assemble). Runs on the
+  /// main isolate; the optional keep-alive foreground service is managed by the
+  /// caller ([process]).
   Future<TranscriptNote> _core({
     required String audioPath,
     required NoteSource source,
@@ -127,6 +130,17 @@ class ProcessingPipeline {
       apiKey: asrApiKey,
       onModelProgress: onModelProgress,
     );
+
+    // Surface an empty on-device transcription as a clear, on-screen error
+    // (the WAV converted fine but Whisper returned nothing) instead of silently
+    // saving an empty note — this is the visible diagnostic when adb isn't handy.
+    if (settings.asrMode.isLocal && transcription.text.trim().isEmpty) {
+      throw ProcessingException(
+        'Whisper hat keinen Text erkannt (Modell "${settings.whisperModelId}", '
+        'Sprache "${settings.transcriptionLanguage.code}"). Die Audiodatei wurde '
+        'konvertiert, aber das Modell lieferte 0 Zeichen.',
+      );
+    }
 
     onStep?.call(ProcessingStep.summarizing);
     final summary = await _summarize(
@@ -240,29 +254,3 @@ class ProcessingPipeline {
     } catch (_) {}
   }
 }
-
-/// Entry point used by the foreground-service isolate to run the heavy pipeline
-/// (transcription + summarization) without re-entering the service. Lives at
-/// top level so it can reach [ProcessingPipeline]'s private core.
-Future<TranscriptNote> runProcessingCore({
-  required String audioPath,
-  required NoteSource source,
-  required AppSettings settings,
-  required AppStrings strings,
-  required String asrApiKey,
-  required String summaryApiKey,
-  int? knownDurationSec,
-  void Function(ProcessingStep step)? onStep,
-  void Function(double progress)? onModelProgress,
-}) =>
-    ProcessingPipeline()._core(
-      audioPath: audioPath,
-      source: source,
-      settings: settings,
-      strings: strings,
-      asrApiKey: asrApiKey,
-      summaryApiKey: summaryApiKey,
-      knownDurationSec: knownDurationSec,
-      onStep: onStep,
-      onModelProgress: onModelProgress,
-    );

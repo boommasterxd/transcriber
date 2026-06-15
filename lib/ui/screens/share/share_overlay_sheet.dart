@@ -16,10 +16,8 @@ import '../../widgets/effects.dart';
 import '../../widgets/waveforms.dart';
 import '../detail/widgets/detail_audio_player.dart';
 
-/// Presents the share overlay as an in-app modal bottom sheet. Used for the
-/// "open with" (VIEW) path, where the app is already in front. The cross-app
-/// "see-through" path uses [ShareSheetContent] directly inside the translucent
-/// ShareActivity instead (see lib/share_entrypoint.dart).
+/// Presents the share overlay as an in-app modal bottom sheet when audio is
+/// shared into or opened with the app.
 abstract final class ShareOverlay {
   static Future<void> show({required String audioPath, String? fileName}) async {
     final ctx = navigatorKey.currentContext;
@@ -46,9 +44,7 @@ abstract final class ShareOverlay {
 /// saves. The preview is NOT persisted automatically — only "Speichern" commits
 /// it, so a shared note never silently lands in the history.
 ///
-/// [onFinished] is invoked when the sheet should close (saved or discarded), so
-/// the same widget works both as a modal route (pop) and as the root of the
-/// translucent ShareActivity (finish the activity).
+/// [onFinished] is invoked when the sheet should close (saved or discarded).
 class ShareSheetContent extends ConsumerStatefulWidget {
   const ShareSheetContent({
     super.key,

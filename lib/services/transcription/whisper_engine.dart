@@ -80,14 +80,12 @@ class WhisperEngine {
   }) async {
     final dir = await _modelDir();
     final whisper = Whisper(model: _model(modelId), modelDir: dir);
-    // IMPORTANT: never pass the literal 'auto'. whisper_kit maps language=="auto"
-    // to whisper.cpp's `detect_language` flag, which only *detects* the language
-    // and returns before transcribing (empty text, no error). An empty string
-    // makes the runtime auto-detect AND transcribe.
-    final isAuto = languageCode == null || languageCode.isEmpty || languageCode == 'auto';
+    // whisper_kit uses 'auto' to auto-detect the language AND transcribe; a
+    // specific ISO code (e.g. 'de') forces that language. (Per the package docs.)
+    final lang = (languageCode == null || languageCode.isEmpty) ? 'auto' : languageCode;
     final request = TranscribeRequest(
       audio: wavPath,
-      language: isAuto ? '' : languageCode,
+      language: lang,
       threads: threads,
       isTranslate: false,
     );

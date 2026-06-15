@@ -85,9 +85,8 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
   }
 
   void _handleShared(String path) {
-    // "Open with" (VIEW) audio is handled in-app via a modal overlay. Cross-app
-    // "share" (SEND) is handled by the translucent ShareActivity + shareMain
-    // entrypoint instead, so it can see through to the source app.
+    // Shared/opened audio is processed in a modal overlay sheet so the result
+    // can be previewed and explicitly saved.
     ShareOverlay.show(audioPath: path, fileName: path.split('/').last);
   }
 
