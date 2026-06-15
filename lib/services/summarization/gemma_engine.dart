@@ -100,10 +100,7 @@ class GemmaEngine {
     _loadedModelId = spec.id;
   }
 
-  String _responseText(ModelResponse response) =>
-      response is TextResponse ? response.token : '';
-
-  /// Summarizes a transcript into structured output.
+  /// Summarizes a transcript into structured output using a fresh session.
   Future<SummaryResult> summarize(
     GemmaModelSpec spec,
     String transcript, {
@@ -112,19 +109,19 @@ class GemmaEngine {
     String? hfToken,
   }) async {
     await _ensureActive(spec, hfToken);
-    final chat = await FlutterGemmaPlugin.instance.createChat(modelType: _modelType(spec.modelTypeId));
-    await chat.addQueryChunk(
-      Message.text(
-        text: '${SummaryPrompt.system(german)}\n\n${SummaryPrompt.user(transcript, german: german)}',
-        isUser: true,
-      ),
-    );
-
-    final buffer = StringBuffer();
-    await for (final response in chat.generateChatResponseAsync()) {
-      buffer.write(_responseText(response));
+    final session = await _model!.createSession();
+    try {
+      await session.addQueryChunk(
+        Message.text(
+          text: '${SummaryPrompt.system(german)}\n\n${SummaryPrompt.user(transcript, german: german)}',
+          isUser: true,
+        ),
+      );
+      final text = await session.getResponse();
+      return SummaryPrompt.parse(text, fallbackTitle: fallbackTitle);
+    } finally {
+      await session.close();
     }
-    return SummaryPrompt.parse(buffer.toString(), fallbackTitle: fallbackTitle);
   }
 }
 
