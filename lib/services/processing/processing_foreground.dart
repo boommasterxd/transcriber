@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart' show Color;
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -101,6 +102,7 @@ class ProcessingForegroundService {
     required this.notificationTextSummary,
     required this.channelName,
     required this.channelDescription,
+    required this.iconColor,
   });
 
   final String notificationTitle;
@@ -108,6 +110,7 @@ class ProcessingForegroundService {
   final String notificationTextSummary;
   final String channelName;
   final String channelDescription;
+  final Color iconColor;
 
   Future<TranscriptNote> run({
     required String audioPath,
@@ -192,6 +195,10 @@ class ProcessingForegroundService {
         serviceId: _serviceId,
         notificationTitle: notificationTitle,
         notificationText: notificationText,
+        notificationIcon: NotificationIcon(
+          metaDataName: 'com.transcriber.app.notification_icon',
+          backgroundColor: iconColor,
+        ),
         callback: processingForegroundCallback,
       );
       if (started is ServiceRequestFailure) {

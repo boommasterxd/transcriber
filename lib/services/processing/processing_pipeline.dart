@@ -83,6 +83,7 @@ class ProcessingPipeline {
         notificationTextSummary: strings.shSummarize,
         channelName: strings.svcChannelName,
         channelDescription: strings.svcChannelDesc,
+        iconColor: settings.accent.color,
       ).run(
         audioPath: audioPath,
         source: source,
