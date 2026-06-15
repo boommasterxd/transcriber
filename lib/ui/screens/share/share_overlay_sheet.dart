@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatting.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_pipeline.dart';
@@ -223,12 +224,14 @@ class _ProcessingBody extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 28),
-          StepIndicator(
-            step1Label: t.shStep1,
-            step2Label: t.shStep2,
-            activeStepIsSecond: !transcribing,
-          ),
+          if (settings.summarizeEnabled) ...[
+            const SizedBox(height: 28),
+            StepIndicator(
+              step1Label: t.shStep1,
+              step2Label: t.shStep2,
+              activeStepIsSecond: !transcribing,
+            ),
+          ],
         ],
       ),
     );
@@ -237,7 +240,7 @@ class _ProcessingBody extends ConsumerWidget {
 
 // ── Result preview ──────────────────────────────────────────────────────────
 
-class _ResultBody extends ConsumerWidget {
+class _ResultBody extends ConsumerStatefulWidget {
   const _ResultBody({
     required this.note,
     required this.saving,
@@ -251,11 +254,21 @@ class _ResultBody extends ConsumerWidget {
   final VoidCallback onSave;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ResultBody> createState() => _ResultBodyState();
+}
+
+class _ResultBodyState extends ConsumerState<_ResultBody> {
+  bool _transcriptOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
+    final note = widget.note;
+    final hasSummary = note.gist.isNotEmpty;
+
     return Column(
       children: [
-        _ResultHeader(title: note.title, label: t.shFrom, onClose: onClose),
+        _ResultHeader(title: note.title, label: t.shFrom, onClose: widget.onClose),
         Expanded(
           child: FadeEdges(
             topHeight: 10,
@@ -266,14 +279,38 @@ class _ResultBody extends ConsumerWidget {
                 if (note.audioPath != null)
                   DetailAudioPlayer(audioPath: note.audioPath!, durationSec: note.durationSec),
                 const SizedBox(height: 16),
-                _SummaryCard(gist: note.gist, label: t.shSummary),
-                const SizedBox(height: 16),
+                if (hasSummary) ...[
+                  _SummaryCard(gist: note.gist, label: t.shSummary),
+                  const SizedBox(height: 16),
+                ],
                 _MetaChips(note: note, strings: t),
                 if (note.points.isNotEmpty) ...[
                   const SizedBox(height: 22),
                   _SectionLabel(t.shPoints),
                   const SizedBox(height: 12),
                   _KeyPoints(points: note.points),
+                ],
+                if (note.todos.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  _TodosPreview(todos: note.todos, label: t.shActions),
+                ],
+                const SizedBox(height: 22),
+                // Summary-only notes hide the transcript behind a toggle; raw
+                // transcripts show it directly.
+                if (hasSummary)
+                  PillButton(
+                    label: _transcriptOpen ? t.shHide : t.shShow,
+                    icon: Icons.subject_rounded,
+                    trailingIcon: _transcriptOpen
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    height: 50,
+                    outlined: true,
+                    onTap: () => setState(() => _transcriptOpen = !_transcriptOpen),
+                  ),
+                if (!hasSummary || _transcriptOpen) ...[
+                  const SizedBox(height: 14),
+                  _TranscriptPreview(note: note, label: t.shTranscript),
                 ],
               ],
             ),
@@ -284,9 +321,94 @@ class _ResultBody extends ConsumerWidget {
           child: PillButton(
             label: t.shSave,
             icon: Icons.check_rounded,
-            onTap: saving ? () {} : onSave,
+            onTap: widget.saving ? () {} : widget.onSave,
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Read-only to-do list shown in the share preview (editable after saving).
+class _TodosPreview extends StatelessWidget {
+  const _TodosPreview({required this.todos, required this.label});
+  final List<TodoItem> todos;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _SectionLabel(label),
+            const SizedBox(width: 8),
+            Container(
+              constraints: const BoxConstraints(minWidth: 20),
+              height: 20,
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(color: palette.coral, borderRadius: BorderRadius.circular(9999)),
+              child: Center(
+                child: Text('${todos.length}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        for (final todo in todos)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.check_circle_outline_rounded, size: 18, color: palette.coral),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(todo.text,
+                      style: TextStyle(fontSize: 14.5, height: 1.45, color: palette.body)),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The time-stamped transcript shown inside the share preview.
+class _TranscriptPreview extends StatelessWidget {
+  const _TranscriptPreview({required this.note, required this.label});
+  final TranscriptNote note;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel(label),
+        const SizedBox(height: 12),
+        for (final line in note.transcript)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 34,
+                  child: Text(line.time, style: AppTheme.mono(color: palette.accent, size: 12)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(line.text, style: TextStyle(fontSize: 14.5, height: 1.5, color: palette.body)),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

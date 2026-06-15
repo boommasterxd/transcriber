@@ -2,18 +2,12 @@ package com.transcriber.app
 
 import android.content.ComponentName
 import android.content.pm.PackageManager
-import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val channelName = "app/icon"
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        CrashCapture.install(this, "MainActivity")
-        super.onCreate(savedInstanceState)
-    }
 
     // Maps the Dart accent id to the manifest <activity-alias> name.
     private val aliases = mapOf(

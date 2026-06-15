@@ -44,7 +44,7 @@ class _ProcessingTaskHandler extends TaskHandler {
       );
       final strings = AppStrings.of(settings.language);
 
-      if (settings.summaryMode.isLocal) {
+      if (settings.summarizeEnabled && settings.summaryMode.isLocal) {
         try {
           await FlutterGemma.initialize(
             huggingFaceToken: hfToken.isEmpty ? null : hfToken,

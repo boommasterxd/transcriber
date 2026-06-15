@@ -33,6 +33,7 @@ class AppSettings {
     required this.chatModelByProvider,
     required this.asrModelByProvider,
     required this.autoDeleteAudio,
+    required this.summarizeEnabled,
     required this.onboarded,
     required this.hfToken,
   });
@@ -63,6 +64,9 @@ class AppSettings {
   final Map<RemoteProviderId, String> asrModelByProvider;
 
   final bool autoDeleteAudio;
+
+  /// When false, processing stops after transcription — no AI summary is made.
+  final bool summarizeEnabled;
   final bool onboarded;
   final String hfToken;
 
@@ -90,6 +94,7 @@ class AppSettings {
         chatModelByProvider: const {},
         asrModelByProvider: const {},
         autoDeleteAudio: false,
+        summarizeEnabled: true,
         onboarded: false,
         hfToken: '',
       );
@@ -110,6 +115,7 @@ class AppSettings {
     Map<RemoteProviderId, String>? chatModelByProvider,
     Map<RemoteProviderId, String>? asrModelByProvider,
     bool? autoDeleteAudio,
+    bool? summarizeEnabled,
     bool? onboarded,
     String? hfToken,
   }) =>
@@ -129,6 +135,7 @@ class AppSettings {
         chatModelByProvider: chatModelByProvider ?? this.chatModelByProvider,
         asrModelByProvider: asrModelByProvider ?? this.asrModelByProvider,
         autoDeleteAudio: autoDeleteAudio ?? this.autoDeleteAudio,
+        summarizeEnabled: summarizeEnabled ?? this.summarizeEnabled,
         onboarded: onboarded ?? this.onboarded,
         hfToken: hfToken ?? this.hfToken,
       );
@@ -149,6 +156,7 @@ class AppSettings {
         'chatModelByProvider': chatModelByProvider.map((k, v) => MapEntry(k.id, v)),
         'asrModelByProvider': asrModelByProvider.map((k, v) => MapEntry(k.id, v)),
         'autoDeleteAudio': autoDeleteAudio,
+        'summarizeEnabled': summarizeEnabled,
         'onboarded': onboarded,
       };
 
@@ -179,6 +187,7 @@ class AppSettings {
       chatModelByProvider: parseMap('chatModelByProvider'),
       asrModelByProvider: parseMap('asrModelByProvider'),
       autoDeleteAudio: j['autoDeleteAudio'] as bool? ?? false,
+      summarizeEnabled: j['summarizeEnabled'] as bool? ?? true,
       onboarded: j['onboarded'] as bool? ?? false,
       hfToken: hfToken,
     );

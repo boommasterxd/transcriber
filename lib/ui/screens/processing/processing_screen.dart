@@ -127,12 +127,14 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
-              StepIndicator(
-                step1Label: t.shStep1,
-                step2Label: t.shStep2,
-                activeStepIsSecond: !transcribing,
-              ),
+              if (settings.summarizeEnabled) ...[
+                const SizedBox(height: 28),
+                StepIndicator(
+                  step1Label: t.shStep1,
+                  step2Label: t.shStep2,
+                  activeStepIsSecond: !transcribing,
+                ),
+              ],
             ],
           ),
         ),

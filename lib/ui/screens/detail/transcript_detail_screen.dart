@@ -105,8 +105,10 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
                     else
                       AudioDeletedNotice(strings: t),
                     const SizedBox(height: 18),
-                    _SummaryCard(gist: note.gist, label: t.shSummary),
-                    const SizedBox(height: 16),
+                    if (note.gist.isNotEmpty) ...[
+                      _SummaryCard(gist: note.gist, label: t.shSummary),
+                      const SizedBox(height: 16),
+                    ],
                     _MetaChips(note: note, strings: t),
                     const SizedBox(height: 20),
                     _Label(t.processedWith),
@@ -134,15 +136,18 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
                         ),
                       const SizedBox(height: 12),
                     ],
-                    PillButton(
-                      label: _transcriptOpen ? t.shHide : t.shShow,
-                      icon: Icons.subject_rounded,
-                      trailingIcon: _transcriptOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                      height: 52,
-                      outlined: true,
-                      onTap: () => setState(() => _transcriptOpen = !_transcriptOpen),
-                    ),
-                    if (_transcriptOpen) ...[
+                    // For transcript-only notes (summary off) show the
+                    // transcript directly instead of hiding it behind a toggle.
+                    if (note.gist.isNotEmpty)
+                      PillButton(
+                        label: _transcriptOpen ? t.shHide : t.shShow,
+                        icon: Icons.subject_rounded,
+                        trailingIcon: _transcriptOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                        height: 52,
+                        outlined: true,
+                        onTap: () => setState(() => _transcriptOpen = !_transcriptOpen),
+                      ),
+                    if (note.gist.isEmpty || _transcriptOpen) ...[
                       const SizedBox(height: 18),
                       _TranscriptBlock(
                         note: note,
