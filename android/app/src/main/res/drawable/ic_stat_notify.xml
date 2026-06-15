@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Monochrome equalizer silhouette for the status-bar notification icon
+         (white + alpha; the system tints it, flutter_foreground_task draws the
+         accent background behind it). -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,9.5h2.4v5H3z M8.2,5h2.4v14H8.2z M13.4,7.5h2.4v9h-2.4z M18.6,10.5h2.4v3h-2.4z" />
+</vector>

@@ -9,13 +9,15 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val channelName = "app/icon"
 
-    // Maps the Dart accent id to the manifest <activity-alias> name.
-    private val aliases = mapOf(
-        "violet" to "IconViolet",
-        "blue" to "IconBlue",
-        "emerald" to "IconEmerald",
-        "amber" to "IconAmber",
-        "magenta" to "IconMagenta",
+    // Dart accent id → the launcher and share-target alias names for that accent.
+    // Both are swapped together so the home-screen icon AND the share-sheet icon
+    // follow the chosen accent color.
+    private val aliasesByAccent = mapOf(
+        "violet" to listOf("IconViolet", "ShareIconViolet"),
+        "blue" to listOf("IconBlue", "ShareIconBlue"),
+        "emerald" to listOf("IconEmerald", "ShareIconEmerald"),
+        "amber" to listOf("IconAmber", "ShareIconAmber"),
+        "magenta" to listOf("IconMagenta", "ShareIconMagenta"),
     )
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -32,22 +34,25 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    /// Enables the launcher alias for [accent] and disables the rest, recoloring
-    /// the home-screen icon. DONT_KILL_APP keeps the running app alive.
+    /// Enables the launcher + share aliases for [accent] and disables the rest,
+    /// recoloring both the home-screen and share-sheet icons. DONT_KILL_APP keeps
+    /// the running app alive.
     private fun setIcon(accent: String) {
         val pm = packageManager
         val pkg = packageName
-        for ((key, alias) in aliases) {
+        for ((key, aliases) in aliasesByAccent) {
             val state = if (key == accent) {
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED
             } else {
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
             }
-            pm.setComponentEnabledSetting(
-                ComponentName(pkg, "$pkg.$alias"),
-                state,
-                PackageManager.DONT_KILL_APP,
-            )
+            for (alias in aliases) {
+                pm.setComponentEnabledSetting(
+                    ComponentName(pkg, "$pkg.$alias"),
+                    state,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
         }
     }
 }
