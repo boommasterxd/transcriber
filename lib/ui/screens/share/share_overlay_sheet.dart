@@ -13,6 +13,7 @@ import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/effects.dart';
+import '../../widgets/surfaces.dart';
 import '../../widgets/waveforms.dart';
 import '../detail/widgets/detail_audio_player.dart';
 
@@ -256,22 +257,26 @@ class _ResultBody extends ConsumerWidget {
       children: [
         _ResultHeader(title: note.title, label: t.shFrom, onClose: onClose),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            children: [
-              if (note.audioPath != null)
-                DetailAudioPlayer(audioPath: note.audioPath!, durationSec: note.durationSec),
-              const SizedBox(height: 16),
-              _SummaryCard(gist: note.gist, label: t.shSummary),
-              const SizedBox(height: 16),
-              _MetaChips(note: note, strings: t),
-              if (note.points.isNotEmpty) ...[
-                const SizedBox(height: 22),
-                _SectionLabel(t.shPoints),
-                const SizedBox(height: 12),
-                _KeyPoints(points: note.points),
+          child: FadeEdges(
+            topHeight: 10,
+            builder: (context, controller) => ListView(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+              children: [
+                if (note.audioPath != null)
+                  DetailAudioPlayer(audioPath: note.audioPath!, durationSec: note.durationSec),
+                const SizedBox(height: 16),
+                _SummaryCard(gist: note.gist, label: t.shSummary),
+                const SizedBox(height: 16),
+                _MetaChips(note: note, strings: t),
+                if (note.points.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  _SectionLabel(t.shPoints),
+                  const SizedBox(height: 12),
+                  _KeyPoints(points: note.points),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         Padding(
