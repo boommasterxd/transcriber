@@ -1,30 +1,28 @@
 import 'dart:io';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:path/path.dart' as p;
 
 import '../../data/catalog/gemma_catalog.dart';
 import '../../data/models/gemma_model_spec.dart';
-import '../download/file_downloader.dart';
 import '../storage/storage_paths.dart';
 import 'summarization_service.dart';
 import 'summary_prompt.dart';
 import 'summary_result.dart';
 
-/// The single integration point for the `flutter_gemma` package. Confines all
-/// package types here so version differences are contained to one file.
+/// The single integration point for the `flutter_gemma` package (v0.16.x).
 ///
-/// Models are downloaded by [FileDownloader] (so gated Hugging Face artifacts
-/// work with a token), then handed to flutter_gemma via `setModelPath`, which is
-/// a long-stable part of its API.
+/// Downloads use the plugin's Hugging Face-aware installer
+/// (`FlutterGemma.installModel().fromNetwork(url, token:).withProgress().install()`),
+/// which handles gated repos, redirects, retries and the Android foreground
+/// service for large files. We additionally drop a small marker file per model
+/// so the UI can show per-model "downloaded" state.
 class GemmaEngine {
   GemmaEngine._();
   static final GemmaEngine instance = GemmaEngine._();
 
-  final FileDownloader _downloader = const FileDownloader();
-
   String? _loadedModelId;
-  dynamic _inferenceModel; // InferenceModel
-  dynamic _chat;
+  InferenceModel? _model;
 
   ModelType _modelType(String id) {
     switch (id) {
@@ -38,93 +36,72 @@ class GemmaEngine {
         return ModelType.deepSeek;
       case 'phi':
         return ModelType.phi;
+      case 'functionGemma':
+        return ModelType.functionGemma;
+      case 'general':
+        return ModelType.general;
       case 'gemmaIt':
       default:
         return ModelType.gemmaIt;
     }
   }
 
-  Future<String> _modelFilePath(GemmaModelSpec spec) async =>
-      (await StoragePaths.instance()).gemmaModelFile(spec.fileName);
+  Future<File> _marker(GemmaModelSpec spec) async {
+    final dir = await (await StoragePaths.instance()).gemmaDir();
+    return File(p.join(dir.path, '${spec.id}.installed'));
+  }
 
-  /// True if the model artifact is present on disk.
-  Future<bool> isDownloaded(GemmaModelSpec spec) async =>
-      File(await _modelFilePath(spec)).exists();
+  /// True if this model has been installed by us before.
+  Future<bool> isDownloaded(GemmaModelSpec spec) async => (await _marker(spec)).exists();
 
-  /// Downloads the model artifact with progress (0..1).
+  /// Downloads + installs the model via the plugin, reporting progress (0..1).
   Future<void> download(
     GemmaModelSpec spec, {
     String? hfToken,
     void Function(double progress)? onProgress,
   }) async {
-    final path = await _modelFilePath(spec);
-    await _downloader.download(
-      spec.downloadUrl,
-      path,
-      bearerToken: spec.needsHfToken ? hfToken : null,
-      onProgress: onProgress,
-    );
+    await _install(spec, hfToken, onProgress);
+    await (await _marker(spec)).create(recursive: true);
   }
 
   Future<void> deleteDownload(GemmaModelSpec spec) async {
-    final file = File(await _modelFilePath(spec));
-    if (await file.exists()) await file.delete();
-    if (_loadedModelId == spec.id) await _unload();
-  }
-
-  Future<void> _unload() async {
-    try {
-      await _chat?.close?.call();
-    } catch (_) {}
-    try {
-      await _inferenceModel?.close?.call();
-    } catch (_) {}
-    _chat = null;
-    _inferenceModel = null;
-    _loadedModelId = null;
-  }
-
-  /// Ensures the given model is downloaded and loaded into flutter_gemma.
-  Future<void> _ensureLoaded(GemmaModelSpec spec) async {
-    if (_loadedModelId == spec.id && _inferenceModel != null) return;
-    await _unload();
-
-    final path = await _modelFilePath(spec);
-    if (!await File(path).exists()) {
-      throw StateError('Gemma model not downloaded: ${spec.id}');
+    final marker = await _marker(spec);
+    if (await marker.exists()) await marker.delete();
+    if (_loadedModelId == spec.id) {
+      _loadedModelId = null;
+      _model = null;
     }
+  }
 
-    final gemma = FlutterGemmaPlugin.instance;
-    await gemma.modelManager.setModelPath(path);
-    _inferenceModel = await gemma.createModel(
-      modelType: _modelType(spec.modelTypeId),
+  Future<void> _install(
+    GemmaModelSpec spec,
+    String? hfToken,
+    void Function(double progress)? onProgress,
+  ) async {
+    final token = (spec.needsHfToken && hfToken != null && hfToken.isNotEmpty) ? hfToken : null;
+    var builder = FlutterGemma.installModel(modelType: _modelType(spec.modelTypeId))
+        .fromNetwork(spec.downloadUrl, token: token);
+    if (onProgress != null) {
+      builder = builder.withProgress((progress) => onProgress(progress / 100));
+    }
+    await builder.install();
+  }
+
+  /// Ensures [spec] is the active, loaded model (installing from cache if needed).
+  Future<void> _ensureActive(GemmaModelSpec spec, String? hfToken) async {
+    if (_loadedModelId == spec.id && _model != null) return;
+    // Re-running install for an already-downloaded model just activates it.
+    await _install(spec, hfToken, null);
+    _model = await FlutterGemma.getActiveModel(
       maxTokens: spec.maxTokens,
       preferredBackend: PreferredBackend.gpu,
+      supportAudio: spec.supportsAudio,
     );
     _loadedModelId = spec.id;
   }
 
-  /// Generates a chat completion for [prompt] using the loaded model.
-  Future<String> _generate(GemmaModelSpec spec, String systemPrompt, String prompt) async {
-    await _ensureLoaded(spec);
-    final chat = await _inferenceModel.createChat();
-    await chat.addQueryChunk(Message.text(text: '$systemPrompt\n\n$prompt', isUser: true));
-    final dynamic response = await chat.generateChatResponse();
-    return _asText(response);
-  }
-
-  String _asText(dynamic response) {
-    if (response is String) return response;
-    try {
-      final dynamic token = response.token;
-      if (token is String) return token;
-    } catch (_) {}
-    try {
-      final dynamic text = response.text;
-      if (text is String) return text;
-    } catch (_) {}
-    return response?.toString() ?? '';
-  }
+  String _responseText(ModelResponse response) =>
+      response is TextResponse ? response.token : '';
 
   /// Summarizes a transcript into structured output.
   Future<SummaryResult> summarize(
@@ -132,22 +109,32 @@ class GemmaEngine {
     String transcript, {
     required bool german,
     required String fallbackTitle,
+    String? hfToken,
   }) async {
-    final raw = await _generate(
-      spec,
-      SummaryPrompt.system(german),
-      SummaryPrompt.user(transcript, german: german),
+    await _ensureActive(spec, hfToken);
+    final chat = await FlutterGemmaPlugin.instance.createChat(modelType: _modelType(spec.modelTypeId));
+    await chat.addQueryChunk(
+      Message.text(
+        text: '${SummaryPrompt.system(german)}\n\n${SummaryPrompt.user(transcript, german: german)}',
+        isUser: true,
+      ),
     );
-    return SummaryPrompt.parse(raw, fallbackTitle: fallbackTitle);
+
+    final buffer = StringBuffer();
+    await for (final response in chat.generateChatResponseAsync()) {
+      buffer.write(_responseText(response));
+    }
+    return SummaryPrompt.parse(buffer.toString(), fallbackTitle: fallbackTitle);
   }
 }
 
 /// [SummarizationService] backed by an on-device Gemma model.
 class GemmaSummarizationService implements SummarizationService {
-  GemmaSummarizationService(this.modelId, {required this.fallbackTitle});
+  GemmaSummarizationService(this.modelId, {required this.fallbackTitle, this.hfToken});
 
   final String modelId;
   final String fallbackTitle;
+  final String? hfToken;
 
   @override
   Future<SummaryResult> summarize(String transcript, {required bool german}) =>
@@ -156,5 +143,6 @@ class GemmaSummarizationService implements SummarizationService {
         transcript,
         german: german,
         fallbackTitle: fallbackTitle,
+        hfToken: hfToken,
       );
 }

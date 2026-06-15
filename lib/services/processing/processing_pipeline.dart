@@ -130,7 +130,11 @@ class ProcessingPipeline {
   }) async {
     final SummarizationService service;
     if (settings.summaryMode.isLocal) {
-      service = GemmaSummarizationService(settings.gemmaModelId, fallbackTitle: fallbackTitle);
+      service = GemmaSummarizationService(
+        settings.gemmaModelId,
+        fallbackTitle: fallbackTitle,
+        hfToken: settings.hfToken,
+      );
     } else {
       final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);
       service = RemoteSummarizationService(
