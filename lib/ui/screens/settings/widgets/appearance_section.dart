@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
+import '../../../widgets/segmented_control.dart';
 import '../../../widgets/surfaces.dart';
 
-/// Theme (light/dark) and accent color selection.
+/// Theme (light/dark) and accent color selection. The theme toggle spans the
+/// full width with a sliding thumb; no side label.
 class AppearanceSection extends ConsumerWidget {
   const AppearanceSection({super.key});
 
@@ -22,24 +24,13 @@ class AppearanceSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  t.theme,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
-                ),
-              ),
-              PillSegment(
-                items: [
-                  SegmentItem(label: t.light, icon: Icons.light_mode_outlined),
-                  SegmentItem(label: t.dark, icon: Icons.dark_mode_outlined),
-                ],
-                selectedIndex: settings.isDark ? 1 : 0,
-                onSelected: (i) => ctrl.setBrightness(i == 1 ? Brightness.dark : Brightness.light),
-              ),
+          AnimatedSegmentedControl(
+            options: [
+              SegmentOption(t.light, icon: Icons.light_mode_outlined),
+              SegmentOption(t.dark, icon: Icons.dark_mode_outlined),
             ],
+            selectedIndex: settings.isDark ? 1 : 0,
+            onChanged: (i) => ctrl.setBrightness(i == 1 ? Brightness.dark : Brightness.light),
           ),
           Divider(height: 28, color: palette.line),
           Text(
@@ -47,7 +38,7 @@ class AppearanceSection extends ConsumerWidget {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
           ),
           const SizedBox(height: 13),
-          AccentSwatches(selected: settings.accent, onSelected: ctrl.setAccent),
+          Center(child: AccentSwatches(selected: settings.accent, onSelected: ctrl.setAccent)),
         ],
       ),
     );

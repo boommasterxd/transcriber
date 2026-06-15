@@ -5,9 +5,10 @@ import 'transcription_service.dart';
 /// [TranscriptionService] backed by a cloud provider's ASR endpoint. Providers
 /// without native ASR (Anthropic, OpenRouter) raise a clear error.
 class RemoteTranscriptionService implements TranscriptionService {
-  RemoteTranscriptionService(this.client);
+  RemoteTranscriptionService(this.client, this.model);
 
   final RemoteApiClient client;
+  final String model;
 
   @override
   Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) {
@@ -17,6 +18,6 @@ class RemoteTranscriptionService implements TranscriptionService {
         'Wähle OpenAI oder Google, oder verarbeite auf dem Gerät.',
       );
     }
-    return client.transcribe(audioPath, languageCode: languageCode);
+    return client.transcribe(audioPath, languageCode: languageCode, model: model);
   }
 }

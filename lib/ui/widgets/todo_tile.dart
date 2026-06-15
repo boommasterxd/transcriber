@@ -15,27 +15,36 @@ class TodoTile extends StatelessWidget {
     final palette = context.palette;
     return GestureDetector(
       onTap: onToggle,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: palette.coralSoft, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          color: done ? palette.mintSoft : palette.coralSoft,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Row(
           children: [
-            if (done)
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(color: palette.mint, borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.check, color: Colors.white, size: 13),
-              )
-            else
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: palette.coral.withValues(alpha: 0.55), width: 2),
-                ),
-              ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              child: done
+                  ? Container(
+                      key: const ValueKey(true),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(color: palette.mint, borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.check, color: Colors.white, size: 13),
+                    )
+                  : Container(
+                      key: const ValueKey(false),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: palette.coral.withValues(alpha: 0.55), width: 2),
+                      ),
+                    ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(

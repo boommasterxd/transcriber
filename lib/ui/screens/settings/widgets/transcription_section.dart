@@ -2,44 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_strings.dart';
-import '../../../../core/theme/app_palette.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../data/catalog/whisper_catalog.dart';
 import '../../../../data/models/processing_mode.dart';
 import '../../../../state/model_manager_controller.dart';
 import '../../../../state/settings_controller.dart';
-import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import 'downloadable_model_tile.dart';
 import 'provider_connect_card.dart';
 import 'provider_picker.dart';
+import 'remote_model_list.dart';
+import 'stage_mode_toggle.dart';
 
-/// Transcription stage: on-device Whisper, or a cloud ASR provider (OpenAI/Google).
+/// Transcription stage: on-device Whisper, or a cloud ASR provider (OpenAI /
+/// Google) with a live transcription-model list.
 class TranscriptionSection extends ConsumerWidget {
   const TranscriptionSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final settings = ref.watch(settingsControllerProvider);
     final manager = ref.watch(modelManagerControllerProvider);
     final ctrl = ref.read(settingsControllerProvider.notifier);
     final managerCtrl = ref.read(modelManagerControllerProvider.notifier);
     final isLocal = settings.asrMode.isLocal;
+    final provider = settings.asrProvider;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: PillSegment(
-            items: [SegmentItem(label: t.modeLocalT), SegmentItem(label: t.modeRemoteT)],
-            selectedIndex: isLocal ? 0 : 1,
-            onSelected: (i) =>
-                ctrl.setAsrMode(i == 0 ? ProcessingMode.onDevice : ProcessingMode.cloud),
-          ),
+        StageModeToggle(
+          isLocal: isLocal,
+          onChanged: (local) =>
+              ctrl.setAsrMode(local ? ProcessingMode.onDevice : ProcessingMode.cloud),
+          localLabel: t.modeLocalT,
+          cloudLabel: t.modeRemoteT,
         ),
         const SizedBox(height: 12),
         if (isLocal)
@@ -66,23 +65,18 @@ class TranscriptionSection extends ConsumerWidget {
         else ...[
           ProviderPicker(
             allowed: RemoteCatalog.asrProviders,
-            selected: settings.asrProvider,
+            selected: provider,
             onSelect: ctrl.setAsrProvider,
           ),
           const SizedBox(height: 12),
-          ProviderConnectCard(provider: settings.asrProvider),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.graphic_eq_rounded, size: 14, color: palette.muted),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${t.shStep1}: ${RemoteCatalog.asrModelLabel(settings.asrProvider)}',
-                  style: TextStyle(fontSize: 12.5, color: palette.muted),
-                ),
-              ),
-            ],
+          ProviderConnectCard(provider: provider),
+          const SizedBox(height: 12),
+          SectionLabel(t.remoteModel, padding: const EdgeInsets.fromLTRB(6, 4, 6, 9)),
+          RemoteModelList(
+            provider: provider,
+            forTranscription: true,
+            selectedId: settings.asrModelId(provider),
+            onSelect: (id) => ctrl.setAsrModel(provider, id),
           ),
         ],
       ],

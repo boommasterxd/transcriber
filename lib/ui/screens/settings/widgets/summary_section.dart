@@ -5,26 +5,24 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/catalog/gemma_catalog.dart';
-import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../data/models/processing_mode.dart';
 import '../../../../data/models/remote_provider.dart';
-import '../../../../state/connections_controller.dart';
 import '../../../../state/model_manager_controller.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
-import '../../../widgets/model_tile.dart';
 import '../../../widgets/surfaces.dart';
 import 'downloadable_model_tile.dart';
 import 'provider_connect_card.dart';
 import 'provider_picker.dart';
+import 'remote_model_list.dart';
+import 'stage_mode_toggle.dart';
 
-/// Summary stage: on-device Gemma, or any cloud provider + model.
+/// Summary stage: on-device Gemma, or any cloud provider + a live model list.
 class SummarySection extends ConsumerWidget {
   const SummarySection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final settings = ref.watch(settingsControllerProvider);
     final manager = ref.watch(modelManagerControllerProvider);
@@ -32,19 +30,16 @@ class SummarySection extends ConsumerWidget {
     final managerCtrl = ref.read(modelManagerControllerProvider.notifier);
     final isLocal = settings.summaryMode.isLocal;
     final provider = settings.summaryProvider;
-    final connected = ref.watch(connectionsControllerProvider)[provider] ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: PillSegment(
-            items: [SegmentItem(label: t.modeLocalT), SegmentItem(label: t.modeRemoteT)],
-            selectedIndex: isLocal ? 0 : 1,
-            onSelected: (i) =>
-                ctrl.setSummaryMode(i == 0 ? ProcessingMode.onDevice : ProcessingMode.cloud),
-          ),
+        StageModeToggle(
+          isLocal: isLocal,
+          onChanged: (local) =>
+              ctrl.setSummaryMode(local ? ProcessingMode.onDevice : ProcessingMode.cloud),
+          localLabel: t.modeLocalT,
+          cloudLabel: t.modeRemoteT,
         ),
         const SizedBox(height: 12),
         if (isLocal) ...[
@@ -80,34 +75,12 @@ class SummarySection extends ConsumerWidget {
           ProviderConnectCard(provider: provider),
           const SizedBox(height: 12),
           SectionLabel(t.remoteModel, padding: const EdgeInsets.fromLTRB(6, 4, 6, 9)),
-          if (connected)
-            SurfaceCard(
-              clip: true,
-              child: Column(
-                children: [
-                  for (final (i, m) in RemoteCatalog.modelsFor(provider).indexed)
-                    ModelTile(
-                      leading: Icon(Icons.auto_awesome_outlined, size: 18, color: palette.accent),
-                      title: m.displayName,
-                      subtitle: m.badge.label(t.language),
-                      isLast: i == RemoteCatalog.modelsFor(provider).length - 1,
-                      trailing: SelectionIndicator(selected: settings.remoteModelId(provider) == m.id),
-                      onTap: () => ctrl.setRemoteModel(provider, m.id),
-                    ),
-                ],
-              ),
-            )
-          else
-            SurfaceCard(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  t.connectFirst,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13.5, color: palette.muted),
-                ),
-              ),
-            ),
+          RemoteModelList(
+            provider: provider,
+            forTranscription: false,
+            selectedId: settings.summaryModelId(provider),
+            onSelect: (id) => ctrl.setSummaryModel(provider, id),
+          ),
         ],
       ],
     );
@@ -146,7 +119,7 @@ class _HfTokenFieldState extends State<_HfTokenField> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Für den Download gated Modelle (Gemma 3n).',
+            'Für den Download gated Modelle (Gemma, Gemma 3n).',
             style: TextStyle(fontSize: 12.5, color: palette.muted),
           ),
           const SizedBox(height: 12),

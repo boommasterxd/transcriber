@@ -3,6 +3,49 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_accent.dart';
 import '../../core/theme/app_palette.dart';
 
+/// Wraps [child] so it scales down briefly while pressed — tactile feedback
+/// without an ink ripple. Used by the primary buttons and tappable tiles.
+class PressableScale extends StatefulWidget {
+  const PressableScale({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.pressedScale = 0.96,
+  });
+
+  final Widget child;
+  final VoidCallback onTap;
+  final double pressedScale;
+
+  @override
+  State<PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<PressableScale> {
+  bool _pressed = false;
+
+  void _set(bool v) {
+    if (_pressed != v) setState(() => _pressed = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onTapDown: (_) => _set(true),
+      onTapUp: (_) => _set(false),
+      onTapCancel: () => _set(false),
+      child: AnimatedScale(
+        scale: _pressed ? widget.pressedScale : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 /// Primary accent pill button with optional leading/trailing icon.
 class PillButton extends StatelessWidget {
   const PillButton({
@@ -26,7 +69,7 @@ class PillButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final fg = outlined ? palette.accent : palette.onAccent;
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Container(
         height: height,
@@ -74,8 +117,9 @@ class IconCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
+      pressedScale: 0.9,
       child: Container(
         width: size,
         height: size,
@@ -85,74 +129,6 @@ class IconCircleButton extends StatelessWidget {
           boxShadow: [BoxShadow(color: palette.shadow, blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Icon(icon, size: size * 0.45, color: palette.body),
-      ),
-    );
-  }
-}
-
-/// Item for a [PillSegment].
-class SegmentItem {
-  const SegmentItem({required this.label, this.icon});
-  final String label;
-  final IconData? icon;
-}
-
-/// Segmented pill toggle (e.g. Hell/Dunkel, Deutsch/English).
-class PillSegment extends StatelessWidget {
-  const PillSegment({
-    super.key,
-    required this.items,
-    required this.selectedIndex,
-    required this.onSelected,
-  });
-
-  final List<SegmentItem> items;
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(color: palette.chip, borderRadius: BorderRadius.circular(9999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < items.length; i++)
-            GestureDetector(
-              onTap: () => onSelected(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
-                decoration: BoxDecoration(
-                  color: i == selectedIndex ? palette.surface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (items[i].icon != null) ...[
-                      Icon(
-                        items[i].icon,
-                        size: 15,
-                        color: i == selectedIndex ? palette.accent : palette.muted,
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    Text(
-                      items[i].label,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: i == selectedIndex ? palette.accent : palette.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart' show Brightness;
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_accent.dart';
-import '../catalog/gemma_catalog.dart';
 import '../catalog/remote_catalog.dart';
+import '../catalog/gemma_catalog.dart';
 import '../catalog/whisper_catalog.dart';
 import 'processing_mode.dart';
 import 'remote_provider.dart';
@@ -11,8 +11,9 @@ import 'remote_provider.dart';
 /// Immutable snapshot of all user preferences.
 ///
 /// Transcription and summarization are configured **independently** — each can
-/// run on-device or via a cloud provider, in any combination. API keys are
-/// stored separately in secure storage.
+/// run on-device or via a cloud provider, in any combination. Cloud model ids
+/// are the raw identifiers chosen from each provider's live model list. API keys
+/// are stored separately in secure storage.
 class AppSettings {
   const AppSettings({
     required this.brightness,
@@ -24,7 +25,8 @@ class AppSettings {
     required this.gemmaModelId,
     required this.asrProvider,
     required this.summaryProvider,
-    required this.remoteModelByProvider,
+    required this.chatModelByProvider,
+    required this.asrModelByProvider,
     required this.autoDeleteAudio,
     required this.onboarded,
     required this.hfToken,
@@ -34,37 +36,31 @@ class AppSettings {
   final AppAccent accent;
   final AppLanguage language;
 
-  /// Per-stage processing backends.
   final ProcessingMode asrMode;
   final ProcessingMode summaryMode;
 
-  /// Selected on-device model ids.
   final String whisperModelId;
   final String gemmaModelId;
 
-  /// Cloud provider for each stage. ASR is limited to providers with native ASR
-  /// (OpenAI, Google); summary can use any provider.
   final RemoteProviderId asrProvider;
   final RemoteProviderId summaryProvider;
 
-  /// Per-provider chosen summary model id.
-  final Map<RemoteProviderId, String> remoteModelByProvider;
+  /// Selected cloud model id per provider (chat/summary and ASR respectively).
+  final Map<RemoteProviderId, String> chatModelByProvider;
+  final Map<RemoteProviderId, String> asrModelByProvider;
 
   final bool autoDeleteAudio;
   final bool onboarded;
-
-  /// Optional Hugging Face token for gated model downloads.
   final String hfToken;
 
   bool get isDark => brightness == Brightness.dark;
-
   bool get isFullyLocal => asrMode.isLocal && summaryMode.isLocal;
 
-  String remoteModelId(RemoteProviderId p) =>
-      remoteModelByProvider[p] ?? RemoteCatalog.defaultModelId[p]!;
+  String summaryModelId(RemoteProviderId p) =>
+      chatModelByProvider[p] ?? RemoteCatalog.chatDefault(p);
 
-  RemoteModelSpec get summaryRemoteModel =>
-      RemoteCatalog.model(summaryProvider, remoteModelId(summaryProvider));
+  String asrModelId(RemoteProviderId p) =>
+      asrModelByProvider[p] ?? RemoteCatalog.asrDefault(p);
 
   factory AppSettings.initial() => AppSettings(
         brightness: Brightness.light,
@@ -76,7 +72,8 @@ class AppSettings {
         gemmaModelId: GemmaCatalog.defaultId,
         asrProvider: RemoteProviderId.openai,
         summaryProvider: RemoteProviderId.anthropic,
-        remoteModelByProvider: Map.of(RemoteCatalog.defaultModelId),
+        chatModelByProvider: const {},
+        asrModelByProvider: const {},
         autoDeleteAudio: true,
         onboarded: false,
         hfToken: '',
@@ -92,7 +89,8 @@ class AppSettings {
     String? gemmaModelId,
     RemoteProviderId? asrProvider,
     RemoteProviderId? summaryProvider,
-    Map<RemoteProviderId, String>? remoteModelByProvider,
+    Map<RemoteProviderId, String>? chatModelByProvider,
+    Map<RemoteProviderId, String>? asrModelByProvider,
     bool? autoDeleteAudio,
     bool? onboarded,
     String? hfToken,
@@ -107,7 +105,8 @@ class AppSettings {
         gemmaModelId: gemmaModelId ?? this.gemmaModelId,
         asrProvider: asrProvider ?? this.asrProvider,
         summaryProvider: summaryProvider ?? this.summaryProvider,
-        remoteModelByProvider: remoteModelByProvider ?? this.remoteModelByProvider,
+        chatModelByProvider: chatModelByProvider ?? this.chatModelByProvider,
+        asrModelByProvider: asrModelByProvider ?? this.asrModelByProvider,
         autoDeleteAudio: autoDeleteAudio ?? this.autoDeleteAudio,
         onboarded: onboarded ?? this.onboarded,
         hfToken: hfToken ?? this.hfToken,
@@ -123,24 +122,22 @@ class AppSettings {
         'gemmaModelId': gemmaModelId,
         'asrProvider': asrProvider.id,
         'summaryProvider': summaryProvider.id,
-        'remoteModelByProvider': remoteModelByProvider.map((k, v) => MapEntry(k.id, v)),
+        'chatModelByProvider': chatModelByProvider.map((k, v) => MapEntry(k.id, v)),
+        'asrModelByProvider': asrModelByProvider.map((k, v) => MapEntry(k.id, v)),
         'autoDeleteAudio': autoDeleteAudio,
         'onboarded': onboarded,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> j, {required String hfToken}) {
-    final raw = (j['remoteModelByProvider'] as Map?)?.cast<String, dynamic>() ?? {};
-    final remoteMap = Map<RemoteProviderId, String>.of(RemoteCatalog.defaultModelId);
-    for (final entry in raw.entries) {
-      remoteMap[RemoteProviderId.fromId(entry.key)] = entry.value.toString();
+    Map<RemoteProviderId, String> parseMap(String key) {
+      final raw = (j[key] as Map?)?.cast<String, dynamic>() ?? const {};
+      return {
+        for (final e in raw.entries) RemoteProviderId.fromId(e.key): e.value.toString(),
+      };
     }
 
-    // Back-compat: an older single `mode`/`provider` maps onto both stages.
     final legacyMode = j['mode'] as String?;
-    final legacyProvider = j['provider'] as String?;
-
-    ProcessingMode mode(String key) =>
-        ProcessingMode.fromId((j[key] as String?) ?? legacyMode);
+    ProcessingMode mode(String key) => ProcessingMode.fromId((j[key] as String?) ?? legacyMode);
 
     return AppSettings(
       brightness: j['brightness'] == 'dark' ? Brightness.dark : Brightness.light,
@@ -150,16 +147,16 @@ class AppSettings {
       summaryMode: mode('summaryMode'),
       whisperModelId: j['whisperModelId'] as String? ?? WhisperCatalog.defaultId,
       gemmaModelId: j['gemmaModelId'] as String? ?? GemmaCatalog.defaultId,
-      asrProvider: _asrProviderFromId((j['asrProvider'] as String?) ?? legacyProvider),
-      summaryProvider: RemoteProviderId.fromId((j['summaryProvider'] as String?) ?? legacyProvider),
-      remoteModelByProvider: remoteMap,
+      asrProvider: _asrProviderFromId(j['asrProvider'] as String?),
+      summaryProvider: RemoteProviderId.fromId(j['summaryProvider'] as String?),
+      chatModelByProvider: parseMap('chatModelByProvider'),
+      asrModelByProvider: parseMap('asrModelByProvider'),
       autoDeleteAudio: j['autoDeleteAudio'] as bool? ?? true,
       onboarded: j['onboarded'] as bool? ?? false,
       hfToken: hfToken,
     );
   }
 
-  /// ASR only supports providers with native transcription.
   static RemoteProviderId _asrProviderFromId(String? id) {
     final p = RemoteProviderId.fromId(id);
     return RemoteCatalog.asrProviders.contains(p) ? p : RemoteProviderId.openai;

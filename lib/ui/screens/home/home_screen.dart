@@ -166,7 +166,7 @@ class _FilePickTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
@@ -213,8 +213,9 @@ class _RecordFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
+      pressedScale: 0.9,
       child: Container(
         width: 66,
         height: 66,

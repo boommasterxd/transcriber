@@ -10,29 +10,46 @@ import 'mime_utils.dart';
 import 'remote_api_client.dart';
 
 /// Google Gemini client. Chat via `generateContent`; transcription by sending
-/// the audio inline to a multimodal Gemini model.
+/// the audio inline to a multimodal Gemini model; model listing via `models`.
 class GoogleClient implements RemoteApiClient {
-  GoogleClient({required this.apiKey, this.transcribeModelId = 'gemini-2.5-flash', http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+  GoogleClient({required this.apiKey, http.Client? httpClient}) : _http = httpClient ?? http.Client();
 
   final String apiKey;
-  final String transcribeModelId;
   final http.Client _http;
 
-  static const _base = 'https://generativelanguage.googleapis.com/v1beta/models';
+  static const _base = 'https://generativelanguage.googleapis.com/v1beta';
 
   @override
   bool get supportsAudioTranscription => true;
 
   @override
-  String get asrLabel => transcribeModelId;
+  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
+    final response = await _http.get(Uri.parse('$_base/models?key=$apiKey&pageSize=200'));
+    if (response.statusCode != 200) {
+      throw RemoteApiException(
+        'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
+        statusCode: response.statusCode,
+      );
+    }
+    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final models = json['models'] as List? ?? const [];
+    final result = <RemoteModelInfo>[];
+    for (final raw in models) {
+      final m = raw as Map;
+      final methods = (m['supportedGenerationMethods'] as List?)?.map((e) => e.toString()) ?? const [];
+      final name = (m['name']?.toString() ?? '').replaceFirst('models/', '');
+      if (!methods.contains('generateContent') || !name.toLowerCase().contains('gemini')) continue;
+      result.add(RemoteModelInfo(id: name, label: m['displayName']?.toString()));
+    }
+    return result;
+  }
 
   @override
   Future<String> chat({
     required String system,
     required String user,
     required String modelId,
-  }) async {
+  }) {
     final body = {
       'systemInstruction': {
         'parts': [
@@ -52,7 +69,11 @@ class GoogleClient implements RemoteApiClient {
   }
 
   @override
-  Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) async {
+  Future<TranscriptionResult> transcribe(
+    String audioPath, {
+    String? languageCode,
+    required String model,
+  }) async {
     final bytes = await File(audioPath).readAsBytes();
     final prompt = languageCode == null || languageCode.isEmpty || languageCode == 'auto'
         ? 'Transcribe this audio verbatim. Return only the transcript text.'
@@ -70,7 +91,7 @@ class GoogleClient implements RemoteApiClient {
         },
       ],
     };
-    final text = (await _generateContent(transcribeModelId, body)).trim();
+    final text = (await _generateContent(model, body)).trim();
     return TranscriptionResult(
       text: text,
       segments: text.isEmpty ? const [] : [TranscriptLine(time: '0:00', text: text)],
@@ -78,7 +99,7 @@ class GoogleClient implements RemoteApiClient {
   }
 
   Future<String> _generateContent(String modelId, Map<String, dynamic> body) async {
-    final uri = Uri.parse('$_base/$modelId:generateContent?key=$apiKey');
+    final uri = Uri.parse('$_base/models/$modelId:generateContent?key=$apiKey');
     final response = await _http.post(
       uri,
       headers: {'Content-Type': 'application/json'},

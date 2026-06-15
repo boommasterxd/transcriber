@@ -54,6 +54,40 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     return (message?['content'] as String?)?.trim() ?? '';
   }
 
+  @override
+  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
+    final response = await _http.get(
+      Uri.parse('$baseUrl/models'),
+      headers: {'Authorization': 'Bearer $apiKey', ...extraHeaders},
+    );
+    if (response.statusCode != 200) {
+      throw RemoteApiException(
+        'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
+        statusCode: response.statusCode,
+      );
+    }
+    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final data = json['data'] as List? ?? const [];
+    final ids = data
+        .map((e) => (e as Map)['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .where((id) => forTranscription ? _isTranscriptionModel(id) : _isChatModel(id))
+        .toList()
+      ..sort();
+    return ids.map((id) => RemoteModelInfo(id: id)).toList();
+  }
+
+  bool _isTranscriptionModel(String id) {
+    final l = id.toLowerCase();
+    return l.contains('transcribe') || l.contains('whisper');
+  }
+
+  bool _isChatModel(String id) {
+    final l = id.toLowerCase();
+    const blocked = ['embed', 'whisper', 'transcribe', 'tts', 'audio', 'realtime', 'image', 'moderation', 'dall'];
+    return !blocked.any(l.contains);
+  }
+
   /// Shared OpenAI Whisper / gpt-4o-transcribe implementation. Subclasses that
   /// support transcription delegate here.
   Future<TranscriptionResult> transcribeOpenAi(

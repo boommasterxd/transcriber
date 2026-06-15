@@ -118,7 +118,8 @@ class ProcessingPipeline {
           .transcribe(wav, languageCode: 'auto');
     }
     final client = RemoteClientFactory.create(settings.asrProvider, apiKey);
-    return RemoteTranscriptionService(client).transcribe(audioPath, languageCode: 'auto');
+    return RemoteTranscriptionService(client, settings.asrModelId(settings.asrProvider))
+        .transcribe(audioPath, languageCode: 'auto');
   }
 
   Future<SummaryResult> _summarize({
@@ -139,7 +140,7 @@ class ProcessingPipeline {
       final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);
       service = RemoteSummarizationService(
         client: client,
-        apiModelId: settings.summaryRemoteModel.apiModelId,
+        apiModelId: settings.summaryModelId(settings.summaryProvider),
         fallbackTitle: fallbackTitle,
       );
     }

@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../state/settings_controller.dart';
-import '../../../widgets/buttons.dart';
+import '../../../widgets/segmented_control.dart';
 import '../../../widgets/surfaces.dart';
 
-/// App language toggle (DE/EN) and transcription language (auto-detect).
+/// App language toggle (full-width, no side label) + transcription language.
 class LanguageSection extends ConsumerWidget {
   const LanguageSection({super.key});
 
@@ -22,23 +22,10 @@ class LanguageSection extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  t.uiLang,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
-                ),
-              ),
-              const SizedBox(width: 12),
-              PillSegment(
-                items: const [SegmentItem(label: 'Deutsch'), SegmentItem(label: 'English')],
-                selectedIndex: settings.language == AppLanguage.de ? 0 : 1,
-                onSelected: (i) => ctrl.setLanguage(i == 0 ? AppLanguage.de : AppLanguage.en),
-              ),
-            ],
+          AnimatedSegmentedControl(
+            options: const [SegmentOption('Deutsch'), SegmentOption('English')],
+            selectedIndex: settings.language == AppLanguage.de ? 0 : 1,
+            onChanged: (i) => ctrl.setLanguage(i == 0 ? AppLanguage.de : AppLanguage.en),
           ),
           Divider(height: 28, color: palette.line),
           Row(

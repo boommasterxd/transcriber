@@ -1,13 +1,9 @@
-import 'package:http/http.dart' as http;
-
 import '../transcription/transcription_service.dart';
 import 'openai_compatible_client.dart';
 
-/// OpenAI client: chat completions + native audio transcription.
+/// OpenAI client: chat completions + native audio transcription + model listing.
 class OpenAiClient extends OpenAiCompatibleClient {
   OpenAiClient({required super.apiKey, super.httpClient});
-
-  static const _transcribeModel = 'gpt-4o-transcribe';
 
   @override
   String get baseUrl => 'https://api.openai.com/v1';
@@ -16,14 +12,15 @@ class OpenAiClient extends OpenAiCompatibleClient {
   bool get supportsAudioTranscription => true;
 
   @override
-  String get asrLabel => 'gpt-4o-transcribe';
-
-  @override
-  Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) =>
-      transcribeOpenAi(audioPath, languageCode: languageCode, model: _transcribeModel);
+  Future<TranscriptionResult> transcribe(
+    String audioPath, {
+    String? languageCode,
+    required String model,
+  }) =>
+      transcribeOpenAi(audioPath, languageCode: languageCode, model: model);
 }
 
-/// OpenRouter client: OpenAI-compatible chat. No first-party ASR endpoint.
+/// OpenRouter client: OpenAI-compatible chat + model listing. No first-party ASR.
 class OpenRouterClient extends OpenAiCompatibleClient {
   OpenRouterClient({required super.apiKey, super.httpClient});
 
@@ -40,10 +37,11 @@ class OpenRouterClient extends OpenAiCompatibleClient {
   bool get supportsAudioTranscription => false;
 
   @override
-  String get asrLabel => '—';
-
-  @override
-  Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) {
+  Future<TranscriptionResult> transcribe(
+    String audioPath, {
+    String? languageCode,
+    required String model,
+  }) {
     throw UnsupportedError('OpenRouter bietet keine native Transkription.');
   }
 }

@@ -22,7 +22,25 @@ class AnthropicClient implements RemoteApiClient {
   bool get supportsAudioTranscription => false;
 
   @override
-  String get asrLabel => '—';
+  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
+    if (forTranscription) return const []; // Anthropic has no ASR models.
+    final response = await _http.get(
+      Uri.parse('https://api.anthropic.com/v1/models?limit=100'),
+      headers: {'x-api-key': apiKey, 'anthropic-version': _version},
+    );
+    if (response.statusCode != 200) {
+      throw RemoteApiException(
+        'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
+        statusCode: response.statusCode,
+      );
+    }
+    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final data = json['data'] as List? ?? const [];
+    return data
+        .map((e) => e as Map)
+        .map((m) => RemoteModelInfo(id: m['id'].toString(), label: m['display_name']?.toString()))
+        .toList();
+  }
 
   @override
   Future<String> chat({
@@ -63,7 +81,11 @@ class AnthropicClient implements RemoteApiClient {
   }
 
   @override
-  Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) {
+  Future<TranscriptionResult> transcribe(
+    String audioPath, {
+    String? languageCode,
+    required String model,
+  }) {
     throw UnsupportedError('Anthropic bietet keine native Transkription.');
   }
 

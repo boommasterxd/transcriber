@@ -8,17 +8,14 @@ import 'remote_api_client.dart';
 class RemoteClientFactory {
   const RemoteClientFactory._();
 
-  static RemoteApiClient create(RemoteProviderId provider, String apiKey, {String? googleTranscribeModel}) {
+  static RemoteApiClient create(RemoteProviderId provider, String apiKey) {
     switch (provider) {
       case RemoteProviderId.anthropic:
         return AnthropicClient(apiKey: apiKey);
       case RemoteProviderId.openai:
         return OpenAiClient(apiKey: apiKey);
       case RemoteProviderId.google:
-        return GoogleClient(
-          apiKey: apiKey,
-          transcribeModelId: googleTranscribeModel ?? 'gemini-2.5-flash',
-        );
+        return GoogleClient(apiKey: apiKey);
       case RemoteProviderId.openrouter:
         return OpenRouterClient(apiKey: apiKey);
     }

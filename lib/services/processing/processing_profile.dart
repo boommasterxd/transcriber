@@ -40,7 +40,7 @@ class ProcessingProfile {
       asr = StageInfo(name: m.displayName, sub: formatBytes(m.sizeBytes, german: german), isLocal: true);
     } else {
       final provider = RemoteCatalog.provider(s.asrProvider);
-      asr = StageInfo(name: RemoteCatalog.asrModelLabel(s.asrProvider), sub: provider.name, isLocal: false);
+      asr = StageInfo(name: s.asrModelId(s.asrProvider), sub: provider.name, isLocal: false);
     }
 
     final StageInfo summary;
@@ -49,7 +49,7 @@ class ProcessingProfile {
       summary = StageInfo(name: m.displayName, sub: formatBytes(m.sizeBytes, german: german), isLocal: true);
     } else {
       final provider = RemoteCatalog.provider(s.summaryProvider);
-      summary = StageInfo(name: s.summaryRemoteModel.displayName, sub: provider.name, isLocal: false);
+      summary = StageInfo(name: s.summaryModelId(s.summaryProvider), sub: provider.name, isLocal: false);
     }
 
     return ProcessingProfile(asr: asr, summary: summary);

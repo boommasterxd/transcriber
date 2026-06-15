@@ -46,9 +46,14 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setSummaryProvider(RemoteProviderId provider) =>
       _persist(state.copyWith(summaryProvider: provider));
 
-  Future<void> setRemoteModel(RemoteProviderId provider, String modelId) {
-    final map = Map<RemoteProviderId, String>.of(state.remoteModelByProvider)..[provider] = modelId;
-    return _persist(state.copyWith(remoteModelByProvider: map));
+  Future<void> setSummaryModel(RemoteProviderId provider, String modelId) {
+    final map = Map<RemoteProviderId, String>.of(state.chatModelByProvider)..[provider] = modelId;
+    return _persist(state.copyWith(chatModelByProvider: map));
+  }
+
+  Future<void> setAsrModel(RemoteProviderId provider, String modelId) {
+    final map = Map<RemoteProviderId, String>.of(state.asrModelByProvider)..[provider] = modelId;
+    return _persist(state.copyWith(asrModelByProvider: map));
   }
 
   Future<void> setAutoDelete(bool value) => _persist(state.copyWith(autoDeleteAudio: value));
