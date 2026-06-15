@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -64,7 +65,7 @@ class SummarySection extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 18),
-          _HfTokenField(initial: settings.hfToken, onChanged: ctrl.setHfToken),
+          _HfTokenField(initial: settings.hfToken, german: t.isDe, onChanged: ctrl.setHfToken),
         ] else ...[
           ProviderPicker(
             allowed: RemoteProviderId.values,
@@ -88,8 +89,9 @@ class SummarySection extends ConsumerWidget {
 }
 
 class _HfTokenField extends StatefulWidget {
-  const _HfTokenField({required this.initial, required this.onChanged});
+  const _HfTokenField({required this.initial, required this.german, required this.onChanged});
   final String initial;
+  final bool german;
   final ValueChanged<String> onChanged;
 
   @override
@@ -105,9 +107,33 @@ class _HfTokenFieldState extends State<_HfTokenField> {
     super.dispose();
   }
 
+  Future<void> _openTokens() async {
+    try {
+      await launchUrl(
+        Uri.parse('https://huggingface.co/settings/tokens'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final german = widget.german;
+    final steps = german
+        ? [
+            '1. Kostenlos auf huggingface.co anmelden',
+            '2. Settings → Access Tokens → New token (Typ: Read)',
+            '3. Token (hf_…) kopieren und hier einfügen',
+            '4. Bei Gemma: auf der Modellseite die Lizenz akzeptieren',
+          ]
+        : [
+            '1. Sign up for free at huggingface.co',
+            '2. Settings → Access Tokens → New token (type: Read)',
+            '3. Copy the token (hf_…) and paste it here',
+            '4. For Gemma: accept the license on the model page',
+          ];
+
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -119,8 +145,31 @@ class _HfTokenFieldState extends State<_HfTokenField> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Für den Download gated Modelle (Gemma, Gemma 3n).',
-            style: TextStyle(fontSize: 12.5, color: palette.muted),
+            german
+                ? 'Nötig, um die Modelle herunterzuladen (z. B. Gemma). So bekommst du einen:'
+                : 'Needed to download the models (e.g. Gemma). How to get one:',
+            style: TextStyle(fontSize: 12.5, height: 1.4, color: palette.muted),
+          ),
+          const SizedBox(height: 8),
+          for (final s in steps)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(s, style: TextStyle(fontSize: 12.5, height: 1.35, color: palette.body)),
+            ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: _openTokens,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  german ? 'Token erstellen' : 'Create token',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: palette.accent),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.open_in_new_rounded, size: 14, color: palette.accent),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Container(

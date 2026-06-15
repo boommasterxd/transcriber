@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../state/connections_controller.dart';
+import '../../../state/model_manager_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/effects.dart';
@@ -41,10 +43,37 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _prev() => setState(() => _step = (_step - 1).clamp(0, OnboardingScreen._stepCount - 1));
   void _finish() => ref.read(settingsControllerProvider.notifier).completeOnboarding();
 
+  /// A model step may only advance once it's functionally configured: an
+  /// on-device model downloaded, or a cloud provider connected.
+  ({bool ready, String? hint}) _stepGate(AppStrings t) {
+    final settings = ref.watch(settingsControllerProvider);
+    final connections = ref.watch(connectionsControllerProvider);
+    final manager = ref.watch(modelManagerControllerProvider);
+    final german = t.isDe;
+    final connectHint = german ? 'Verbinde einen Anbieter, um fortzufahren.' : 'Connect a provider to continue.';
+    final downloadHint = german ? 'Lade das Modell herunter, um fortzufahren.' : 'Download the model to continue.';
+
+    switch (_step) {
+      case 1: // transcription
+        final ready = settings.asrMode.isLocal || (connections[settings.asrProvider] ?? false);
+        return (ready: ready, hint: ready ? null : connectHint);
+      case 2: // summary
+        if (settings.summaryMode.isLocal) {
+          final ready = manager.gemmaStatus(settings.gemmaModelId).isDownloaded;
+          return (ready: ready, hint: ready ? null : downloadHint);
+        }
+        final ready = connections[settings.summaryProvider] ?? false;
+        return (ready: ready, hint: ready ? null : connectHint);
+      default:
+        return (ready: true, hint: null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
+    final gate = _stepGate(t);
 
     return Scaffold(
       body: Container(
@@ -63,7 +92,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 step: _step,
                 count: OnboardingScreen._stepCount,
                 showBack: _step > 0,
-                showSkip: !_isLast,
+                // No skip: setup must be functionally completed to proceed.
+                showSkip: false,
                 skipLabel: t.obSkip,
                 onBack: _prev,
                 onSkip: _finish,
@@ -100,11 +130,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 22),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 600),
-                  child: PillButton(
-                    label: _isLast ? t.obStart : t.obNext,
-                    trailingIcon: Icons.arrow_forward_rounded,
-                    onTap: _next,
-                  ),
+                  child: gate.ready
+                      ? PillButton(
+                          label: _isLast ? t.obStart : t.obNext,
+                          trailingIcon: Icons.arrow_forward_rounded,
+                          onTap: _next,
+                        )
+                      : Container(
+                          height: 56,
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.lock_outline_rounded, size: 16, color: palette.muted),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  gate.hint ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: palette.muted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
               ),
             ],
