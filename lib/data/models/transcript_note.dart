@@ -1,5 +1,3 @@
-import 'processing_mode.dart';
-
 /// Origin of an audio note.
 enum NoteSource {
   shared('shared'),
@@ -47,7 +45,8 @@ class TranscriptNote {
     required this.source,
     required this.durationSec,
     required this.createdAt,
-    required this.mode,
+    required this.asrIsLocal,
+    required this.summaryIsLocal,
     required this.asrName,
     required this.asrSub,
     required this.llmName,
@@ -56,7 +55,6 @@ class TranscriptNote {
     required this.points,
     required this.todos,
     required this.transcript,
-    this.providerId,
     this.audioPath,
   });
 
@@ -67,10 +65,9 @@ class TranscriptNote {
   final int durationSec;
   final DateTime createdAt;
 
-  final ProcessingMode mode;
-
-  /// Provider id when [mode] is cloud (e.g. "anthropic").
-  final String? providerId;
+  /// Whether each stage ran on-device (vs. cloud). The two are independent.
+  final bool asrIsLocal;
+  final bool summaryIsLocal;
 
   /// Models used, with their secondary label (size / cloud / provider).
   final String asrName;
@@ -86,13 +83,11 @@ class TranscriptNote {
   /// Local path of the (optionally retained) source audio file.
   final String? audioPath;
 
-  bool get isRemote => mode.isCloud;
+  /// True if any stage ran in the cloud (used for the history dot color).
+  bool get isRemote => !(asrIsLocal && summaryIsLocal);
 
-  /// Compact "Whisper Base · Llama 3.2" style label used in the history list.
-  String get modelShort {
-    final llmShort = llmName.split(' · ').first;
-    return isRemote ? '$asrName · $llmName' : '$asrName · $llmShort';
-  }
+  /// Compact "Whisper Base · Claude Sonnet 4.5" label used in the history list.
+  String get modelShort => '$asrName · ${llmName.split(' · ').first}';
 
   String get fullTranscriptText =>
       transcript.map((l) => '[${l.time}] ${l.text}').join('\n');
@@ -104,7 +99,8 @@ class TranscriptNote {
         source: source,
         durationSec: durationSec,
         createdAt: createdAt,
-        mode: mode,
+        asrIsLocal: asrIsLocal,
+        summaryIsLocal: summaryIsLocal,
         asrName: asrName,
         asrSub: asrSub,
         llmName: llmName,
@@ -113,7 +109,6 @@ class TranscriptNote {
         points: points,
         todos: todos ?? this.todos,
         transcript: transcript,
-        providerId: providerId,
         audioPath: audioPath,
       );
 
@@ -124,8 +119,8 @@ class TranscriptNote {
         'source': source.id,
         'durationSec': durationSec,
         'createdAt': createdAt.toIso8601String(),
-        'mode': mode.id,
-        'providerId': providerId,
+        'asrIsLocal': asrIsLocal,
+        'summaryIsLocal': summaryIsLocal,
         'asrName': asrName,
         'asrSub': asrSub,
         'llmName': llmName,
@@ -144,8 +139,8 @@ class TranscriptNote {
         source: NoteSource.fromId(j['source'] as String?),
         durationSec: (j['durationSec'] as num?)?.toInt() ?? 0,
         createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
-        mode: ProcessingMode.fromId(j['mode'] as String?),
-        providerId: j['providerId'] as String?,
+        asrIsLocal: j['asrIsLocal'] as bool? ?? (j['mode'] as String?) != 'remote',
+        summaryIsLocal: j['summaryIsLocal'] as bool? ?? (j['mode'] as String?) != 'remote',
         asrName: j['asrName'] as String? ?? '',
         asrSub: j['asrSub'] as String? ?? '',
         llmName: j['llmName'] as String? ?? '',

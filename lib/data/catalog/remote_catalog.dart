@@ -138,6 +138,16 @@ class RemoteCatalog {
     ],
   };
 
+  /// Providers that offer native audio transcription (ASR).
+  static const List<RemoteProviderId> asrProviders = [
+    RemoteProviderId.openai,
+    RemoteProviderId.google,
+  ];
+
+  /// Display name of the cloud transcription model used per provider.
+  static String asrModelLabel(RemoteProviderId id) =>
+      id == RemoteProviderId.google ? 'Gemini 2.5 Flash' : 'gpt-4o-transcribe';
+
   static List<RemoteModelSpec> modelsFor(RemoteProviderId id) => _models[id] ?? const [];
 
   static RemoteProvider provider(RemoteProviderId id) =>

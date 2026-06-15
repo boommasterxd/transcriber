@@ -68,10 +68,10 @@ class ProcessingController extends Notifier<ProcessingState> {
     final strings = ref.read(stringsProvider);
     final pipeline = ref.read(processingPipelineProvider);
 
-    var apiKey = '';
-    if (settings.mode.isCloud) {
-      apiKey = await ref.read(connectionsControllerProvider.notifier).apiKey(settings.provider);
-    }
+    final conn = ref.read(connectionsControllerProvider.notifier);
+    final asrApiKey = settings.asrMode.isCloud ? await conn.apiKey(settings.asrProvider) : '';
+    final summaryApiKey =
+        settings.summaryMode.isCloud ? await conn.apiKey(settings.summaryProvider) : '';
 
     state = ProcessingState(
       running: true,
@@ -85,7 +85,8 @@ class ProcessingController extends Notifier<ProcessingState> {
         source: source,
         settings: settings,
         strings: strings,
-        apiKey: apiKey,
+        asrApiKey: asrApiKey,
+        summaryApiKey: summaryApiKey,
         knownDurationSec: knownDurationSec,
         onStep: (step) => state = state.copyWith(step: step, clearModelProgress: true),
         onModelProgress: (p) => state = state.copyWith(modelProgress: p),

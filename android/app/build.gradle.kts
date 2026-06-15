@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.transcriber.app"
-    compileSdk = 35
+    compileSdk = 36
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,7 +21,7 @@ android {
         applicationId = "com.transcriber.app"
         // minSdk 26 for adaptive icons + on-device ML (flutter_gemma / ffmpeg).
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
         // flutter_gemma supports arm64-v8a / x86_64.

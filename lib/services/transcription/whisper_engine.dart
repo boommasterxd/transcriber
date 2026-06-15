@@ -1,15 +1,26 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:whisper_kit/whisper_kit.dart';
 
 import '../../core/utils/formatting.dart';
 import '../../data/models/transcript_note.dart';
+import '../download/file_downloader.dart';
 import '../storage/storage_paths.dart';
 import 'transcription_service.dart';
 
-/// The single integration point for the `whisper_kit` package. All package
-/// types are confined to this file so a version bump only touches one place.
+/// The single integration point for the `whisper_kit` package.
+///
+/// Model weights (whisper.cpp GGML) are fetched directly into the model
+/// directory under the file name whisper.cpp expects (`ggml-<id>.bin`), so the
+/// native core finds them and never needs to download. This keeps downloading
+/// version-independent and gives us reliable progress + a clear "downloaded"
+/// signal (file presence).
 class WhisperEngine {
   WhisperEngine._();
   static final WhisperEngine instance = WhisperEngine._();
+
+  final FileDownloader _downloader = const FileDownloader();
 
   static const Map<String, WhisperModel> _enumById = {
     'tiny': WhisperModel.tiny,
@@ -18,23 +29,31 @@ class WhisperEngine {
     'medium': WhisperModel.medium,
   };
 
+  static const _ggmlBaseUrl = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
+
   WhisperModel _model(String id) => _enumById[id] ?? WhisperModel.base;
 
   Future<String> _modelDir() async => (await StoragePaths.instance()).whisperDir().then((d) => d.path);
 
-  /// Downloads the model weights, reporting progress as a 0..1 fraction.
+  Future<String> _modelFile(String id) async => p.join(await _modelDir(), 'ggml-$id.bin');
+
+  Future<bool> isDownloaded(String id) async => File(await _modelFile(id)).exists();
+
+  /// Downloads the GGML weights for [modelId], reporting progress (0..1).
   Future<void> download(String modelId, {void Function(double progress)? onProgress}) async {
-    final dir = await _modelDir();
-    await downloadModel(
-      model: _model(modelId),
-      destinationPath: dir,
-      onDownloadProgress: (received, total) {
-        if (total > 0) onProgress?.call(received / total);
-      },
+    await _downloader.download(
+      '$_ggmlBaseUrl/ggml-$modelId.bin',
+      await _modelFile(modelId),
+      onProgress: onProgress,
     );
   }
 
-  /// Transcribes a 16 kHz mono WAV file using the given model id.
+  Future<void> deleteDownload(String modelId) async {
+    final file = File(await _modelFile(modelId));
+    if (await file.exists()) await file.delete();
+  }
+
+  /// Transcribes a 16 kHz mono WAV file with the given model id.
   Future<TranscriptionResult> transcribeWith(
     String modelId,
     String wavPath, {

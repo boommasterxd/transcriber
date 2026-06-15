@@ -4,7 +4,6 @@ import '../data/catalog/gemma_catalog.dart';
 import '../data/catalog/whisper_catalog.dart';
 import '../services/summarization/gemma_engine.dart';
 import '../services/transcription/whisper_engine.dart';
-import 'providers.dart';
 import 'settings_controller.dart';
 
 enum DownloadStatus { notDownloaded, downloading, downloaded }
@@ -40,31 +39,39 @@ class ModelManagerState {
 class ModelManagerController extends Notifier<ModelManagerState> {
   @override
   ModelManagerState build() {
-    final installed = ref.read(modelInstallRepositoryProvider).downloadedWhisperIds();
-    final whisper = {
-      for (final m in WhisperCatalog.models)
-        m.id: ModelStatus(
-          status: installed.contains(m.id) ? DownloadStatus.downloaded : DownloadStatus.notDownloaded,
-        ),
-    };
+    final whisper = {for (final m in WhisperCatalog.models) m.id: const ModelStatus()};
     final gemma = {for (final m in GemmaCatalog.models) m.id: const ModelStatus()};
-    // Kick off an async reconciliation against the filesystem.
+    // Reconcile against the filesystem asynchronously.
     Future.microtask(refresh);
     return ModelManagerState(whisper: whisper, gemma: gemma);
   }
 
   Future<void> refresh() async {
+    final whisper = <String, ModelStatus>{};
+    for (final spec in WhisperCatalog.models) {
+      final current = state.whisperStatus(spec.id);
+      if (current.isDownloading) {
+        whisper[spec.id] = current;
+        continue;
+      }
+      final exists = await WhisperEngine.instance.isDownloaded(spec.id);
+      whisper[spec.id] =
+          ModelStatus(status: exists ? DownloadStatus.downloaded : DownloadStatus.notDownloaded);
+    }
+
     final gemma = <String, ModelStatus>{};
     for (final spec in GemmaCatalog.models) {
-      final exists = await GemmaEngine.instance.isDownloaded(spec);
       final current = state.gemmaStatus(spec.id);
-      gemma[spec.id] = current.isDownloading
-          ? current
-          : ModelStatus(
-              status: exists ? DownloadStatus.downloaded : DownloadStatus.notDownloaded,
-            );
+      if (current.isDownloading) {
+        gemma[spec.id] = current;
+        continue;
+      }
+      final exists = await GemmaEngine.instance.isDownloaded(spec);
+      gemma[spec.id] =
+          ModelStatus(status: exists ? DownloadStatus.downloaded : DownloadStatus.notDownloaded);
     }
-    state = state.copyWith(gemma: gemma);
+
+    state = state.copyWith(whisper: whisper, gemma: gemma);
   }
 
   void _setWhisper(String id, ModelStatus status) =>
@@ -81,7 +88,6 @@ class ModelManagerController extends Notifier<ModelManagerState> {
         id,
         onProgress: (p) => _setWhisper(id, ModelStatus(status: DownloadStatus.downloading, progress: p)),
       );
-      await ref.read(modelInstallRepositoryProvider).markWhisper(id);
       _setWhisper(id, const ModelStatus(status: DownloadStatus.downloaded, progress: 1));
     } catch (_) {
       _setWhisper(id, const ModelStatus(status: DownloadStatus.notDownloaded));
@@ -90,7 +96,7 @@ class ModelManagerController extends Notifier<ModelManagerState> {
   }
 
   Future<void> deleteWhisper(String id) async {
-    await ref.read(modelInstallRepositoryProvider).unmarkWhisper(id);
+    await WhisperEngine.instance.deleteDownload(id);
     _setWhisper(id, const ModelStatus(status: DownloadStatus.notDownloaded));
   }
 

@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/l10n/app_strings.dart';
 import '../core/theme/app_accent.dart';
-import '../data/catalog/gemma_catalog.dart';
-import '../data/catalog/remote_catalog.dart';
-import '../data/catalog/whisper_catalog.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
+import '../services/processing/processing_profile.dart';
 import 'providers.dart';
 
 /// Holds and persists [AppSettings]. Seeded synchronously from
@@ -29,13 +27,19 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setLanguage(AppLanguage language) => _persist(state.copyWith(language: language));
 
-  Future<void> setMode(ProcessingMode mode) => _persist(state.copyWith(mode: mode));
+  Future<void> setAsrMode(ProcessingMode mode) => _persist(state.copyWith(asrMode: mode));
+
+  Future<void> setSummaryMode(ProcessingMode mode) => _persist(state.copyWith(summaryMode: mode));
 
   Future<void> setWhisperModel(String id) => _persist(state.copyWith(whisperModelId: id));
 
   Future<void> setGemmaModel(String id) => _persist(state.copyWith(gemmaModelId: id));
 
-  Future<void> setProvider(RemoteProviderId provider) => _persist(state.copyWith(provider: provider));
+  Future<void> setAsrProvider(RemoteProviderId provider) =>
+      _persist(state.copyWith(asrProvider: provider));
+
+  Future<void> setSummaryProvider(RemoteProviderId provider) =>
+      _persist(state.copyWith(summaryProvider: provider));
 
   Future<void> setRemoteModel(RemoteProviderId provider, String modelId) {
     final map = Map<RemoteProviderId, String>.of(state.remoteModelByProvider)..[provider] = modelId;
@@ -58,15 +62,9 @@ final stringsProvider = Provider<AppStrings>((ref) {
   return AppStrings.of(language);
 });
 
-/// Compact label of the currently active models, e.g. "Whisper Base · Gemma 3"
-/// (on-device) or "Anthropic · Claude Sonnet 4.5" (cloud).
+/// Compact label of the currently active models for the home pill, e.g.
+/// "Whisper Base · Claude Sonnet 4.5".
 final activeModelLabelProvider = Provider<String>((ref) {
   final s = ref.watch(settingsControllerProvider);
-  if (s.mode.isLocal) {
-    final asr = WhisperCatalog.byId(s.whisperModelId).displayName;
-    final llm = GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first;
-    return '$asr · $llm';
-  }
-  final provider = RemoteCatalog.provider(s.provider).name;
-  return '$provider · ${s.currentRemoteModel.displayName}';
+  return ProcessingProfile.resolve(s).combinedLabel;
 });

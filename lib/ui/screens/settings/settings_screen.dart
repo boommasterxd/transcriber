@@ -11,11 +11,10 @@ import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/appearance_section.dart';
-import 'widgets/cloud_section.dart';
 import 'widgets/language_section.dart';
-import 'widgets/local_models_section.dart';
 import 'widgets/privacy_section.dart';
-import 'widgets/processing_mode_selector.dart';
+import 'widgets/summary_section.dart';
+import 'widgets/transcription_section.dart';
 
 /// Settings: processing mode (master switch) → models (local/cloud) → language
 /// → appearance → privacy.
@@ -26,7 +25,6 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
-    final isLocal = ref.watch(settingsControllerProvider.select((s) => s.mode.isLocal));
     final manager = ref.watch(modelManagerControllerProvider);
 
     final storage = _storageSummary(manager, t);
@@ -55,10 +53,10 @@ class SettingsScreen extends ConsumerWidget {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 36),
                   children: [
-                    SectionLabel(t.proc, padding: const EdgeInsets.fromLTRB(6, 12, 6, 9)),
-                    const ProcessingModeSelector(),
-                    const SizedBox(height: 4),
-                    if (isLocal) const LocalModelsSection() else const CloudSection(),
+                    SectionLabel(t.setAsr, padding: const EdgeInsets.fromLTRB(6, 12, 6, 9)),
+                    const TranscriptionSection(),
+                    SectionLabel(t.setLlm),
+                    const SummarySection(),
                     SectionLabel(t.setLang),
                     const LanguageSection(),
                     SectionLabel(t.setAppear),

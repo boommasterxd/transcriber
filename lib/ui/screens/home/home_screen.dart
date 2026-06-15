@@ -44,7 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final t = ref.watch(stringsProvider);
     final notes = ref.watch(notesControllerProvider);
     final activeLabel = ref.watch(activeModelLabelProvider);
-    final isLocal = ref.watch(settingsControllerProvider.select((s) => s.mode.isLocal));
+    final isLocal = ref.watch(settingsControllerProvider.select((s) => s.isFullyLocal));
 
     final filtered = _query.isEmpty
         ? notes

@@ -69,7 +69,7 @@ class MiniWave extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = color ?? context.palette.accent;
-    const heights = [10.0, 16, 7, 19, 12, 8, 15];
+    const heights = <double>[10, 16, 7, 19, 12, 8, 15];
     return SizedBox(
       height: 20,
       child: Row(

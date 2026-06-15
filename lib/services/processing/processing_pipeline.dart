@@ -3,10 +3,7 @@ import 'dart:io';
 import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/app_strings.dart';
-import '../../core/utils/formatting.dart';
 import '../../data/catalog/gemma_catalog.dart';
-import '../../data/catalog/remote_catalog.dart';
-import '../../data/catalog/whisper_catalog.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/transcript_note.dart';
 import '../audio/audio_converter.dart';
@@ -21,18 +18,17 @@ import '../summarization/summary_result.dart';
 import '../transcription/remote_transcription_service.dart';
 import '../transcription/transcription_service.dart';
 import '../transcription/whisper_engine.dart';
+import 'processing_profile.dart';
 
 /// The two visible steps of the processing flow (drives the stepper UI).
 enum ProcessingStep { transcribing, summarizing }
 
-/// Orchestrates the full audio → note flow: optional WAV conversion, then
-/// transcription, then summarization — using either on-device or cloud
-/// services depending on the active [AppSettings].
+/// Orchestrates the full audio → note flow. Transcription and summarization are
+/// resolved independently from [AppSettings]: each may run on-device or via a
+/// (possibly different) cloud provider.
 class ProcessingPipeline {
-  ProcessingPipeline({
-    AudioConverter? converter,
-    AudioMetadata? metadata,
-  })  : _converter = converter ?? const AudioConverter(),
+  ProcessingPipeline({AudioConverter? converter, AudioMetadata? metadata})
+      : _converter = converter ?? const AudioConverter(),
         _metadata = metadata ?? const AudioMetadata();
 
   final AudioConverter _converter;
@@ -44,51 +40,50 @@ class ProcessingPipeline {
     required NoteSource source,
     required AppSettings settings,
     required AppStrings strings,
-    required String apiKey,
+    required String asrApiKey,
+    required String summaryApiKey,
     int? knownDurationSec,
     void Function(ProcessingStep step)? onStep,
     void Function(double progress)? onModelProgress,
   }) async {
     final german = settings.language == AppLanguage.de;
 
-    // Pre-flight checks for on-device mode.
-    if (settings.mode.isLocal) {
-      final gemmaSpec = GemmaCatalog.byId(settings.gemmaModelId);
-      if (!await GemmaEngine.instance.isDownloaded(gemmaSpec)) {
-        throw ModelNotDownloadedException(strings.modelMissingBody);
-      }
-    } else if (apiKey.isEmpty) {
+    // Pre-flight checks.
+    if (settings.summaryMode.isLocal &&
+        !await GemmaEngine.instance.isDownloaded(GemmaCatalog.byId(settings.gemmaModelId))) {
+      throw ModelNotDownloadedException(strings.modelMissingBody);
+    }
+    if (settings.asrMode.isCloud && asrApiKey.isEmpty) {
+      throw MissingApiKeyException(strings.connectFirst);
+    }
+    if (settings.summaryMode.isCloud && summaryApiKey.isEmpty) {
       throw MissingApiKeyException(strings.connectFirst);
     }
 
     final fallbackTitle = _fallbackTitle(audioPath, source, strings);
 
-    // ---- Step 1: transcription ----
     onStep?.call(ProcessingStep.transcribing);
     final transcription = await _transcribe(
       audioPath: audioPath,
       settings: settings,
-      apiKey: apiKey,
+      apiKey: asrApiKey,
       onModelProgress: onModelProgress,
     );
 
-    // ---- Step 2: summarization ----
     onStep?.call(ProcessingStep.summarizing);
     final summary = await _summarize(
       transcript: transcription.text,
       settings: settings,
-      apiKey: apiKey,
+      apiKey: summaryApiKey,
       german: german,
       fallbackTitle: fallbackTitle,
     );
 
     final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
-    final meta = _modelMetadata(settings, apiKey);
+    final profile = ProcessingProfile.resolve(settings);
 
     final retainedPath = settings.autoDeleteAudio ? null : audioPath;
-    if (settings.autoDeleteAudio) {
-      _deleteQuietly(audioPath);
-    }
+    if (settings.autoDeleteAudio) _deleteQuietly(audioPath);
 
     return TranscriptNote(
       id: _uuid.v4(),
@@ -97,12 +92,12 @@ class ProcessingPipeline {
       source: source,
       durationSec: durationSec,
       createdAt: DateTime.now(),
-      mode: settings.mode,
-      providerId: settings.mode.isCloud ? settings.provider.id : null,
-      asrName: meta.asrName,
-      asrSub: meta.asrSub,
-      llmName: meta.llmName,
-      llmSub: meta.llmSub,
+      asrIsLocal: profile.asr.isLocal,
+      summaryIsLocal: profile.summary.isLocal,
+      asrName: profile.asr.name,
+      asrSub: profile.asr.sub,
+      llmName: profile.summary.name,
+      llmSub: profile.summary.sub,
       gist: summary.gist,
       points: summary.points,
       todos: summary.todos.map((t) => TodoItem(text: t)).toList(),
@@ -117,16 +112,13 @@ class ProcessingPipeline {
     required String apiKey,
     void Function(double progress)? onModelProgress,
   }) async {
-    final TranscriptionService service;
-    String input = audioPath;
-
-    if (settings.mode.isLocal) {
-      input = await _converter.toWhisperWav(audioPath);
-      service = WhisperTranscriptionService(settings.whisperModelId, onProgress: onModelProgress);
-    } else {
-      service = RemoteTranscriptionService(_client(settings, apiKey));
+    if (settings.asrMode.isLocal) {
+      final wav = await _converter.toWhisperWav(audioPath);
+      return WhisperTranscriptionService(settings.whisperModelId, onProgress: onModelProgress)
+          .transcribe(wav, languageCode: 'auto');
     }
-    return service.transcribe(input, languageCode: 'auto');
+    final client = RemoteClientFactory.create(settings.asrProvider, apiKey);
+    return RemoteTranscriptionService(client).transcribe(audioPath, languageCode: 'auto');
   }
 
   Future<SummaryResult> _summarize({
@@ -137,42 +129,17 @@ class ProcessingPipeline {
     required String fallbackTitle,
   }) async {
     final SummarizationService service;
-    if (settings.mode.isLocal) {
+    if (settings.summaryMode.isLocal) {
       service = GemmaSummarizationService(settings.gemmaModelId, fallbackTitle: fallbackTitle);
     } else {
+      final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);
       service = RemoteSummarizationService(
-        client: _client(settings, apiKey),
-        apiModelId: settings.currentRemoteModel.apiModelId,
+        client: client,
+        apiModelId: settings.summaryRemoteModel.apiModelId,
         fallbackTitle: fallbackTitle,
       );
     }
     return service.summarize(transcript, german: german);
-  }
-
-  RemoteApiClient _client(AppSettings settings, String apiKey) =>
-      RemoteClientFactory.create(settings.provider, apiKey);
-
-  _ModelMeta _modelMetadata(AppSettings settings, String apiKey) {
-    final german = settings.language == AppLanguage.de;
-    if (settings.mode.isLocal) {
-      final whisper = WhisperCatalog.byId(settings.whisperModelId);
-      final gemma = GemmaCatalog.byId(settings.gemmaModelId);
-      return _ModelMeta(
-        asrName: whisper.displayName,
-        asrSub: formatBytes(whisper.sizeBytes, german: german),
-        llmName: gemma.displayName,
-        llmSub: formatBytes(gemma.sizeBytes, german: german),
-      );
-    }
-    final provider = RemoteCatalog.provider(settings.provider);
-    final model = settings.currentRemoteModel;
-    final client = _client(settings, apiKey);
-    return _ModelMeta(
-      asrName: client.supportsAudioTranscription ? client.asrLabel : '—',
-      asrSub: 'Cloud',
-      llmName: model.displayName,
-      llmSub: provider.name,
-    );
   }
 
   String _fallbackTitle(String audioPath, NoteSource source, AppStrings strings) {
@@ -203,17 +170,4 @@ class ProcessingPipeline {
       if (file.existsSync()) file.deleteSync();
     } catch (_) {}
   }
-}
-
-class _ModelMeta {
-  const _ModelMeta({
-    required this.asrName,
-    required this.asrSub,
-    required this.llmName,
-    required this.llmSub,
-  });
-  final String asrName;
-  final String asrSub;
-  final String llmName;
-  final String llmSub;
 }

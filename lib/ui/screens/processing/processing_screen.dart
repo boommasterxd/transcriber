@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_pipeline.dart';
+import '../../../services/processing/processing_profile.dart';
 import '../../../services/service_exceptions.dart';
 import '../../../state/processing_controller.dart';
 import '../../../state/settings_controller.dart';
@@ -60,8 +61,12 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final state = ref.watch(processingControllerProvider);
-    final modelLabel = ref.watch(activeModelLabelProvider);
-    final isLocal = ref.watch(settingsControllerProvider.select((s) => s.mode.isLocal));
+    final settings = ref.watch(settingsControllerProvider);
+    final profile = ProcessingProfile.resolve(settings);
+    final transcribing = state.step == ProcessingStep.transcribing;
+    final stage = transcribing ? profile.asr : profile.summary;
+    final modelLabel = '${stage.name} · ${stage.sub}';
+    final isLocal = stage.isLocal;
 
     ref.listen(processingControllerProvider, (prev, next) {
       if (next.result != null) _onResult(next.result!);
@@ -81,7 +86,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       );
     }
 
-    final transcribing = state.step == ProcessingStep.transcribing;
     return Scaffold(
       backgroundColor: palette.bg,
       body: SafeArea(
@@ -130,9 +134,9 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                 activeStepIsSecond: !transcribing,
               ),
               const SizedBox(height: 30),
-              const ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 300),
-                child: SkeletonLines(),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: const SkeletonLines(),
               ),
             ],
           ),
