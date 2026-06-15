@@ -42,24 +42,28 @@ class AppNavigator {
       Navigator.of(context).push(_fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
 
   /// Starts processing of [audioPath]; the processing screen routes to the
-  /// detail screen on success.
+  /// detail screen on success. When [replace] is true the current route is
+  /// replaced (used by the record screen so it doesn't linger underneath and
+  /// swallow the back-from-detail pop).
   static Future<void> startProcessing(
     BuildContext context, {
     required String audioPath,
     required NoteSource source,
     String? fileName,
     int? knownDurationSec,
-  }) =>
-      Navigator.of(context).push(
-        _fadeSlideRoute(
-          ProcessingScreen(
-            audioPath: audioPath,
-            source: source,
-            fileName: fileName,
-            knownDurationSec: knownDurationSec,
-          ),
-        ),
-      );
+    bool replace = false,
+  }) {
+    final route = _fadeSlideRoute(
+      ProcessingScreen(
+        audioPath: audioPath,
+        source: source,
+        fileName: fileName,
+        knownDurationSec: knownDurationSec,
+      ),
+    );
+    final nav = Navigator.of(context);
+    return replace ? nav.pushReplacement(route) : nav.push(route);
+  }
 
   /// Same as [startProcessing] but using the root navigator (for share intents).
   static Future<void> startProcessingFromRoot({

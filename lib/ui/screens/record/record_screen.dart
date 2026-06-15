@@ -45,20 +45,21 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
   Future<void> _stop() async {
     final result = await ref.read(recordingControllerProvider.notifier).stop();
-    if (result == null || !mounted) {
-      if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    if (result == null) {
+      Navigator.of(context).pop();
       return;
     }
+    // Replace the record screen with processing so that, after processing swaps
+    // itself for the detail screen, back from detail returns to home — not to a
+    // lingering record screen.
     await AppNavigator.startProcessing(
       context,
       audioPath: result.path,
       source: NoteSource.recording,
       knownDurationSec: result.durationSec,
+      replace: true,
     );
-    if (mounted) {
-      // Remove the record screen so back from detail returns to home.
-      Navigator.of(context).pop();
-    }
   }
 
   Future<void> _cancel() async {

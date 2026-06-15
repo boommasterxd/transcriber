@@ -33,6 +33,18 @@ class AudioConverter {
       final logs = await session.getAllLogsAsString();
       throw AudioProcessingException('Audio-Konvertierung fehlgeschlagen: ${logs ?? returnCode}');
     }
+
+    // A 16 kHz mono 16-bit WAV is 32 kB per second of audio; anything close to
+    // just the 44-byte header means there were no audio samples (a silent or
+    // empty recording). Whisper would otherwise return an empty transcript with
+    // no error, which is impossible to diagnose — surface it instead.
+    final bytes = await outFile.length();
+    if (bytes < 16000) {
+      throw AudioProcessingException(
+        'Die Audiodatei enthält keine hörbaren Daten (${bytes ~/ 1024} KB). '
+        'Bitte erneut aufnehmen oder eine andere Datei wählen.',
+      );
+    }
     return output;
   }
 }
