@@ -18,16 +18,6 @@ class GemmaCatalog {
 
   static const List<GemmaModelSpec> _models = [
     GemmaModelSpec(
-      id: 'smollm_135m',
-      displayName: 'SmolLM 135M',
-      sizeBytes: 135 * _mb,
-      badge: ModelBadge.veryFast,
-      modelTypeId: 'general',
-      downloadUrl:
-          'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_multi-prefill-seq_q8_ekv1280.task',
-      maxTokens: 1280,
-    ),
-    GemmaModelSpec(
       id: 'qwen25_05b',
       displayName: 'Qwen 2.5 · 0.5B',
       sizeBytes: 500 * _mb,
