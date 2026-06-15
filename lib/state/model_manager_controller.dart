@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/toast.dart';
 import '../data/catalog/gemma_catalog.dart';
 import '../data/catalog/whisper_catalog.dart';
 import '../services/summarization/gemma_engine.dart';
@@ -90,6 +91,7 @@ class ModelManagerController extends Notifier<ModelManagerState> {
       );
       _setWhisper(id, const ModelStatus(status: DownloadStatus.downloaded, progress: 1));
       _autoSelectWhisper(id);
+      _toast(WhisperCatalog.byId(id).displayName, downloaded: true);
     } catch (_) {
       _setWhisper(id, const ModelStatus(status: DownloadStatus.notDownloaded));
       rethrow;
@@ -109,6 +111,12 @@ class ModelManagerController extends Notifier<ModelManagerState> {
   Future<void> deleteWhisper(String id) async {
     await WhisperEngine.instance.deleteDownload(id);
     _setWhisper(id, const ModelStatus(status: DownloadStatus.notDownloaded));
+    _toast(WhisperCatalog.byId(id).displayName, downloaded: false);
+  }
+
+  void _toast(String name, {required bool downloaded}) {
+    final t = ref.read(stringsProvider);
+    showAppToast('$name ${downloaded ? t.toastDownloaded : t.toastRemoved}');
   }
 
   Future<void> downloadGemma(String id) async {
@@ -124,6 +132,7 @@ class ModelManagerController extends Notifier<ModelManagerState> {
       );
       _setGemma(id, const ModelStatus(status: DownloadStatus.downloaded, progress: 1));
       _autoSelectGemma(id);
+      _toast(GemmaCatalog.byId(id).displayName, downloaded: true);
     } catch (_) {
       _setGemma(id, const ModelStatus(status: DownloadStatus.notDownloaded));
       rethrow;
@@ -141,6 +150,7 @@ class ModelManagerController extends Notifier<ModelManagerState> {
   Future<void> deleteGemma(String id) async {
     await GemmaEngine.instance.deleteDownload(GemmaCatalog.byId(id));
     _setGemma(id, const ModelStatus(status: DownloadStatus.notDownloaded));
+    _toast(GemmaCatalog.byId(id).displayName, downloaded: false);
   }
 }
 

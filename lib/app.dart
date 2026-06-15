@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/l10n/app_strings.dart';
 import 'core/theme/app_theme.dart';
+import 'core/toast.dart';
 import 'data/models/transcript_note.dart';
 import 'services/platform/app_icon_service.dart';
 import 'state/settings_controller.dart';
@@ -27,6 +28,7 @@ class TranscriberApp extends ConsumerWidget {
       title: 'Transcriber',
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: AppTheme.build(Brightness.light, accent),
       darkTheme: AppTheme.build(Brightness.dark, accent),
       themeMode: themeMode,
