@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -58,7 +59,44 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _setupShareIntents());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showCrashIfAny();
+      _setupShareIntents();
+    });
+  }
+
+  /// Surfaces a native crash captured by CrashCapture (e.g. the translucent
+  /// ShareActivity) so it can be read/copied without adb.
+  void _showCrashIfAny() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final crash = prefs.getString('last_crash');
+    if (crash == null || crash.isEmpty) return;
+    final ctx = navigatorKey.currentContext ?? context;
+    showDialog<void>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Letzter Crash'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(crash, style: const TextStyle(fontSize: 12)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: crash)),
+            child: const Text('Kopieren'),
+          ),
+          TextButton(
+            onPressed: () {
+              prefs.remove('last_crash');
+              Navigator.of(dialogCtx).pop();
+            },
+            child: const Text('Schließen'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

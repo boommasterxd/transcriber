@@ -24,6 +24,9 @@ class ShareActivity : FlutterActivity() {
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Install before super.onCreate so a crash during Flutter's transparent
+        // engine attach is captured and shown in-app on next launch.
+        CrashCapture.install(this, "ShareActivity")
         super.onCreate(savedInstanceState)
         sharedPath = extractSharedAudio(intent)
     }
