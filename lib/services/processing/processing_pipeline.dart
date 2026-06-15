@@ -12,6 +12,7 @@ import '../remote/remote_api_client.dart';
 import '../remote/remote_client_factory.dart';
 import '../service_exceptions.dart';
 import '../summarization/gemma_engine.dart';
+import '../summarization/gemma_foreground.dart';
 import '../summarization/remote_summarization_service.dart';
 import '../summarization/summarization_service.dart';
 import '../summarization/summary_result.dart';
@@ -77,6 +78,7 @@ class ProcessingPipeline {
       apiKey: summaryApiKey,
       german: german,
       fallbackTitle: fallbackTitle,
+      strings: strings,
     );
 
     final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
@@ -131,14 +133,21 @@ class ProcessingPipeline {
     required String apiKey,
     required bool german,
     required String fallbackTitle,
+    required AppStrings strings,
   }) async {
     final SummarizationService service;
     if (settings.summaryMode.isLocal) {
-      service = GemmaSummarizationService(
-        settings.gemmaModelId,
+      // Run on-device summarization inside a foreground service so it survives
+      // the user leaving the app while the model is working.
+      service = GemmaForegroundService(
+        modelId: settings.gemmaModelId,
         fallbackTitle: fallbackTitle,
         hfToken: settings.hfToken,
         backendId: settings.gemmaBackend.id,
+        notificationTitle: strings.processingTitle,
+        notificationText: strings.shSummarize,
+        channelName: strings.svcChannelName,
+        channelDescription: strings.svcChannelDesc,
       );
     } else {
       final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);

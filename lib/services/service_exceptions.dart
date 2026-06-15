@@ -26,3 +26,9 @@ class AudioProcessingException extends ServiceException {
 class MissingApiKeyException extends ServiceException {
   const MissingApiKeyException(super.message);
 }
+
+/// On-device summarization failed (e.g. the model errored in the background
+/// foreground-service isolate, or the service could not be started).
+class SummarizationException extends ServiceException {
+  const SummarizationException(super.message);
+}

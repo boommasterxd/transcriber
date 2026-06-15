@@ -1,5 +1,6 @@
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,10 @@ import 'state/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Sets up the port used to receive results from the foreground-service
+  // isolate that runs on-device summarization in the background.
+  FlutterForegroundTask.initCommunicationPort();
 
   // Background model downloads with a foreground-service notification so they
   // survive the app being backgrounded.

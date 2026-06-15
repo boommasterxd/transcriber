@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- For background download progress notifications (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Keep on-device summarization running while the app is backgrounded. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:label="Transcriber"
@@ -119,6 +123,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+
+        <!-- flutter_foreground_task: keeps on-device summarization alive when the
+             app is backgrounded. dataSync matches FOREGROUND_SERVICE_DATA_SYNC. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
 
         <meta-data
             android:name="flutterEmbedding"

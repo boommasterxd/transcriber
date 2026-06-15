@@ -157,6 +157,8 @@ class AppStrings {
     required this.obPrivacyS,
     required this.obReadyT,
     required this.obReadyS,
+    required this.svcChannelName,
+    required this.svcChannelDesc,
   });
 
   final AppLanguage language;
@@ -216,6 +218,7 @@ class AppStrings {
   final String obHiw1T, obHiw1S, obHiw2T, obHiw2S, obHiw3T, obHiw3S;
   final String obTranscribeT, obTranscribeS, obSummaryT, obSummaryS;
   final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
+  final String svcChannelName, svcChannelDesc;
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -367,6 +370,8 @@ class AppStrings {
     obPrivacyS: 'Du behältst die Kontrolle über deine Daten.',
     obReadyT: 'Alles bereit!',
     obReadyS: 'Du kannst alle Einstellungen später jederzeit anpassen.',
+    svcChannelName: 'Zusammenfassung',
+    svcChannelDesc: 'Läuft, während eine Zusammenfassung auf dem Gerät erstellt wird.',
   );
 
   static const AppStrings _en = AppStrings(
@@ -512,5 +517,7 @@ class AppStrings {
     obPrivacyS: 'You stay in control of your data.',
     obReadyT: "You're all set!",
     obReadyS: 'You can adjust every setting later in Settings.',
+    svcChannelName: 'Summarization',
+    svcChannelDesc: 'Runs while a summary is being generated on your device.',
   );
 }
