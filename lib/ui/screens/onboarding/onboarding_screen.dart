@@ -242,36 +242,39 @@ class _ProgressBar extends StatelessWidget {
             else
               const SizedBox(width: 38),
             const SizedBox(width: 14),
+            // Full-width segmented progress: each step is an equal-width bar that
+            // fills the space next to the back button (no skip control to share
+            // the row with). Completed + current steps use the accent colour.
             Expanded(
               child: Row(
                 children: [
-                  for (var i = 0; i < count; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
+                  for (var i = 0; i < count; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    Expanded(
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
                         height: 7,
-                        width: i == step ? 26 : 7,
                         decoration: BoxDecoration(
-                          color: i == step ? palette.accent : palette.line2,
+                          color: i <= step ? palette.accent : palette.line2,
                           borderRadius: BorderRadius.circular(9999),
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            if (showSkip)
+            if (showSkip) ...[
+              const SizedBox(width: 14),
               GestureDetector(
                 onTap: onSkip,
                 child: Text(
                   skipLabel,
                   style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: palette.muted),
                 ),
-              )
-            else
-              const SizedBox(width: 38),
+              ),
+            ],
           ],
         ),
       ),
