@@ -1,9 +1,12 @@
 name: Build APK
 
-# Manual-only: run from the Actions tab (or via API). Not triggered by commits,
-# so a push never starts a build (and never two at once).
+# Runs manually from the Actions tab, and on pushes to the active dev branch
+# so a commit can kick off a build without needing the API.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/amazing-hawking-nc56k5
 
 jobs:
   android:
