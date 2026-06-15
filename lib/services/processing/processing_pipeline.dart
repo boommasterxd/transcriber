@@ -12,13 +12,13 @@ import '../remote/remote_api_client.dart';
 import '../remote/remote_client_factory.dart';
 import '../service_exceptions.dart';
 import '../summarization/gemma_engine.dart';
-import '../summarization/gemma_foreground.dart';
 import '../summarization/remote_summarization_service.dart';
 import '../summarization/summarization_service.dart';
 import '../summarization/summary_result.dart';
 import '../transcription/remote_transcription_service.dart';
 import '../transcription/transcription_service.dart';
 import '../transcription/whisper_engine.dart';
+import 'processing_foreground.dart';
 import 'processing_profile.dart';
 
 /// The two visible steps of the processing flow (drives the stepper UI).
@@ -47,9 +47,12 @@ class ProcessingPipeline {
     void Function(ProcessingStep step)? onStep,
     void Function(double progress)? onModelProgress,
   }) async {
-    final german = settings.language == AppLanguage.de;
-
-    // Pre-flight checks.
+    // Pre-flight checks run in the main isolate so failures surface fast and
+    // keep their type (the UI distinguishes a missing model from other errors).
+    if (settings.asrMode.isLocal &&
+        !await WhisperEngine.instance.isDownloaded(settings.whisperModelId)) {
+      throw ModelNotDownloadedException(strings.modelMissingBody);
+    }
     if (settings.summaryMode.isLocal &&
         !await GemmaEngine.instance.isDownloaded(GemmaCatalog.byId(settings.gemmaModelId))) {
       throw ModelNotDownloadedException(strings.modelMissingBody);
@@ -61,6 +64,60 @@ class ProcessingPipeline {
       throw MissingApiKeyException(strings.connectFirst);
     }
 
+    // Probe the duration here (uses just_audio, which is happiest on the main
+    // isolate) so the heavy core never has to.
+    final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
+
+    // If any stage runs on-device, run the whole pipeline inside a foreground
+    // service so it survives the app being backgrounded. The service is started
+    // here, while the app is in the foreground — Android 12+ forbids starting a
+    // foreground service from the background, so we must not defer it.
+    if (settings.asrMode.isLocal || settings.summaryMode.isLocal) {
+      return ProcessingForegroundService(
+        notificationTitle: strings.processingTitle,
+        notificationText: strings.shTranscribe,
+        channelName: strings.svcChannelName,
+        channelDescription: strings.svcChannelDesc,
+      ).run(
+        audioPath: audioPath,
+        source: source,
+        settings: settings,
+        asrApiKey: asrApiKey,
+        summaryApiKey: summaryApiKey,
+        knownDurationSec: durationSec,
+        onStep: onStep,
+        onModelProgress: onModelProgress,
+      );
+    }
+
+    return _core(
+      audioPath: audioPath,
+      source: source,
+      settings: settings,
+      strings: strings,
+      asrApiKey: asrApiKey,
+      summaryApiKey: summaryApiKey,
+      knownDurationSec: durationSec,
+      onStep: onStep,
+      onModelProgress: onModelProgress,
+    );
+  }
+
+  /// The heavy pipeline body (transcribe → summarize → assemble). Runs either on
+  /// the main isolate (all-cloud) or inside the foreground-service isolate (any
+  /// on-device stage); it never starts a service itself.
+  Future<TranscriptNote> _core({
+    required String audioPath,
+    required NoteSource source,
+    required AppSettings settings,
+    required AppStrings strings,
+    required String asrApiKey,
+    required String summaryApiKey,
+    int? knownDurationSec,
+    void Function(ProcessingStep step)? onStep,
+    void Function(double progress)? onModelProgress,
+  }) async {
+    final german = settings.language == AppLanguage.de;
     final fallbackTitle = _fallbackTitle(audioPath, source, strings);
 
     onStep?.call(ProcessingStep.transcribing);
@@ -78,7 +135,6 @@ class ProcessingPipeline {
       apiKey: summaryApiKey,
       german: german,
       fallbackTitle: fallbackTitle,
-      strings: strings,
     );
 
     final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
@@ -133,21 +189,16 @@ class ProcessingPipeline {
     required String apiKey,
     required bool german,
     required String fallbackTitle,
-    required AppStrings strings,
   }) async {
     final SummarizationService service;
     if (settings.summaryMode.isLocal) {
-      // Run on-device summarization inside a foreground service so it survives
-      // the user leaving the app while the model is working.
-      service = GemmaForegroundService(
-        modelId: settings.gemmaModelId,
+      // Already running inside the foreground-service isolate (see process()),
+      // so call the engine directly here.
+      service = GemmaSummarizationService(
+        settings.gemmaModelId,
         fallbackTitle: fallbackTitle,
         hfToken: settings.hfToken,
         backendId: settings.gemmaBackend.id,
-        notificationTitle: strings.processingTitle,
-        notificationText: strings.shSummarize,
-        channelName: strings.svcChannelName,
-        channelDescription: strings.svcChannelDesc,
       );
     } else {
       final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);
@@ -189,3 +240,29 @@ class ProcessingPipeline {
     } catch (_) {}
   }
 }
+
+/// Entry point used by the foreground-service isolate to run the heavy pipeline
+/// (transcription + summarization) without re-entering the service. Lives at
+/// top level so it can reach [ProcessingPipeline]'s private core.
+Future<TranscriptNote> runProcessingCore({
+  required String audioPath,
+  required NoteSource source,
+  required AppSettings settings,
+  required AppStrings strings,
+  required String asrApiKey,
+  required String summaryApiKey,
+  int? knownDurationSec,
+  void Function(ProcessingStep step)? onStep,
+  void Function(double progress)? onModelProgress,
+}) =>
+    ProcessingPipeline()._core(
+      audioPath: audioPath,
+      source: source,
+      settings: settings,
+      strings: strings,
+      asrApiKey: asrApiKey,
+      summaryApiKey: summaryApiKey,
+      knownDurationSec: knownDurationSec,
+      onStep: onStep,
+      onModelProgress: onModelProgress,
+    );
