@@ -16,23 +16,11 @@ import '../../widgets/effects.dart';
 import '../../widgets/waveforms.dart';
 import '../detail/widgets/detail_audio_player.dart';
 
-/// Bottom-sheet overlay shown when audio is shared into the app from another
-/// app. It runs the pipeline and shows a live processing state, then a result
-/// preview (audio + summary + key points) that the user explicitly saves.
-///
-/// The preview is NOT persisted automatically — only "Speichern" commits it,
-/// so a shared note never silently lands in the history.
-class ShareOverlaySheet extends ConsumerStatefulWidget {
-  const ShareOverlaySheet({super.key, required this.audioPath, this.fileName});
-
-  final String audioPath;
-  final String? fileName;
-
-  @override
-  ConsumerState<ShareOverlaySheet> createState() => _ShareOverlaySheetState();
-
-  /// Presents the overlay over the current (root) navigator. On tablets the
-  /// sheet is width-constrained and centered; on phones it spans full width.
+/// Presents the share overlay as an in-app modal bottom sheet. Used for the
+/// "open with" (VIEW) path, where the app is already in front. The cross-app
+/// "see-through" path uses [ShareSheetContent] directly inside the translucent
+/// ShareActivity instead (see lib/share_entrypoint.dart).
+abstract final class ShareOverlay {
   static Future<void> show({required String audioPath, String? fileName}) async {
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
@@ -44,12 +32,40 @@ class ShareOverlaySheet extends ConsumerStatefulWidget {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       constraints: isTablet ? const BoxConstraints(maxWidth: 600) : null,
-      builder: (_) => ShareOverlaySheet(audioPath: audioPath, fileName: fileName),
+      builder: (sheetCtx) => ShareSheetContent(
+        audioPath: audioPath,
+        fileName: fileName,
+        onFinished: () => Navigator.of(sheetCtx).pop(),
+      ),
     );
   }
 }
 
-class _ShareOverlaySheetState extends ConsumerState<ShareOverlaySheet> {
+/// The share sheet body: runs the pipeline and shows a live processing state,
+/// then a result preview (audio + summary + key points) that the user explicitly
+/// saves. The preview is NOT persisted automatically — only "Speichern" commits
+/// it, so a shared note never silently lands in the history.
+///
+/// [onFinished] is invoked when the sheet should close (saved or discarded), so
+/// the same widget works both as a modal route (pop) and as the root of the
+/// translucent ShareActivity (finish the activity).
+class ShareSheetContent extends ConsumerStatefulWidget {
+  const ShareSheetContent({
+    super.key,
+    required this.audioPath,
+    required this.onFinished,
+    this.fileName,
+  });
+
+  final String audioPath;
+  final String? fileName;
+  final VoidCallback onFinished;
+
+  @override
+  ConsumerState<ShareSheetContent> createState() => _ShareSheetContentState();
+}
+
+class _ShareSheetContentState extends ConsumerState<ShareSheetContent> {
   late final ProcessingController _controller;
   bool _saving = false;
 
@@ -75,13 +91,11 @@ class _ShareOverlaySheetState extends ConsumerState<ShareOverlaySheet> {
     if (_saving) return;
     setState(() => _saving = true);
     await _controller.commit();
-    if (mounted) Navigator.of(context).pop();
+    widget.onFinished();
   }
 
-  void _close() => Navigator.of(context).pop();
-
   void _openSettings() {
-    Navigator.of(context).pop();
+    widget.onFinished();
     final ctx = navigatorKey.currentContext;
     if (ctx != null) AppNavigator.openSettings(ctx);
   }
@@ -99,12 +113,17 @@ class _ShareOverlaySheetState extends ConsumerState<ShareOverlaySheet> {
         error: state.error!,
         isModelMissing: state.error is ModelNotDownloadedException,
         onRetry: _start,
-        onClose: _close,
+        onClose: widget.onFinished,
         onOpenSettings: _openSettings,
       );
       fill = false;
     } else if (state.result != null) {
-      body = _ResultBody(note: state.result!, saving: _saving, onClose: _close, onSave: _save);
+      body = _ResultBody(
+        note: state.result!,
+        saving: _saving,
+        onClose: widget.onFinished,
+        onSave: _save,
+      );
       fill = true;
     } else {
       body = const _ProcessingBody();
@@ -214,9 +233,9 @@ class _ProcessingBody extends ConsumerWidget {
             activeStepIsSecond: !transcribing,
           ),
           const SizedBox(height: 30),
-          const ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 300),
-            child: SkeletonLines(),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: const SkeletonLines(),
           ),
         ],
       ),
