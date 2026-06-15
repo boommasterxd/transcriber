@@ -98,10 +98,11 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Wide screens (tablets) use the split-view and skip onboarding.
+        // The setup wizard runs first on any device; afterwards wide screens use
+        // the split-view, narrow ones the phone home.
+        if (!onboarded) return const OnboardingScreen();
         final isTablet = constraints.maxWidth >= 720;
-        if (isTablet) return const TabletHomeScreen();
-        return onboarded ? const HomeScreen() : const OnboardingScreen();
+        return isTablet ? const TabletHomeScreen() : const HomeScreen();
       },
     );
   }

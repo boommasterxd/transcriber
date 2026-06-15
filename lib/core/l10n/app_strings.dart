@@ -121,6 +121,27 @@ class AppStrings {
     required this.audioDelTitle,
     required this.audioDelSub,
     required this.keyMissing,
+    required this.obSkip,
+    required this.obNext,
+    required this.obStart,
+    required this.obWelcomeT,
+    required this.obWelcomeS,
+    required this.obHiw1T,
+    required this.obHiw1S,
+    required this.obHiw2T,
+    required this.obHiw2S,
+    required this.obHiw3T,
+    required this.obHiw3S,
+    required this.obTranscribeT,
+    required this.obTranscribeS,
+    required this.obSummaryT,
+    required this.obSummaryS,
+    required this.obLookT,
+    required this.obLookS,
+    required this.obPrivacyT,
+    required this.obPrivacyS,
+    required this.obReadyT,
+    required this.obReadyS,
   });
 
   final AppLanguage language;
@@ -172,6 +193,11 @@ class AppStrings {
   final String downloading, todoSingular, todoPlural;
   final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
   final String keyMissing;
+  final String obSkip, obNext, obStart;
+  final String obWelcomeT, obWelcomeS;
+  final String obHiw1T, obHiw1S, obHiw2T, obHiw2S, obHiw3T, obHiw3S;
+  final String obTranscribeT, obTranscribeS, obSummaryT, obSummaryS;
+  final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -287,6 +313,27 @@ class AppStrings {
     audioDelTitle: 'Audio gelöscht',
     audioDelSub: 'Nach der Verarbeitung automatisch entfernt',
     keyMissing: 'Schlüssel fehlt',
+    obSkip: 'Überspringen',
+    obNext: 'Weiter',
+    obStart: "Los geht's",
+    obWelcomeT: 'Willkommen bei Transcriber',
+    obWelcomeS: 'Sprachnachrichten werden in Sekunden zu Text, Zusammenfassung und To-dos.',
+    obHiw1T: 'Teilen oder aufnehmen',
+    obHiw1S: 'Audio teilen, importieren oder direkt aufnehmen',
+    obHiw2T: 'Transkribieren',
+    obHiw2S: 'Sprache wird zu Text – lokal oder per Cloud',
+    obHiw3T: 'Zusammenfassen',
+    obHiw3S: 'Kernpunkte & To-dos – automatisch',
+    obTranscribeT: 'Transkription',
+    obTranscribeS: 'Wähle das Transkriptions-Modell oder einen Cloud-Anbieter.',
+    obSummaryT: 'Zusammenfassung',
+    obSummaryS: 'Wähle das Zusammenfassungs-Modell oder einen Cloud-Anbieter.',
+    obLookT: 'Sprache & Aussehen',
+    obLookS: 'Stell die App nach deinem Geschmack ein.',
+    obPrivacyT: 'Datenschutz',
+    obPrivacyS: 'Du behältst die Kontrolle über deine Daten.',
+    obReadyT: 'Alles bereit!',
+    obReadyS: 'Du kannst alle Einstellungen später jederzeit anpassen.',
   );
 
   static const AppStrings _en = AppStrings(
@@ -396,5 +443,26 @@ class AppStrings {
     audioDelTitle: 'Audio deleted',
     audioDelSub: 'Automatically removed after processing',
     keyMissing: 'Key missing',
+    obSkip: 'Skip',
+    obNext: 'Next',
+    obStart: 'Get started',
+    obWelcomeT: 'Welcome to Transcriber',
+    obWelcomeS: 'Voice notes become text, a summary and to-dos in seconds.',
+    obHiw1T: 'Share or record',
+    obHiw1S: 'Share, import or record audio directly',
+    obHiw2T: 'Transcribe',
+    obHiw2S: 'Speech becomes text — on-device or via cloud',
+    obHiw3T: 'Summarize',
+    obHiw3S: 'Key points & to-dos — automatically',
+    obTranscribeT: 'Transcription',
+    obTranscribeS: 'Pick the transcription model or a cloud provider.',
+    obSummaryT: 'Summary',
+    obSummaryS: 'Pick the summary model or a cloud provider.',
+    obLookT: 'Language & look',
+    obLookS: 'Set the app up to your taste.',
+    obPrivacyT: 'Privacy',
+    obPrivacyS: 'You stay in control of your data.',
+    obReadyT: "You're all set!",
+    obReadyS: 'You can adjust every setting later in Settings.',
   );
 }

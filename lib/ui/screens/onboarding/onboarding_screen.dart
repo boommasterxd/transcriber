@@ -1,242 +1,364 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../state/settings_controller.dart';
-import '../../navigation.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/effects.dart';
 import '../../widgets/surfaces.dart';
+import '../settings/widgets/appearance_section.dart';
+import '../settings/widgets/language_section.dart';
+import '../settings/widgets/privacy_section.dart';
+import '../settings/widgets/summary_section.dart';
+import '../settings/widgets/transcription_section.dart';
 
-/// First-run onboarding. "Get started" completes onboarding (revealing Home);
-/// "Choose models first" additionally opens Settings.
-class OnboardingScreen extends ConsumerWidget {
+/// First-run setup wizard. Five steps that configure the app up-front, reusing
+/// the same per-stage settings sections so transcription and summary are chosen
+/// independently (local or cloud), exactly like in Settings.
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
-    final t = ref.watch(stringsProvider);
-    final controller = ref.read(settingsControllerProvider.notifier);
+  static const _stepCount = 5;
 
-    return Scaffold(
-      backgroundColor: palette.bg,
-      body: Column(
-        children: [
-          const SizedBox(height: 56),
-          const _OnboardingHero(),
-          Expanded(
-            child: FadeEdges(
-              topHeight: 22,
-              builder: (context, controller) => SingleChildScrollView(
-                controller: controller,
-                padding: const EdgeInsets.fromLTRB(28, 4, 28, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TagPill(text: t.obTag),
-                    const SizedBox(height: 16),
-                    Text(
-                      t.obTitle,
-                      style: TextStyle(
-                        fontSize: 33,
-                        height: 1.12,
-                        letterSpacing: -0.5,
-                        fontWeight: FontWeight.w800,
-                        color: palette.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      t.obSub,
-                      style: TextStyle(fontSize: 15.5, height: 1.5, color: palette.muted),
-                    ),
-                    const SizedBox(height: 22),
-                    _Feature(icon: Icons.shield_outlined, title: t.obF1t, subtitle: t.obF1s),
-                    const SizedBox(height: 12),
-                    _Feature(icon: Icons.bolt_outlined, title: t.obF2t, subtitle: t.obF2s),
-                    const SizedBox(height: 12),
-                    _Feature(icon: Icons.format_list_bulleted_rounded, title: t.obF3t, subtitle: t.obF3s),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-            child: Column(
-              children: [
-                PillButton(
-                  label: t.obCta,
-                  trailingIcon: Icons.arrow_forward_rounded,
-                  onTap: controller.completeOnboarding,
-                ),
-                const SizedBox(height: 14),
-                GestureDetector(
-                  onTap: () async {
-                    await controller.completeOnboarding();
-                    if (context.mounted) await AppNavigator.openSettings(context);
-                  },
-                  child: Text(
-                    t.obModels,
-                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: palette.accent),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
+  @override
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingHero extends StatelessWidget {
-  const _OnboardingHero();
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
+  int _step = 0;
+
+  bool get _isLast => _step == OnboardingScreen._stepCount - 1;
+
+  void _next() {
+    if (_isLast) {
+      ref.read(settingsControllerProvider.notifier).completeOnboarding();
+    } else {
+      setState(() => _step++);
+    }
+  }
+
+  void _prev() => setState(() => _step = (_step - 1).clamp(0, OnboardingScreen._stepCount - 1));
+  void _finish() => ref.read(settingsControllerProvider.notifier).completeOnboarding();
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return SizedBox(
-      height: 268,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [palette.accent.withValues(alpha: 0.16), palette.accent.withValues(alpha: 0)],
-              ),
-            ),
+    final t = ref.watch(stringsProvider);
+
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [palette.accentSoft2, palette.bg],
+            stops: const [0, 0.46],
           ),
-          const PulseRingHero(size: 116, ringSize: 150),
-          Positioned(
-            top: 44,
-            left: 40,
-            child: _FloatChip(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(color: palette.coral, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '0:48',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: palette.accent),
-                  ),
-                ],
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _ProgressBar(
+                step: _step,
+                count: OnboardingScreen._stepCount,
+                showBack: _step > 0,
+                showSkip: !_isLast,
+                skipLabel: t.obSkip,
+                onBack: _prev,
+                onSkip: _finish,
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 40,
-            right: 30,
-            child: _FloatChip(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: palette.mintSoft,
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: FadeEdges(
+                  topHeight: 14,
+                  builder: (context, controller) => SingleChildScrollView(
+                    controller: controller,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, anim) => FadeTransition(
+                              opacity: anim,
+                              child: SlideTransition(
+                                position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+                                    .animate(anim),
+                                child: child,
+                              ),
+                            ),
+                            child: KeyedSubtree(key: ValueKey(_step), child: _stepContent(t)),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Icon(Icons.check, size: 13, color: palette.mint),
                   ),
-                  const SizedBox(width: 9),
-                  Text(
-                    '3 To-dos',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: palette.ink),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 22),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: PillButton(
+                    label: _isLast ? t.obStart : t.obNext,
+                    trailingIcon: Icons.arrow_forward_rounded,
+                    onTap: _next,
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stepContent(AppStrings t) {
+    switch (_step) {
+      case 0:
+        return _WelcomeStep(strings: t);
+      case 1:
+        return _StepBody(
+          title: t.obTranscribeT,
+          subtitle: t.obTranscribeS,
+          child: const TranscriptionSection(),
+        );
+      case 2:
+        return _StepBody(
+          title: t.obSummaryT,
+          subtitle: t.obSummaryS,
+          child: const SummarySection(),
+        );
+      case 3:
+        return _StepBody(
+          title: t.obLookT,
+          subtitle: t.obLookS,
+          child: Column(
+            children: const [
+              LanguageSection(),
+              SizedBox(height: 12),
+              AppearanceSection(),
+            ],
+          ),
+        );
+      case 4:
+      default:
+        return _StepBody(
+          title: t.obPrivacyT,
+          subtitle: t.obPrivacyS,
+          child: Column(
+            children: [
+              const PrivacySection(),
+              const SizedBox(height: 24),
+              _ReadyBanner(strings: t),
+            ],
+          ),
+        );
+    }
+  }
+}
+
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({
+    required this.step,
+    required this.count,
+    required this.showBack,
+    required this.showSkip,
+    required this.skipLabel,
+    required this.onBack,
+    required this.onSkip,
+  });
+
+  final int step;
+  final int count;
+  final bool showBack;
+  final bool showSkip;
+  final String skipLabel;
+  final VoidCallback onBack;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 640),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+        child: Row(
+          children: [
+            if (showBack)
+              IconCircleButton(icon: Icons.arrow_back_ios_new_rounded, size: 38, onTap: onBack)
+            else
+              const SizedBox(width: 38),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Row(
+                children: [
+                  for (var i = 0; i < count; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        height: 7,
+                        width: i == step ? 26 : 7,
+                        decoration: BoxDecoration(
+                          color: i == step ? palette.accent : palette.line2,
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            if (showSkip)
+              GestureDetector(
+                onTap: onSkip,
+                child: Text(
+                  skipLabel,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: palette.muted),
+                ),
+              )
+            else
+              const SizedBox(width: 38),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _FloatChip extends StatelessWidget {
-  const _FloatChip({required this.child});
+class _StepBody extends StatelessWidget {
+  const _StepBody({required this.title, required this.subtitle, required this.child});
+  final String title;
+  final String subtitle;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: palette.shadowLg, blurRadius: 24, offset: const Offset(0, 8))],
-      ),
-      child: child,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: palette.ink),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14.5, height: 1.45, color: palette.muted),
+        ),
+        const SizedBox(height: 20),
+        child,
+      ],
     );
   }
 }
 
-class _TagPill extends StatelessWidget {
-  const _TagPill({required this.text});
-  final String text;
+class _WelcomeStep extends StatelessWidget {
+  const _WelcomeStep({required this.strings});
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-      decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(9999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.lock_outline_rounded, size: 14, color: palette.accentDeep),
-          const SizedBox(width: 7),
-          Text(
-            text,
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: palette.accentDeep),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 8),
+        const PulseRingHero(size: 104, ringSize: 110),
+        const SizedBox(height: 22),
+        Text(
+          strings.obWelcomeT,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: palette.ink),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          strings.obWelcomeS,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 15, height: 1.5, color: palette.muted),
+        ),
+        const SizedBox(height: 30),
+        _TimelineRow(icon: Icons.ios_share_rounded, title: strings.obHiw1T, sub: strings.obHiw1S, connect: true),
+        _TimelineRow(icon: Icons.graphic_eq_rounded, title: strings.obHiw2T, sub: strings.obHiw2S, connect: true),
+        _TimelineRow(icon: Icons.auto_awesome_outlined, title: strings.obHiw3T, sub: strings.obHiw3S, connect: false),
+      ],
     );
   }
 }
 
-class _Feature extends StatelessWidget {
-  const _Feature({required this.icon, required this.title, required this.subtitle});
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({required this.icon, required this.title, required this.sub, required this.connect});
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String sub;
+  final bool connect;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(14)),
-          child: Icon(icon, size: 20, color: palette.accent),
+        Column(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(14)),
+              child: Icon(icon, size: 21, color: palette.accent),
+            ),
+            if (connect) Container(width: 2, height: 26, color: palette.line2),
+          ],
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
-              Text(subtitle, style: TextStyle(fontSize: 13, color: palette.muted)),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.only(top: 11),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: palette.ink)),
+                Text(sub, style: TextStyle(fontSize: 13, color: palette.muted)),
+              ],
+            ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReadyBanner extends StatelessWidget {
+  const _ReadyBanner({required this.strings});
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      children: [
+        Container(
+          width: 76,
+          height: 76,
+          decoration: BoxDecoration(color: palette.mintSoft, shape: BoxShape.circle),
+          child: Icon(Icons.check_rounded, size: 36, color: palette.mint),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          strings.obReadyT,
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: palette.ink),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          strings.obReadyS,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, height: 1.45, color: palette.muted),
         ),
       ],
     );
