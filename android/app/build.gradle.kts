@@ -19,6 +19,9 @@ if (hasReleaseSigning) {
 android {
     namespace = "com.transcriber.app"
     compileSdk = 36
+    // Pinned so the whole build uses one NDK (see android/build.gradle.kts) and
+    // CI can pre-install exactly this version reliably.
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

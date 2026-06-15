@@ -79,6 +79,25 @@ jobs:
             "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
           echo "Release signing configured."
 
+      # Gradle's on-demand NDK download on the hosted runner intermittently
+      # produces a corrupt archive ("Archive is not a ZIP archive"), failing the
+      # build. Install the one pinned NDK up front via sdkmanager, retrying and
+      # wiping the partial each time, so the build never has to download it.
+      - name: Pre-install NDK (with retry)
+        run: |
+          NDK_VER=28.2.13676358
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          SDKMGR=$(find "$SDK/cmdline-tools" -name sdkmanager | sort -V | tail -1)
+          echo "Using $SDKMGR"
+          for i in 1 2 3 4; do
+            rm -rf "$SDK/ndk/$NDK_VER"
+            if yes | "$SDKMGR" "ndk;$NDK_VER"; then
+              echo "NDK $NDK_VER installed."; break
+            fi
+            echo "Attempt $i failed; retrying in $((i*5))s"; sleep $((i*5))
+          done
+          test -d "$SDK/ndk/$NDK_VER"
+
       - name: Build
         run: |
           flutter pub get
