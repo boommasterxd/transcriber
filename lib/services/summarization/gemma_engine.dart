@@ -38,8 +38,7 @@ class GemmaEngine {
     }
   }
 
-  ModelType _modelType(String id) {
-    switch (id) {
+  ModelType _modelType(String id) {    switch (id) {
       case 'gemma4':
         return ModelType.gemma4;
       case 'qwen':
@@ -59,6 +58,15 @@ class GemmaEngine {
         return ModelType.gemmaIt;
     }
   }
+
+  /// flutter_gemma routes `.litertlm` models through the Dart-FFI LiteRT-LM
+  /// client and `.task`/`.bin` models through native MediaPipe. The choice is
+  /// made *only* by the `fileType` passed at install time (the file extension is
+  /// ignored), so we derive it from the download URL here.
+  ModelFileType _fileType(GemmaModelSpec spec) =>
+      spec.downloadUrl.toLowerCase().endsWith('.litertlm')
+          ? ModelFileType.litertlm
+          : ModelFileType.task;
 
   Future<File> _marker(GemmaModelSpec spec) async {
     final dir = await (await StoragePaths.instance()).gemmaDir();
@@ -93,8 +101,10 @@ class GemmaEngine {
     void Function(double progress)? onProgress,
   ) async {
     final token = (spec.needsHfToken && hfToken != null && hfToken.isNotEmpty) ? hfToken : null;
-    var builder = FlutterGemma.installModel(modelType: _modelType(spec.modelTypeId))
-        .fromNetwork(spec.downloadUrl, token: token);
+    var builder = FlutterGemma.installModel(
+      modelType: _modelType(spec.modelTypeId),
+      fileType: _fileType(spec),
+    ).fromNetwork(spec.downloadUrl, token: token);
     if (onProgress != null) {
       builder = builder.withProgress((progress) => onProgress(progress / 100));
     }
