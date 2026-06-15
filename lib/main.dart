@@ -1,3 +1,4 @@
+import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,15 @@ import 'state/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Background model downloads with a foreground-service notification so they
+  // survive the app being backgrounded.
+  FileDownloader().configureNotification(
+    running: const TaskNotification('{filename}', 'Wird geladen… {progress}'),
+    complete: const TaskNotification('{filename}', 'Fertig geladen'),
+    error: const TaskNotification('{filename}', 'Download fehlgeschlagen'),
+    progressBar: true,
+  );
 
   final prefs = await SharedPreferences.getInstance();
   final settingsRepo = SettingsRepository(prefs);

@@ -1,26 +1,26 @@
 import 'dart:io';
 
+import 'package:background_downloader/background_downloader.dart' as bd;
 import 'package:path/path.dart' as p;
 import 'package:whisper_kit/whisper_kit.dart';
 
 import '../../core/utils/formatting.dart';
 import '../../data/models/transcript_note.dart';
-import '../download/file_downloader.dart';
 import '../storage/storage_paths.dart';
 import 'transcription_service.dart';
 
 /// The single integration point for the `whisper_kit` package.
 ///
-/// Model weights (whisper.cpp GGML) are fetched directly into the model
-/// directory under the file name whisper.cpp expects (`ggml-<id>.bin`), so the
-/// native core finds them and never needs to download. This keeps downloading
-/// version-independent and gives us reliable progress + a clear "downloaded"
-/// signal (file presence).
+/// Model weights (whisper.cpp GGML) are fetched via `background_downloader`
+/// (resumable, runs in an Android foreground service so it survives the app
+/// going to the background) into the directory whisper.cpp expects
+/// (`<appSupport>/models/whisper/ggml-<id>.bin`). File presence is the
+/// "downloaded" signal.
 class WhisperEngine {
   WhisperEngine._();
   static final WhisperEngine instance = WhisperEngine._();
 
-  final FileDownloader _downloader = const FileDownloader();
+  static const _whisperSubdir = 'models/whisper';
 
   static const Map<String, WhisperModel> _enumById = {
     'tiny': WhisperModel.tiny,
@@ -39,13 +39,27 @@ class WhisperEngine {
 
   Future<bool> isDownloaded(String id) async => File(await _modelFile(id)).exists();
 
-  /// Downloads the GGML weights for [modelId], reporting progress (0..1).
+  /// Downloads the GGML weights for [modelId] in the background, reporting
+  /// progress (0..1).
   Future<void> download(String modelId, {void Function(double progress)? onProgress}) async {
-    await _downloader.download(
-      '$_ggmlBaseUrl/ggml-$modelId.bin',
-      await _modelFile(modelId),
-      onProgress: onProgress,
+    final task = bd.DownloadTask(
+      url: '$_ggmlBaseUrl/ggml-$modelId.bin',
+      filename: 'ggml-$modelId.bin',
+      directory: _whisperSubdir,
+      baseDirectory: bd.BaseDirectory.applicationSupport,
+      updates: bd.Updates.statusAndProgress,
+      retries: 3,
+      allowPause: true,
     );
+    final result = await bd.FileDownloader().download(
+      task,
+      onProgress: (progress) {
+        if (progress >= 0) onProgress?.call(progress);
+      },
+    );
+    if (result.status != bd.TaskStatus.complete) {
+      throw Exception('Download fehlgeschlagen (${result.status.name})');
+    }
   }
 
   Future<void> deleteDownload(String modelId) async {
