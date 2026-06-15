@@ -16,22 +16,18 @@ import 'ui/screens/share/share_overlay_sheet.dart';
 /// the user to the app they shared from).
 const _channel = MethodChannel('app/share');
 
-/// Second Flutter entry point, run by the translucent `ShareActivity`. Renders
-/// only the share overlay over a transparent window, so the app the user shared
-/// from stays visible behind a dimmed scrim — the "see-through" share flow.
-///
-/// NOTE: flutter_gemma is deliberately NOT initialized here. The actual on-device
-/// work runs in the foreground-service isolate (started from this engine), which
-/// initializes gemma itself; initializing the native lib in a second engine here
-/// risked a crash.
-@pragma('vm:entry-point')
-Future<void> shareMain() async {
+/// Bootstraps and renders the share overlay over a transparent window. Called
+/// from `shareMain` in main.dart (which is the actual Dart entrypoint).
+Future<void> runShareEntrypoint() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Receives the processing result from the foreground-service isolate.
   FlutterForegroundTask.initCommunicationPort();
 
   final prefs = await SharedPreferences.getInstance();
+  // Diagnostic marker: proves the entrypoint actually ran (surfaced in-app on
+  // next launch). Lets us tell "entrypoint never ran" from "ran but didn't draw".
+  await prefs.setString('share_diag', 'shareMain ran ${DateTime.now().toIso8601String()}');
   final settingsRepo = SettingsRepository(prefs);
   final settings = await settingsRepo.load();
   final connections = await settingsRepo.connectedProviders();
