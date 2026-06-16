@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/l10n/app_strings.dart';
 import 'core/theme/app_theme.dart';
 import 'core/toast.dart';
-import 'services/platform/app_icon_service.dart';
 import 'state/settings_controller.dart';
 import 'state/providers.dart';
 import 'ui/navigation.dart';
@@ -53,33 +52,13 @@ class _RootGate extends ConsumerStatefulWidget {
   ConsumerState<_RootGate> createState() => _RootGateState();
 }
 
-class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserver {
+class _RootGateState extends ConsumerState<_RootGate> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Make the share-sheet icon match the saved accent right away (the
-      // launcher icon swaps on pause, but the share alias is safe to set now).
-      const AppIconService().syncShareIcon(ref.read(settingsControllerProvider).accent.id);
       _setupShareIntents();
     });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Switch the launcher icon only while backgrounded — toggling the active
-    // launcher alias while in use would kill the running app.
-    if (state == AppLifecycleState.paused) {
-      final accent = ref.read(settingsControllerProvider).accent;
-      const AppIconService().setIcon(accent.id);
-    }
   }
 
   Future<void> _setupShareIntents() async {

@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launch_bg">#F7F6FB</color>
+    <!-- Fixed brand color for the app icon (launcher, share sheet, and the
+         notification large icon all read this single application icon). -->
     <color name="ic_launcher_background">#6C5CE7</color>
-
-    <!-- Per-accent launcher icon backgrounds (match AppAccent in Dart). -->
-    <color name="ic_bg_violet">#6C5CE7</color>
-    <color name="ic_bg_blue">#2F7BF6</color>
-    <color name="ic_bg_emerald">#12A36B</color>
-    <color name="ic_bg_amber">#E8883A</color>
-    <color name="ic_bg_magenta">#C13D9E</color>
 </resources>
