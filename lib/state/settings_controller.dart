@@ -11,7 +11,6 @@ import '../data/models/inference_backend.dart';
 import '../data/models/processing_mode.dart';
 import '../data/models/remote_provider.dart';
 import '../data/models/transcription_language.dart';
-import '../services/platform/app_icon_service.dart';
 import 'connections_controller.dart';
 import 'model_manager_controller.dart';
 import 'providers.dart';
@@ -32,11 +31,7 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setTranscriptionLanguage(TranscriptionLanguage language) =>
       _persist(state.copyWith(transcriptionLanguage: language));
 
-  Future<void> setAccent(AppAccent accent) async {
-    await _persist(state.copyWith(accent: accent));
-    // Launcher icon swaps on next pause; the share-sheet icon can update now.
-    await const AppIconService().syncShareIcon(accent.id);
-  }
+  Future<void> setAccent(AppAccent accent) => _persist(state.copyWith(accent: accent));
 
   Future<void> setLanguage(AppLanguage language) => _persist(state.copyWith(language: language));
 
