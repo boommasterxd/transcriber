@@ -58,7 +58,12 @@ class _RootGateState extends ConsumerState<_RootGate> with WidgetsBindingObserve
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _setupShareIntents());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Make the share-sheet icon match the saved accent right away (the
+      // launcher icon swaps on pause, but the share alias is safe to set now).
+      const AppIconService().syncShareIcon(ref.read(settingsControllerProvider).accent.id);
+      _setupShareIntents();
+    });
   }
 
   @override

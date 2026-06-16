@@ -29,9 +29,34 @@ class MainActivity : FlutterActivity() {
                         setIcon(call.argument<String>("accent") ?: "violet")
                         result.success(true)
                     }
+                    "syncShareIcon" -> {
+                        // Only toggles ShareActivity aliases — safe while the app
+                        // is in the foreground (ShareActivity isn't running), so it
+                        // can run on start / on accent change, not just on pause.
+                        syncShareIcon(call.argument<String>("accent") ?: "violet")
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun syncShareIcon(accent: String) {
+        val pm = packageManager
+        val pkg = packageName
+        for ((key, aliases) in aliasesByAccent) {
+            val shareAlias = aliases[1]
+            val state = if (key == accent) {
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            } else {
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            }
+            pm.setComponentEnabledSetting(
+                ComponentName(pkg, "$pkg.$shareAlias"),
+                state,
+                PackageManager.DONT_KILL_APP,
+            )
+        }
     }
 
     /// Enables the launcher + share aliases for [accent] and disables the rest,
