@@ -78,7 +78,7 @@ class AppSettings {
   String asrModelId(RemoteProviderId p) =>
       asrModelByProvider[p] ?? RemoteCatalog.asrDefault(p);
 
-  factory AppSettings.initial() => AppSettings(
+  factory AppSettings.initial() => const AppSettings(
         themeMode: ThemeMode.system,
         accent: AppAccent.violet,
         language: AppLanguage.de,

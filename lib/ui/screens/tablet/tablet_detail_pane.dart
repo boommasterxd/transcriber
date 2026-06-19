@@ -68,7 +68,6 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final notes = ref.watch(notesControllerProvider);
     final matches = notes.where((n) => n.id == widget.noteId);
@@ -356,7 +355,7 @@ class _TranscriptBlock extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(copied ? Icons.check_rounded : Icons.copy_rounded,
-                        size: 13, color: copied ? palette.mint : palette.body),
+                        size: 13, color: copied ? palette.mint : palette.body,),
                     const SizedBox(width: 6),
                     Text(
                       copied ? strings.shCopied : strings.shCopy,
