@@ -25,3 +25,6 @@ android/key.properties
 
 # Secrets
 .env
+
+# FVM (Flutter Version Management) - local SDK cache
+.fvm/
