@@ -1,0 +1,14 @@
+# gitleaks configuration. Extends the default rules and allowlists known
+# non-secrets so the secret scan only flags real leaks.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Firebase client config and test fixtures are not real secrets"
+paths = [
+  # google-services.json ships inside every APK by design. Its API key is a
+  # client key, not a secret — secure it via API key restrictions in the
+  # Google Cloud Console (app signing cert + API scope), not by hiding it.
+  '''google-services\.json$''',
+  '''test/.*''',
+]
