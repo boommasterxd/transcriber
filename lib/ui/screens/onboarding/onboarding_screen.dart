@@ -185,8 +185,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return _StepBody(
           title: t.obLookT,
           subtitle: t.obLookS,
-          child: Column(
-            children: const [
+          child: const Column(
+            children: [
               LanguageSection(),
               SizedBox(height: 12),
               AppearanceSection(),

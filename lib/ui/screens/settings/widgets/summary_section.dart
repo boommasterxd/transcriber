@@ -9,7 +9,6 @@ import '../../../../data/models/processing_mode.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/model_manager_controller.dart';
 import '../../../../state/settings_controller.dart';
-import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import 'downloadable_model_tile.dart';
 import 'provider_connect_card.dart';
@@ -53,7 +52,7 @@ class SummarySection extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(t.summarizeTitle,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),),
                     Text(t.summarizeSub, style: TextStyle(fontSize: 12.5, height: 1.35, color: palette.muted)),
                   ],
                 ),

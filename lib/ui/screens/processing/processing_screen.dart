@@ -9,7 +9,6 @@ import '../../../services/service_exceptions.dart';
 import '../../../state/processing_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
-import '../../widgets/buttons.dart';
 import '../../widgets/effects.dart';
 import '../detail/transcript_detail_screen.dart';
 import 'widgets/processing_error_view.dart';
