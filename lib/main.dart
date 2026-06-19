@@ -2,6 +2,8 @@ import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,9 +40,11 @@ Future<void> main() async {
   final settings = await settingsRepo.load();
   final connections = await settingsRepo.connectedProviders();
 
-  // Required before any flutter_gemma use; the HF token enables gated downloads.
+  // Required before any flutter_gemma use; both engines are registered so the
+  // app can run .litertlm (LiteRT-LM FFI) and .task (MediaPipe) models.
   try {
     await FlutterGemma.initialize(
+      inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
       huggingFaceToken: settings.hfToken.isEmpty ? null : settings.hfToken,
     );
   } catch (_) {
