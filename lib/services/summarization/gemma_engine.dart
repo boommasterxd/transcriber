@@ -10,7 +10,7 @@ import 'summarization_service.dart';
 import 'summary_prompt.dart';
 import 'summary_result.dart';
 
-/// The single integration point for the `flutter_gemma` package (v0.16.x).
+/// The single integration point for the `flutter_gemma` package (v1.x).
 ///
 /// Downloads use the plugin's Hugging Face-aware installer
 /// (`FlutterGemma.installModel().fromNetwork(url, token:).withProgress().install()`),
