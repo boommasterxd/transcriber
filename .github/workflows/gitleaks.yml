@@ -1,0 +1,22 @@
+name: Secret scan
+
+# Scans for accidentally committed secrets (API keys, tokens, passwords).
+# Free replacement for GitHub Advanced Security secret scanning. Runs on PRs
+# and pushes; findings show up as a failed check but do NOT block merges yet
+# (not a required status check) so legitimate config files can be allowlisted
+# via .gitleaks.toml first.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
