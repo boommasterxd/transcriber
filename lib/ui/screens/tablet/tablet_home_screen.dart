@@ -28,7 +28,9 @@ class _TabletHomeScreenState extends ConsumerState<TabletHomeScreen> {
   String _query = '';
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(type: FileType.audio);
+    // file_picker 12 defaults allowMultiple to true; keep single-select so
+    // `files.single` can't throw on a multi-selection.
+    final result = await FilePicker.pickFiles(type: FileType.audio, allowMultiple: false);
     final file = result?.files.single;
     if (file?.path == null || !mounted) return;
     await AppNavigator.startProcessing(
