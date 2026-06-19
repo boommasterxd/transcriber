@@ -1,0 +1,54 @@
+name: Update Flutter version
+
+# Weekly check for a new Flutter stable release. Since Dependabot has no Flutter
+# SDK ecosystem, this acts as its replacement: it bumps .fvmrc (the single source
+# of truth read by both local FVM and CI via flutter-version-file) and opens a PR.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Resolve versions
+        id: v
+        run: |
+          latest=$(curl -s https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json \
+            | jq -r '.current_release.stable as $s | .releases[] | select(.hash==$s) | .version')
+          current=$(jq -r '.flutter' .fvmrc)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "Current: $current | Latest stable: $latest"
+
+      - name: Open PR if outdated
+        if: steps.v.outputs.latest != steps.v.outputs.current && steps.v.outputs.latest != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.v.outputs.latest }}
+          CURRENT: ${{ steps.v.outputs.current }}
+        run: |
+          branch="chore/flutter-${LATEST}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Branch $branch already exists - nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          jq --arg v "$LATEST" '.flutter = $v' .fvmrc > .fvmrc.tmp && mv .fvmrc.tmp .fvmrc
+          git add .fvmrc
+          git commit -m "chore: bump Flutter ${CURRENT} -> ${LATEST}"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "chore: bump Flutter ${CURRENT} -> ${LATEST}" \
+            --body "A new Flutter **stable** release (\`${LATEST}\`) is available. Updates \`.fvmrc\`, which both local FVM and CI read." \
+            --label dependencies \
+            --base "$(gh api /repos/${GITHUB_REPOSITORY} --jq .default_branch)" --head "$branch"
