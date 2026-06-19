@@ -352,7 +352,7 @@ class _TodosPreview extends StatelessWidget {
               decoration: BoxDecoration(color: palette.coral, borderRadius: BorderRadius.circular(9999)),
               child: Center(
                 child: Text('${todos.length}',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white),),
               ),
             ),
           ],
@@ -368,7 +368,7 @@ class _TodosPreview extends StatelessWidget {
                 const SizedBox(width: 11),
                 Expanded(
                   child: Text(todo.text,
-                      style: TextStyle(fontSize: 14.5, height: 1.45, color: palette.body)),
+                      style: TextStyle(fontSize: 14.5, height: 1.45, color: palette.body),),
                 ),
               ],
             ),
