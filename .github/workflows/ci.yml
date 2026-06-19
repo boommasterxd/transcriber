@@ -21,11 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: false # actions/cache@v5 (used internally when true) violates the repo's require-SHA-pins policy
+        run: |
+          FLUTTER_VERSION=$(jq -r '.flutter' .fvmrc)
+          curl -fsSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
+            | tar -xJ -C "$HOME"
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
       - name: Pub get
         run: flutter pub get
       - name: Analyze
