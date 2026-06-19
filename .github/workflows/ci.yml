@@ -25,7 +25,7 @@ jobs:
         with:
           channel: stable
           flutter-version-file: .fvmrc
-          cache: true
+          cache: false # actions/cache@v5 (used internally when true) violates the repo's require-SHA-pins policy
       - name: Pub get
         run: flutter pub get
       - name: Analyze
