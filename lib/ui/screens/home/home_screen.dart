@@ -28,16 +28,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _query = '';
 
   Future<void> _pickFile() async {
-    // file_picker 12 defaults allowMultiple to true; keep single-select so
-    // `files.single` can't throw on a multi-selection.
-    final result = await FilePicker.pickFiles(type: FileType.audio, allowMultiple: false);
-    final path = result?.files.single.path;
-    if (path == null || !mounted) return;
+    final file = await FilePicker.pickFile(type: FileType.audio);
+    if (file?.path == null || !mounted) return;
     await AppNavigator.startProcessing(
       context,
-      audioPath: path,
+      audioPath: file!.path!,
       source: NoteSource.file,
-      fileName: result!.files.single.name,
+      fileName: file.name,
     );
   }
 
