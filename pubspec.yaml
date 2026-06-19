@@ -18,7 +18,7 @@ dependencies:
 
   # On-device ML
   whisper_kit: ^0.3.1
-  flutter_gemma: ^0.16.5
+  flutter_gemma: ^1.0.0
 
   # Keeps on-device summarization running when the app is backgrounded
   # (Android foreground service).
@@ -31,7 +31,7 @@ dependencies:
 
   # Platform integration
   receive_sharing_intent: ^1.8.1
-  file_picker: ^11.0.2
+  file_picker: ^12.0.0-beta.7
   background_downloader: ^9.5.5
   path_provider: ^2.1.5
   path: ^1.9.1
@@ -47,11 +47,11 @@ dependencies:
   google_fonts: ^8.1.0
   uuid: ^4.5.3
   intl: ^0.20.2
-  share_plus: ^12.0.2
+  share_plus: ^13.1.0
   url_launcher: ^6.3.2
 
 dev_dependencies:
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
 
