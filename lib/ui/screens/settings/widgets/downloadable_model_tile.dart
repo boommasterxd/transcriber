@@ -67,7 +67,7 @@ class DownloadableModelTile extends ConsumerWidget {
         ],
       ),
     );
-    if (ok == true) await _guard(context, onDelete!);
+    if (ok == true && context.mounted) await _guard(context, onDelete!);
   }
 
   @override

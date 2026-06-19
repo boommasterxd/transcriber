@@ -10,7 +10,7 @@ import '../models/remote_provider.dart';
 /// secure storage (never written to plain prefs).
 class SettingsRepository {
   SettingsRepository(this._prefs, {FlutterSecureStorage? secureStorage})
-      : _secure = secureStorage ?? FlutterSecureStorage();
+      : _secure = secureStorage ?? const FlutterSecureStorage();
 
   final SharedPreferences _prefs;
   final FlutterSecureStorage _secure;
