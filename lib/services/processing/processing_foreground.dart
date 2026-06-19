@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../data/models/app_settings.dart';
@@ -47,6 +49,7 @@ class _ProcessingTaskHandler extends TaskHandler {
       if (settings.summarizeEnabled && settings.summaryMode.isLocal) {
         try {
           await FlutterGemma.initialize(
+            inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
             huggingFaceToken: hfToken.isEmpty ? null : hfToken,
           );
         } catch (_) {
