@@ -1,11 +1,9 @@
 name: Secret scan
 
-# Scans the current working tree for committed secrets using the free gitleaks
-# CLI (the gitleaks-action now requires a paid license; the CLI does not).
-# The downloaded binary is verified against a pinned SHA256 checksum before it
-# runs, so a tampered or corrupted download cannot execute. Uses 'dir' mode
-# (current state only) so old secrets already purged from the tree don't make
-# every run red. Non-blocking config lives in .gitleaks.toml.
+# Scans the working tree for committed secrets using the free gitleaks CLI.
+# Version + SHA256 live in .gitleaks-version (so the monthly update workflow can
+# bump them without touching a workflow file). The binary is verified against
+# the pinned checksum before it runs.
 on:
   pull_request:
   push:
@@ -19,11 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Run gitleaks
-        env:
-          GITLEAKS_VERSION: "8.30.1"
-          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
         run: |
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
-          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          ver=$(jq -r '.version' .gitleaks-version)
+          sum=$(jq -r '.sha256' .gitleaks-version)
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          echo "${sum}  gitleaks.tar.gz" | sha256sum -c -
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks dir --no-banner --redact --exit-code 1 --verbose .
