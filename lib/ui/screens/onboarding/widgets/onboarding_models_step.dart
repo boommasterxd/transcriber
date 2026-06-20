@@ -146,7 +146,7 @@ class _RecommendedCard extends ConsumerWidget {
                 Icon(Icons.check_circle_rounded, size: 18, color: palette.mint),
                 const SizedBox(width: 8),
                 Text(
-                  german ? 'Modelle bereit' : 'Models ready',
+                  t.modelsReady,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: palette.mint),
                 ),
               ],

@@ -55,7 +55,7 @@ class NoteListItem extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        noteSubtitle(note, german: strings.isDe),
+                        noteSubtitle(note, t: strings),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12.5, color: palette.muted),

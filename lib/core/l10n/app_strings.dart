@@ -188,6 +188,10 @@ class AppStrings {
     required this.badgeCheap,
     required this.badgeReasoning,
     required this.providerSubOpenRouter,
+    required this.obConnectHint,
+    required this.obDownloadHint,
+    required this.modelsReady,
+    required this.ownRecording,
   });
 
   final AppLanguage language;
@@ -255,6 +259,7 @@ class AppStrings {
   final String keyHelpTitleTemplate, keyHelpStep1Template, keyHelpStep2, keyHelpStep3, keyHelpNote, openPage, keyHelp;
   final String badgeVeryFast, badgeFast, badgeBalanced, badgeAccurate, badgeDetailed, badgeMostCapable, badgeCheap, badgeReasoning;
   final String providerSubOpenRouter;
+  final String obConnectHint, obDownloadHint, modelsReady, ownRecording;
 
   String keyHelpTitle(String name) => keyHelpTitleTemplate.replaceAll('{name}', name);
   String keyHelpStep1(String name) => keyHelpStep1Template.replaceAll('{name}', name);
@@ -440,6 +445,10 @@ class AppStrings {
     badgeCheap: 'Schnell & günstig',
     badgeReasoning: 'Stark im Denken',
     providerSubOpenRouter: '300+ Modelle, ein Schlüssel',
+    obConnectHint: 'Verbinde einen Anbieter, um fortzufahren.',
+    obDownloadHint: 'Lade das Modell herunter, um fortzufahren.',
+    modelsReady: 'Modelle bereit',
+    ownRecording: 'Eigene Aufnahme',
   );
 
   static const AppStrings _en = AppStrings(
@@ -616,5 +625,9 @@ class AppStrings {
     badgeCheap: 'Fast & cheap',
     badgeReasoning: 'Strong reasoning',
     providerSubOpenRouter: '300+ models, one key',
+    obConnectHint: 'Connect a provider to continue.',
+    obDownloadHint: 'Download the model to continue.',
+    modelsReady: 'Models ready',
+    ownRecording: 'Your recording',
   );
 }

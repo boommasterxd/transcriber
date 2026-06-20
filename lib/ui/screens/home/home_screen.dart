@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/utils/formatting.dart';
 import '../../../data/models/transcript_note.dart';
@@ -319,11 +320,11 @@ List<_NoteGroup> _groupNotes(List<TranscriptNote> notes, String today, String we
 }
 
 // Re-exported for [NoteListItem] subtitle formatting.
-String noteSubtitle(TranscriptNote note, {required bool german}) {
+String noteSubtitle(TranscriptNote note, {required AppStrings t}) {
   final src = switch (note.source) {
-    NoteSource.recording => german ? 'Aufnahme' : 'Recording',
-    NoteSource.file => german ? 'Datei' : 'File',
-    NoteSource.shared => german ? 'Sprachnachricht' : 'Voice note',
+    NoteSource.recording => t.recordingLabel,
+    NoteSource.file => t.tabFile,
+    NoteSource.shared => t.voiceNote,
   };
-  return '$src · ${formatDuration(note.durationSec)} · ${timeAgo(note.createdAt, german: german)}';
+  return '$src · ${formatDuration(note.durationSec)} · ${timeAgo(note.createdAt, german: t.isDe)}';
 }
