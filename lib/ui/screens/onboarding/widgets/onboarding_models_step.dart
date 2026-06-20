@@ -129,14 +129,14 @@ class _RecommendedCard extends ConsumerWidget {
           _RecRow(
             icon: Icons.graphic_eq_rounded,
             name: whisper.displayName,
-            sub: '${formatBytes(whisper.sizeBytes, german: german)} · ${whisper.badge.label(t.language)}',
+            sub: '${formatBytes(whisper.sizeBytes, german: german)} · ${whisper.badge.label(t)}',
             status: wStatus,
           ),
           const SizedBox(height: 8),
           _RecRow(
             icon: Icons.auto_awesome_outlined,
             name: gemma.displayName,
-            sub: '${formatBytes(gemma.sizeBytes, german: german)} · ${gemma.badge.label(t.language)}',
+            sub: '${formatBytes(gemma.sizeBytes, german: german)} · ${gemma.badge.label(t)}',
             status: gStatus,
           ),
           const SizedBox(height: 16),

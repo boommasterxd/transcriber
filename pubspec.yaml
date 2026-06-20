@@ -1,5 +1,5 @@
 name: transcriber
-description: Sprachnachrichten lokal transkribieren und zusammenfassen.
+description: Transcribe and summarize voice notes locally on device.
 publish_to: "none"
 version: 1.0.0+1
 

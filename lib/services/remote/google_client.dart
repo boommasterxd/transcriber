@@ -31,7 +31,7 @@ class GoogleClient implements RemoteApiClient {
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
-        'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
+        'Failed to fetch model list (${response.statusCode}): ${_errorBody(response.body)}',
         statusCode: response.statusCode,
       );
     }
@@ -83,8 +83,8 @@ class GoogleClient implements RemoteApiClient {
     // 20 MB. Guard with a clear error rather than letting it fail opaquely.
     if (bytes.length > 14 * 1024 * 1024) {
       throw RemoteApiException(
-        'Audio zu groß für Gemini-Inline-Transkription (${bytes.length ~/ (1024 * 1024)} MB; '
-        'Limit ~14 MB). Nutze ein kürzeres Audio, OpenAI oder die Transkription auf dem Gerät.',
+        'Audio too large for Gemini inline transcription (${bytes.length ~/ (1024 * 1024)} MB; '
+        'limit ~14 MB). Use shorter audio, OpenAI, or on-device transcription.',
       );
     }
     final prompt = languageCode == null || languageCode.isEmpty || languageCode == 'auto'
@@ -126,7 +126,7 @@ class GoogleClient implements RemoteApiClient {
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
-        'Google-Fehler (${response.statusCode}): ${_errorBody(response.body)}',
+        'Google error (${response.statusCode}): ${_errorBody(response.body)}',
         statusCode: response.statusCode,
       );
     }

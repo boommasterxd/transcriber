@@ -23,16 +23,14 @@ class RemoteProvider {
     required this.name,
     required this.color,
     required this.glyph,
-    required this.subDe,
-    required this.subEn,
+    required this.sub,
   });
 
   final RemoteProviderId id;
   final String name;
   final Color color;
   final String glyph;
-  final String subDe;
-  final String subEn;
+  final String sub;
 }
 
 /// A selectable cloud model for a provider. [apiModelId] is the exact string
