@@ -1,0 +1,19 @@
+# Categorises the auto-generated release notes (generate_release_notes) by PR
+# label. PRs land under the first matching category; "*" catches the rest.
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: 🚀 Features
+      labels: [feature, enhancement]
+    - title: 🐛 Bug Fixes
+      labels: [bug, fix]
+    - title: 🔧 CI & Build
+      labels: [ci, build, github-actions]
+    - title: 📦 Dependencies
+      labels: [dependencies]
+    - title: 📝 Docs
+      labels: [documentation, docs]
+    - title: Other Changes
+      labels: ["*"]
