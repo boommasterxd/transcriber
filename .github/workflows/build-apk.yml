@@ -128,4 +128,4 @@ jobs:
         with:
           name: transcriber-android
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+          retention-days: 3
