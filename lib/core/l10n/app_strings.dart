@@ -165,6 +165,11 @@ class AppStrings {
     required this.obPermNotifS,
     required this.obPermEnable,
     required this.obPermGranted,
+    required this.obPermRequiredHint,
+    required this.obPermDeniedNote,
+    required this.obPermBlockedNote,
+    required this.obPermOpenSettings,
+    required this.obPermLocked,
     required this.svcChannelName,
     required this.svcChannelDesc,
     required this.deleteNoteTitle,
@@ -265,6 +270,7 @@ class AppStrings {
   final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
   final String obPermsT, obPermsS, obPermMicT, obPermMicS, obPermNotifT, obPermNotifS;
   final String obPermEnable, obPermGranted;
+  final String obPermRequiredHint, obPermDeniedNote, obPermBlockedNote, obPermOpenSettings, obPermLocked;
   final String svcChannelName, svcChannelDesc;
   final String deleteNoteTitle, deleteNoteBody, noteDeleted, undo;
   final String summaryQualityHint, summarizeTitle, summarizeSub, summaryOff;
@@ -447,6 +453,13 @@ class AppStrings {
     obPermNotifS: 'Damit du den Fortschritt siehst, während die App im Hintergrund weiterarbeitet.',
     obPermEnable: 'Aktivieren',
     obPermGranted: 'Alles freigegeben',
+    obPermRequiredHint: 'Beide Freigaben sind nötig, um fortzufahren.',
+    obPermDeniedNote:
+        'Ohne diese Freigaben kann die App keine Sprachnachrichten aufnehmen und dich nicht über den Fortschritt informieren. Bitte erlaube sie, um die App zu nutzen.',
+    obPermBlockedNote:
+        'Du hast die Freigabe abgelehnt. Aktiviere „Mikrofon" und „Mitteilungen" in den App-Einstellungen und kehre dann hierher zurück.',
+    obPermOpenSettings: 'Einstellungen öffnen',
+    obPermLocked: 'Bitte erlaube den Zugriff, um fortzufahren.',
     svcChannelName: 'Zusammenfassung',
     svcChannelDesc: 'Läuft, während eine Zusammenfassung auf dem Gerät erstellt wird.',
     deleteNoteTitle: 'Transkript löschen?',
@@ -639,6 +652,13 @@ class AppStrings {
     obPermNotifS: 'So you can follow the progress while the app keeps working in the background.',
     obPermEnable: 'Enable',
     obPermGranted: 'All approved',
+    obPermRequiredHint: 'Both approvals are needed to continue.',
+    obPermDeniedNote:
+        "Without these the app can't record voice notes or keep you posted on progress. Please allow them to use the app.",
+    obPermBlockedNote:
+        'You declined access. Enable "Microphone" and "Notifications" in the app settings, then come back here.',
+    obPermOpenSettings: 'Open settings',
+    obPermLocked: 'Please grant access to continue.',
     svcChannelName: 'Summarization',
     svcChannelDesc: 'Runs while a summary is being generated on your device.',
     deleteNoteTitle: 'Delete transcript?',

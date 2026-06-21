@@ -61,6 +61,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final connectHint = t.obConnectHint;
     final downloadHint = t.obDownloadHint;
 
+    // Permissions step: can't continue until microphone + notifications are
+    // actually granted — the app can't record or run its background service
+    // without them.
+    if (_step == 3) {
+      final ready = ref.watch(onboardingPermissionsReadyProvider);
+      return (ready: ready, hint: ready ? null : t.obPermLocked);
+    }
+
     if (_step != 1) return (ready: true, hint: null);
 
     // Models step: each stage must be functionally ready — an on-device model
