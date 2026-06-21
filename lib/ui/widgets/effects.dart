@@ -53,24 +53,30 @@ class _PulseRingHeroState extends State<PulseRingHero> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return SizedBox(
-      width: 140,
-      height: 140,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          _ring(0),
-          _ring(0.5),
-          Container(
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              color: palette.accentSoft2,
-              borderRadius: BorderRadius.circular(32),
+    // The rings + equalizer animate every frame for the whole processing run.
+    // A RepaintBoundary keeps those repaints on their own layer so they don't
+    // mark the rest of the screen dirty — important while on-device inference is
+    // already competing for CPU.
+    return RepaintBoundary(
+      child: SizedBox(
+        width: 140,
+        height: 140,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            _ring(0),
+            _ring(0.5),
+            Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                color: palette.accentSoft2,
+                borderRadius: BorderRadius.circular(32),
+              ),
+              child: const Center(child: EqWave()),
             ),
-            child: const Center(child: EqWave()),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
