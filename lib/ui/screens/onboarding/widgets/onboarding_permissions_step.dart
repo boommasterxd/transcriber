@@ -11,7 +11,15 @@ import '../../../widgets/surfaces.dart';
 /// The permissions step keeps this in sync so the wizard can block "continue"
 /// until access is actually given — the app can't record or run its background
 /// summary service without them.
-final onboardingPermissionsReadyProvider = StateProvider<bool>((ref) => false);
+class OnboardingPermissionsReady extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final onboardingPermissionsReadyProvider =
+    NotifierProvider<OnboardingPermissionsReady, bool>(OnboardingPermissionsReady.new);
 
 /// Onboarding step that explains, in plain language, why the app needs the
 /// microphone and notification permissions, and requests them inline. Handles
@@ -66,7 +74,7 @@ class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermission
       (!_notifOk && (_notif?.isPermanentlyDenied ?? false));
 
   void _syncGate() {
-    ref.read(onboardingPermissionsReadyProvider.notifier).state = _allOk;
+    ref.read(onboardingPermissionsReadyProvider.notifier).set(_allOk);
   }
 
   Future<void> _refresh() async {
@@ -127,7 +135,7 @@ class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermission
         if (_allOk)
           _GrantedRow(label: t.obPermGranted)
         else if (_blocked) ...[
-          _Note(text: t.obPermBlockedNote, tone: _NoteTone.warn),
+          _Note(text: t.obPermBlockedNote),
           const SizedBox(height: 12),
           PillButton(
             label: t.obPermOpenSettings,
@@ -137,7 +145,7 @@ class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermission
           ),
         ] else ...[
           if (_attempted) ...[
-            _Note(text: t.obPermDeniedNote, tone: _NoteTone.warn),
+            _Note(text: t.obPermDeniedNote),
             const SizedBox(height: 12),
           ],
           PillButton(
@@ -160,21 +168,17 @@ class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermission
   }
 }
 
-enum _NoteTone { warn, info }
-
 class _Note extends StatelessWidget {
-  const _Note({required this.text, required this.tone});
+  const _Note({required this.text});
   final String text;
-  final _NoteTone tone;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final color = tone == _NoteTone.warn ? palette.coralInk : palette.muted;
-    final bg = tone == _NoteTone.warn ? palette.coralSoft : palette.accentSoft2;
+    final color = palette.coralInk;
     return Container(
       padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: palette.coralSoft, borderRadius: BorderRadius.circular(12)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
