@@ -51,7 +51,7 @@ class TranscriptionSection extends ConsumerWidget {
                     icon: Icons.graphic_eq_rounded,
                     title: m.displayName,
                     subtitle:
-                        '${formatBytes(m.sizeBytes, german: t.language == AppLanguage.de)} · ${m.badge.label(t.language)}',
+                        '${formatBytes(m.sizeBytes, german: t.language == AppLanguage.de)} · ${m.badge.label(t)}',
                     downloadLabel: t.dl,
                     status: manager.whisperStatus(m.id),
                     selected: settings.whisperModelId == m.id,

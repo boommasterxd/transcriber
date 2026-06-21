@@ -86,7 +86,7 @@ class SummarySection extends ConsumerWidget {
                     icon: Icons.auto_awesome_outlined,
                     title: m.displayName,
                     subtitle:
-                        '${formatBytes(m.sizeBytes, german: t.language == AppLanguage.de)} · ${m.badge.label(t.language)}',
+                        '${formatBytes(m.sizeBytes, german: t.language == AppLanguage.de)} · ${m.badge.label(t)}',
                     downloadLabel: t.dl,
                     status: manager.gemmaStatus(m.id),
                     selected: settings.gemmaModelId == m.id,

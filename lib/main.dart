@@ -29,9 +29,9 @@ Future<void> main() async {
   // Background model downloads with a foreground-service notification so they
   // survive the app being backgrounded.
   FileDownloader().configureNotification(
-    running: const TaskNotification('{filename}', 'Wird geladen… {progress}'),
-    complete: const TaskNotification('{filename}', 'Fertig geladen'),
-    error: const TaskNotification('{filename}', 'Download fehlgeschlagen'),
+    running: const TaskNotification('{filename}', 'Downloading… {progress}'),
+    complete: const TaskNotification('{filename}', 'Download complete'),
+    error: const TaskNotification('{filename}', 'Download failed'),
     progressBar: true,
   );
 

@@ -1,3 +1,5 @@
+import '../l10n/app_strings.dart';
+
 /// Formats [seconds] as `m:ss` (e.g. 65 -> "1:05").
 String formatDuration(int seconds) {
   final m = seconds ~/ 60;
@@ -6,6 +8,7 @@ String formatDuration(int seconds) {
 }
 
 /// Formats a byte count as a compact human readable size (MB / GB).
+/// [german] controls whether a comma is used as the decimal separator.
 String formatBytes(int bytes, {bool german = true}) {
   const mb = 1024 * 1024;
   const gb = mb * 1024;
@@ -18,26 +21,13 @@ String formatBytes(int bytes, {bool german = true}) {
   return '${fmt(bytes / mb)} MB';
 }
 
-/// Relative "time ago" label, localized for DE/EN.
-String timeAgo(DateTime when, {required bool german, DateTime? now}) {
+/// Relative "time ago" label, resolved via [AppStrings] for full l10n.
+String timeAgo(DateTime when, {required AppStrings t, DateTime? now}) {
   final ref = now ?? DateTime.now();
   final diff = ref.difference(when);
-  if (diff.inMinutes < 1) return german ? 'gerade eben' : 'just now';
-  if (diff.inMinutes < 60) {
-    final m = diff.inMinutes;
-    return german ? 'vor $m Min' : '$m min ago';
-  }
-  if (diff.inHours < 24) {
-    final h = diff.inHours;
-    return german ? 'vor $h Std' : '${h}h ago';
-  }
-  if (diff.inDays < 7) {
-    const de = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-    const en = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final idx = when.weekday - 1;
-    return german ? de[idx] : en[idx];
-  }
-  final d = when.day.toString().padLeft(2, '0');
-  final m = when.month.toString().padLeft(2, '0');
-  return german ? '$d.$m.' : '$m/$d';
+  if (diff.inMinutes < 1) return t.justNow;
+  if (diff.inMinutes < 60) return t.minutesAgo(diff.inMinutes);
+  if (diff.inHours < 24) return t.hoursAgo(diff.inHours);
+  if (diff.inDays < 7) return t.weekdayShort(when.weekday);
+  return t.dateMonthDay(when.day, when.month);
 }

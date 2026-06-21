@@ -58,7 +58,7 @@ class WhisperEngine {
       },
     );
     if (result.status != bd.TaskStatus.complete) {
-      throw Exception('Download fehlgeschlagen (${result.status.name})');
+      throw Exception('Download failed (${result.status.name})');
     }
   }
 
@@ -101,8 +101,8 @@ class WhisperEngine {
         modelMb = (await File(await _modelFile(modelId)).length()) ~/ (1024 * 1024);
       } catch (_) {}
       throw Exception(
-        'Whisper lieferte 0 Zeichen — Modell "$modelId" (${modelMb}MB), '
-        'Sprache "$lang", WAV $wavKb KB, $threads Threads.',
+        'Whisper returned 0 characters — model "$modelId" (${modelMb}MB), '
+        'language "$lang", WAV $wavKb KB, $threads threads.',
       );
     }
     return TranscriptionResult(text: text, segments: _segments(response, text));

@@ -14,8 +14,8 @@ class RemoteTranscriptionService implements TranscriptionService {
   Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) {
     if (!client.supportsAudioTranscription) {
       throw const RemoteApiException(
-        'Dieser Anbieter unterstützt keine Audio-Transkription. '
-        'Wähle OpenAI oder Google, oder verarbeite auf dem Gerät.',
+        'This provider does not support audio transcription. '
+        'Choose OpenAI or Google, or use on-device processing.',
       );
     }
     return client.transcribe(audioPath, languageCode: languageCode, model: model);

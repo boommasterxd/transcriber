@@ -34,7 +34,7 @@ class AnthropicClient implements RemoteApiClient {
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
-        'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
+        'Failed to fetch model list (${response.statusCode}): ${_errorBody(response.body)}',
         statusCode: response.statusCode,
       );
     }
@@ -73,7 +73,7 @@ class AnthropicClient implements RemoteApiClient {
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
-        'Anthropic-Fehler (${response.statusCode}): ${_errorBody(response.body)}',
+        'Anthropic error (${response.statusCode}): ${_errorBody(response.body)}',
         statusCode: response.statusCode,
       );
     }
@@ -93,7 +93,7 @@ class AnthropicClient implements RemoteApiClient {
     String? languageCode,
     required String model,
   }) {
-    throw UnsupportedError('Anthropic bietet keine native Transkription.');
+    throw UnsupportedError('Anthropic does not support native audio transcription.');
   }
 
   String _errorBody(String body) {

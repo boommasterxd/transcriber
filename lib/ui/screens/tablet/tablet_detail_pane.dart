@@ -76,7 +76,7 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane> {
 
     return Column(
       children: [
-        _Header(note: note, german: t.isDe, onShare: () => _share(note), onDelete: () => _delete(note)),
+        _Header(note: note, t: t, onShare: () => _share(note), onDelete: () => _delete(note)),
         Expanded(
           child: FadeEdges(
             topHeight: 16,
@@ -139,12 +139,12 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane> {
 class _Header extends StatelessWidget {
   const _Header({
     required this.note,
-    required this.german,
+    required this.t,
     required this.onShare,
     required this.onDelete,
   });
   final TranscriptNote note;
-  final bool german;
+  final AppStrings t;
   final VoidCallback onShare;
   final VoidCallback onDelete;
 
@@ -174,7 +174,7 @@ class _Header extends StatelessWidget {
                   style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: palette.ink),
                 ),
                 Text(
-                  '${note.speaker} · ${timeAgo(note.createdAt, german: german)}',
+                  '${note.speaker} · ${timeAgo(note.createdAt, t: t)}',
                   style: TextStyle(fontSize: 13, color: palette.muted),
                 ),
               ],

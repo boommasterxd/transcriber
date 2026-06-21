@@ -43,7 +43,7 @@ abstract final class ShareOverlay {
 
 /// The share sheet body: runs the pipeline and shows a live processing state,
 /// then a result preview (audio + summary + key points) that the user explicitly
-/// saves. The preview is NOT persisted automatically — only "Speichern" commits
+/// saves. The preview is NOT persisted automatically — only "Save" commits
 /// it, so a shared note never silently lands in the history.
 ///
 /// [onFinished] is invoked when the sheet should close (saved or discarded).
