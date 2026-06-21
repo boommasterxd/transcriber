@@ -326,5 +326,5 @@ String noteSubtitle(TranscriptNote note, {required AppStrings t}) {
     NoteSource.file => t.tabFile,
     NoteSource.shared => t.voiceNote,
   };
-  return '$src · ${formatDuration(note.durationSec)} · ${timeAgo(note.createdAt, german: t.isDe)}';
+  return '$src · ${formatDuration(note.durationSec)} · ${timeAgo(note.createdAt, t: t)}';
 }
