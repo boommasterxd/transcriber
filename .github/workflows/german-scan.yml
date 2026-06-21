@@ -1,0 +1,35 @@
+name: German leftover-language scan
+
+# Audits every tracked text file for leftover German that should be English.
+# See tool/scan/README.md for the policy. Runs only when ANTHROPIC_API_KEY is
+# configured; otherwise it is skipped so forks without the secret stay green.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  german-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for ANTHROPIC_API_KEY
+        id: gate
+        run: |
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY not set — skipping German scan."
+          fi
+
+      - name: Install jq
+        if: steps.gate.outputs.enabled == 'true'
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run scan
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: tool/scan/scan_german.sh
