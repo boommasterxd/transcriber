@@ -236,14 +236,16 @@ class _ProgressBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
         child: Row(
           children: [
-            if (showBack)
-              IconCircleButton(icon: Icons.arrow_back_ios_new_rounded, size: 38, onTap: onBack)
-            else
-              const SizedBox(width: 38),
-            const SizedBox(width: 14),
+            // The back button only exists from step 2 on; on the first step it's
+            // hidden and the progress bar takes the full width instead of leaving
+            // a gap where the button would be.
+            if (showBack) ...[
+              IconCircleButton(icon: Icons.arrow_back_ios_new_rounded, size: 38, onTap: onBack),
+              const SizedBox(width: 14),
+            ],
             // Full-width segmented progress: each step is an equal-width bar that
-            // fills the space next to the back button (no skip control to share
-            // the row with). Completed + current steps use the accent colour.
+            // fills the available space (no skip control to share the row with).
+            // Completed + current steps use the accent colour.
             Expanded(
               child: Row(
                 children: [
