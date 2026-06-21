@@ -14,21 +14,21 @@ class RemoteCatalog {
       name: 'Anthropic',
       color: Color(0xFFCC785C),
       glyph: 'A',
-      sub: 'Claude Opus, Sonnet, Haiku',
+      sub: 'Claude Opus 4.8, Sonnet 4.6, Haiku 4.5',
     ),
     RemoteProvider(
       id: RemoteProviderId.openai,
       name: 'OpenAI',
       color: Color(0xFF10A37F),
       glyph: 'O',
-      sub: 'GPT-4o, o3, GPT-4o mini',
+      sub: 'GPT-5.5, GPT-5.5 Pro, o-series',
     ),
     RemoteProvider(
       id: RemoteProviderId.google,
       name: 'Google',
       color: Color(0xFF4285F4),
       glyph: 'G',
-      sub: 'Gemini 2.5 Pro & Flash',
+      sub: 'Gemini 3.5 Pro & Flash',
     ),
     RemoteProvider(
       id: RemoteProviderId.openrouter,
@@ -51,18 +51,18 @@ class RemoteCatalog {
   /// Default chat/summary model id per provider (used until the user picks one).
   static const Map<RemoteProviderId, String> defaultChatModelId = {
     RemoteProviderId.anthropic: 'claude-sonnet-4-6',
-    RemoteProviderId.openai: 'gpt-4o',
-    RemoteProviderId.google: 'gemini-2.5-flash',
+    RemoteProviderId.openai: 'gpt-5.5',
+    RemoteProviderId.google: 'gemini-3.5-flash',
     RemoteProviderId.openrouter: 'openrouter/auto',
   };
 
   /// Default transcription model id per ASR-capable provider.
   static const Map<RemoteProviderId, String> defaultAsrModelId = {
     RemoteProviderId.openai: 'gpt-4o-transcribe',
-    RemoteProviderId.google: 'gemini-2.5-flash',
+    RemoteProviderId.google: 'gemini-3.5-flash',
   };
 
-  static String chatDefault(RemoteProviderId id) => defaultChatModelId[id] ?? 'gpt-4o';
+  static String chatDefault(RemoteProviderId id) => defaultChatModelId[id] ?? 'gpt-5.5';
   static String asrDefault(RemoteProviderId id) => defaultAsrModelId[id] ?? 'gpt-4o-transcribe';
 
   /// Page where the user creates an API key for each provider.

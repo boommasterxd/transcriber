@@ -5,10 +5,17 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_palette.dart';
 
 /// Deterministic pseudo-waveform heights (0.2..1.0) used by the players.
-List<double> _waveHeights(int count) => List.generate(count, (i) {
-      final a = (math.sin(i * 0.6) + 0.55 * math.sin(i * 0.21) + 0.3 * math.sin(i * 1.3)).abs();
-      return 0.2 + 0.8 * math.min(1.0, a / 1.6);
-    });
+/// Cached per bar count: the values never change, and [PlayerWave] rebuilds on
+/// every playback tick, so recomputing the sines each frame was pure waste.
+final Map<int, List<double>> _waveHeightsCache = {};
+
+List<double> _waveHeights(int count) => _waveHeightsCache.putIfAbsent(
+      count,
+      () => List.generate(count, (i) {
+        final a = (math.sin(i * 0.6) + 0.55 * math.sin(i * 0.21) + 0.3 * math.sin(i * 1.3)).abs();
+        return 0.2 + 0.8 * math.min(1.0, a / 1.6);
+      }),
+    );
 
 /// Animated equalizer used in onboarding / processing hero badges.
 class EqWave extends StatefulWidget {
@@ -96,7 +103,11 @@ class MiniWave extends StatelessWidget {
 
 /// Audio-player waveform that fills with the accent color up to [progress].
 class PlayerWave extends StatelessWidget {
-  const PlayerWave({super.key, required this.progress, this.bars = 56, this.onSeek});
+  const PlayerWave({super.key, required this.progress, this.bars = defaultBars, this.onSeek});
+
+  /// Default number of segments rendered. Exposed so callers can mirror the
+  /// bucketing logic when throttling progress updates.
+  static const int defaultBars = 56;
 
   final double progress;
   final int bars;
