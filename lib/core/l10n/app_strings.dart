@@ -157,6 +157,14 @@ class AppStrings {
     required this.obPrivacyS,
     required this.obReadyT,
     required this.obReadyS,
+    required this.obPermsT,
+    required this.obPermsS,
+    required this.obPermMicT,
+    required this.obPermMicS,
+    required this.obPermNotifT,
+    required this.obPermNotifS,
+    required this.obPermEnable,
+    required this.obPermGranted,
     required this.svcChannelName,
     required this.svcChannelDesc,
     required this.deleteNoteTitle,
@@ -255,6 +263,8 @@ class AppStrings {
   final String obHiw1T, obHiw1S, obHiw2T, obHiw2S, obHiw3T, obHiw3S;
   final String obTranscribeT, obTranscribeS, obSummaryT, obSummaryS;
   final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
+  final String obPermsT, obPermsS, obPermMicT, obPermMicS, obPermNotifT, obPermNotifS;
+  final String obPermEnable, obPermGranted;
   final String svcChannelName, svcChannelDesc;
   final String deleteNoteTitle, deleteNoteBody, noteDeleted, undo;
   final String summaryQualityHint, summarizeTitle, summarizeSub, summaryOff;
@@ -429,6 +439,14 @@ class AppStrings {
     obPrivacyS: 'Du behältst die Kontrolle über deine Daten.',
     obReadyT: 'Alles bereit!',
     obReadyS: 'Du kannst alle Einstellungen später jederzeit anpassen.',
+    obPermsT: 'Zwei kurze Freigaben',
+    obPermsS: 'Damit alles rund läuft, braucht die App zwei Erlaubnisse von dir.',
+    obPermMicT: 'Mikrofon',
+    obPermMicS: 'Damit du Sprachnachrichten direkt in der App aufnehmen kannst.',
+    obPermNotifT: 'Mitteilungen',
+    obPermNotifS: 'Damit du den Fortschritt siehst, während die App im Hintergrund weiterarbeitet.',
+    obPermEnable: 'Aktivieren',
+    obPermGranted: 'Alles freigegeben',
     svcChannelName: 'Zusammenfassung',
     svcChannelDesc: 'Läuft, während eine Zusammenfassung auf dem Gerät erstellt wird.',
     deleteNoteTitle: 'Transkript löschen?',
@@ -613,6 +631,14 @@ class AppStrings {
     obPrivacyS: 'You stay in control of your data.',
     obReadyT: "You're all set!",
     obReadyS: 'You can adjust every setting later in Settings.',
+    obPermsT: 'Two quick approvals',
+    obPermsS: 'For everything to work smoothly, the app needs two permissions from you.',
+    obPermMicT: 'Microphone',
+    obPermMicS: 'So you can record voice notes right inside the app.',
+    obPermNotifT: 'Notifications',
+    obPermNotifS: 'So you can follow the progress while the app keeps working in the background.',
+    obPermEnable: 'Enable',
+    obPermGranted: 'All approved',
     svcChannelName: 'Summarization',
     svcChannelDesc: 'Runs while a summary is being generated on your device.',
     deleteNoteTitle: 'Delete transcript?',

@@ -11,8 +11,8 @@ import '../../widgets/effects.dart';
 import '../../widgets/surfaces.dart';
 import '../settings/widgets/appearance_section.dart';
 import '../settings/widgets/language_section.dart';
-import '../settings/widgets/privacy_section.dart';
 import 'widgets/onboarding_models_step.dart';
+import 'widgets/onboarding_permissions_step.dart';
 
 /// First-run setup wizard. Five steps that configure the app up-front, reusing
 /// the same per-stage settings sections so transcription and summary are chosen
@@ -117,9 +117,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     for (var i = 0; i < OnboardingScreen._stepCount; i++)
                       FadeEdges(
                         topHeight: 14,
-                        builder: (context, controller) => SingleChildScrollView(
-                          controller: controller,
-                          child: Center(
+                        builder: (context, controller) {
+                          final content = Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 600),
                               child: Padding(
@@ -127,8 +126,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 child: _stepContentFor(i, t),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                          // The final "all set" step is centred in the viewport;
+                          // the others stay top-aligned and scroll if they're tall.
+                          if (i != OnboardingScreen._stepCount - 1) {
+                            return SingleChildScrollView(controller: controller, child: content);
+                          }
+                          return LayoutBuilder(
+                            builder: (context, constraints) => SingleChildScrollView(
+                              controller: controller,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                child: content,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -194,16 +207,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         );
       case 3:
         return _StepBody(
-          title: t.obPrivacyT,
-          subtitle: t.obPrivacyS,
-          child: const PrivacySection(),
+          title: t.obPermsT,
+          subtitle: t.obPermsS,
+          child: const OnboardingPermissionsStep(),
         );
       case 4:
       default:
-        return Padding(
-          padding: const EdgeInsets.only(top: 24),
-          child: _ReadyBanner(strings: t),
-        );
+        return _ReadyBanner(strings: t);
     }
   }
 }
@@ -236,14 +246,16 @@ class _ProgressBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
         child: Row(
           children: [
-            if (showBack)
-              IconCircleButton(icon: Icons.arrow_back_ios_new_rounded, size: 38, onTap: onBack)
-            else
-              const SizedBox(width: 38),
-            const SizedBox(width: 14),
+            // The back button only exists from step 2 on; on the first step it's
+            // hidden and the progress bar takes the full width instead of leaving
+            // a gap where the button would be.
+            if (showBack) ...[
+              IconCircleButton(icon: Icons.arrow_back_ios_new_rounded, size: 38, onTap: onBack),
+              const SizedBox(width: 14),
+            ],
             // Full-width segmented progress: each step is an equal-width bar that
-            // fills the space next to the back button (no skip control to share
-            // the row with). Completed + current steps use the accent colour.
+            // fills the available space (no skip control to share the row with).
+            // Completed + current steps use the accent colour.
             Expanded(
               child: Row(
                 children: [

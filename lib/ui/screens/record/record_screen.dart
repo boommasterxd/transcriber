@@ -114,7 +114,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                       Consumer(
                         builder: (context, ref, _) {
                           final sec = ref.watch(
-                              recordingControllerProvider.select((s) => s.elapsedSec));
+                            recordingControllerProvider.select((s) => s.elapsedSec),
+                          );
                           return Text(
                             formatDuration(sec),
                             style:
@@ -126,7 +127,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                       Consumer(
                         builder: (context, ref, _) {
                           final levels = ref.watch(
-                              recordingControllerProvider.select((s) => s.levels));
+                            recordingControllerProvider.select((s) => s.levels),
+                          );
                           return RecordWave(levels: levels, paused: paused);
                         },
                       ),
