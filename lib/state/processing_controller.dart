@@ -60,7 +60,7 @@ class ProcessingController extends Notifier<ProcessingState> {
 
   /// Runs the pipeline. When [save] is false the finished note is exposed via
   /// [ProcessingState.result] but NOT persisted — the share overlay shows it as
-  /// a preview and persists it only when the user taps "Speichern" ([commit]).
+  /// a preview and persists it only when the user taps "Save" ([commit]).
   Future<void> run({
     required String audioPath,
     required NoteSource source,
@@ -103,7 +103,7 @@ class ProcessingController extends Notifier<ProcessingState> {
   }
 
   /// Persists the current preview result (used by the share overlay's explicit
-  /// "Speichern"). No-op if there's nothing to save.
+  /// "Save"). No-op if there's nothing to save.
   Future<void> commit() async {
     final note = state.result;
     if (note == null) return;

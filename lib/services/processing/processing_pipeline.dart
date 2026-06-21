@@ -242,9 +242,9 @@ class ProcessingPipeline {
   String _speaker(NoteSource source, AppStrings strings) {
     switch (source) {
       case NoteSource.recording:
-        return strings.isDe ? 'Eigene Aufnahme' : 'Your recording';
+        return strings.ownRecording;
       case NoteSource.file:
-        return strings.isDe ? 'Datei' : 'File';
+        return strings.tabFile;
       case NoteSource.shared:
         return strings.voiceNote;
     }

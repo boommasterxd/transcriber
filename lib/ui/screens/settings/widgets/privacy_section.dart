@@ -57,9 +57,7 @@ class PrivacySection extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      t.isDe
-                          ? 'Hinweis: Gelöschte Audios können danach nicht mehr in der App abgespielt werden.'
-                          : 'Note: deleted audio can no longer be played back in the app afterwards.',
+                      t.autoDelNote,
                       style: TextStyle(fontSize: 12.5, height: 1.4, color: palette.coralInk),
                     ),
                   ),

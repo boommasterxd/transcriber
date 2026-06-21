@@ -1,85 +1,83 @@
 # Transcriber
 
-Eine moderne Flutter-Android-App, mit der man Sprachnachrichten **lokal auf dem
-Gerät** (oder via Cloud-API) **transkribiert und zusammenfasst** — mit Kernpunkten
-und abhakbaren To-dos. Pillen-Look, viele Animationen, Hell/Dunkel + 5
-Akzentfarben, DE/EN.
+A modern Flutter Android app that **transcribes and summarizes voice notes** — locally on device or
+via Cloud API — with key points and actionable to-dos. Pill UI, rich animations, light/dark + 5
+accent colors, DE/EN.
 
-Die UI ist eine 1:1-Umsetzung des Claude-Design-Mockups; sämtliche Aktionen sind
-funktional (echte Aufnahme, echter Datei-Import, echtes Android-Share-Intent,
-echte On-Device-Inferenz und echte Cloud-API-Calls).
+The UI is a 1:1 implementation of the Claude design mock-up; all actions are fully functional
+(real recording, real file import, real Android share intent, real on-device inference and real
+Cloud API calls).
 
-## Eingänge
+## Inputs
 
-1. **Teilen** – Audio aus anderen Apps (z. B. WhatsApp) wird via Android
-   Share-Intent (`ACTION_SEND` / `audio/*`) empfangen → Verarbeitung → Detail.
-2. **Datei auswählen** – Audiodatei aus dem Dateisystem (`file_picker`).
-3. **Aufnehmen** – direkt in der App aufnehmen (`record`, WAV 16 kHz mono).
+1. **Share** – audio from other apps (e.g. WhatsApp) arrives via Android share intent
+   (`ACTION_SEND` / `audio/*`) → processing → detail screen.
+2. **Pick a file** – audio file from the file system (`file_picker`).
+3. **Record** – record directly in the app (`record`, WAV 16 kHz mono).
 
-Jeder Eingang läuft durch dieselbe Pipeline: *Transkription → Zusammenfassung →
-Detail-Screen* mit „Verarbeitet mit"-Sektion (zeigt die genutzten Modelle).
+Every input runs through the same pipeline: *Transcription → Summarization →
+Detail screen* with a "Processed with" section showing the models used.
 
-## Verarbeitung: On-Device vs. Cloud (entweder/oder, nie gemischt)
+## Processing: On-Device vs. Cloud (one or the other, never mixed)
 
-Der Master-Switch in den Einstellungen entscheidet zwischen:
+The master switch in Settings decides between:
 
-### Auf dem Gerät (privat, offline)
-- **Transkription:** [`whisper_kit`](https://pub.dev/packages/whisper_kit) –
+### On Device (private, offline)
+- **Transcription:** [`whisper_kit`](https://pub.dev/packages/whisper_kit) –
   Whisper Tiny / Base / Small / Medium.
-- **Zusammenfassung:** [`flutter_gemma`](https://pub.dev/packages/flutter_gemma) –
-  Gemma 3 270M/1B, Qwen 2.5 0.5B/1.5B sowie die multimodalen Gemma 3n E2B/E4B
-  (Audio-fähig). Modelle werden als LiteRT-Artefakte von Hugging Face geladen
-  (gated Modelle benötigen einen HF-Token, einstellbar in den Settings).
+- **Summarization:** [`flutter_gemma`](https://pub.dev/packages/flutter_gemma) –
+  Gemma 3 270M/1B, Qwen 2.5 0.5B/1.5B, and the multimodal Gemma 3n E2B/E4B
+  (audio-capable). Models are loaded as LiteRT artifacts from Hugging Face
+  (gated models require an HF token, configurable in Settings).
 
-Die echten Modell-Listen stammen aus den Docs der Libraries und liegen in
-`lib/data/catalog/`.
+The actual model lists come from the library docs and live in `lib/data/catalog/`.
 
-### Cloud-API
-Echte Requests an **Anthropic**, **OpenAI**, **Google** oder **OpenRouter**.
-- Zusammenfassung: jeweilige Chat-Endpunkte.
-- Transkription: OpenAI (`gpt-4o-transcribe`) bzw. Google Gemini (inline audio).
-  Anthropic/OpenRouter haben keine native ASR — die UI weist darauf hin.
+### Cloud API
+Real requests to **Anthropic**, **OpenAI**, **Google**, or **OpenRouter**.
+- Summarization: respective chat endpoints.
+- Transcription: OpenAI (`gpt-4o-transcribe`) or Google Gemini (inline audio).
+  Anthropic/OpenRouter have no native ASR — the UI surfaces this clearly.
 
-API-Schlüssel werden ausschließlich lokal in `flutter_secure_storage` abgelegt.
+API keys are stored exclusively in `flutter_secure_storage` on device.
 
-## Architektur
+## Architecture
 
 ```
 lib/
-  core/         Theme (Palette/Akzent), Lokalisierung (DE/EN), Utils
+  core/         Theme (palette/accent), localization (DE/EN), utils
   data/
-    models/     Domänenmodelle (Settings, Note, Model-Specs …)
-    catalog/    Echte Modell-Kataloge (Whisper, Gemma, Cloud-Provider)
-    repositories/  Persistenz (Settings, Notes, Downloads)
+    models/     Domain models (Settings, Note, Model specs …)
+    catalog/    Real model catalogs (Whisper, Gemma, Cloud providers)
+    repositories/  Persistence (Settings, Notes, Downloads)
   services/
-    audio/      Aufnahme, Konvertierung (ffmpeg → WAV 16k), Player, Metadaten
-    transcription/  Interface + Whisper-Engine + Cloud
-    summarization/  Interface + Gemma-Engine + Cloud + Prompt
-    remote/     Provider-Clients (Anthropic/OpenAI/Google/OpenRouter)
-    processing/ Pipeline (orchestriert Transkription → Zusammenfassung)
-    share/      Android-Share-Intent
-  state/        Riverpod-Controller (Settings, Notes, Processing, Recording, …)
+    audio/      Recording, conversion (ffmpeg → WAV 16k), player, metadata
+    transcription/  Interface + Whisper engine + cloud
+    summarization/  Interface + Gemma engine + cloud + prompt
+    remote/     Provider clients (Anthropic/OpenAI/Google/OpenRouter)
+    processing/ Pipeline (orchestrates transcription → summarization)
+    share/      Android share intent
+  state/        Riverpod controllers (Settings, Notes, Processing, Recording, …)
   ui/
     screens/    Onboarding, Home, Record, Settings, Processing, Detail
-    widgets/    Geteilte Widgets (Wellenformen, Pills, Tiles, Effekte …)
+    widgets/    Shared widgets (waveforms, pills, tiles, effects …)
 ```
 
-Jede ML-Library ist hinter genau **einer** Engine-Datei gekapselt
-(`WhisperEngine`, `GemmaEngine`), damit Versions-Updates lokal bleiben.
+Each ML library is encapsulated behind exactly **one** engine file
+(`WhisperEngine`, `GemmaEngine`) so version updates stay local.
 
 ## Build
 
-Voraussetzungen: Flutter ≥ 3.27, Android SDK, ein Gerät mit `arm64-v8a`.
+Prerequisites: Flutter ≥ 3.27, Android SDK, a device with `arm64-v8a`.
 
 ```bash
 flutter pub get
-flutter run            # Debug auf angeschlossenem Gerät
-flutter build apk      # Release-APK
-flutter test           # Unit-Tests
+flutter run            # Debug on a connected device
+flutter build apk      # Release APK
+flutter test           # Unit tests
 ```
 
-Beim ersten `flutter pub get` erzeugt Flutter `android/local.properties`
-(mit dem Pfad zum Flutter-SDK). Der Gradle-Wrapper (8.9) ist eingecheckt.
+On first `flutter pub get` Flutter generates `android/local.properties`
+(with the path to the Flutter SDK). The Gradle wrapper (8.9) is checked in.
 
-> On-Device-Inferenz lädt mehrere GB an Modellen und benötigt ein echtes
-> Android-Gerät — im CI/Headless lässt sich die ML-Inferenz nicht ausführen.
+> On-device inference downloads several GB of model weights and requires a real
+> Android device — ML inference cannot run in CI/headless environments.

@@ -20,8 +20,6 @@ class BackendSection extends ConsumerWidget {
     final t = ref.watch(stringsProvider);
     final settings = ref.watch(settingsControllerProvider);
     final ctrl = ref.read(settingsControllerProvider.notifier);
-    final german = t.isDe;
-
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -29,7 +27,7 @@ class BackendSection extends ConsumerWidget {
         children: [
           if (settings.summarizeEnabled && settings.summaryMode.isLocal) ...[
             Text(
-              german ? 'Backend (Zusammenfassung)' : 'Backend (summary)',
+              t.backendSummary,
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
             ),
             const SizedBox(height: 10),
@@ -40,7 +38,7 @@ class BackendSection extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              german ? 'GPU am schnellsten · NPU ist geräteabhängig' : 'GPU is fastest · NPU is device-dependent',
+              t.backendHint,
               style: TextStyle(fontSize: 12.5, color: palette.muted),
             ),
           ],
@@ -51,7 +49,7 @@ class BackendSection extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  german ? 'Whisper-Threads (CPU)' : 'Whisper threads (CPU)',
+                  t.whisperThreads,
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
                 ),
                 Container(
@@ -82,9 +80,7 @@ class BackendSection extends ConsumerWidget {
               ),
             ),
             Text(
-              german
-                  ? 'Mehr Threads = schneller, aber höhere CPU-Last. Transkription läuft immer auf der CPU.'
-                  : 'More threads = faster, but higher CPU load. Transcription always runs on the CPU.',
+              t.whisperThreadsHint,
               style: TextStyle(fontSize: 12.5, color: palette.muted),
             ),
           ],

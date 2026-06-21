@@ -4,7 +4,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 
 /// Shown in place of the audio player when the source audio was removed after
-/// processing (auto-delete). Mirrors the design's "Audio gelöscht" notice.
+/// processing (auto-delete). Mirrors the design's "Audio deleted" notice.
 class AudioDeletedNotice extends StatelessWidget {
   const AudioDeletedNotice({super.key, required this.strings});
 
