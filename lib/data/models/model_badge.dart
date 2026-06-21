@@ -2,21 +2,42 @@ import '../../core/l10n/app_strings.dart';
 
 /// Short qualitative label shown next to a model (speed / quality hint).
 enum ModelBadge {
-  veryFast('Klein & schnell', 'Small & fast'),
-  fast('Schnell', 'Fast'),
-  balanced('Ausgewogen', 'Balanced'),
-  accurate('Beste Qualität', 'Best quality'),
-  detailed('Detaillierter', 'More detailed'),
-  recommended('Empfohlen', 'Recommended'),
-  mostCapable('Stärkste', 'Most capable'),
-  cheap('Schnell & günstig', 'Fast & cheap'),
-  reasoning('Stark im Denken', 'Strong reasoning'),
-  multimodal('Multimodal · Audio', 'Multimodal · Audio'),
-  openSource('Open Source', 'Open Source');
+  veryFast,
+  fast,
+  balanced,
+  accurate,
+  detailed,
+  recommended,
+  mostCapable,
+  cheap,
+  reasoning,
+  multimodal,
+  openSource;
 
-  const ModelBadge(this._de, this._en);
-  final String _de;
-  final String _en;
-
-  String label(AppLanguage lang) => lang == AppLanguage.de ? _de : _en;
+  String label(AppStrings t) {
+    switch (this) {
+      case ModelBadge.veryFast:
+        return t.badgeVeryFast;
+      case ModelBadge.fast:
+        return t.badgeFast;
+      case ModelBadge.balanced:
+        return t.badgeBalanced;
+      case ModelBadge.accurate:
+        return t.badgeAccurate;
+      case ModelBadge.detailed:
+        return t.badgeDetailed;
+      case ModelBadge.recommended:
+        return t.recommended;
+      case ModelBadge.mostCapable:
+        return t.badgeMostCapable;
+      case ModelBadge.cheap:
+        return t.badgeCheap;
+      case ModelBadge.reasoning:
+        return t.badgeReasoning;
+      case ModelBadge.multimodal:
+        return 'Multimodal · Audio';
+      case ModelBadge.openSource:
+        return 'Open Source';
+    }
+  }
 }

@@ -167,6 +167,35 @@ class AppStrings {
     required this.summarizeTitle,
     required this.summarizeSub,
     required this.summaryOff,
+    required this.backendSummary,
+    required this.backendHint,
+    required this.whisperThreads,
+    required this.whisperThreadsHint,
+    required this.autoDelNote,
+    required this.keyHelpTitleTemplate,
+    required this.keyHelpStep1Template,
+    required this.keyHelpStep2,
+    required this.keyHelpStep3,
+    required this.keyHelpNote,
+    required this.openPage,
+    required this.keyHelp,
+    required this.badgeVeryFast,
+    required this.badgeFast,
+    required this.badgeBalanced,
+    required this.badgeAccurate,
+    required this.badgeDetailed,
+    required this.badgeMostCapable,
+    required this.badgeCheap,
+    required this.badgeReasoning,
+    required this.providerSubOpenRouter,
+    required this.obConnectHint,
+    required this.obDownloadHint,
+    required this.modelsReady,
+    required this.ownRecording,
+    required this.minutesAgoTemplate,
+    required this.hoursAgoTemplate,
+    required this.weekdaysShort,
+    required this.dateMonthDayTemplate,
   });
 
   final AppLanguage language;
@@ -229,6 +258,26 @@ class AppStrings {
   final String svcChannelName, svcChannelDesc;
   final String deleteNoteTitle, deleteNoteBody, noteDeleted, undo;
   final String summaryQualityHint, summarizeTitle, summarizeSub, summaryOff;
+  final String backendSummary, backendHint, whisperThreads, whisperThreadsHint;
+  final String autoDelNote;
+  final String keyHelpTitleTemplate, keyHelpStep1Template, keyHelpStep2, keyHelpStep3, keyHelpNote, openPage, keyHelp;
+  final String badgeVeryFast, badgeFast, badgeBalanced, badgeAccurate, badgeDetailed, badgeMostCapable, badgeCheap, badgeReasoning;
+  final String providerSubOpenRouter;
+  final String obConnectHint, obDownloadHint, modelsReady, ownRecording;
+  final String minutesAgoTemplate, hoursAgoTemplate, dateMonthDayTemplate;
+  final List<String> weekdaysShort;
+
+  String minutesAgo(int n) => minutesAgoTemplate.replaceAll('{n}', '$n');
+  String hoursAgo(int n) => hoursAgoTemplate.replaceAll('{n}', '$n');
+  String weekdayShort(int weekday) => weekdaysShort[weekday - 1];
+  String dateMonthDay(int day, int month) {
+    final d = day.toString().padLeft(2, '0');
+    final m = month.toString().padLeft(2, '0');
+    return dateMonthDayTemplate.replaceAll('{d}', d).replaceAll('{m}', m);
+  }
+
+  String keyHelpTitle(String name) => keyHelpTitleTemplate.replaceAll('{name}', name);
+  String keyHelpStep1(String name) => keyHelpStep1Template.replaceAll('{name}', name);
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
   String storage(int models, String size) =>
@@ -390,6 +439,35 @@ class AppStrings {
     summarizeTitle: 'Zusammenfassen',
     summarizeSub: 'Aus = nur das rohe Transkript, keine KI-Zusammenfassung',
     summaryOff: 'Keine Zusammenfassung',
+    backendSummary: 'Backend (Zusammenfassung)',
+    backendHint: 'GPU am schnellsten · NPU ist geräteabhängig',
+    whisperThreads: 'Whisper-Threads (CPU)',
+    whisperThreadsHint: 'Mehr Threads = schneller, aber höhere CPU-Last. Transkription läuft immer auf der CPU.',
+    autoDelNote: 'Hinweis: Gelöschte Audios können danach nicht mehr in der App abgespielt werden.',
+    keyHelpTitleTemplate: 'API-Schlüssel von {name}',
+    keyHelpStep1Template: '1. Bei {name} anmelden oder registrieren.',
+    keyHelpStep2: '2. Die Seite „API Keys" öffnen (Button unten).',
+    keyHelpStep3: '3. Neuen Schlüssel erstellen, kopieren und hier einfügen.',
+    keyHelpNote: 'Hinweis: Cloud-Anbieter rechnen nach Nutzung ab.',
+    openPage: 'Seite öffnen',
+    keyHelp: 'Wie bekomme ich einen Schlüssel?',
+    badgeVeryFast: 'Klein & schnell',
+    badgeFast: 'Schnell',
+    badgeBalanced: 'Ausgewogen',
+    badgeAccurate: 'Beste Qualität',
+    badgeDetailed: 'Detaillierter',
+    badgeMostCapable: 'Stärkste',
+    badgeCheap: 'Schnell & günstig',
+    badgeReasoning: 'Stark im Denken',
+    providerSubOpenRouter: '300+ Modelle, ein Schlüssel',
+    obConnectHint: 'Verbinde einen Anbieter, um fortzufahren.',
+    obDownloadHint: 'Lade das Modell herunter, um fortzufahren.',
+    modelsReady: 'Modelle bereit',
+    ownRecording: 'Eigene Aufnahme',
+    minutesAgoTemplate: 'vor {n} Min',
+    hoursAgoTemplate: 'vor {n} Std',
+    weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+    dateMonthDayTemplate: '{d}.{m}.',
   );
 
   static const AppStrings _en = AppStrings(
@@ -545,5 +623,34 @@ class AppStrings {
     summarizeTitle: 'Summarize',
     summarizeSub: 'Off = raw transcript only, no AI summary',
     summaryOff: 'No summary',
+    backendSummary: 'Backend (summary)',
+    backendHint: 'GPU is fastest · NPU is device-dependent',
+    whisperThreads: 'Whisper threads (CPU)',
+    whisperThreadsHint: 'More threads = faster, but higher CPU load. Transcription always runs on the CPU.',
+    autoDelNote: 'Note: deleted audio can no longer be played back in the app afterwards.',
+    keyHelpTitleTemplate: '{name} API key',
+    keyHelpStep1Template: '1. Sign in or sign up at {name}.',
+    keyHelpStep2: '2. Open the "API keys" page (button below).',
+    keyHelpStep3: '3. Create a new key, copy it and paste it here.',
+    keyHelpNote: 'Note: cloud providers charge based on usage.',
+    openPage: 'Open page',
+    keyHelp: 'How do I get a key?',
+    badgeVeryFast: 'Small & fast',
+    badgeFast: 'Fast',
+    badgeBalanced: 'Balanced',
+    badgeAccurate: 'Best quality',
+    badgeDetailed: 'More detailed',
+    badgeMostCapable: 'Most capable',
+    badgeCheap: 'Fast & cheap',
+    badgeReasoning: 'Strong reasoning',
+    providerSubOpenRouter: '300+ models, one key',
+    obConnectHint: 'Connect a provider to continue.',
+    obDownloadHint: 'Download the model to continue.',
+    modelsReady: 'Models ready',
+    ownRecording: 'Your recording',
+    minutesAgoTemplate: '{n} min ago',
+    hoursAgoTemplate: '{n}h ago',
+    weekdaysShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    dateMonthDayTemplate: '{m}/{d}',
   );
 }

@@ -42,6 +42,6 @@ class OpenRouterClient extends OpenAiCompatibleClient {
     String? languageCode,
     required String model,
   }) {
-    throw UnsupportedError('OpenRouter bietet keine native Transkription.');
+    throw UnsupportedError('OpenRouter does not support native audio transcription.');
   }
 }

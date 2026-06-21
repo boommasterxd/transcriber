@@ -49,25 +49,18 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
   void _showKeyHelp() {
     final palette = context.palette;
     final t = ref.read(stringsProvider);
-    final german = t.isDe;
     final name = RemoteCatalog.provider(widget.provider).name;
-    final steps = german
-        ? [
-            '1. Bei $name anmelden oder registrieren.',
-            '2. Die Seite „API Keys" öffnen (Button unten).',
-            '3. Neuen Schlüssel erstellen, kopieren und hier einfügen.',
-          ]
-        : [
-            '1. Sign in or sign up at $name.',
-            '2. Open the "API keys" page (button below).',
-            '3. Create a new key, copy it and paste it here.',
-          ];
+    final steps = [
+      t.keyHelpStep1(name),
+      t.keyHelpStep2,
+      t.keyHelpStep3,
+    ];
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: palette.surface,
         title: Text(
-          german ? 'API-Schlüssel von $name' : '$name API key',
+          t.keyHelpTitle(name),
           style: TextStyle(color: palette.ink, fontSize: 17, fontWeight: FontWeight.w800),
         ),
         content: Column(
@@ -81,9 +74,7 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
               ),
             const SizedBox(height: 6),
             Text(
-              german
-                  ? 'Hinweis: Cloud-Anbieter rechnen nach Nutzung ab.'
-                  : 'Note: cloud providers charge based on usage.',
+              t.keyHelpNote,
               style: TextStyle(fontSize: 12.5, color: palette.muted),
             ),
           ],
@@ -99,7 +90,7 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
               _openKeyPage();
             },
             child: Text(
-              german ? 'Seite öffnen' : 'Open page',
+              t.openPage,
               style: TextStyle(color: palette.accent, fontWeight: FontWeight.w700),
             ),
           ),
@@ -209,7 +200,7 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
                       Icon(Icons.help_outline_rounded, size: 15, color: palette.accent),
                       const SizedBox(width: 6),
                       Text(
-                        t.isDe ? 'Wie bekomme ich einen Schlüssel?' : 'How do I get a key?',
+                        t.keyHelp,
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: palette.accent),
                       ),
                     ],

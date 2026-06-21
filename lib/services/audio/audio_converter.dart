@@ -36,7 +36,7 @@ class AudioConverter {
 
     if (!ReturnCode.isSuccess(returnCode)) {
       final logs = await session.getAllLogsAsString();
-      throw AudioProcessingException('Audio-Konvertierung fehlgeschlagen: ${logs ?? returnCode}');
+      throw AudioProcessingException('Audio conversion failed: ${logs ?? returnCode}');
     }
 
     // A 16 kHz mono 16-bit WAV is 32 kB per second of audio; anything close to
@@ -46,8 +46,8 @@ class AudioConverter {
     final bytes = await outFile.length();
     if (bytes < 16000) {
       throw AudioProcessingException(
-        'Die Audiodatei enthält keine hörbaren Daten (${bytes ~/ 1024} KB). '
-        'Bitte erneut aufnehmen oder eine andere Datei wählen.',
+        'The audio file contains no audible data (${bytes ~/ 1024} KB). '
+        'Please re-record or choose a different file.',
       );
     }
     return output;

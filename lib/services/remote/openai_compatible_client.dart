@@ -47,7 +47,7 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
-        'API-Fehler (${response.statusCode}): ${_errorBody(response.body)}',
+        'API error (${response.statusCode}): ${_errorBody(response.body)}',
         statusCode: response.statusCode,
       );
     }
@@ -69,7 +69,7 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     );
     if (response.statusCode != 200) {
       throw RemoteApiException(
-        'Modell-Liste fehlgeschlagen (${response.statusCode}): ${_errorBody(response.body)}',
+        'Failed to fetch model list (${response.statusCode}): ${_errorBody(response.body)}',
         statusCode: response.statusCode,
       );
     }
@@ -119,7 +119,7 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode != 200) {
       throw RemoteApiException(
-        'Transkriptions-Fehler (${streamed.statusCode}): ${_errorBody(body)}',
+        'Transcription error (${streamed.statusCode}): ${_errorBody(body)}',
         statusCode: streamed.statusCode,
       );
     }

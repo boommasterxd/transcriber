@@ -13,8 +13,8 @@ Future<T> guardTimeout<T>(Future<T> future, Duration timeout) {
   return future.timeout(
     timeout,
     onTimeout: () => throw const RemoteApiException(
-      'Zeitüberschreitung – der Anbieter hat nicht rechtzeitig geantwortet. '
-      'Prüfe deine Verbindung und versuche es erneut.',
+      'Request timed out — the provider did not respond in time. '
+      'Check your connection and try again.',
     ),
   );
 }

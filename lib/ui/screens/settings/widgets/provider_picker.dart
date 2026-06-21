@@ -23,7 +23,7 @@ class ProviderPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final language = ref.watch(stringsProvider).language;
+    final t = ref.watch(stringsProvider);
     final providers = RemoteCatalog.providers.where((p) => allowed.contains(p.id)).toList();
     return SurfaceCard(
       clip: true,
@@ -37,7 +37,7 @@ class ProviderPicker extends ConsumerWidget {
               ),
               leadingColor: p.color,
               title: p.name,
-              subtitle: language.code == 'de' ? p.subDe : p.subEn,
+              subtitle: p.id == RemoteProviderId.openrouter ? t.providerSubOpenRouter : p.sub,
               isLast: i == providers.length - 1,
               trailing: SelectionIndicator(selected: selected == p.id),
               onTap: () => onSelect(p.id),

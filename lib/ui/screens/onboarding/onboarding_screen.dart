@@ -58,9 +58,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final settings = ref.watch(settingsControllerProvider);
     final connections = ref.watch(connectionsControllerProvider);
     final manager = ref.watch(modelManagerControllerProvider);
-    final german = t.isDe;
-    final connectHint = german ? 'Verbinde einen Anbieter, um fortzufahren.' : 'Connect a provider to continue.';
-    final downloadHint = german ? 'Lade das Modell herunter, um fortzufahren.' : 'Download the model to continue.';
+    final connectHint = t.obConnectHint;
+    final downloadHint = t.obDownloadHint;
 
     if (_step != 1) return (ready: true, hint: null);
 
