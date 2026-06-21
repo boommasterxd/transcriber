@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../state/providers.dart';
+import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 
