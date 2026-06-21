@@ -17,5 +17,5 @@ enum AppAccent {
   final Color color;
 
   static AppAccent fromId(String? id) =>
-      AppAccent.values.firstWhere((a) => a.id == id, orElse: () => AppAccent.violet);
+      AppAccent.values.firstWhere((a) => a.id == id, orElse: () => AppAccent.blue);
 }

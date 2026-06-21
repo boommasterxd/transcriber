@@ -3,5 +3,5 @@
     <color name="launch_bg">#F7F6FB</color>
     <!-- Fixed brand color for the app icon (launcher, share sheet, and the
          notification large icon all read this single application icon). -->
-    <color name="ic_launcher_background">#6C5CE7</color>
+    <color name="ic_launcher_background">#2F7BF6</color>
 </resources>
