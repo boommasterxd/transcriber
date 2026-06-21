@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../core/theme/app_palette.dart';
-import '../../../../state/providers.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 
-/// Onboarding step that explains, in plain language, why the app asks for the
-/// microphone and notification permissions. Tapping "Enable" triggers the real
-/// system permission dialogs right here, so the user never has to hunt through
-/// settings later.
+/// True only when both the microphone and notification permissions are granted.
+/// The permissions step keeps this in sync so the wizard can block "continue"
+/// until access is actually given — the app can't record or run its background
+/// summary service without them.
+class OnboardingPermissionsReady extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final onboardingPermissionsReadyProvider =
+    NotifierProvider<OnboardingPermissionsReady, bool>(OnboardingPermissionsReady.new);
+
+/// Onboarding step that explains, in plain language, why the app needs the
+/// microphone and notification permissions, and requests them inline. Handles
+/// the user declining (explains it's required) and a permanent denial (points
+/// them to the system settings and opens that page for them).
 class OnboardingPermissionsStep extends ConsumerStatefulWidget {
   const OnboardingPermissionsStep({super.key});
 
@@ -20,47 +33,87 @@ class OnboardingPermissionsStep extends ConsumerStatefulWidget {
 }
 
 class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermissionsStep>
-    with AutomaticKeepAliveClientMixin {
-  bool _micGranted = false;
-  bool _notifGranted = false;
-  bool _requesting = false;
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  PermissionStatus? _mic;
+  PermissionStatus? _notif;
+  bool _busy = false;
+  bool _attempted = false;
 
   @override
   bool get wantKeepAlive => true;
 
-  Future<void> _request() async {
-    if (_requesting) return;
-    setState(() => _requesting = true);
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
 
-    // Microphone: the record package surfaces the OS dialog on demand and
-    // returns whether access ended up granted.
-    var mic = _micGranted;
-    try {
-      mic = await ref.read(audioRecorderProvider).hasPermission();
-    } catch (_) {}
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
-    // Notifications: needed so the background processing service can show its
-    // progress notification (Android 13+ prompts for this).
-    var notif = _notifGranted;
-    try {
-      final res = await FlutterForegroundTask.requestNotificationPermission();
-      notif = res == NotificationPermission.granted;
-    } catch (_) {}
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning from the system settings page: re-read the (possibly changed)
+    // status so the UI and the wizard gate update right away.
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
 
+  bool get _micOk => _mic?.isGranted ?? false;
+  bool get _notifOk => _notif?.isGranted ?? false;
+  bool get _allOk => _micOk && _notifOk;
+
+  // Permanently denied (Android's "don't ask again", reached after a couple of
+  // refusals): the system dialog won't show anymore, so we must send the user
+  // to the app settings instead.
+  bool get _blocked =>
+      (!_micOk && (_mic?.isPermanentlyDenied ?? false)) ||
+      (!_notifOk && (_notif?.isPermanentlyDenied ?? false));
+
+  void _syncGate() {
+    ref.read(onboardingPermissionsReadyProvider.notifier).set(_allOk);
+  }
+
+  Future<void> _refresh() async {
+    final mic = await Permission.microphone.status;
+    final notif = await Permission.notification.status;
     if (!mounted) return;
     setState(() {
-      _micGranted = mic;
-      _notifGranted = notif;
-      _requesting = false;
+      _mic = mic;
+      _notif = notif;
     });
+    _syncGate();
   }
+
+  Future<void> _request() async {
+    setState(() {
+      _busy = true;
+      _attempted = true;
+    });
+    var mic = _mic;
+    var notif = _notif;
+    if (!(mic?.isGranted ?? false)) mic = await Permission.microphone.request();
+    if (!(notif?.isGranted ?? false)) notif = await Permission.notification.request();
+    if (!mounted) return;
+    setState(() {
+      _mic = mic;
+      _notif = notif;
+      _busy = false;
+    });
+    _syncGate();
+  }
+
+  // The resume callback re-reads the status when the user comes back.
+  Future<void> _openSettings() => openAppSettings();
 
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAliveClientMixin
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
-    final allGranted = _micGranted && _notifGranted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,40 +122,101 @@ class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermission
           icon: Icons.mic_none_rounded,
           title: t.obPermMicT,
           subtitle: t.obPermMicS,
-          granted: _micGranted,
+          granted: _micOk,
         ),
         const SizedBox(height: 12),
         _PermCard(
           icon: Icons.notifications_none_rounded,
           title: t.obPermNotifT,
           subtitle: t.obPermNotifS,
-          granted: _notifGranted,
+          granted: _notifOk,
         ),
-        const SizedBox(height: 20),
-        if (allGranted)
-          Container(
+        const SizedBox(height: 16),
+        if (_allOk)
+          _GrantedRow(label: t.obPermGranted)
+        else if (_blocked) ...[
+          _Note(text: t.obPermBlockedNote),
+          const SizedBox(height: 12),
+          PillButton(
+            label: t.obPermOpenSettings,
+            icon: Icons.settings_outlined,
             height: 52,
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle_rounded, size: 18, color: palette.mint),
-                const SizedBox(width: 8),
-                Text(
-                  t.obPermGranted,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: palette.mint),
-                ),
-              ],
-            ),
-          )
-        else
+            onTap: _openSettings,
+          ),
+        ] else ...[
+          if (_attempted) ...[
+            _Note(text: t.obPermDeniedNote),
+            const SizedBox(height: 12),
+          ],
           PillButton(
             label: t.obPermEnable,
-            icon: _requesting ? null : Icons.lock_open_rounded,
+            icon: _busy ? null : Icons.lock_open_rounded,
             height: 52,
-            onTap: _requesting ? () {} : _request,
+            onTap: _busy ? () {} : _request,
           ),
+        ],
+        if (!_allOk) ...[
+          const SizedBox(height: 12),
+          Text(
+            t.obPermRequiredHint,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, height: 1.4, color: palette.muted),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _Note extends StatelessWidget {
+  const _Note({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final color = palette.coralInk;
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(color: palette.coralSoft, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: color),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w600, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GrantedRow extends StatelessWidget {
+  const _GrantedRow({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      height: 52,
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 18, color: palette.mint),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: palette.mint),
+          ),
+        ],
+      ),
     );
   }
 }
