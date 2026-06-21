@@ -88,7 +88,7 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
           children: [
             _Header(
               note: note,
-              german: t.isDe,
+              t: t,
               onBack: () => Navigator.of(context).pop(),
               onShare: () => _share(note),
               onDelete: () => _delete(note),
@@ -171,13 +171,13 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
 class _Header extends StatelessWidget {
   const _Header({
     required this.note,
-    required this.german,
+    required this.t,
     required this.onBack,
     required this.onShare,
     required this.onDelete,
   });
   final TranscriptNote note;
-  final bool german;
+  final AppStrings t;
   final VoidCallback onBack;
   final VoidCallback onShare;
   final VoidCallback onDelete;
@@ -202,7 +202,7 @@ class _Header extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: palette.ink),
                 ),
                 Text(
-                  '${note.speaker} · ${timeAgo(note.createdAt, german: german)}',
+                  '${note.speaker} · ${timeAgo(note.createdAt, t: t)}',
                   style: TextStyle(fontSize: 12.5, color: palette.muted),
                 ),
               ],

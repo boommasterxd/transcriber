@@ -192,6 +192,10 @@ class AppStrings {
     required this.obDownloadHint,
     required this.modelsReady,
     required this.ownRecording,
+    required this.minutesAgoTemplate,
+    required this.hoursAgoTemplate,
+    required this.weekdaysShort,
+    required this.dateMonthDayTemplate,
   });
 
   final AppLanguage language;
@@ -260,6 +264,17 @@ class AppStrings {
   final String badgeVeryFast, badgeFast, badgeBalanced, badgeAccurate, badgeDetailed, badgeMostCapable, badgeCheap, badgeReasoning;
   final String providerSubOpenRouter;
   final String obConnectHint, obDownloadHint, modelsReady, ownRecording;
+  final String minutesAgoTemplate, hoursAgoTemplate, dateMonthDayTemplate;
+  final List<String> weekdaysShort;
+
+  String minutesAgo(int n) => minutesAgoTemplate.replaceAll('{n}', '$n');
+  String hoursAgo(int n) => hoursAgoTemplate.replaceAll('{n}', '$n');
+  String weekdayShort(int weekday) => weekdaysShort[weekday - 1];
+  String dateMonthDay(int day, int month) {
+    final d = day.toString().padLeft(2, '0');
+    final m = month.toString().padLeft(2, '0');
+    return dateMonthDayTemplate.replaceAll('{d}', d).replaceAll('{m}', m);
+  }
 
   String keyHelpTitle(String name) => keyHelpTitleTemplate.replaceAll('{name}', name);
   String keyHelpStep1(String name) => keyHelpStep1Template.replaceAll('{name}', name);
@@ -449,6 +464,10 @@ class AppStrings {
     obDownloadHint: 'Lade das Modell herunter, um fortzufahren.',
     modelsReady: 'Modelle bereit',
     ownRecording: 'Eigene Aufnahme',
+    minutesAgoTemplate: 'vor {n} Min',
+    hoursAgoTemplate: 'vor {n} Std',
+    weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+    dateMonthDayTemplate: '{d}.{m}.',
   );
 
   static const AppStrings _en = AppStrings(
@@ -629,5 +648,9 @@ class AppStrings {
     obDownloadHint: 'Download the model to continue.',
     modelsReady: 'Models ready',
     ownRecording: 'Your recording',
+    minutesAgoTemplate: '{n} min ago',
+    hoursAgoTemplate: '{n}h ago',
+    weekdaysShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    dateMonthDayTemplate: '{m}/{d}',
   );
 }
