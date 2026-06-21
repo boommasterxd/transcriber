@@ -102,50 +102,61 @@ class MiniWave extends StatelessWidget {
 }
 
 /// Audio-player waveform that fills with the accent color up to [progress].
+///
+/// Bars have a fixed, uniform thickness (not [Expanded]) so the waveform reads
+/// the same on any width — a handful of solid bars rather than dozens of thin
+/// hairlines. The bar count is derived from the available width so the density
+/// stays consistent across the phone dialog and the wider tablet pane.
 class PlayerWave extends StatelessWidget {
-  const PlayerWave({super.key, required this.progress, this.bars = defaultBars, this.onSeek});
+  const PlayerWave({super.key, required this.progress, this.onSeek});
 
-  /// Default number of segments rendered. Exposed so callers can mirror the
-  /// bucketing logic when throttling progress updates.
-  static const int defaultBars = 56;
+  /// Throttle granularity for progress repaints. Kept comfortably finer than
+  /// the rendered bars so callers can skip no-op rebuilds (see
+  /// detail_audio_player) without ever missing a visible bar transition.
+  static const int defaultBars = 64;
+
+  /// Fixed bar geometry — uniform thickness that matches the app's other
+  /// waveforms instead of width-dependent slivers.
+  static const double _barWidth = 3.5;
+  static const double _barGap = 5.0;
 
   final double progress;
-  final int bars;
   final ValueChanged<double>? onSeek;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final heights = _waveHeights(bars);
     return Expanded(
-      child: GestureDetector(
-        onTapDown: onSeek == null
-            ? null
-            : (d) {
-                final width = context.size?.width ?? 1;
-                onSeek!((d.localPosition.dx / width).clamp(0.0, 1.0));
-              },
-        child: SizedBox(
-          height: 38,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              for (var i = 0; i < bars; i++)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1.25),
-                    child: Container(
-                      height: heights[i] * 32 + 4,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          // How many fixed-width bars fit, evenly spaced by at least _barGap.
+          final count = math.max(1, ((width + _barGap) / (_barWidth + _barGap)).floor());
+          final heights = _waveHeights(count);
+          return GestureDetector(
+            onTapDown: onSeek == null
+                ? null
+                : (d) => onSeek!((d.localPosition.dx / width).clamp(0.0, 1.0)),
+            child: SizedBox(
+              height: 38,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < count; i++)
+                    Container(
+                      width: _barWidth,
+                      height: heights[i] * 26 + 8,
                       decoration: BoxDecoration(
-                        color: (i / bars) <= progress ? palette.accent : palette.waveOff,
+                        color: (i / count) <= progress ? palette.accent : palette.waveOff,
                         borderRadius: BorderRadius.circular(9999),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
