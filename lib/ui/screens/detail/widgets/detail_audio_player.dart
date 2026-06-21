@@ -27,6 +27,10 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
   Duration _position = Duration.zero;
   Duration _total = Duration.zero;
 
+  /// Waveform bucket currently filled. Used to throttle rebuilds so the
+  /// position stream only triggers a repaint when something visible changes.
+  int _bucket = -1;
+
   bool get _hasAudio => File(widget.audioPath).existsSync();
 
   @override
@@ -42,7 +46,21 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
       final duration = await player.setFilePath(widget.audioPath);
       _total = duration ?? Duration(seconds: widget.durationSec);
       player.positionStream.listen((p) {
-        if (mounted) setState(() => _position = p);
+        if (!mounted) return;
+        // The waveform has [PlayerWave.bars] segments and the label only shows
+        // whole seconds, so the UI only changes when the second or the filled
+        // bucket changes. Skipping the no-op rebuilds keeps playback smooth
+        // instead of repainting ~50 bars on every position tick.
+        final total = _total.inSeconds == 0 ? widget.durationSec : _total.inSeconds;
+        final bucket = total == 0
+            ? 0
+            : ((p.inMilliseconds / (total * 1000)) * PlayerWave.defaultBars).floor();
+        final secondsChanged = p.inSeconds != _position.inSeconds;
+        _position = p;
+        if (secondsChanged || bucket != _bucket) {
+          _bucket = bucket;
+          setState(() {});
+        }
       });
       player.playerStateStream.listen((s) {
         if (!mounted) return;
@@ -116,13 +134,15 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
           const SizedBox(width: 12),
           PlayerWave(progress: progress, onSeek: _hasAudio ? _seek : null),
           const SizedBox(width: 12),
-          SizedBox(
-            width: 62,
-            child: Text(
-              '${formatDuration((progress * totalSec).round())} / ${formatDuration(totalSec)}',
-              textAlign: TextAlign.right,
-              style: AppTheme.mono(color: palette.muted, size: 11.5),
-            ),
+          // No fixed width: the label takes exactly the space it needs and never
+          // wraps, so the waveform (Expanded) shrinks instead of the timestamp
+          // breaking onto a second line.
+          Text(
+            '${formatDuration((progress * totalSec).round())} / ${formatDuration(totalSec)}',
+            maxLines: 1,
+            softWrap: false,
+            textAlign: TextAlign.right,
+            style: AppTheme.mono(color: palette.muted, size: 11.5),
           ),
         ],
       ),

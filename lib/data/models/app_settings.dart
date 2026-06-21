@@ -80,7 +80,7 @@ class AppSettings {
 
   factory AppSettings.initial() => const AppSettings(
         themeMode: ThemeMode.system,
-        accent: AppAccent.violet,
+        accent: AppAccent.blue,
         language: AppLanguage.de,
         transcriptionLanguage: TranscriptionLanguage.auto,
         asrMode: ProcessingMode.onDevice,

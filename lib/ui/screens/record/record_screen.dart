@@ -71,7 +71,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
-    final state = ref.watch(recordingControllerProvider);
+    // Only watch the fields that change rarely here. The elapsed timer and the
+    // live waveform update several times per second, so they live in their own
+    // [Consumer]s below — otherwise the whole screen (status pill, buttons with
+    // shadows, the large mono timer) would rebuild on every amplitude tick.
+    final paused = ref.watch(recordingControllerProvider.select((s) => s.paused));
 
     return PopScope(
       canPop: false,
@@ -105,14 +109,27 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _StatusPill(paused: state.paused, strings: t),
+                      _StatusPill(paused: paused, strings: t),
                       const SizedBox(height: 26),
-                      Text(
-                        formatDuration(state.elapsedSec),
-                        style: AppTheme.mono(color: palette.ink, size: 54, weight: FontWeight.w800),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final sec = ref.watch(
+                              recordingControllerProvider.select((s) => s.elapsedSec));
+                          return Text(
+                            formatDuration(sec),
+                            style:
+                                AppTheme.mono(color: palette.ink, size: 54, weight: FontWeight.w800),
+                          );
+                        },
                       ),
                       const SizedBox(height: 26),
-                      RecordWave(levels: state.levels, paused: state.paused),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final levels = ref.watch(
+                              recordingControllerProvider.select((s) => s.levels));
+                          return RecordWave(levels: levels, paused: paused);
+                        },
+                      ),
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -146,8 +163,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                     ),
                     _StopButton(label: t.recStopShort, onTap: _stop),
                     _SmallAction(
-                      icon: state.paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                      label: state.paused ? t.recResume : t.recPause,
+                      icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                      label: paused ? t.recResume : t.recPause,
                       color: palette.body,
                       onTap: ref.read(recordingControllerProvider.notifier).togglePause,
                     ),

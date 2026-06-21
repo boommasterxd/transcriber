@@ -31,11 +31,12 @@ class GemmaCatalog {
       id: 'qwen3_06b',
       displayName: 'Qwen3 · 0.6B',
       sizeBytes: 586 * _mb,
-      badge: ModelBadge.balanced,
+      badge: ModelBadge.recommended,
       modelTypeId: 'qwen3',
       downloadUrl:
           'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
       maxTokens: 4096,
+      recommended: true,
     ),
     GemmaModelSpec(
       id: 'qwen25_15b',
@@ -61,13 +62,12 @@ class GemmaCatalog {
       id: 'gemma4_e2b',
       displayName: 'Gemma 4 · E2B',
       sizeBytes: 2400 * _mb,
-      badge: ModelBadge.recommended,
+      badge: ModelBadge.multimodal,
       modelTypeId: 'gemma4',
       downloadUrl:
           'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
       maxTokens: 4096,
       supportsAudio: true,
-      recommended: true,
     ),
     GemmaModelSpec(
       id: 'phi4_mini',
@@ -92,7 +92,7 @@ class GemmaCatalog {
     ),
   ];
 
-  static const String defaultId = 'gemma4_e2b';
+  static const String defaultId = 'qwen3_06b';
 
   static GemmaModelSpec byId(String id) =>
       models.firstWhere((m) => m.id == id, orElse: () => models.firstWhere((m) => m.id == defaultId));

@@ -5,10 +5,17 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_palette.dart';
 
 /// Deterministic pseudo-waveform heights (0.2..1.0) used by the players.
-List<double> _waveHeights(int count) => List.generate(count, (i) {
-      final a = (math.sin(i * 0.6) + 0.55 * math.sin(i * 0.21) + 0.3 * math.sin(i * 1.3)).abs();
-      return 0.2 + 0.8 * math.min(1.0, a / 1.6);
-    });
+/// Cached per bar count: the values never change, and [PlayerWave] rebuilds on
+/// every playback tick, so recomputing the sines each frame was pure waste.
+final Map<int, List<double>> _waveHeightsCache = {};
+
+List<double> _waveHeights(int count) => _waveHeightsCache.putIfAbsent(
+      count,
+      () => List.generate(count, (i) {
+        final a = (math.sin(i * 0.6) + 0.55 * math.sin(i * 0.21) + 0.3 * math.sin(i * 1.3)).abs();
+        return 0.2 + 0.8 * math.min(1.0, a / 1.6);
+      }),
+    );
 
 /// Animated equalizer used in onboarding / processing hero badges.
 class EqWave extends StatefulWidget {
@@ -96,7 +103,11 @@ class MiniWave extends StatelessWidget {
 
 /// Audio-player waveform that fills with the accent color up to [progress].
 class PlayerWave extends StatelessWidget {
-  const PlayerWave({super.key, required this.progress, this.bars = 56, this.onSeek});
+  const PlayerWave({super.key, required this.progress, this.bars = defaultBars, this.onSeek});
+
+  /// Default number of segments rendered. Exposed so callers can mirror the
+  /// bucketing logic when throttling progress updates.
+  static const int defaultBars = 56;
 
   final double progress;
   final int bars;
@@ -141,36 +152,103 @@ class PlayerWave extends StatelessWidget {
 }
 
 /// Live recording waveform driven by amplitude [levels]; greys out when paused.
-class RecordWave extends StatelessWidget {
+///
+/// Painted with a single [CustomPainter] and one animation controller instead
+/// of one [AnimatedContainer] per bar. The old approach spun up ~40 implicit
+/// animation controllers that all re-targeted on every 120 ms amplitude tick —
+/// a steady source of dropped frames while recording. Here one controller tweens
+/// every bar between the previous and current amplitude snapshot, and an
+/// enclosing [RepaintBoundary] keeps the repaints off the rest of the screen.
+class RecordWave extends StatefulWidget {
   const RecordWave({super.key, required this.levels, required this.paused});
 
   final List<double> levels;
   final bool paused;
 
   @override
+  State<RecordWave> createState() => _RecordWaveState();
+}
+
+class _RecordWaveState extends State<RecordWave> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 140))..value = 1;
+
+  late List<double> _from = widget.levels;
+  late List<double> _to = widget.levels;
+
+  @override
+  void didUpdateWidget(RecordWave oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new amplitude snapshot arrived: tween from the previous target to it.
+    if (!identical(oldWidget.levels, widget.levels)) {
+      _from = _to;
+      _to = widget.levels;
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
       height: 96,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          for (final level in levels)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1.5),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                width: 5,
-                height: (level.clamp(0.05, 1.0)) * 88,
-                decoration: BoxDecoration(
-                  color: paused ? palette.waveOff : palette.accent,
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-              ),
-            ),
-        ],
+      child: RepaintBoundary(
+        child: CustomPaint(
+          size: Size.infinite,
+          painter: _RecordWavePainter(
+            from: _from,
+            to: _to,
+            progress: _c,
+            color: widget.paused ? palette.waveOff : palette.accent,
+          ),
+        ),
       ),
     );
   }
+}
+
+class _RecordWavePainter extends CustomPainter {
+  _RecordWavePainter({
+    required this.from,
+    required this.to,
+    required this.progress,
+    required this.color,
+  }) : super(repaint: progress);
+
+  final List<double> from;
+  final List<double> to;
+  final Animation<double> progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = to.length;
+    if (n == 0) return;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    const barWidth = 5.0;
+    final slot = size.width / n;
+    final t = progress.value;
+    final cy = size.height / 2;
+    final maxHeight = size.height - 8; // matches the old 88px bar over a 96px box
+    for (var i = 0; i < n; i++) {
+      final a = i < from.length ? from[i] : to[i];
+      final level = (a + (to[i] - a) * t).clamp(0.05, 1.0);
+      final h = level * maxHeight;
+      final cx = slot * i + slot / 2;
+      final rect = Rect.fromCenter(center: Offset(cx, cy), width: barWidth, height: h);
+      canvas.drawRRect(RRect.fromRectXY(rect, barWidth / 2, barWidth / 2), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RecordWavePainter old) =>
+      old.color != color || !identical(old.from, from) || !identical(old.to, to);
 }
