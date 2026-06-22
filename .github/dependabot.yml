@@ -11,9 +11,6 @@ updates:
     labels:
       - "dependencies"
     groups:
-      major:
-        update-types:
-          - "major"
       minor-patch:
         update-types:
           - "minor"
@@ -30,9 +27,6 @@ updates:
     labels:
       - "dependencies"
     groups:
-      major:
-        update-types:
-          - "major"
       minor-patch:
         update-types:
           - "minor"
@@ -50,9 +44,6 @@ updates:
       - "dependencies"
       - "github-actions"
     groups:
-      major:
-        update-types:
-          - "major"
       minor-patch:
         update-types:
           - "minor"
