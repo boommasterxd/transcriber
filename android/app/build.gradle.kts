@@ -17,7 +17,9 @@ if (hasReleaseSigning) {
 
 android {
     namespace = "com.transcriber.app"
-    compileSdk = 36
+    // receive_sharing_intent 1.9.0+ requires compiling against API 37 or later
+    // (AAR metadata check); see CheckAarMetadata failure on compileSdk 36.
+    compileSdk = 37
     // Pinned so the whole build uses one NDK (see android/build.gradle.kts) and
     // CI can pre-install exactly this version reliably.
     ndkVersion = "28.2.13676358"
