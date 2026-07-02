@@ -39,7 +39,11 @@ android {
         ndk {
             // arm64-v8a only: every real Android device is arm64. x86_64 is just
             // for emulators and would double the packaging cost of the large
-            // ffmpeg-kit / flutter_gemma native libraries.
+            // ffmpeg-kit / flutter_gemma native libraries. Flutter 3.35+ pre-sets
+            // abiFilters to all three ABIs before this file runs, so clear() is
+            // required or arm64-v8a just gets added alongside them.
+            // https://docs.flutter.dev/release/breaking-changes/default-abi-filters-android
+            abiFilters.clear()
             abiFilters.add("arm64-v8a")
         }
     }
