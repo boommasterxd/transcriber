@@ -150,6 +150,7 @@ jobs:
     environment: release
     permissions:
       contents: write
+      actions: write   # lets this job delete the run's own artifacts below
     steps:
       - name: Resolve tag
         id: tag
@@ -184,3 +185,15 @@ jobs:
             dist/SHA256SUMS
           fail_on_unmatched_files: false
           generate_release_notes: true
+
+      - name: Delete build artifacts (now published on the release)
+        # android only existed to hand the APK to this job; it is on the
+        # GitHub Release now, so drop the workflow artifact immediately
+        # instead of waiting out retention-days.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+                      -q '.artifacts[].id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" && echo "deleted artifact $id"
+          done
