@@ -86,13 +86,16 @@ jobs:
       # wiping the partial each time, so the build never has to download it.
       - name: Pre-install NDK (with retry)
         run: |
-          # android/app/build.gradle.kts pins ndkVersion, which Flutter's Gradle
-          # tooling applies to every plugin module too, so only this one version
-          # is ever resolved. Install just it up front.
+          # android/app/build.gradle.kts pins ndkVersion (28.2.x), which Flutter's
+          # Gradle tooling applies to every plugin module too - except AGP 9 also
+          # resolves its own default NDK (28.0.13004108) during project evaluation
+          # for reasons unrelated to any specific plugin (checked all four KGP
+          # plugins' build.gradle for a hardcoded ndkVersion, found none). Install
+          # both up front so neither triggers the on-demand download above.
           SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           SDKMGR=$(find "$SDK/cmdline-tools" -name sdkmanager | sort -V | tail -1)
           echo "Using $SDKMGR"
-          for NDK_VER in 28.2.13676358; do
+          for NDK_VER in 28.0.13004108 28.2.13676358; do
             for i in 1 2 3 4; do
               rm -rf "$SDK/ndk/$NDK_VER"
               if yes | "$SDKMGR" "ndk;$NDK_VER"; then
