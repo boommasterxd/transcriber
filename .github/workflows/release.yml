@@ -97,12 +97,15 @@ jobs:
             "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
           echo "Release signing configured."
 
+      # android/app/build.gradle.kts pins ndkVersion, which Flutter's Gradle
+      # tooling applies to every plugin module too, so only this one version
+      # is ever resolved.
       - name: Pre-install NDK (with retry)
         run: |
           SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           SDKMGR=$(find "$SDK/cmdline-tools" -name sdkmanager | sort -V | tail -1)
           echo "Using $SDKMGR"
-          for NDK_VER in 27.0.12077973 28.2.13676358; do
+          for NDK_VER in 28.2.13676358; do
             for i in 1 2 3 4; do
               rm -rf "$SDK/ndk/$NDK_VER"
               if yes | "$SDKMGR" "ndk;$NDK_VER"; then echo "NDK $NDK_VER installed."; break; fi
