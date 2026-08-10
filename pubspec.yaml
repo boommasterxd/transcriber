@@ -41,7 +41,7 @@ dependencies:
 
   # Persistence
   shared_preferences: ^2.5.5
-  flutter_secure_storage: ^10.3.1
+  flutter_secure_storage: ^11.0.0
 
   # Networking (cloud providers)
   http: ^1.6.0
