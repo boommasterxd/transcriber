@@ -33,7 +33,7 @@ dependencies:
 
   # Platform integration
   receive_sharing_intent: ^1.8.1
-  permission_handler: ^12.0.3
+  permission_handler: ^13.0.0
   file_picker: ^12.0.0-beta.7
   background_downloader: ^9.5.5
   path_provider: ^2.1.5
@@ -41,7 +41,7 @@ dependencies:
 
   # Persistence
   shared_preferences: ^2.5.5
-  flutter_secure_storage: ^10.3.1
+  flutter_secure_storage: ^11.0.0
 
   # Networking (cloud providers)
   http: ^1.6.0
