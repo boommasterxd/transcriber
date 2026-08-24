@@ -24,7 +24,7 @@ dependencies:
 
   # Keeps on-device summarization running when the app is backgrounded
   # (Android foreground service).
-  flutter_foreground_task: ^10.0.0
+  flutter_foreground_task: ^11.0.1
 
   # Audio capture / playback / conversion
   record: ^7.1.0
