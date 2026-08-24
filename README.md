@@ -67,7 +67,7 @@ Each ML library is encapsulated behind exactly **one** engine file
 
 ## Build
 
-Prerequisites: Flutter ≥ 3.27, Android SDK, a device with `arm64-v8a`.
+Prerequisites: Flutter ≥ 3.44, Android SDK, a device with `arm64-v8a`.
 
 ```bash
 flutter pub get
@@ -77,7 +77,7 @@ flutter test           # Unit tests
 ```
 
 On first `flutter pub get` Flutter generates `android/local.properties`
-(with the path to the Flutter SDK). The Gradle wrapper (8.9) is checked in.
+(with the path to the Flutter SDK). The Gradle wrapper (9.7.1) is checked in.
 
 > On-device inference downloads several GB of model weights and requires a real
 > Android device — ML inference cannot run in CI/headless environments.
