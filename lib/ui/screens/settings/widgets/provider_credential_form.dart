@@ -66,30 +66,54 @@ class ProviderCredentialForm extends ConsumerWidget {
           style: TextStyle(fontSize: 12, color: palette.faint),
         ),
         const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            TextButton.icon(
-              onPressed: busy ? null : onShowHelp,
-              icon: const Icon(Icons.help_outline_rounded, size: 16),
-              label: Text(strings.keyHelp),
-            ),
-            if (onTest != null)
-              TextButton(
-                onPressed: busy ? null : onTest,
-                child: Text(strings.testKey),
-              ),
-            if (onDisconnect != null)
-              TextButton(
-                onPressed: busy ? null : onDisconnect,
-                child: Text(
-                  strings.disconnect,
-                  style: TextStyle(color: palette.coralInk),
-                ),
-              ),
-          ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: busy ? null : onShowHelp,
+            icon: const Icon(Icons.help_outline_rounded, size: 16),
+            label: Text(strings.keyHelp),
+          ),
         ),
+        if (onTest != null || onDisconnect != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (onTest != null)
+                Expanded(
+                  child: TextButton(
+                    onPressed: busy ? null : onTest,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(
+                      strings.testKey,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              if (onTest != null && onDisconnect != null)
+                const SizedBox(width: 8),
+              if (onDisconnect != null)
+                Expanded(
+                  child: TextButton(
+                    onPressed: busy ? null : onDisconnect,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(
+                      strings.disconnect,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: palette.coralInk),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }

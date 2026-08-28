@@ -71,7 +71,7 @@ final class AudioCacheManager {
     final file = File(path);
     await _validateSource(file);
     final sharedDirectory = await (await _paths).sharedCacheDir();
-    if (!_isWithin(sharedDirectory, file)) {
+    if (!await _isWithin(sharedDirectory, file)) {
       throw const FileSystemException('Shared audio is outside app cache');
     }
     return ManagedAudioFile(path: path, ownership: AudioOwnership.temporary);
@@ -89,7 +89,7 @@ final class AudioCacheManager {
     final file = File(path);
     await _validateSource(file);
     final directory = await (await _paths).recordingCacheDir();
-    if (!_isWithin(directory, file)) {
+    if (!await _isWithin(directory, file)) {
       throw const FileSystemException('Recording is outside app cache');
     }
     return ManagedAudioFile(path: path, ownership: AudioOwnership.temporary);
@@ -192,13 +192,20 @@ final class AudioCacheManager {
     if (ownership == AudioOwnership.retained) {
       return _isWithin(await paths.retainedAudioDir(), file);
     }
-    return _isWithin(await paths.importCacheDir(), file) ||
-        _isWithin(await paths.sharedCacheDir(), file) ||
-        _isWithin(await paths.recordingCacheDir(), file);
+    return await _isWithin(await paths.importCacheDir(), file) ||
+        await _isWithin(await paths.sharedCacheDir(), file) ||
+        await _isWithin(await paths.recordingCacheDir(), file);
   }
 
-  bool _isWithin(Directory root, File file) =>
-      p.isWithin(_canonicalPath(root), _canonicalPath(file));
+  Future<bool> _isWithin(Directory root, File file) async {
+    try {
+      final resolvedRoot = await root.resolveSymbolicLinks();
+      final resolvedFile = await file.resolveSymbolicLinks();
+      return p.isWithin(p.normalize(resolvedRoot), p.normalize(resolvedFile));
+    } on FileSystemException {
+      return false;
+    }
+  }
 
   String _canonicalPath(FileSystemEntity entity) =>
       p.normalize(entity.absolute.path);

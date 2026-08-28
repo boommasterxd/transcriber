@@ -10,6 +10,7 @@ import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.dart';
 import 'package:transcriber/ui/widgets/provider_logo.dart';
+import 'package:transcriber/ui/widgets/surfaces.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
@@ -150,6 +151,41 @@ void _registerResponsiveTest() {
     final fieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
     final buttonTop = tester.getTopLeft(find.byType(FilledButton)).dy;
     expect(buttonTop, greaterThan(fieldBottom));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fills connected key actions equally at larger text sizes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpCard(
+      tester,
+      RemoteProviderId.openai,
+      _FakeConnectionsController(initial: {RemoteProviderId.openai: true}),
+      textScaler: const TextScaler.linear(1.6),
+    );
+
+    final strings = AppStrings.of(AppLanguage.de);
+    final testButton = find.ancestor(
+      of: find.text(strings.testKey),
+      matching: find.byType(TextButton),
+    );
+    final disconnectButton = find.ancestor(
+      of: find.text(strings.disconnect),
+      matching: find.byType(TextButton),
+    );
+    expect(testButton, findsOneWidget);
+    expect(disconnectButton, findsOneWidget);
+
+    final testSize = tester.getSize(testButton);
+    final disconnectSize = tester.getSize(disconnectButton);
+    final cardSize = tester.getSize(find.byType(SurfaceCard));
+    final actionWidth = (cardSize.width - 32 - 8) / 2;
+    expect(testSize.width, closeTo(actionWidth, 1));
+    expect(disconnectSize.width, closeTo(actionWidth, 1));
+    expect(testSize.height, greaterThanOrEqualTo(48));
+    expect(disconnectSize.height, greaterThanOrEqualTo(48));
     expect(tester.takeException(), isNull);
   });
 }

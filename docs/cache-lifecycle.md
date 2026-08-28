@@ -17,7 +17,7 @@ Every processing input has one ownership value:
 - recordings: cache `audio/recording`
 - retained note audio: application support `audio/retained`
 
-Paths are created through `StoragePaths`. Cleanup refuses paths outside the directory implied by ownership.
+Paths are created through `StoragePaths`. Ownership checks resolve filesystem aliases before comparing a file with its managed root. This accepts Android aliases such as `/data/data` and `/data/user/0` for the same app-private cache without broadening the allowed directories. Cleanup refuses paths outside the directory implied by ownership.
 
 ## Limits
 

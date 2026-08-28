@@ -15,6 +15,7 @@ import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/remote_model_list.dart';
 import 'package:transcriber/ui/screens/settings/widgets/transcription_section.dart';
 import 'package:transcriber/ui/widgets/model_tile.dart';
+import 'package:transcriber/ui/widgets/surfaces.dart';
 
 import '../../../support/widget_test_utils.dart';
 
@@ -27,6 +28,11 @@ void main() {
 }
 
 void _registerRemoteModelListTests() {
+  _registerRemoteModelStateTests();
+  _registerRemoteModelSelectionTest();
+}
+
+void _registerRemoteModelStateTests() {
   testWidgets('RemoteModelList displays loading state', (tester) async {
     final pending = Completer<List<RemoteModelInfo>>();
     await tester.pumpWidget(
@@ -81,7 +87,9 @@ void _registerRemoteModelListTests() {
     await tester.pumpUntilSettled();
     expect(find.text(strings.connectFirst), findsOneWidget);
   });
+}
 
+void _registerRemoteModelSelectionTest() {
   testWidgets('RemoteModelList displays data and selects a model', (
     tester,
   ) async {
@@ -105,6 +113,16 @@ void _registerRemoteModelListTests() {
     expect(find.text('Friendly model'), findsOneWidget);
     expect(find.text('friendly-id'), findsOneWidget);
     expect(find.text('plain-id'), findsNothing);
+
+    final materialFinder = find.descendant(
+      of: find.byType(SurfaceCard),
+      matching: find.byType(Material),
+    );
+    expect(materialFinder, findsOneWidget);
+    final material = tester.widget<Material>(materialFinder);
+    expect(material.borderRadius, BorderRadius.circular(22));
+    expect(material.clipBehavior, Clip.antiAlias);
+
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
     await tester.pumpAndSettle();
     expect(find.text('plain-id'), findsOneWidget);

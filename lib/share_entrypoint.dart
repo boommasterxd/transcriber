@@ -55,7 +55,7 @@ class _ShareHostState extends ConsumerState<_ShareHost> {
       path = null;
     }
     if (!mounted) return;
-    if (path == null) {
+    if (path == null || path.trim().isEmpty) {
       _finish();
       return;
     }

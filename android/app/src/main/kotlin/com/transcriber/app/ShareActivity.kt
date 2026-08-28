@@ -68,7 +68,8 @@ class ShareActivity : FlutterActivity() {
     }
 
     private fun extractSharedAudio(intent: Intent?): String? {
-        val uri = intent?.takeIf(::isSupportedShareIntent)?.let {
+        val shareIntent = intent?.takeIf(::isSupportedShareIntent)
+        val uri = shareIntent?.let {
             try {
                 extractSharedUri(it)
             } catch (e: BadParcelableException) {
@@ -76,7 +77,9 @@ class ShareActivity : FlutterActivity() {
                 null
             }
         }
-        return uri?.takeIf(::isSupportedUri)?.let(audioCache::copy)
+        return uri?.takeIf(::isSupportedUri)?.let {
+            audioCache.copy(it, shareIntent.type)
+        }
     }
 
     private fun isSupportedShareIntent(intent: Intent): Boolean {
@@ -88,12 +91,14 @@ class ShareActivity : FlutterActivity() {
 
     private fun extractSharedUri(intent: Intent): Uri? {
         val stream = intent.extras?.get(Intent.EXTRA_STREAM)
-        return when (intent.action) {
+        val extraUri = when (intent.action) {
             Intent.ACTION_SEND -> stream as? Uri
             Intent.ACTION_SEND_MULTIPLE ->
                 (stream as? ArrayList<*>)?.firstOrNull() as? Uri
             else -> null
         }
+        return extraUri
+            ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
     }
 
     private fun isSupportedUri(uri: Uri): Boolean {
@@ -120,15 +125,16 @@ private class ShareAudioCache(
     private val contentResolver: ContentResolver,
     private val onFailure: (Throwable) -> Unit,
 ) {
-    fun copy(uri: Uri): String? {
+    fun copy(uri: Uri, intentMimeType: String? = null): String? {
         var outputFile: File? = null
         var result: String? = null
         try {
             val directory = createSharedDirectory()
+            val mimeType = contentResolver.getType(uri) ?: intentMimeType
             val name = canonicalAudioName(
                 ShareFileNamePolicy.sanitize(displayName(uri)),
-            )
-            if (!hasSupportedExtension(name)) return null
+                mimeType,
+            ) ?: return null
             val candidate = directory?.let { createOutputFile(it, name) }
             outputFile = candidate
             if (candidate != null && copyStream(uri, candidate)) {
@@ -202,25 +208,46 @@ private class ShareAudioCache(
         return providerName.takeUnless { it.isNullOrEmpty() } ?: uri.lastPathSegment
     }
 
-    private fun hasSupportedExtension(name: String): Boolean {
+    private fun canonicalAudioName(name: String, mimeType: String?): String? {
         val extension = name.substringAfterLast('.', missingDelimiterValue = "")
             .lowercase(Locale.ROOT)
-        return extension in supportedExtensions
+        return if (extension.isNotEmpty()) {
+            canonicalNameForExtension(name, extension)
+        } else {
+            supportedMimeExtension(mimeType)?.let { "$name.$it" }
+        }
     }
 
-    private fun canonicalAudioName(name: String): String {
-        return if (name.endsWith(".opus", ignoreCase = true)) {
-            name.dropLast(opusSuffixLength) + ".ogg"
-        } else {
-            name
-        }
+    private fun canonicalNameForExtension(name: String, extension: String): String? {
+        return name.takeIf { extension in supportedExtensions }
+    }
+
+    private fun supportedMimeExtension(mimeType: String?): String? {
+        val normalizedMimeType = mimeType
+            ?.substringBefore(';')
+            ?.trim()
+            ?.lowercase(Locale.ROOT)
+        return supportedMimeExtensions[normalizedMimeType]
     }
 
     private companion object {
         const val maximumAudioBytes = 250L * 1024L * 1024L
-        const val opusSuffixLength = 5
         val supportedExtensions = setOf(
             "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm",
+        )
+        val supportedMimeExtensions = mapOf(
+            "audio/flac" to "flac",
+            "audio/m4a" to "m4a",
+            "audio/mp3" to "mp3",
+            "audio/mp4" to "mp4",
+            "audio/mpeg" to "mp3",
+            "audio/mpga" to "mpga",
+            "audio/ogg" to "ogg",
+            "audio/opus" to "opus",
+            "audio/wav" to "wav",
+            "audio/webm" to "webm",
+            "audio/x-m4a" to "m4a",
+            "audio/x-wav" to "wav",
         )
     }
 }
