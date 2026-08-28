@@ -4,8 +4,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
+import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/remote_models_provider.dart';
@@ -13,13 +14,14 @@ import 'package:transcriber/state/remote_models_provider.dart';
 import 'state_test_fakes.dart';
 
 late ProviderContainer _container;
+late AppDatabase _database;
 late FakeSettingsRepository _repository;
 late _QueuedHttpOverrides _httpOverrides;
 
 void main() {
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    _repository = FakeSettingsRepository(await SharedPreferences.getInstance());
+  setUp(() {
+    _database = createTestDatabase();
+    _repository = FakeSettingsRepository(_database);
     _httpOverrides = _QueuedHttpOverrides();
     HttpOverrides.global = _httpOverrides;
     _container = ProviderContainer(
@@ -28,13 +30,15 @@ void main() {
           const <RemoteProviderId, bool>{},
         ),
         settingsRepositoryProvider.overrideWithValue(_repository),
+        providerCredentialTesterProvider.overrideWithValue((_, _) async {}),
       ],
     );
   });
 
-  tearDown(() {
+  tearDown(() async {
     _container.dispose();
     HttpOverrides.global = null;
+    await _database.close();
   });
 
   _registerKeyAndSuccessTests();
@@ -60,7 +64,11 @@ void _registerKeyAndSuccessTests() {
 
     final models = await _container.read(remoteModelsProvider(query).future);
 
-    expect(models.map((model) => model.id), ['a-chat', 'z-chat']);
+    expect(models.map((model) => model.id), [
+      'gpt-5.6-luna',
+      'a-chat',
+      'z-chat',
+    ]);
     expect(_httpOverrides.requests.single.uri.path, '/v1/models');
     expect(
       _httpOverrides.requests.single.headers.value('authorization'),
@@ -81,25 +89,11 @@ void _registerCapabilityTests() {
 
     final models = await _container.read(remoteModelsProvider(query).future);
 
-    expect(models.map((model) => model.id), ['gpt-4o-transcribe', 'whisper-1']);
+    expect(models.map((model) => model.id), [
+      'gpt-transcribe',
+      'gpt-4o-transcribe',
+    ]);
   });
-
-  test(
-    'provider without transcription support returns no models locally',
-    () async {
-      _repository.keys[RemoteProviderId.anthropic] = 'test-key';
-      const query = (
-        provider: RemoteProviderId.anthropic,
-        forTranscription: true,
-      );
-
-      expect(
-        await _container.read(remoteModelsProvider(query).future),
-        isEmpty,
-      );
-      expect(_httpOverrides.requests, isEmpty);
-    },
-  );
 }
 
 void _registerErrorAndInvalidationTests() {
@@ -117,7 +111,7 @@ void _registerErrorAndInvalidationTests() {
     }, fireImmediately: true);
     addTearDown(subscription.close);
 
-    expect(await error.future, isA<FormatException>());
+    expect(await error.future, isA<RemoteApiException>());
   });
 
   test('connection changes invalidate and refetch the same query', () async {
@@ -130,7 +124,7 @@ void _registerErrorAndInvalidationTests() {
         .connect(RemoteProviderId.openai, 'new-key');
     final models = await _container.read(remoteModelsProvider(query).future);
 
-    expect(models.single.id, 'new-model');
+    expect(models.map((model) => model.id), ['gpt-5.6-luna', 'new-model']);
     expect(_httpOverrides.requests, hasLength(1));
   });
 }

@@ -49,7 +49,6 @@ void _registerActiveModelPillTest() {
         ActiveModelPill(
           label: 'Provider missing',
           activeText: strings.modelActive,
-          isLocal: false,
           warning: true,
           onTap: () => tapped = true,
         ),
@@ -73,7 +72,7 @@ void _registerNoteBadgesTest() {
       id: 'note',
       title: 'Planning',
       createdAt: DateTime(2026, 8, 28),
-      overrides: const TestNoteOverrides(isRemote: true, todoCount: 2),
+      overrides: const TestNoteOverrides(todoCount: 2),
     );
     await tester.pumpWidget(
       wrapHomeWidget(

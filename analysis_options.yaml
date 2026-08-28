@@ -12,6 +12,7 @@ analyzer:
     invalid_annotation_target: ignore
   exclude:
     - build/**
+    - lib/**/*.g.dart
     - android/**
     - ios/**
     - web/**

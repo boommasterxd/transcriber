@@ -5,15 +5,11 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/state/processing_controller.dart';
-import 'package:transcriber/state/connections_controller.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
-import 'package:transcriber/state/notes_controller.dart';
-import 'package:transcriber/state/providers.dart';
-import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/screens/processing/processing_screen.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_status_content.dart';
@@ -23,7 +19,7 @@ import '../../../support/app_test_fakes.dart';
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
 
-  testWidgets('renders a running transcription with model metadata', (
+  testWidgets('renders a running transcription with cloud metadata', (
     tester,
   ) async {
     final controller = _FakeProcessingController(
@@ -36,23 +32,20 @@ void main() {
     expect(find.byType(ProcessingStatusContent), findsOneWidget);
     expect(controller.runCount, 1);
     expect(controller.lastInput?.audioPath, '/tmp/audio.m4a');
+    expect(controller.lastInput?.audio.ownership, AudioOwnership.external);
     expect(controller.lastFileName, 'meeting.m4a');
   });
 
-  testWidgets('renders summarization and model download progress', (
+  testWidgets('renders cloud summarization status and both steps', (
     tester,
   ) async {
     final controller = _FakeProcessingController(
-      const ProcessingState(
-        running: true,
-        step: ProcessingStep.summarizing,
-        modelProgress: 0.426,
-      ),
+      const ProcessingState(running: true, step: ProcessingStep.summarizing),
     );
     await _pumpScreen(tester, controller);
 
     expect(find.text(strings.shSummarize), findsOneWidget);
-    expect(find.text('${strings.downloading} 43%'), findsOneWidget);
+    expect(find.text('gemini-3.7-flash · Google Gemini'), findsOneWidget);
     expect(find.text(strings.shStep1), findsOneWidget);
     expect(find.text(strings.shStep2), findsOneWidget);
   });
@@ -88,9 +81,11 @@ void main() {
     expect(find.text(strings.errorTitle), findsNothing);
   });
 
-  testWidgets('opens settings for a missing model error', (tester) async {
+  testWidgets('opens settings for a missing API key error', (tester) async {
     final controller = _FakeProcessingController(
-      const ProcessingState(error: ModelNotDownloadedException('model path')),
+      const ProcessingState(
+        error: MissingApiKeyException('Connect a provider first'),
+      ),
     );
     await _pumpScreen(tester, controller);
 
@@ -124,38 +119,33 @@ Future<void> _pumpScreen(
   _FakeProcessingController controller, {
   NavigatorObserver? observer,
 }) async {
-  final preferences = await testPreferences();
+  final database = testDatabase();
+  addTearDown(database.close);
   final settings = AppSettings.initial().copyWith(
     language: AppLanguage.en,
     summarizeEnabled: true,
   );
   await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        processingControllerProvider.overrideWith(() => controller),
-        sharedPreferencesProvider.overrideWithValue(preferences),
-        settingsControllerProvider.overrideWith(
-          () => TestSettingsController(settings),
-        ),
-        connectionsControllerProvider.overrideWith(
-          TestConnectionsController.new,
-        ),
-        modelManagerControllerProvider.overrideWith(
-          TestModelManagerController.new,
-        ),
-        notesControllerProvider.overrideWith(TestNotesController.new),
-      ],
-      child: MaterialApp(
-        theme: ThemeData(
-          extensions: <ThemeExtension<dynamic>>[
-            AppPalette.light(AppAccent.violet),
-          ],
-        ),
-        navigatorObservers: [?observer],
-        home: const ProcessingScreen(
-          audioPath: '/tmp/audio.m4a',
-          source: NoteSource.file,
-          fileName: 'meeting.m4a',
+    appScope(
+      database: database,
+      settings: settings,
+      child: ProviderScope(
+        overrides: [
+          processingControllerProvider.overrideWith(() => controller),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(
+            extensions: <ThemeExtension<dynamic>>[
+              AppPalette.light(AppAccent.violet),
+            ],
+          ),
+          navigatorObservers: [?observer],
+          home: const ProcessingScreen(
+            audioPath: '/tmp/audio.m4a',
+            ownership: AudioOwnership.external,
+            source: NoteSource.file,
+            fileName: 'meeting.m4a',
+          ),
         ),
       ),
     ),
@@ -170,12 +160,12 @@ TranscriptNote _note(String id) => TranscriptNote(
   source: NoteSource.file,
   durationSec: 10,
   createdAt: DateTime(2024, 1, 1),
-  asrIsLocal: true,
-  summaryIsLocal: true,
-  asrName: 'Whisper',
-  asrSub: '75 MB',
-  llmName: 'Gemma',
-  llmSub: '2 GB',
+  asrIsLocal: false,
+  summaryIsLocal: false,
+  asrName: 'gpt-transcribe',
+  asrSub: 'OpenAI',
+  llmName: 'gpt-5.6-luna',
+  llmSub: 'OpenAI',
   gist: 'Summary',
   points: const [],
   todos: const [],

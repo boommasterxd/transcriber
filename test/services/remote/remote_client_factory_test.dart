@@ -1,50 +1,27 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
-import 'package:transcriber/services/remote/anthropic_client.dart';
 import 'package:transcriber/services/remote/google_client.dart';
 import 'package:transcriber/services/remote/openai_client.dart';
+import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/services/remote/remote_client_factory.dart';
 
 void main() {
-  test('creates the provider-specific client and retains its API key', () {
-    final clients = {
-      RemoteProviderId.anthropic: RemoteClientFactory.create(
-        RemoteProviderId.anthropic,
-        'anthropic-key',
-      ),
-      RemoteProviderId.openai: RemoteClientFactory.create(
-        RemoteProviderId.openai,
-        'openai-key',
-      ),
-      RemoteProviderId.google: RemoteClientFactory.create(
-        RemoteProviderId.google,
-        'google-key',
-      ),
-      RemoteProviderId.openrouter: RemoteClientFactory.create(
-        RemoteProviderId.openrouter,
-        'openrouter-key',
-      ),
-    };
-
-    expect(clients[RemoteProviderId.anthropic], isA<AnthropicClient>());
-    expect(clients[RemoteProviderId.openai], isA<OpenAiClient>());
-    expect(clients[RemoteProviderId.google], isA<GoogleClient>());
-    expect(clients[RemoteProviderId.openrouter], isA<OpenRouterClient>());
-    expect(
-      (clients[RemoteProviderId.anthropic]! as AnthropicClient).apiKey,
-      'anthropic-key',
-    );
-    expect(
-      (clients[RemoteProviderId.openai]! as OpenAiClient).apiKey,
+  test('creates only the supported provider clients', () {
+    final openai = RemoteClientFactory.create(
+      RemoteProviderId.openai,
       'openai-key',
     );
-    expect(
-      (clients[RemoteProviderId.google]! as GoogleClient).apiKey,
+    final google = RemoteClientFactory.create(
+      RemoteProviderId.google,
       'google-key',
     );
-    expect(
-      (clients[RemoteProviderId.openrouter]! as OpenRouterClient).apiKey,
-      'openrouter-key',
-    );
+
+    expect(openai, isA<OpenAiClient>());
+    expect(google, isA<GoogleClient>());
+    expect(openai, isA<TranscriptionProviderClient>());
+    expect(openai, isA<SummaryProviderClient>());
+    expect(openai, isA<ModelCatalogClient>());
+    expect((openai as OpenAiClient).apiKey, 'openai-key');
+    expect((google as GoogleClient).apiKey, 'google-key');
   });
 }

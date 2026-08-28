@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
 
 import '../service_exceptions.dart';
 
@@ -8,13 +12,27 @@ import '../service_exceptions.dart';
 const Duration remoteChatTimeout = Duration(seconds: 90);
 const Duration remoteListTimeout = Duration(seconds: 25);
 const Duration remoteTranscribeTimeout = Duration(seconds: 180);
+const int maxRemoteAudioBytes = 100 * 1024 * 1024;
+const int maxRemoteResponseBytes = 4 * 1024 * 1024;
+
+/// Validates a provider upload and returns its size for streaming requests.
+Future<int> validateRemoteAudioFile(File file) async {
+  if (!await file.exists()) {
+    throw const RemoteApiException('The audio file could not be found.');
+  }
+  final length = await file.length();
+  if (length <= 0 || length > maxRemoteAudioBytes) {
+    throw const RemoteApiException('The audio file is too large.');
+  }
+  return length;
+}
 
 /// Applies [timeout] to [future], converting a timeout into a user-facing error.
 Future<T> guardTimeout<T>(Future<T> future, Duration timeout) {
   return future.timeout(
     timeout,
     onTimeout: () => throw const RemoteApiException(
-      'Request timed out — the provider did not respond in time. '
+      'Request timed out - the provider did not respond in time. '
       'Check your connection and try again.',
     ),
   );
@@ -25,25 +43,87 @@ void validateRemoteResponse({
   required int statusCode,
   required String body,
   required String errorLabel,
+  String? secret,
   bool preferScalarError = false,
 }) {
-  if (statusCode == 200) return;
+  if (statusCode >= 200 && statusCode < 300) return;
   throw RemoteApiException(
     '$errorLabel ($statusCode): '
-    '${remoteErrorMessage(body, preferScalarError: preferScalarError)}',
+    '${remoteErrorMessage(body, secret: secret, preferScalarError: preferScalarError)}',
     statusCode: statusCode,
   );
 }
 
-/// Extracts the conventional `error.message` field with a stable fallback.
-String remoteErrorMessage(String body, {bool preferScalarError = false}) {
+/// Extracts a provider error while preventing credentials from escaping.
+String remoteErrorMessage(
+  String body, {
+  String? secret,
+  bool preferScalarError = false,
+}) {
   try {
     final json = jsonDecode(body) as Map<String, dynamic>;
     final error = json['error'];
-    if (error is Map) return error['message']?.toString() ?? body;
-    if (preferScalarError) return error?.toString() ?? body;
-    return body;
+    final message = error is Map
+        ? error['message']?.toString()
+        : (preferScalarError ? error?.toString() : null);
+    return _redact(message ?? 'The provider returned an error.', secret);
   } catch (_) {
-    return body;
+    return 'The provider returned an invalid error response.';
   }
+}
+
+String _redact(String value, String? secret) {
+  var result = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (secret != null && secret.isNotEmpty) {
+    result = result.replaceAll(secret, '[REDACTED]');
+  }
+  result = result.replaceAll(
+    RegExp(
+      r'(api[_-]?key|authorization|token|password)\s*[:=]\s*[^ ,;]+',
+      caseSensitive: false,
+    ),
+    '[REDACTED]',
+  );
+  return result.length > 512 ? '${result.substring(0, 512)}...' : result;
+}
+
+void validateResponseSize(List<int> bytes) {
+  if (bytes.length > maxRemoteResponseBytes) {
+    throw const RemoteApiException('The provider response was too large.');
+  }
+}
+
+/// Reads a buffered or streamed HTTP response within the shared size limit.
+Future<String> readRemoteResponseBody(http.BaseResponse response) async {
+  final bytes = response is http.Response
+      ? response.bodyBytes
+      : await _readBounded(response as http.StreamedResponse);
+  validateResponseSize(bytes);
+  try {
+    return utf8.decode(bytes);
+  } on FormatException {
+    throw const RemoteApiException('The provider response was invalid.');
+  }
+}
+
+Future<Uint8List> _readBounded(http.StreamedResponse response) async {
+  final bytes = BytesBuilder(copy: false);
+  await for (final chunk in response.stream) {
+    if (bytes.length + chunk.length > maxRemoteResponseBytes) {
+      throw const RemoteApiException('The provider response was too large.');
+    }
+    bytes.add(chunk);
+  }
+  return bytes.takeBytes();
+}
+
+/// Decodes a JSON object without exposing a parser error or response content.
+Map<String, dynamic> decodeRemoteJsonObject(String body, String label) {
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+  } catch (_) {
+    // Fall through to a provider-safe error.
+  }
+  throw RemoteApiException('$label was invalid.');
 }

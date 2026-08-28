@@ -5,10 +5,12 @@ import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
+import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/processing_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
 import '../processing/widgets/processing_error_view.dart';
+import '../processing/widgets/processing_controller_lifecycle.dart';
 import '../processing/widgets/processing_status_content.dart';
 import 'widgets/share_result_body.dart';
 
@@ -68,22 +70,22 @@ class ShareSheetContent extends ConsumerStatefulWidget {
   ConsumerState<ShareSheetContent> createState() => _ShareSheetContentState();
 }
 
-class _ShareSheetContentState extends ConsumerState<ShareSheetContent> {
-  late final ProcessingController _controller;
+class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
+    with ProcessingControllerLifecycle<ShareSheetContent> {
   bool _saving = false;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = ref.read(processingControllerProvider.notifier);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
-  }
-
-  void _start() {
-    _controller
+  void startProcessing() {
+    processingController
       ..reset()
       ..run(
-        ProcessingInput(audioPath: widget.audioPath, source: NoteSource.shared),
+        ProcessingInput(
+          audio: ManagedAudioFile(
+            path: widget.audioPath,
+            ownership: AudioOwnership.temporary,
+          ),
+          source: NoteSource.shared,
+        ),
         fileName: widget.fileName,
         save: false,
       );
@@ -92,14 +94,23 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent> {
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
-    await _controller.commit();
+    await processingController.commit();
+    await _finish();
+  }
+
+  Future<void> _finish() async {
+    await processingController.discardCurrent();
     widget.onFinished();
   }
 
-  void _openSettings() {
+  Future<void> _openSettings() async {
+    await processingController.discardCurrent();
+    if (!mounted) return;
     widget.onFinished();
-    final context = navigatorKey.currentContext;
-    if (context != null) AppNavigator.openSettings(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = navigatorKey.currentContext;
+      if (context != null) AppNavigator.openSettings(context);
+    });
   }
 
   @override
@@ -147,8 +158,8 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent> {
               strings,
             ),
             actions: ProcessingErrorActions(
-              onRetry: _start,
-              onClose: widget.onFinished,
+              onRetry: startProcessing,
+              onClose: _finish,
               onOpenSettings: _openSettings,
             ),
             layout: ProcessingErrorLayout.sheet,
@@ -162,7 +173,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent> {
         content: ShareResultBody(
           note: state.result!,
           saving: _saving,
-          onClose: widget.onFinished,
+          onClose: _finish,
           onSave: _save,
         ),
       );

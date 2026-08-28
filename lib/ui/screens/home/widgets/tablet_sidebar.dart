@@ -107,7 +107,6 @@ class _TabletControls extends StatelessWidget {
           const SizedBox(height: 14),
           ActiveModelPill(
             label: status.label,
-            isLocal: status.fullyLocal,
             warning: status.warning,
             onTap: () => AppNavigator.openSettings(context),
           ),

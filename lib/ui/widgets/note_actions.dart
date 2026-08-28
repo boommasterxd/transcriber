@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,11 +16,15 @@ Future<void> deleteNoteWithUndo(
   TranscriptNote note,
   AppStrings strings,
 ) async {
-  await ref.read(notesControllerProvider.notifier).delete(note.id);
+  final controller = ref.read(notesControllerProvider.notifier);
+  await controller.delete(note.id, deleteAudio: false);
   final messenger = scaffoldMessengerKey.currentState;
-  if (messenger == null) return;
+  if (messenger == null) {
+    await controller.deleteNoteAudio(note);
+    return;
+  }
   messenger.clearSnackBars();
-  messenger.showSnackBar(
+  final snackbar = messenger.showSnackBar(
     SnackBar(
       content: Text(strings.noteDeleted),
       behavior: SnackBarBehavior.floating,
@@ -28,6 +34,13 @@ Future<void> deleteNoteWithUndo(
         onPressed: () => ref.read(notesControllerProvider.notifier).add(note),
       ),
     ),
+  );
+  unawaited(
+    snackbar.closed.then((reason) {
+      if (reason != SnackBarClosedReason.action) {
+        return controller.deleteNoteAudio(note);
+      }
+    }),
   );
 }
 

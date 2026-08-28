@@ -13,6 +13,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.Locale
 import java.util.UUID
 
@@ -112,6 +114,7 @@ private class ShareAudioCache(
         try {
             val directory = createSharedDirectory()
             val name = ShareFileNamePolicy.sanitize(displayName(uri))
+            if (!hasSupportedExtension(name)) return null
             val candidate = directory?.let { createOutputFile(it, name) }
             outputFile = candidate
             if (candidate != null && copyStream(uri, candidate)) {
@@ -130,10 +133,24 @@ private class ShareAudioCache(
 
     private fun copyStream(uri: Uri, outputFile: File): Boolean {
         val input = contentResolver.openInputStream(uri) ?: return false
-        input.use { inputStream ->
-            outputFile.outputStream().use { output -> inputStream.copyTo(output) }
+        return input.use { inputStream ->
+            outputFile.outputStream().use { output ->
+                copyStreamWithinLimit(inputStream, output) &&
+                    outputFile.length() in 1..maximumAudioBytes
+            }
         }
-        return true
+    }
+
+    private fun copyStreamWithinLimit(input: InputStream, output: OutputStream): Boolean {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        var count = input.read(buffer)
+        while (count >= 0 && total <= maximumAudioBytes) {
+            total += count
+            if (total <= maximumAudioBytes) output.write(buffer, 0, count)
+            count = if (total <= maximumAudioBytes) input.read(buffer) else -1
+        }
+        return total in 1..maximumAudioBytes
     }
 
     private fun createSharedDirectory(): File? {
@@ -169,5 +186,18 @@ private class ShareAudioCache(
             }
         }
         return providerName.takeUnless { it.isNullOrEmpty() } ?: uri.lastPathSegment
+    }
+
+    private fun hasSupportedExtension(name: String): Boolean {
+        val extension = name.substringAfterLast('.', missingDelimiterValue = "")
+            .lowercase(Locale.ROOT)
+        return extension in supportedExtensions
+    }
+
+    private companion object {
+        const val maximumAudioBytes = 250L * 1024L * 1024L
+        val supportedExtensions = setOf(
+            "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm",
+        )
     }
 }

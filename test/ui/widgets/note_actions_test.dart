@@ -1,13 +1,13 @@
-import 'dart:convert';
-
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/toast.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/ui/widgets/note_actions.dart';
@@ -59,15 +59,17 @@ void _registerDeleteTest() {
   ) async {
     final strings = AppStrings.of(AppLanguage.en);
     final note = _note();
-    SharedPreferences.setMockInitialValues({
-      'notes': jsonEncode([note.toJson()]),
-    });
-    final prefs = await SharedPreferences.getInstance();
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = NotesRepository(database);
+    await repository.saveAll([note]);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          notesRepositoryProvider.overrideWithValue(NotesRepository(prefs)),
+          databaseProvider.overrideWithValue(database),
+          initialNotesProvider.overrideWithValue([note]),
+          audioCacheManagerProvider.overrideWithValue(AudioCacheManager()),
         ],
         child: MaterialApp(
           scaffoldMessengerKey: scaffoldMessengerKey,
@@ -108,12 +110,12 @@ TranscriptNote _note() => TranscriptNote(
   source: NoteSource.file,
   durationSec: 4,
   createdAt: DateTime(2024),
-  asrIsLocal: true,
-  summaryIsLocal: true,
-  asrName: 'Local ASR',
-  asrSub: 'Test',
-  llmName: 'Local LLM',
-  llmSub: 'Test',
+  asrIsLocal: false,
+  summaryIsLocal: false,
+  asrName: 'gpt-transcribe',
+  asrSub: 'OpenAI',
+  llmName: 'gemini-3.7-flash',
+  llmSub: 'Google Gemini',
   gist: 'Test gist',
   points: const [],
   todos: [],

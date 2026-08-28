@@ -8,10 +8,7 @@ import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import 'onboarding_status_row.dart';
 
-/// True only when both the microphone and notification permissions are granted.
-/// The permissions step keeps this in sync so the wizard can block "continue"
-/// until access is actually given — the app can't record or run its background
-/// summary service without them.
+/// True when microphone access required for in-app recording is granted.
 class OnboardingPermissionsReady extends Notifier<bool> {
   @override
   bool build() => false;
@@ -25,7 +22,7 @@ final onboardingPermissionsReadyProvider =
     );
 
 /// Onboarding step that explains, in plain language, why the app needs the
-/// microphone and notification permissions, and requests them inline. Handles
+/// microphone permission and requests it inline. Handles
 /// the user declining (explains it's required) and a permanent denial (points
 /// them to the system settings and opens that page for them).
 class OnboardingPermissionsStep extends ConsumerStatefulWidget {
@@ -40,7 +37,6 @@ class _OnboardingPermissionsStepState
     extends ConsumerState<OnboardingPermissionsStep>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   PermissionStatus? _mic;
-  PermissionStatus? _notif;
   bool _busy = false;
   bool _attempted = false;
 
@@ -68,15 +64,12 @@ class _OnboardingPermissionsStepState
   }
 
   bool get _micOk => _mic?.isGranted ?? false;
-  bool get _notifOk => _notif?.isGranted ?? false;
-  bool get _allOk => _micOk && _notifOk;
+  bool get _allOk => _micOk;
 
   // Permanently denied (Android's "don't ask again", reached after a couple of
   // refusals): the system dialog won't show anymore, so we must send the user
   // to the app settings instead.
-  bool get _blocked =>
-      (!_micOk && (_mic?.isPermanentlyDenied ?? false)) ||
-      (!_notifOk && (_notif?.isPermanentlyDenied ?? false));
+  bool get _blocked => !_micOk && (_mic?.isPermanentlyDenied ?? false);
 
   void _syncGate() {
     ref.read(onboardingPermissionsReadyProvider.notifier).set(_allOk);
@@ -84,11 +77,9 @@ class _OnboardingPermissionsStepState
 
   Future<void> _refresh() async {
     final mic = await Permission.microphone.status;
-    final notif = await Permission.notification.status;
     if (!mounted) return;
     setState(() {
       _mic = mic;
-      _notif = notif;
     });
     _syncGate();
   }
@@ -99,15 +90,10 @@ class _OnboardingPermissionsStepState
       _attempted = true;
     });
     var mic = _mic;
-    var notif = _notif;
     if (!(mic?.isGranted ?? false)) mic = await Permission.microphone.request();
-    if (!(notif?.isGranted ?? false)) {
-      notif = await Permission.notification.request();
-    }
     if (!mounted) return;
     setState(() {
       _mic = mic;
-      _notif = notif;
       _busy = false;
     });
     _syncGate();
@@ -130,13 +116,6 @@ class _OnboardingPermissionsStepState
           title: t.obPermMicT,
           subtitle: t.obPermMicS,
           granted: _micOk,
-        ),
-        const SizedBox(height: 12),
-        _PermCard(
-          icon: Icons.notifications_none_rounded,
-          title: t.obPermNotifT,
-          subtitle: t.obPermNotifS,
-          granted: _notifOk,
         ),
         const SizedBox(height: 16),
         if (_allOk)

@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:transcriber/data/models/transcription_result.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/services/summarization/remote_summarization_service.dart';
 import 'package:transcriber/services/summarization/summarization_service.dart';
@@ -8,7 +7,7 @@ void main() {
   test(
     'sends German prompts to the configured model and parses the response',
     () async {
-      final client = _RecordingRemoteApiClient(
+      final client = _RecordingSummaryClient(
         response:
             '{"title":"Titel","gist":"Kernaussage","points":["Punkt"],"todos":["Aufgabe"]}',
       );
@@ -39,7 +38,7 @@ void main() {
   test(
     'sends English prompts and applies the fallback for plain responses',
     () async {
-      final client = _RecordingRemoteApiClient(
+      final client = _RecordingSummaryClient(
         response: '  Unstructured answer.  ',
       );
       final service = RemoteSummarizationService(
@@ -66,7 +65,7 @@ void main() {
 
   test('propagates failures from the remote client', () async {
     final error = StateError('provider unavailable');
-    final client = _RecordingRemoteApiClient(error: error);
+    final client = _RecordingSummaryClient(error: error);
     final service = RemoteSummarizationService(
       client: client,
       apiModelId: 'summary-model',
@@ -81,8 +80,8 @@ void main() {
   });
 }
 
-final class _RecordingRemoteApiClient implements RemoteApiClient {
-  _RecordingRemoteApiClient({this.response = '', this.error});
+final class _RecordingSummaryClient implements SummaryProviderClient {
+  _RecordingSummaryClient({this.response = '', this.error});
 
   final String response;
   final Object? error;
@@ -92,33 +91,16 @@ final class _RecordingRemoteApiClient implements RemoteApiClient {
   String? modelId;
 
   @override
-  bool get supportsAudioTranscription => false;
-
-  @override
-  Future<String> chat({
-    required String system,
-    required String user,
+  Future<String> summarize({
+    required String systemPrompt,
+    required String userPrompt,
     required String modelId,
   }) async {
     chatCalls++;
-    this.system = system;
-    this.user = user;
+    system = systemPrompt;
+    user = userPrompt;
     this.modelId = modelId;
     if (error != null) throw error!;
     return response;
-  }
-
-  @override
-  Future<List<RemoteModelInfo>> listModels({
-    required bool forTranscription,
-  }) async => const [];
-
-  @override
-  Future<TranscriptionResult> transcribe(
-    String audioPath, {
-    String? languageCode,
-    required String model,
-  }) async {
-    throw UnsupportedError('Audio transcription is not supported by this fake');
   }
 }

@@ -5,10 +5,12 @@ import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
+import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/processing_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
 import '../detail/transcript_detail_screen.dart';
+import 'widgets/processing_controller_lifecycle.dart';
 import 'widgets/processing_error_view.dart';
 import 'widgets/processing_status_content.dart';
 
@@ -18,12 +20,14 @@ class ProcessingScreen extends ConsumerStatefulWidget {
   const ProcessingScreen({
     super.key,
     required this.audioPath,
+    required this.ownership,
     required this.source,
     this.fileName,
     this.knownDurationSec,
   });
 
   final String audioPath;
+  final AudioOwnership ownership;
   final NoteSource source;
   final String? fileName;
   final int? knownDurationSec;
@@ -32,24 +36,21 @@ class ProcessingScreen extends ConsumerStatefulWidget {
   ConsumerState<ProcessingScreen> createState() => _ProcessingScreenState();
 }
 
-class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
+class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
+    with ProcessingControllerLifecycle<ProcessingScreen> {
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
-  }
-
-  void _start() {
-    ref
-        .read(processingControllerProvider.notifier)
-        .run(
-          ProcessingInput(
-            audioPath: widget.audioPath,
-            source: widget.source,
-            knownDurationSec: widget.knownDurationSec,
-          ),
-          fileName: widget.fileName,
-        );
+  void startProcessing() {
+    processingController.run(
+      ProcessingInput(
+        audio: ManagedAudioFile(
+          path: widget.audioPath,
+          ownership: widget.ownership,
+        ),
+        source: widget.source,
+        knownDurationSec: widget.knownDurationSec,
+      ),
+      fileName: widget.fileName,
+    );
   }
 
   void _onResult(TranscriptNote note) {
@@ -84,7 +85,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         actions: ProcessingErrorActions(
           onRetry: () {
             ref.read(processingControllerProvider.notifier).reset();
-            _start();
+            startProcessing();
           },
           onClose: () => Navigator.of(context).pop(),
           onOpenSettings: () => AppNavigator.openSettings(context),

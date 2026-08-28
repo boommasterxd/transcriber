@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_palette.dart';
 import 'waveforms.dart';
 
-/// Pulsing concentric rings around an animated equalizer — the processing /
+/// Pulsing concentric rings around an animated equalizer for the processing and
 /// onboarding hero.
 class PulseRingHero extends StatefulWidget {
   const PulseRingHero({super.key, this.size = 96, this.ringSize});
@@ -61,8 +61,7 @@ class _PulseRingHeroState extends State<PulseRingHero>
     final palette = context.palette;
     // The rings + equalizer animate every frame for the whole processing run.
     // A RepaintBoundary keeps those repaints on their own layer so they don't
-    // mark the rest of the screen dirty — important while on-device inference is
-    // already competing for CPU.
+    // mark the rest of the screen dirty while processing is active.
     return RepaintBoundary(
       child: SizedBox(
         width: 140,

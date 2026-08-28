@@ -157,10 +157,10 @@ void _registerNoticeTest(AppStrings strings) {
 }
 
 void _registerProcessedWithTest(AppStrings strings) {
-  testWidgets('processed card distinguishes local and cloud stages', (
+  testWidgets('processed card displays both cloud processing stages', (
     tester,
   ) async {
-    final note = detailTestNote(asrIsLocal: true, summaryIsLocal: false);
+    final note = detailTestNote();
     await tester.pumpWidget(
       _wrap(ProcessedWithCard(note: note, strings: strings)),
     );
@@ -169,8 +169,8 @@ void _registerProcessedWithTest(AppStrings strings) {
     expect(find.text(strings.shStep2), findsOneWidget);
     expect(find.text(note.asrName), findsOneWidget);
     expect(find.text(note.llmName), findsOneWidget);
-    expect(find.byIcon(Icons.shield_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.cloud_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.shield_outlined), findsNothing);
+    expect(find.byIcon(Icons.cloud_outlined), findsNWidgets(2));
   });
 }
 

@@ -1,163 +1,300 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
-import 'package:transcriber/data/repositories/settings_repository.dart';
+import 'package:transcriber/data/models/transcription_result.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
+import 'package:transcriber/services/remote/remote_api_client.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
+import 'package:transcriber/services/storage/managed_audio_file.dart';
+import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/processing_controller.dart';
 import 'package:transcriber/state/providers.dart';
 
+import 'state_test_fakes.dart';
+
 void main() {
-  _registerSummaryOffCredentialsTest();
-  _registerCloudCredentialsTest();
-  _registerLocalCredentialsTest();
+  _registerCredentialTests();
+  _registerCommitTests();
+  _registerDiscardTests();
+  _registerRetryTests();
 }
 
-void _registerSummaryOffCredentialsTest() {
+void _registerCredentialTests() {
   test('does not read a summary key when summarization is disabled', () async {
-    final harness = await _controllerHarness(_cloudSettings(summary: false));
+    final harness = await _Harness.create(summaryEnabled: false);
+    addTearDown(harness.dispose);
 
-    await harness.run();
+    await harness.run(save: false);
 
-    expect(harness.repository.requestedProviders, [RemoteProviderId.openai]);
-    expect(harness.pipeline.capturedRequest?.credentials.asrApiKey, 'asr-key');
-    expect(
-      harness.pipeline.capturedRequest?.credentials.summaryApiKey,
-      isEmpty,
-    );
-  });
-}
-
-void _registerCloudCredentialsTest() {
-  test('loads independent credentials for enabled cloud stages', () async {
-    final harness = await _controllerHarness(_cloudSettings(summary: true));
-
-    await harness.run();
-
-    expect(harness.repository.requestedProviders, [
+    expect(harness.settingsRepository.requestedProviders, [
       RemoteProviderId.openai,
-      RemoteProviderId.anthropic,
     ]);
-    expect(harness.pipeline.capturedRequest?.credentials.asrApiKey, 'asr-key');
-    expect(
-      harness.pipeline.capturedRequest?.credentials.summaryApiKey,
-      'summary-key',
-    );
+    expect(harness.clientFactory.calls, [(RemoteProviderId.openai, 'asr-key')]);
+  });
+
+  test('loads independent keys for OpenAI and Google stages', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
+
+    await harness.run(save: false);
+
+    expect(harness.settingsRepository.requestedProviders, [
+      RemoteProviderId.openai,
+      RemoteProviderId.google,
+    ]);
+    expect(harness.clientFactory.calls, [
+      (RemoteProviderId.openai, 'asr-key'),
+      (RemoteProviderId.google, 'summary-key'),
+    ]);
   });
 }
 
-void _registerLocalCredentialsTest() {
-  test('does not read credentials for local stages', () async {
-    final settings = AppSettings.initial().copyWith(
-      asrMode: ProcessingMode.onDevice,
-      summaryMode: ProcessingMode.onDevice,
-      summarizeEnabled: true,
-    );
-    final harness = await _controllerHarness(settings);
+void _registerCommitTests() {
+  test('save commits the note before deleting its staging audio', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
 
-    await harness.run();
+    await harness.run(save: true);
 
-    expect(harness.repository.requestedProviders, isEmpty);
-    expect(harness.pipeline.capturedRequest?.credentials.asrApiKey, isEmpty);
-    expect(
-      harness.pipeline.capturedRequest?.credentials.summaryApiKey,
-      isEmpty,
-    );
+    expect(harness.notesRepository.stagingExistedDuringSave, isTrue);
+    expect(await harness.staging.exists(), isFalse);
+    expect(harness.notesRepository.loaded, hasLength(1));
+    expect(await harness.retainedAudio.exists(), isTrue);
+  });
+
+  test('preview keeps staging audio until commit succeeds', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
+
+    await harness.run(save: false);
+    final retained = harness.retainedAudio;
+    expect(await harness.staging.exists(), isTrue);
+    expect(await retained.exists(), isTrue);
+    expect(harness.notesRepository.loaded, isEmpty);
+
+    await harness.controller.commit();
+
+    expect(await harness.staging.exists(), isFalse);
+    expect(await retained.exists(), isTrue);
+    expect(harness.notesRepository.loaded, hasLength(1));
   });
 }
 
-AppSettings _cloudSettings({required bool summary}) =>
-    AppSettings.initial().copyWith(
-      asrMode: ProcessingMode.cloud,
-      summaryMode: ProcessingMode.cloud,
-      asrProvider: RemoteProviderId.openai,
-      summaryProvider: RemoteProviderId.anthropic,
-      summarizeEnabled: summary,
-    );
+void _registerDiscardTests() {
+  test('discard removes preview-retained and staging audio', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
+    await harness.run(save: false);
+    final retained = harness.retainedAudio;
 
-Future<_ControllerHarness> _controllerHarness(AppSettings settings) async {
-  SharedPreferences.setMockInitialValues({});
-  final repository = _TrackingSettingsRepository(
-    await SharedPreferences.getInstance(),
-    keys: const {
-      RemoteProviderId.openai: 'asr-key',
-      RemoteProviderId.anthropic: 'summary-key',
+    await harness.controller.discardCurrent();
+
+    expect(await harness.staging.exists(), isFalse);
+    expect(await retained.exists(), isFalse);
+    expect(harness.notesRepository.loaded, isEmpty);
+  });
+
+  test(
+    'provider failure preserves staging until explicitly discarded',
+    () async {
+      final harness = await _Harness.create();
+      addTearDown(harness.dispose);
+      harness.clientFactory.error = StateError('provider failed');
+
+      await harness.run(save: true);
+      expect(harness.state.error, isA<StateError>());
+      expect(await harness.staging.exists(), isTrue);
+
+      await harness.controller.discardCurrent();
+      expect(await harness.staging.exists(), isFalse);
     },
   );
-  final pipeline = _CapturingPipeline();
-  final container = ProviderContainer(
-    overrides: [
-      initialSettingsProvider.overrideWithValue(settings),
-      initialConnectionsProvider.overrideWithValue(const {}),
-      settingsRepositoryProvider.overrideWithValue(repository),
-      processingPipelineProvider.overrideWithValue(pipeline),
-    ],
-  );
-  addTearDown(container.dispose);
-  return _ControllerHarness(container, repository, pipeline);
 }
 
-final class _ControllerHarness {
-  const _ControllerHarness(this.container, this.repository, this.pipeline);
+void _registerRetryTests() {
+  test('provider failure can retry with the preserved staging audio', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
+    harness.clientFactory.error = StateError('provider failed');
+    await harness.run(save: true);
+    expect(await harness.staging.exists(), isTrue);
 
+    harness.clientFactory.error = null;
+    await harness.run(save: true);
+
+    expect(harness.state.hasError, isFalse);
+    expect(await harness.staging.exists(), isFalse);
+    expect(harness.notesRepository.loaded, hasLength(1));
+  });
+
+  test('persistence failure preserves staging and allows retry', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
+    harness.notesRepository.failOnSave = true;
+
+    await harness.run(save: true);
+    expect(harness.state.error, isA<StateError>());
+    expect(await harness.staging.exists(), isTrue);
+
+    harness.notesRepository.failOnSave = false;
+    await harness.run(save: true);
+
+    expect(harness.state.hasError, isFalse);
+    expect(await harness.staging.exists(), isFalse);
+    expect(harness.notesRepository.loaded, isNotEmpty);
+  });
+}
+
+final class _Harness {
+  const _Harness({
+    required this.database,
+    required this.root,
+    required this.staging,
+    required this.settingsRepository,
+    required this.notesRepository,
+    required this.clientFactory,
+    required this.container,
+  });
+
+  final AppDatabase database;
+  final Directory root;
+  final File staging;
+  final FakeSettingsRepository settingsRepository;
+  final _ObservingNotesRepository notesRepository;
+  final _ClientFactory clientFactory;
   final ProviderContainer container;
-  final _TrackingSettingsRepository repository;
-  final _CapturingPipeline pipeline;
 
-  Future<void> run() => container
-      .read(processingControllerProvider.notifier)
-      .run(
-        const ProcessingInput(
-          audioPath: '/audio/input.m4a',
-          source: NoteSource.file,
-        ),
-        save: false,
-      );
-}
-
-final class _TrackingSettingsRepository extends SettingsRepository {
-  _TrackingSettingsRepository(super.preferences, {required this.keys});
-
-  final Map<RemoteProviderId, String> keys;
-  final List<RemoteProviderId> requestedProviders = [];
-
-  @override
-  Future<String?> apiKey(RemoteProviderId provider) async {
-    requestedProviders.add(provider);
-    return keys[provider];
-  }
-}
-
-final class _CapturingPipeline extends ProcessingPipeline {
-  ProcessingRequest? capturedRequest;
-
-  @override
-  Future<TranscriptNote> process(
-    ProcessingRequest request, {
-    ProcessingCallbacks callbacks = const ProcessingCallbacks(),
-  }) async {
-    capturedRequest = request;
-    return TranscriptNote(
-      id: 'note-id',
-      title: 'Transcript',
-      speaker: 'Speaker',
-      source: request.input.source,
-      durationSec: 0,
-      createdAt: DateTime.utc(2026),
-      asrIsLocal: false,
-      summaryIsLocal: true,
-      asrName: 'ASR',
-      asrSub: 'Cloud',
-      llmName: 'Off',
-      llmSub: '',
-      gist: '',
-      points: const [],
-      todos: const [],
-      transcript: const [],
-      audioPath: request.input.audioPath,
+  static Future<_Harness> create({bool summaryEnabled = true}) async {
+    final database = createTestDatabase();
+    final settingsRepository = FakeSettingsRepository(database)
+      ..keys.addAll({
+        RemoteProviderId.openai: 'asr-key',
+        RemoteProviderId.google: 'summary-key',
+      });
+    final root = await Directory.systemTemp.createTemp(
+      'processing_state_test_',
+    );
+    final paths = StoragePaths(
+      supportRoot: Directory('${root.path}/support'),
+      cacheRoot: Directory('${root.path}/cache'),
+    );
+    final staging = File('${(await paths.importCacheDir()).path}/input.m4a');
+    await staging.writeAsBytes([1, 2, 3]);
+    final notesRepository = _ObservingNotesRepository(database, staging);
+    final cacheManager = AudioCacheManager(paths: Future.value(paths));
+    final clientFactory = _ClientFactory();
+    final pipeline = ProcessingPipeline(
+      cacheManager: cacheManager,
+      clientBuilder: clientFactory.create,
+    );
+    final settings = AppSettings.initial().copyWith(
+      asrProvider: RemoteProviderId.openai,
+      summaryProvider: RemoteProviderId.google,
+      summarizeEnabled: summaryEnabled,
+      autoDeleteAudio: false,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        initialSettingsProvider.overrideWithValue(settings),
+        initialConnectionsProvider.overrideWithValue(const {}),
+        initialNotesProvider.overrideWithValue(const []),
+        settingsRepositoryProvider.overrideWithValue(settingsRepository),
+        notesRepositoryProvider.overrideWithValue(notesRepository),
+        processingPipelineProvider.overrideWithValue(pipeline),
+        audioCacheManagerProvider.overrideWithValue(cacheManager),
+      ],
+    );
+    return _Harness(
+      database: database,
+      root: root,
+      staging: staging,
+      settingsRepository: settingsRepository,
+      notesRepository: notesRepository,
+      clientFactory: clientFactory,
+      container: container,
     );
   }
+
+  ProcessingController get controller =>
+      container.read(processingControllerProvider.notifier);
+  ProcessingState get state => container.read(processingControllerProvider);
+  File get retainedAudio => File(state.result!.audioPath!);
+
+  Future<void> run({required bool save}) => controller.run(
+    ProcessingInput(
+      audio: ManagedAudioFile(
+        path: staging.path,
+        ownership: AudioOwnership.temporary,
+      ),
+      source: NoteSource.file,
+      knownDurationSec: 1,
+    ),
+    save: save,
+  );
+
+  Future<void> dispose() async {
+    container.dispose();
+    await database.close();
+    if (await root.exists()) await root.delete(recursive: true);
+  }
+}
+
+final class _ObservingNotesRepository extends FakeNotesRepository {
+  _ObservingNotesRepository(super.database, this.staging);
+
+  final File staging;
+  bool? stagingExistedDuringSave;
+
+  @override
+  Future<void> saveAll(List<TranscriptNote> notes) async {
+    stagingExistedDuringSave = await staging.exists();
+    await super.saveAll(notes);
+  }
+}
+
+final class _ClientFactory {
+  final List<(RemoteProviderId, String)> calls = [];
+  Object? error;
+
+  RemoteProviderClient create(RemoteProviderId provider, String apiKey) {
+    calls.add((provider, apiKey));
+    return _RemoteClient(() => error);
+  }
+}
+
+final class _RemoteClient implements RemoteProviderClient {
+  const _RemoteClient(this.error);
+
+  final Object? Function() error;
+
+  @override
+  Future<TranscriptionResult> transcribe(
+    String audioPath, {
+    required String modelId,
+    String? languageCode,
+  }) async {
+    final failure = error();
+    if (failure != null) throw failure;
+    return const TranscriptionResult(text: 'Transcript', segments: []);
+  }
+
+  @override
+  Future<String> summarize({
+    required String systemPrompt,
+    required String userPrompt,
+    required String modelId,
+  }) async => '{"title":"Summary","gist":"Gist","points":[],"todos":[]}';
+
+  @override
+  Future<List<RemoteModelInfo>> listModels({
+    required bool forTranscription,
+  }) async => const [];
+
+  @override
+  Future<void> testConnection() async {}
 }

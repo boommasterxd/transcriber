@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_accent.dart';
 import '../../core/theme/app_palette.dart';
 
-/// Wraps [child] so it scales down briefly while pressed — tactile feedback
+/// Wraps [child] so it scales down briefly while pressed, providing tactile feedback
 /// without an ink ripple. Used by the primary buttons and tappable tiles.
 class PressableScale extends StatefulWidget {
   const PressableScale({

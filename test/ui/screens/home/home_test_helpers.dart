@@ -16,12 +16,12 @@ TranscriptNote buildTestNote({
     source: NoteSource.recording,
     durationSec: 30,
     createdAt: createdAt,
-    asrIsLocal: !overrides.isRemote,
-    summaryIsLocal: true,
-    asrName: 'Whisper',
-    asrSub: 'Base',
-    llmName: 'Gemma · Local',
-    llmSub: 'Local',
+    asrIsLocal: false,
+    summaryIsLocal: false,
+    asrName: 'gpt-transcribe',
+    asrSub: 'OpenAI',
+    llmName: 'gemini-3.7-flash',
+    llmSub: 'Google Gemini',
     gist: '',
     points: const [],
     todos: List.generate(
@@ -33,9 +33,8 @@ TranscriptNote buildTestNote({
 }
 
 class TestNoteOverrides {
-  const TestNoteOverrides({this.isRemote = false, this.todoCount = 0});
+  const TestNoteOverrides({this.todoCount = 0});
 
-  final bool isRemote;
   final int todoCount;
 }
 

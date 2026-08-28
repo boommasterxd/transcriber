@@ -31,7 +31,7 @@ class ProviderKeyHelpDialog extends ConsumerWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
-      content: _ProviderKeyHelpContent(providerName: providerName),
+      content: _ProviderKeyHelpContent(provider: provider),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -59,19 +59,17 @@ class ProviderKeyHelpDialog extends ConsumerWidget {
 }
 
 class _ProviderKeyHelpContent extends ConsumerWidget {
-  const _ProviderKeyHelpContent({required this.providerName});
+  const _ProviderKeyHelpContent({required this.provider});
 
-  final String providerName;
+  final RemoteProviderId provider;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
-    final steps = [
-      t.keyHelpStep1(providerName),
-      t.keyHelpStep2,
-      t.keyHelpStep3,
-    ];
+    final steps = provider == RemoteProviderId.openai
+        ? t.keyHelpOpenAiSteps
+        : t.keyHelpGoogleSteps;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,

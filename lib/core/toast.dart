@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// App-wide messenger key so any layer can show a toast/snackbar without a
-/// local BuildContext (e.g. model download/delete confirmations).
+/// local BuildContext, for example confirmations from nested screens.
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 

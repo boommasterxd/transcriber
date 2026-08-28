@@ -31,17 +31,17 @@ android {
 
     defaultConfig {
         applicationId = "com.transcriber.app"
-        // minSdk 26 for adaptive icons + on-device ML (flutter_gemma / ffmpeg).
+        // minSdk 26 for adaptive icons and the supported Android plugins.
         minSdk = 26
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
             // arm64-v8a only: every real Android device is arm64. x86_64 is just
-            // for emulators and would double the packaging cost of the large
-            // ffmpeg-kit / flutter_gemma native libraries. Flutter 3.35+ pre-sets
-            // abiFilters to all three ABIs before this file runs, so clear() is
-            // required or arm64-v8a just gets added alongside them.
+            // for emulators and would increase packaging cost. Flutter 3.35+
+            // pre-sets abiFilters to all three ABIs before this
+            // file runs, so clear() is required or arm64-v8a just gets added
+            // alongside them.
             // https://docs.flutter.dev/release/breaking-changes/default-abi-filters-android
             abiFilters.clear()
             abiFilters.add("arm64-v8a")

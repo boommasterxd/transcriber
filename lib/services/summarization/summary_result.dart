@@ -1,5 +1,4 @@
-/// Structured summary produced from a transcript by either an on-device or
-/// cloud model.
+/// Structured summary produced from a transcript by a cloud model.
 class SummaryResult {
   const SummaryResult({
     required this.title,

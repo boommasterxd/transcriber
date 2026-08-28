@@ -22,6 +22,10 @@ class ProviderConnectCard extends ConsumerStatefulWidget {
 
 class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
   final TextEditingController _keyController = TextEditingController();
+  bool _busy = false;
+  bool _replacing = false;
+  bool _verified = false;
+  bool _failed = false;
 
   @override
   void dispose() {
@@ -30,10 +34,44 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
   }
 
   Future<void> _connect() async {
+    await _run(() async {
+      await ref
+          .read(connectionsControllerProvider.notifier)
+          .connect(widget.provider, _keyController.text);
+      _keyController.clear();
+      _replacing = false;
+    });
+  }
+
+  Future<void> _test() => _run(
+    () =>
+        ref.read(connectionsControllerProvider.notifier).test(widget.provider),
+  );
+
+  Future<void> _disconnect() => _run(() async {
     await ref
         .read(connectionsControllerProvider.notifier)
-        .connect(widget.provider, _keyController.text);
-    _keyController.clear();
+        .disconnect(widget.provider);
+    _replacing = false;
+  });
+
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _verified = false;
+      _failed = false;
+    });
+    try {
+      await action();
+      if (!mounted) return;
+      setState(() => _verified = true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _failed = true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _openKeyPage() async {
@@ -61,17 +99,33 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
         ref.watch(connectionsControllerProvider)[widget.provider] ?? false;
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
-      child: connected
+      child: connected && !_replacing
           ? ProviderConnectedStatus(
               provider: widget.provider,
-              onDisconnect: () => ref
-                  .read(connectionsControllerProvider.notifier)
-                  .disconnect(widget.provider),
+              busy: _busy,
+              verified: _verified,
+              failed: _failed,
+              onTest: _test,
+              onReplace: () => setState(() {
+                _replacing = true;
+                _verified = false;
+                _failed = false;
+              }),
+              onDisconnect: _disconnect,
             )
           : ProviderCredentialForm(
               controller: _keyController,
+              busy: _busy,
+              failed: _failed,
               onConnect: _connect,
               onShowHelp: _showKeyHelp,
+              onCancel: connected
+                  ? () => setState(() {
+                      _replacing = false;
+                      _failed = false;
+                      _keyController.clear();
+                    })
+                  : null,
             ),
     );
   }

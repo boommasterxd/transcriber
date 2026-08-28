@@ -10,8 +10,8 @@ import 'package:transcriber/ui/screens/processing/widgets/processing_status_cont
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
   const profile = ProcessingProfile(
-    asr: StageInfo(name: 'Local ASR', sub: '75 MB', isLocal: true),
-    summary: StageInfo(name: 'Cloud LLM', sub: 'Provider', isLocal: false),
+    asr: StageInfo(name: 'Cloud ASR', providerName: 'OpenAI'),
+    summary: StageInfo(name: 'Cloud LLM', providerName: 'Google Gemini'),
   );
 
   _statusPresentationTests(strings, profile);
@@ -20,7 +20,7 @@ void main() {
 
 void _statusPresentationTests(AppStrings strings, ProcessingProfile profile) {
   group('ProcessingStatusPresentation', () {
-    test('preserves screen and share local status wording', () {
+    test('preserves screen and share cloud status wording', () {
       const state = ProcessingState();
 
       final screen = ProcessingStatusPresentation.forScreen(
@@ -37,18 +37,14 @@ void _statusPresentationTests(AppStrings strings, ProcessingProfile profile) {
       );
 
       expect(screen.title, strings.shTranscribe);
-      expect(screen.statusText, 'Local ASR · 75 MB');
-      expect(sheet.statusText, '${strings.runningLocal} · Local ASR');
-      expect(screen.isLocal, isTrue);
+      expect(screen.statusText, 'Cloud ASR · OpenAI');
+      expect(sheet.statusText, 'Cloud ASR · OpenAI');
       expect(screen.showSteps, isTrue);
       expect(screen.activeStepIsSecond, isFalse);
     });
 
-    test('selects the summary stage and rounds download progress', () {
-      const state = ProcessingState(
-        step: ProcessingStep.summarizing,
-        modelProgress: 0.426,
-      );
+    test('selects the summary stage and shows cloud metadata', () {
+      const state = ProcessingState(step: ProcessingStep.summarizing);
 
       final presentation = ProcessingStatusPresentation.forScreen(
         strings: strings,
@@ -58,8 +54,7 @@ void _statusPresentationTests(AppStrings strings, ProcessingProfile profile) {
       );
 
       expect(presentation.title, strings.shSummarize);
-      expect(presentation.statusText, '${strings.downloading} 43%');
-      expect(presentation.isLocal, isFalse);
+      expect(presentation.statusText, 'Cloud LLM · Google Gemini');
       expect(presentation.showSteps, isFalse);
       expect(presentation.activeStepIsSecond, isTrue);
     });
@@ -68,16 +63,16 @@ void _statusPresentationTests(AppStrings strings, ProcessingProfile profile) {
 
 void _errorPresentationTests(AppStrings strings) {
   group('ProcessingErrorPresentation', () {
-    test('routes a missing model to settings', () {
+    test('routes a missing API key to settings', () {
       final presentation = ProcessingErrorPresentation.resolve(
-        const ModelNotDownloadedException('internal detail'),
+        const MissingApiKeyException('internal detail'),
         strings,
       );
 
-      expect(presentation.title, strings.modelMissingTitle);
-      expect(presentation.body, strings.modelMissingBody);
+      expect(presentation.title, strings.keyMissing);
+      expect(presentation.body, strings.connectFirst);
       expect(presentation.actionLabel, strings.goToSettings);
-      expect(presentation.isModelMissing, isTrue);
+      expect(presentation.opensSettings, isTrue);
     });
 
     test('keeps other error text and routes to retry', () {
@@ -89,7 +84,7 @@ void _errorPresentationTests(AppStrings strings) {
       expect(presentation.title, strings.errorTitle);
       expect(presentation.body, 'Provider unavailable');
       expect(presentation.actionLabel, strings.retry);
-      expect(presentation.isModelMissing, isFalse);
+      expect(presentation.opensSettings, isFalse);
     });
 
     test('selects the matching primary action', () {
@@ -109,7 +104,7 @@ void _errorPresentationTests(AppStrings strings) {
       )();
       actions.actionFor(
         ProcessingErrorPresentation.resolve(
-          const ModelNotDownloadedException('Settings'),
+          const MissingApiKeyException('Settings'),
           strings,
         ),
       )();

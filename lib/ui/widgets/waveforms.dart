@@ -113,7 +113,7 @@ class MiniWave extends StatelessWidget {
 /// Audio-player waveform that fills with the accent color up to [progress].
 ///
 /// Bars have a fixed, uniform thickness (not [Expanded]) so the waveform reads
-/// the same on any width — a handful of solid bars rather than dozens of thin
+/// the same on any width: a handful of solid bars rather than dozens of thin
 /// hairlines. The bar count is derived from the available width so the density
 /// stays consistent across the phone dialog and the wider tablet pane.
 class PlayerWave extends StatelessWidget {
@@ -124,7 +124,7 @@ class PlayerWave extends StatelessWidget {
   /// detail_audio_player) without ever missing a visible bar transition.
   static const int defaultBars = 64;
 
-  /// Fixed bar geometry — uniform thickness that matches the app's other
+  /// Fixed bar geometry with uniform thickness that matches the app's other
   /// waveforms instead of width-dependent slivers.
   static const double _barWidth = 3.5;
   static const double _barGap = 5.0;
@@ -180,7 +180,7 @@ class PlayerWave extends StatelessWidget {
 ///
 /// Painted with a single [CustomPainter] and one animation controller instead
 /// of one [AnimatedContainer] per bar. The old approach spun up ~40 implicit
-/// animation controllers that all re-targeted on every 120 ms amplitude tick —
+/// animation controllers that all re-targeted on every 120 ms amplitude tick,
 /// a steady source of dropped frames while recording. Here one controller tweens
 /// every bar between the previous and current amplitude snapshot, and an
 /// enclosing [RepaintBoundary] keeps the repaints off the rest of the screen.

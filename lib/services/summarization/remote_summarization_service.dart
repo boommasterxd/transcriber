@@ -11,7 +11,7 @@ class RemoteSummarizationService implements SummarizationService {
     required this.fallbackTitle,
   });
 
-  final RemoteApiClient client;
+  final SummaryProviderClient client;
   final String apiModelId;
   final String fallbackTitle;
 
@@ -20,9 +20,9 @@ class RemoteSummarizationService implements SummarizationService {
     String transcript, {
     required bool german,
   }) async {
-    final raw = await client.chat(
-      system: SummaryPrompt.system(german),
-      user: SummaryPrompt.user(transcript, german: german),
+    final raw = await client.summarize(
+      systemPrompt: SummaryPrompt.system(german),
+      userPrompt: SummaryPrompt.user(transcript, german: german),
       modelId: apiModelId,
     );
     return SummaryPrompt.parse(raw, fallbackTitle: fallbackTitle);

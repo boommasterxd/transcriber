@@ -1,14 +1,16 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
+import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/ui/navigation.dart';
 import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
@@ -68,10 +70,13 @@ void main() {
       tester,
       () => AppNavigator.startProcessing(
         _context(tester),
-        audioPath: '/tmp/input.m4a',
-        source: NoteSource.shared,
-        fileName: 'shared.m4a',
-        knownDurationSec: 17,
+        const ProcessingNavigationRequest(
+          audioPath: '/tmp/input.m4a',
+          ownership: AudioOwnership.temporary,
+          source: NoteSource.shared,
+          fileName: 'shared.m4a',
+          knownDurationSec: 17,
+        ),
       ),
     );
     await tester.pump();
@@ -80,6 +85,7 @@ void main() {
       find.byType(ProcessingScreen),
     );
     expect(screen.audioPath, '/tmp/input.m4a');
+    expect(screen.ownership, AudioOwnership.temporary);
     expect(screen.source, NoteSource.shared);
     expect(screen.fileName, 'shared.m4a');
     expect(screen.knownDurationSec, 17);
@@ -97,9 +103,12 @@ void main() {
       tester,
       () => AppNavigator.startProcessing(
         _context(tester),
-        audioPath: '/tmp/recording.m4a',
-        source: NoteSource.recording,
-        knownDurationSec: 3,
+        const ProcessingNavigationRequest(
+          audioPath: '/tmp/recording.m4a',
+          ownership: AudioOwnership.temporary,
+          source: NoteSource.recording,
+          knownDurationSec: 3,
+        ),
         replace: true,
       ),
     );
@@ -123,18 +132,17 @@ Future<void> _pumpHarness(
   WidgetTester tester,
   NavigatorObserver observer,
 ) async {
-  SharedPreferences.setMockInitialValues({});
-  final prefs = await SharedPreferences.getInstance();
-  final settings = AppSettings.initial().copyWith(
-    asrMode: ProcessingMode.cloud,
-    summarizeEnabled: false,
-  );
+  final database = AppDatabase(NativeDatabase.memory());
+  addTearDown(database.close);
+  final settings = AppSettings.initial().copyWith(summarizeEnabled: false);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
+        databaseProvider.overrideWithValue(database),
         initialSettingsProvider.overrideWithValue(settings),
         initialConnectionsProvider.overrideWithValue(const {}),
+        initialNotesProvider.overrideWithValue(const []),
+        audioCacheManagerProvider.overrideWithValue(AudioCacheManager()),
       ],
       child: MaterialApp(
         theme: ThemeData(

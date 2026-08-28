@@ -13,13 +13,11 @@ class ShareIntentService {
     '.mp3',
     '.m4a',
     '.mp4',
-    '.aac',
     '.ogg',
-    '.opus',
     '.flac',
     '.webm',
-    '.amr',
-    '.3gp',
+    '.mpeg',
+    '.mpga',
   };
 
   StreamSubscription<List<SharedMediaFile>>? _sub;

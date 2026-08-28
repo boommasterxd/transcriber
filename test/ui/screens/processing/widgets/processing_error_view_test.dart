@@ -39,12 +39,12 @@ void main() {
     expect(closed, isTrue);
   });
 
-  testWidgets('model error invokes settings action and keeps safe copy', (
+  testWidgets('missing API key invokes settings action and keeps safe copy', (
     tester,
   ) async {
     var openedSettings = false;
     final presentation = ProcessingErrorPresentation.resolve(
-      const ModelNotDownloadedException('private model path'),
+      const MissingApiKeyException('private key detail'),
       strings,
     );
 
@@ -62,9 +62,9 @@ void main() {
       ),
     );
 
-    expect(find.text(strings.modelMissingTitle), findsOneWidget);
-    expect(find.text(strings.modelMissingBody), findsOneWidget);
-    expect(find.text('private model path'), findsNothing);
+    expect(find.text(strings.keyMissing), findsOneWidget);
+    expect(find.text(strings.connectFirst), findsOneWidget);
+    expect(find.text('private key detail'), findsNothing);
     await tester.tap(find.text(strings.goToSettings));
 
     expect(openedSettings, isTrue);

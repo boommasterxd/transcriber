@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/inference_backend.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcription_language.dart';
 import 'package:transcriber/state/providers.dart';
@@ -48,65 +46,38 @@ void _registerAppearanceTests(_SettingsFixture fixture) {
 
 void _registerModelTests(_SettingsFixture fixture) {
   test(
-    'persists processing, model, backend, and provider selections',
+    'persists cloud provider and model selections for both stages',
     () async {
       final controller = fixture.controller;
 
-      await controller.setAsrMode(ProcessingMode.cloud);
-      await controller.setSummaryMode(ProcessingMode.cloud);
-      await controller.setWhisperModel('whisper-custom');
-      await controller.setGemmaModel('gemma-custom');
-      await controller.setGemmaBackend(InferenceBackend.cpu);
-      await controller.setAsrProvider(RemoteProviderId.google);
-      await controller.setSummaryProvider(RemoteProviderId.openrouter);
-      await controller.setAsrModel(RemoteProviderId.google, 'asr-model');
-      await controller.setSummaryModel(
-        RemoteProviderId.openrouter,
-        'chat-model',
-      );
+      await controller.setAsrProvider(RemoteProviderId.openai);
+      await controller.setSummaryProvider(RemoteProviderId.google);
+      await controller.setAsrModel(RemoteProviderId.openai, 'asr-model');
+      await controller.setSummaryModel(RemoteProviderId.google, 'chat-model');
 
       final state = fixture.settings;
-      expect(state.asrMode, ProcessingMode.cloud);
-      expect(state.summaryMode, ProcessingMode.cloud);
-      expect(state.whisperModelId, 'whisper-custom');
-      expect(state.gemmaModelId, 'gemma-custom');
-      expect(state.gemmaBackend, InferenceBackend.cpu);
-      expect(state.asrProvider, RemoteProviderId.google);
-      expect(state.summaryProvider, RemoteProviderId.openrouter);
-      expect(state.asrModelByProvider[RemoteProviderId.google], 'asr-model');
-      expect(
-        state.chatModelByProvider[RemoteProviderId.openrouter],
-        'chat-model',
-      );
-      expect(fixture.repository.saved, hasLength(9));
+      expect(state.asrProvider, RemoteProviderId.openai);
+      expect(state.summaryProvider, RemoteProviderId.google);
+      expect(state.asrModelByProvider[RemoteProviderId.openai], 'asr-model');
+      expect(state.chatModelByProvider[RemoteProviderId.google], 'chat-model');
+      expect(fixture.repository.saved, hasLength(4));
     },
   );
 }
 
 void _registerPrivacyTests(_SettingsFixture fixture) {
-  test(
-    'clamps whisper threads and persists processing flags and token',
-    () async {
-      final controller = fixture.controller;
+  test('persists audio retention, summary, and onboarding flags', () async {
+    final controller = fixture.controller;
 
-      await controller.setWhisperThreads(0);
-      expect(fixture.settings.whisperThreads, 1);
-      await controller.setWhisperThreads(99);
-      expect(fixture.settings.whisperThreads, 8);
-      await controller.setWhisperThreads(6);
-      await controller.setAutoDelete(true);
-      await controller.setSummarizeEnabled(false);
-      await controller.setHfToken('hf-token');
-      await controller.completeOnboarding();
+    await controller.setAutoDelete(true);
+    await controller.setSummarizeEnabled(false);
+    await controller.completeOnboarding();
 
-      final state = fixture.settings;
-      expect(state.whisperThreads, 6);
-      expect(state.autoDeleteAudio, isTrue);
-      expect(state.summarizeEnabled, isFalse);
-      expect(state.hfToken, 'hf-token');
-      expect(state.onboarded, isTrue);
-    },
-  );
+    final state = fixture.settings;
+    expect(state.autoDeleteAudio, isTrue);
+    expect(state.summarizeEnabled, isFalse);
+    expect(state.onboarded, isTrue);
+  });
 }
 
 void _registerErrorTests(_SettingsFixture fixture) {
@@ -120,12 +91,13 @@ void _registerErrorTests(_SettingsFixture fixture) {
 }
 
 class _SettingsFixture {
+  late AppDatabase database;
   late ProviderContainer container;
   late FakeSettingsRepository repository;
 
-  Future<void> setUp() async {
-    SharedPreferences.setMockInitialValues({});
-    repository = FakeSettingsRepository(await SharedPreferences.getInstance());
+  void setUp() {
+    database = createTestDatabase();
+    repository = FakeSettingsRepository(database);
     container = ProviderContainer(
       overrides: [
         initialSettingsProvider.overrideWithValue(AppSettings.initial()),
@@ -138,5 +110,8 @@ class _SettingsFixture {
       container.read(settingsControllerProvider.notifier);
   AppSettings get settings => container.read(settingsControllerProvider);
 
-  void tearDown() => container.dispose();
+  Future<void> tearDown() async {
+    container.dispose();
+    await database.close();
+  }
 }

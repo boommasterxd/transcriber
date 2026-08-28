@@ -64,7 +64,7 @@ class SectionLabel extends StatelessWidget {
 }
 
 /// Overlays soft top/bottom gradient fades (in the background color) over a
-/// scrollable, but only on edges that can actually be scrolled toward — the top
+/// scrollable, but only on edges that can actually be scrolled toward. The top
 /// fade appears once content is scrolled down, the bottom fade hides at the end.
 ///
 /// The scrollable is created by [builder] using the provided [ScrollController]

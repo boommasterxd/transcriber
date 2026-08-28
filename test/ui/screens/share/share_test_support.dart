@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
-import 'package:transcriber/state/connections_controller.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
-import 'package:transcriber/state/settings_controller.dart';
+
+import '../../../support/app_test_fakes.dart';
 
 final shareTestStrings = AppStrings.of(AppLanguage.en);
 
@@ -27,12 +25,12 @@ TranscriptNote shareTestNote({
   source: NoteSource.shared,
   durationSec: 42,
   createdAt: DateTime.utc(2026),
-  asrIsLocal: true,
-  summaryIsLocal: true,
-  asrName: 'Whisper',
-  asrSub: 'Base',
-  llmName: 'Gemma',
-  llmSub: 'Local',
+  asrIsLocal: false,
+  summaryIsLocal: false,
+  asrName: 'gpt-transcribe',
+  asrSub: 'OpenAI',
+  llmName: 'gpt-5.6-luna',
+  llmSub: 'OpenAI',
   gist: gist,
   points: points,
   todos: todos ?? [TodoItem(text: 'Follow up')],
@@ -40,28 +38,18 @@ TranscriptNote shareTestNote({
   audioPath: null,
 );
 
-final class ShareTestSettingsController extends SettingsController {
-  @override
-  AppSettings build() =>
-      AppSettings.initial().copyWith(language: AppLanguage.en);
-}
+AppSettings shareTestSettings() =>
+    AppSettings.initial().copyWith(language: AppLanguage.en);
 
-final class ShareTestConnectionsController extends ConnectionsController {
-  @override
-  Map<RemoteProviderId, bool> build() => {};
+Widget shareTestChildApp({required Widget child}) {
+  final database = testDatabase();
+  addTearDown(database.close);
+  return appScope(
+    database: database,
+    settings: shareTestSettings(),
+    child: MaterialApp(
+      theme: shareTestTheme(),
+      home: Scaffold(body: child),
+    ),
+  );
 }
-
-final class ShareTestModelManagerController extends ModelManagerController {
-  @override
-  ModelManagerState build() => const ModelManagerState();
-}
-
-Widget shareTestChildApp({required Widget child}) => ProviderScope(
-  overrides: [
-    settingsControllerProvider.overrideWith(ShareTestSettingsController.new),
-  ],
-  child: MaterialApp(
-    theme: shareTestTheme(),
-    home: Scaffold(body: child),
-  ),
-);
