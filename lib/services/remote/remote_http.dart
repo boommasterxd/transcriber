@@ -9,7 +9,7 @@ import '../service_exceptions.dart';
 
 /// Network timeouts for cloud calls so a stalled request fails with a clear
 /// error instead of hanging the processing UI forever.
-const Duration remoteChatTimeout = Duration(seconds: 90);
+const Duration remoteChatTimeout = Duration(seconds: 45);
 const Duration remoteListTimeout = Duration(seconds: 25);
 const Duration remoteTranscribeTimeout = Duration(seconds: 180);
 const int maxRemoteAudioBytes = 100 * 1024 * 1024;
@@ -36,6 +36,43 @@ Future<T> guardTimeout<T>(Future<T> future, Duration timeout) {
       'Check your connection and try again.',
     ),
   );
+}
+
+/// Sends a request and reads its complete response within one deadline.
+///
+/// Applying the timeout only to [http.Client.send] is insufficient because a
+/// provider can return headers and then stall while streaming the body.
+Future<RemoteHttpResponse> sendRemoteRequest(
+  http.Client client,
+  http.BaseRequest request, {
+  required Duration timeout,
+}) {
+  return guardTimeout(_sendAndRead(client, request), timeout);
+}
+
+Future<RemoteHttpResponse> _sendAndRead(
+  http.Client client,
+  http.BaseRequest request,
+) async {
+  final response = await client.send(request);
+  return RemoteHttpResponse(
+    statusCode: response.statusCode,
+    headers: response.headers,
+    body: await readRemoteResponseBody(response),
+  );
+}
+
+/// Buffered, size-limited response returned by [sendRemoteRequest].
+final class RemoteHttpResponse {
+  const RemoteHttpResponse({
+    required this.statusCode,
+    required this.headers,
+    required this.body,
+  });
+
+  final int statusCode;
+  final Map<String, String> headers;
+  final String body;
 }
 
 /// Validates a provider response while preserving its provider-specific label.

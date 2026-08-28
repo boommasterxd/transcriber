@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 /// Cloud providers supported for transcription and summarization.
 enum RemoteProviderId {
   openai('openai'),
@@ -14,17 +12,8 @@ enum RemoteProviderId {
 
 /// Display metadata for a provider.
 class RemoteProvider {
-  const RemoteProvider({
-    required this.id,
-    required this.name,
-    required this.color,
-    required this.glyph,
-    required this.sub,
-  });
+  const RemoteProvider({required this.id, required this.name});
 
   final RemoteProviderId id;
   final String name;
-  final Color color;
-  final String glyph;
-  final String sub;
 }

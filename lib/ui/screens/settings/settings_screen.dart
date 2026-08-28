@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_palette.dart';
-import '../../../data/models/remote_provider.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/appearance_section.dart';
 import 'widgets/language_section.dart';
 import 'widgets/privacy_section.dart';
-import 'widgets/provider_connect_card.dart';
 import 'widgets/summary_section.dart';
 import 'widgets/transcription_section.dart';
 
@@ -35,11 +33,9 @@ class SettingsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 36),
                   children: [
                     SectionLabel(strings.setAsr),
-                    const TranscriptionSection(),
+                    const TranscriptionSection(showCredentials: true),
                     SectionLabel(strings.setLlm),
-                    const SummarySection(),
-                    SectionLabel(strings.apiKey),
-                    const ProviderConnectionList(),
+                    const SummarySection(showCredentials: true),
                     SectionLabel(strings.setLang),
                     const LanguageSection(),
                     SectionLabel(strings.setAppear),
@@ -83,18 +79,5 @@ class _SettingsHeader extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-class ProviderConnectionList extends StatelessWidget {
-  const ProviderConnectionList({super.key});
-
-  @override
-  Widget build(BuildContext context) => const Column(
-    children: [
-      ProviderConnectCard(provider: RemoteProviderId.openai),
-      SizedBox(height: 12),
-      ProviderConnectCard(provider: RemoteProviderId.google),
-    ],
   );
 }

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import '../models/remote_provider.dart';
 
 /// Supported BYOK providers, defaults, and official key-management pages.
@@ -7,20 +5,8 @@ class RemoteCatalog {
   const RemoteCatalog._();
 
   static const List<RemoteProvider> providers = [
-    RemoteProvider(
-      id: RemoteProviderId.openai,
-      name: 'OpenAI',
-      color: Color(0xFF10A37F),
-      glyph: 'O',
-      sub: 'GPT-Transcribe and GPT models',
-    ),
-    RemoteProvider(
-      id: RemoteProviderId.google,
-      name: 'Google Gemini',
-      color: Color(0xFF4285F4),
-      glyph: 'G',
-      sub: 'Gemini 3.5 Transcribe and Gemini models',
-    ),
+    RemoteProvider(id: RemoteProviderId.openai, name: 'OpenAI'),
+    RemoteProvider(id: RemoteProviderId.google, name: 'Google Gemini'),
   ];
 
   /// Providers that offer native audio transcription (ASR).

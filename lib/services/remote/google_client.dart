@@ -90,6 +90,12 @@ class GoogleClient implements RemoteProviderClient {
           ],
         },
       ],
+      'generationConfig': {
+        'responseMimeType': 'application/json',
+        'maxOutputTokens': 1024,
+        if (_supportsThinkingLevel(modelId))
+          'thinkingConfig': {'thinkingLevel': 'LOW'},
+      },
     }, timeout: remoteChatTimeout);
     return _candidateText(json);
   }
@@ -318,17 +324,10 @@ class GoogleClient implements RemoteProviderClient {
     return decodeRemoteJsonObject(response.body, 'Gemini response');
   }
 
-  Future<_RemoteResponse> _send(
+  Future<RemoteHttpResponse> _send(
     http.BaseRequest request, {
     required Duration timeout,
-  }) async {
-    final streamed = await guardTimeout(_http.send(request), timeout);
-    return _RemoteResponse(
-      statusCode: streamed.statusCode,
-      headers: streamed.headers,
-      body: await readRemoteResponseBody(streamed),
-    );
-  }
+  }) => sendRemoteRequest(_http, request, timeout: timeout);
 
   String _candidateText(Map<String, dynamic> json) {
     final candidates = json['candidates'];
@@ -395,7 +394,7 @@ class GoogleClient implements RemoteProviderClient {
       return 'audio/mpeg';
     }
     if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'audio/mp4';
-    if (lower.endsWith('.ogg')) return 'audio/ogg';
+    if (lower.endsWith('.ogg') || lower.endsWith('.opus')) return 'audio/ogg';
     if (lower.endsWith('.flac')) return 'audio/flac';
     if (lower.endsWith('.webm')) return 'audio/webm';
     return 'application/octet-stream';
@@ -406,6 +405,12 @@ class GoogleClient implements RemoteProviderClient {
     'en' => 'en-US',
     _ => code,
   };
+
+  bool _supportsThinkingLevel(String modelId) {
+    final match = RegExp(r'^gemini-(\d+)').firstMatch(modelId.toLowerCase());
+    final major = match == null ? null : int.tryParse(match.group(1)!);
+    return major != null && major >= 3;
+  }
 }
 
 final class _GeminiFile {
@@ -420,16 +425,4 @@ final class _GeminiFile {
   final String uri;
   final String mimeType;
   final String? state;
-}
-
-final class _RemoteResponse {
-  const _RemoteResponse({
-    required this.statusCode,
-    required this.headers,
-    required this.body,
-  });
-
-  final int statusCode;
-  final Map<String, String> headers;
-  final String body;
 }

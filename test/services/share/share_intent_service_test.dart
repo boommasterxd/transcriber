@@ -67,10 +67,11 @@ void _registerColdStartTests(
       '/cache/c.M4A',
       '/cache/d.MP4',
       '/cache/e.OGG',
-      '/cache/f.FLAC',
-      '/cache/g.WEBM',
-      '/cache/h.MPEG',
-      '/cache/i.MPGA',
+      '/cache/f.OPUS',
+      '/cache/g.FLAC',
+      '/cache/h.WEBM',
+      '/cache/i.MPEG',
+      '/cache/j.MPGA',
     ];
 
     for (final path in paths) {
@@ -88,7 +89,6 @@ void _registerColdStartTests(
         _media('/cache/image.jpg'),
         _media('/cache/audio.mp3.bak'),
         _media('/cache/audio'),
-        _media('/cache/final.opus'),
       ]);
 
       final result = await ShareIntentService().initialSharedAudio();
