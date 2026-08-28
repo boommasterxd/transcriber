@@ -34,7 +34,7 @@ TranscriptNote shareTestNote({
   gist: gist,
   points: points,
   todos: todos ?? [TodoItem(text: 'Follow up')],
-  transcript: const [TranscriptLine(time: '00:01', text: 'Transcript line')],
+  transcript: const [TranscriptLine(text: 'Transcript line')],
   audioPath: null,
 );
 

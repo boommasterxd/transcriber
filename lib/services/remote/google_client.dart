@@ -126,22 +126,21 @@ class GoogleClient implements RemoteProviderClient {
             'mime_type': uploaded.mimeType,
           },
         ],
-        if (nativeTranscription &&
-            languageCode != null &&
-            languageCode.isNotEmpty &&
-            languageCode != 'auto')
+        if (nativeTranscription)
           'generation_config': {
             'transcription_config': {
-              'language_codes': [_geminiLanguageCode(languageCode)],
+              'mode': {'type': 'smart'},
+              if (languageCode != null &&
+                  languageCode.isNotEmpty &&
+                  languageCode != 'auto')
+                'language_codes': [_geminiLanguageCode(languageCode)],
             },
           },
       }, timeout: remoteTranscribeTimeout);
       final text = _interactionText(json).trim();
       return TranscriptionResult(
         text: text,
-        segments: text.isEmpty
-            ? const []
-            : [TranscriptLine(time: '0:00', text: text)],
+        segments: text.isEmpty ? const [] : [TranscriptLine(text: text)],
       );
     } finally {
       await _deleteFile(uploaded.name);

@@ -145,7 +145,6 @@ class NotesRepository {
         TranscriptSegmentsTableCompanion.insert(
           noteId: note.id,
           position: index,
-          time: note.transcript[index].time,
           content: note.transcript[index].text,
         ),
   ];
@@ -187,7 +186,7 @@ class NotesRepository {
       if (noteIds.contains(row.noteId)) {
         result
             .putIfAbsent(row.noteId, () => [])
-            .add(TranscriptLine(time: row.time, text: row.content));
+            .add(TranscriptLine(text: row.content));
       }
     }
     return result;

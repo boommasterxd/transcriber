@@ -70,6 +70,6 @@ TranscriptNote _note(String id, DateTime createdAt) => TranscriptNote(
   gist: 'Gist $id',
   points: ['Point $id'],
   todos: [TodoItem(text: 'Todo $id', done: true)],
-  transcript: [TranscriptLine(time: '00:01', text: 'Transcript $id')],
+  transcript: [TranscriptLine(text: 'Transcript $id')],
   audioPath: '/external/$id.m4a',
 );

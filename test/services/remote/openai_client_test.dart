@@ -145,10 +145,7 @@ Future<void> _testSummary() async {
 }
 
 void _registerTranscriptionTest() {
-  test(
-    'sends gpt-transcribe as multipart and creates a fallback segment',
-    _testTranscription,
-  );
+  test('sends gpt-transcribe as multipart', _testTranscription);
   test(
     'presents Opus as supported OGG without converting its bytes',
     () => _testTranscription(
@@ -203,7 +200,7 @@ Future<void> _testTranscription({
         );
       }
       expect(result.text, 'result');
-      expect(result.segments.single.time, '0:00');
+      expect(result.segments.single.text, 'result');
     },
   );
 }

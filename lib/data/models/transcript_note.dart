@@ -15,18 +15,15 @@ enum NoteSource {
   );
 }
 
-/// A single time-stamped transcript line.
+/// A single transcript line.
 class TranscriptLine {
-  const TranscriptLine({required this.time, required this.text});
+  const TranscriptLine({required this.text});
 
-  final String time;
   final String text;
 
-  Map<String, dynamic> toJson() => {'time': time, 'text': text};
-  factory TranscriptLine.fromJson(Map<String, dynamic> j) => TranscriptLine(
-    time: j['time'] as String? ?? '',
-    text: j['text'] as String? ?? '',
-  );
+  Map<String, dynamic> toJson() => {'text': text};
+  factory TranscriptLine.fromJson(Map<String, dynamic> j) =>
+      TranscriptLine(text: j['text'] as String? ?? '');
 }
 
 /// A to-do / action item extracted from the audio.
@@ -100,7 +97,7 @@ class TranscriptNote {
   String get modelShort => '$asrName · ${llmName.split(' · ').first}';
 
   String get fullTranscriptText =>
-      transcript.map((l) => '[${l.time}] ${l.text}').join('\n');
+      transcript.map((line) => line.text).join('\n');
 
   TranscriptNote copyWith({
     List<TodoItem>? todos,
