@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
+import 'mime_utils.dart';
 import 'provider_model_capabilities.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
@@ -178,7 +179,7 @@ class GoogleClient implements RemoteProviderClient {
         'X-Goog-Upload-Protocol': 'resumable',
         'X-Goog-Upload-Command': 'start',
         'X-Goog-Upload-Header-Content-Length': '$length',
-        'X-Goog-Upload-Header-Content-Type': _mimeType(file.path),
+        'X-Goog-Upload-Header-Content-Type': audioMimeType(file.path),
         'Content-Type': 'application/json',
       })
       ..body = jsonEncode({
@@ -201,7 +202,7 @@ class GoogleClient implements RemoteProviderClient {
         'x-goog-api-key': apiKey,
         'X-Goog-Upload-Offset': '0',
         'X-Goog-Upload-Command': 'upload, finalize',
-        'Content-Type': _mimeType(file.path),
+        'Content-Type': audioMimeType(file.path),
       })
       ..contentLength = length;
     final responseFuture = _send(upload, timeout: remoteTranscribeTimeout);
@@ -230,7 +231,7 @@ class GoogleClient implements RemoteProviderClient {
     return _GeminiFile(
       name: name,
       uri: uri,
-      mimeType: rawFile['mimeType']?.toString() ?? _mimeType(file.path),
+      mimeType: rawFile['mimeType']?.toString() ?? audioMimeType(file.path),
       state: rawFile['state']?.toString(),
     );
   }
@@ -383,21 +384,6 @@ class GoogleClient implements RemoteProviderClient {
 
   bool _isSafeFileName(String name) {
     return RegExp(r'^files/[A-Za-z0-9_-]+$').hasMatch(name);
-  }
-
-  String _mimeType(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.wav')) return 'audio/wav';
-    if (lower.endsWith('.mp3') ||
-        lower.endsWith('.mpeg') ||
-        lower.endsWith('.mpga')) {
-      return 'audio/mpeg';
-    }
-    if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'audio/mp4';
-    if (lower.endsWith('.ogg') || lower.endsWith('.opus')) return 'audio/ogg';
-    if (lower.endsWith('.flac')) return 'audio/flac';
-    if (lower.endsWith('.webm')) return 'audio/webm';
-    return 'application/octet-stream';
   }
 
   String _geminiLanguageCode(String code) => switch (code) {

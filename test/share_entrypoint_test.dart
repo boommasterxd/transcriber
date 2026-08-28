@@ -35,6 +35,18 @@ void main() {
     expect(channel.calls, ['getInitialSharedPath', 'finish']);
   });
 
+  testWidgets('finishes the translucent activity for an empty shared path', (
+    tester,
+  ) async {
+    channel.initialPath = '  ';
+
+    await runShareEntrypoint(loadBootstrap: () async => _bootstrap(database));
+    await tester.pump();
+    await tester.pump();
+
+    expect(channel.calls, ['getInitialSharedPath', 'finish']);
+  });
+
   testWidgets(
     'finishes the translucent activity when the native lookup fails',
     (tester) async {
