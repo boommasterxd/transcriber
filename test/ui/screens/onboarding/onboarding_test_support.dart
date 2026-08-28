@@ -6,10 +6,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/connections_controller.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
+import 'package:transcriber/state/remote_models_provider.dart';
 import 'package:transcriber/state/settings_controller.dart';
 
 class OnboardingTestSettingsController extends SettingsController {
@@ -20,26 +19,36 @@ class OnboardingTestSettingsController extends SettingsController {
   @override
   AppSettings build() => initial;
 
-  Future<void> _replace(AppSettings next) {
+  Future<void> _replace(AppSettings next) async {
     state = next;
-    return Future.value();
   }
 
   @override
-  Future<void> setAsrMode(ProcessingMode mode) =>
-      _replace(state.copyWith(asrMode: mode));
+  Future<void> setAsrProvider(RemoteProviderId provider) =>
+      _replace(state.copyWith(asrProvider: provider));
 
   @override
-  Future<void> setSummaryMode(ProcessingMode mode) =>
-      _replace(state.copyWith(summaryMode: mode));
+  Future<void> setSummaryProvider(RemoteProviderId provider) =>
+      _replace(state.copyWith(summaryProvider: provider));
 
   @override
-  Future<void> setWhisperModel(String id) =>
-      _replace(state.copyWith(whisperModelId: id));
+  Future<void> setAsrModel(RemoteProviderId provider, String modelId) =>
+      _replace(
+        state.copyWith(
+          asrModelByProvider: {...state.asrModelByProvider, provider: modelId},
+        ),
+      );
 
   @override
-  Future<void> setGemmaModel(String id) =>
-      _replace(state.copyWith(gemmaModelId: id));
+  Future<void> setSummaryModel(RemoteProviderId provider, String modelId) =>
+      _replace(
+        state.copyWith(
+          chatModelByProvider: {
+            ...state.chatModelByProvider,
+            provider: modelId,
+          },
+        ),
+      );
 
   @override
   Future<void> setSummarizeEnabled(bool value) =>
@@ -62,48 +71,13 @@ class OnboardingTestConnectionsController extends ConnectionsController {
   Future<String> apiKey(RemoteProviderId provider) async => '';
 }
 
-class OnboardingTestModelController extends ModelManagerController {
-  OnboardingTestModelController(this.initial);
-
-  final ModelManagerState initial;
-  final List<String> whisperDownloads = [];
-  final List<String> gemmaDownloads = [];
-
-  @override
-  ModelManagerState build() => initial;
-
-  @override
-  Future<void> downloadWhisper(String id) async {
-    whisperDownloads.add(id);
-    state = state.copyWith(
-      whisper: {
-        ...state.whisper,
-        id: const ModelStatus(status: DownloadStatus.downloaded, progress: 1),
-      },
-    );
-  }
-
-  @override
-  Future<void> downloadGemma(String id) async {
-    gemmaDownloads.add(id);
-    state = state.copyWith(
-      gemma: {
-        ...state.gemma,
-        id: const ModelStatus(status: DownloadStatus.downloaded, progress: 1),
-      },
-    );
-  }
-}
-
 class OnboardingPermissionChannel {
   static const _channel = MethodChannel(
     'flutter.baseflow.com/permissions/methods',
   );
 
   PermissionStatus microphone = PermissionStatus.denied;
-  PermissionStatus notification = PermissionStatus.denied;
   PermissionStatus requestedMicrophone = PermissionStatus.denied;
-  PermissionStatus requestedNotification = PermissionStatus.denied;
   int requestCalls = 0;
   int settingsCalls = 0;
 
@@ -118,15 +92,13 @@ class OnboardingPermissionChannel {
   }
 
   Future<Object?> _handle(MethodCall call) async {
-    if (call.method == 'checkPermissionStatus') {
-      return _statusFor(call.arguments as int).index;
-    }
+    if (call.method == 'checkPermissionStatus') return microphone.index;
     if (call.method == 'requestPermissions') {
       requestCalls++;
-      final permissions = (call.arguments as List).cast<int>();
+      microphone = requestedMicrophone;
       return {
-        for (final permission in permissions)
-          permission: _request(permission).index,
+        for (final permission in (call.arguments as List).cast<int>())
+          permission: microphone.index,
       };
     }
     if (call.method == 'openAppSettings') {
@@ -135,18 +107,6 @@ class OnboardingPermissionChannel {
     }
     return null;
   }
-
-  PermissionStatus _statusFor(int permission) =>
-      permission == Permission.microphone.value ? microphone : notification;
-
-  PermissionStatus _request(int permission) {
-    if (permission == Permission.microphone.value) {
-      microphone = requestedMicrophone;
-      return microphone;
-    }
-    notification = requestedNotification;
-    return notification;
-  }
 }
 
 void useGrantedOnboardingPermissions() {
@@ -154,7 +114,6 @@ void useGrantedOnboardingPermissions() {
   setUp(() {
     permissions = OnboardingPermissionChannel()
       ..microphone = PermissionStatus.granted
-      ..notification = PermissionStatus.granted
       ..install();
   });
   tearDown(() => permissions.uninstall());
@@ -163,26 +122,14 @@ void useGrantedOnboardingPermissions() {
 class OnboardingTestConfig {
   const OnboardingTestConfig({
     this.settings,
-    this.models = const ModelManagerState(),
     this.connections = const {},
     this.settingsController,
-    this.modelController,
   });
 
   final AppSettings? settings;
-  final ModelManagerState models;
   final Map<RemoteProviderId, bool> connections;
   final OnboardingTestSettingsController? settingsController;
-  final OnboardingTestModelController? modelController;
 }
-
-OnboardingTestConfig connectedCloudOnboardingConfig() => OnboardingTestConfig(
-  settings: AppSettings.initial().copyWith(
-    asrMode: ProcessingMode.cloud,
-    summarizeEnabled: false,
-  ),
-  connections: const {RemoteProviderId.openai: true},
-);
 
 Future<ProviderContainer> pumpOnboardingTestApp(
   WidgetTester tester, {
@@ -202,11 +149,7 @@ Future<ProviderContainer> pumpOnboardingTestApp(
       connectionsControllerProvider.overrideWith(
         () => OnboardingTestConnectionsController(config.connections),
       ),
-      modelManagerControllerProvider.overrideWith(
-        () =>
-            config.modelController ??
-            OnboardingTestModelController(config.models),
-      ),
+      remoteModelsProvider.overrideWith((ref, query) async => const []),
     ],
   );
   addTearDown(container.dispose);
@@ -228,14 +171,3 @@ Future<ProviderContainer> pumpOnboardingTestApp(
   await tester.pump();
   return container;
 }
-
-ModelManagerState downloadedModels(AppSettings settings) => ModelManagerState(
-  whisper: {
-    settings.whisperModelId: const ModelStatus(
-      status: DownloadStatus.downloaded,
-    ),
-  },
-  gemma: {
-    settings.gemmaModelId: const ModelStatus(status: DownloadStatus.downloaded),
-  },
-);

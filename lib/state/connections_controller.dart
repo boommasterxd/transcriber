@@ -14,9 +14,20 @@ class ConnectionsController extends Notifier<Map<RemoteProviderId, bool>> {
 
   Future<void> connect(RemoteProviderId provider, String key) async {
     final trimmed = key.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty) {
+      throw ArgumentError('API key must not be empty');
+    }
+    await ref.read(providerCredentialTesterProvider)(provider, trimmed);
     await ref.read(settingsRepositoryProvider).setApiKey(provider, trimmed);
     state = {...state, provider: true};
+  }
+
+  Future<void> test(RemoteProviderId provider) async {
+    final key = await apiKey(provider);
+    if (key.isEmpty) {
+      throw StateError('No API key is stored for this provider');
+    }
+    await ref.read(providerCredentialTesterProvider)(provider, key);
   }
 
   Future<void> disconnect(RemoteProviderId provider) async {

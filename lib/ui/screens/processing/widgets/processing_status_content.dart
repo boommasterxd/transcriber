@@ -11,7 +11,6 @@ class ProcessingStatusPresentation {
   const ProcessingStatusPresentation({
     required this.title,
     required this.statusText,
-    required this.isLocal,
     required this.showSteps,
     required this.activeStepIsSecond,
   });
@@ -22,14 +21,11 @@ class ProcessingStatusPresentation {
     required ProcessingProfile profile,
     required bool summarizeEnabled,
   }) {
-    final stage = _stageFor(state, profile);
-    return ProcessingStatusPresentation(
-      title: _titleFor(strings, state),
-      statusText:
-          _downloadStatus(strings, state) ?? '${stage.name} · ${stage.sub}',
-      isLocal: stage.isLocal,
-      showSteps: summarizeEnabled,
-      activeStepIsSecond: state.step == ProcessingStep.summarizing,
+    return _fromState(
+      strings: strings,
+      state: state,
+      profile: profile,
+      summarizeEnabled: summarizeEnabled,
     );
   }
 
@@ -39,24 +35,33 @@ class ProcessingStatusPresentation {
     required ProcessingProfile profile,
     required bool summarizeEnabled,
   }) {
-    final stage = _stageFor(state, profile);
-    final stageStatus = stage.isLocal
-        ? '${strings.runningLocal} · ${stage.name}'
-        : '${stage.name} · ${stage.sub}';
-    return ProcessingStatusPresentation(
-      title: _titleFor(strings, state),
-      statusText: _downloadStatus(strings, state) ?? stageStatus,
-      isLocal: stage.isLocal,
-      showSteps: summarizeEnabled,
-      activeStepIsSecond: state.step == ProcessingStep.summarizing,
+    return _fromState(
+      strings: strings,
+      state: state,
+      profile: profile,
+      summarizeEnabled: summarizeEnabled,
     );
   }
 
   final String title;
   final String statusText;
-  final bool isLocal;
   final bool showSteps;
   final bool activeStepIsSecond;
+
+  static ProcessingStatusPresentation _fromState({
+    required AppStrings strings,
+    required ProcessingState state,
+    required ProcessingProfile profile,
+    required bool summarizeEnabled,
+  }) {
+    final stage = _stageFor(state, profile);
+    return ProcessingStatusPresentation(
+      title: _titleFor(strings, state),
+      statusText: '${stage.name} · ${stage.sub}',
+      showSteps: summarizeEnabled,
+      activeStepIsSecond: state.step == ProcessingStep.summarizing,
+    );
+  }
 
   static StageInfo _stageFor(ProcessingState state, ProcessingProfile profile) {
     return state.step == ProcessingStep.transcribing
@@ -68,12 +73,6 @@ class ProcessingStatusPresentation {
     return state.step == ProcessingStep.transcribing
         ? strings.shTranscribe
         : strings.shSummarize;
-  }
-
-  static String? _downloadStatus(AppStrings strings, ProcessingState state) {
-    final progress = state.modelProgress;
-    if (progress == null) return null;
-    return '${strings.downloading} ${(progress * 100).round()}%';
   }
 }
 
@@ -141,7 +140,7 @@ class _StatusText extends StatelessWidget {
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: presentation.isLocal ? palette.mint : palette.accent,
+                color: palette.accent,
                 shape: BoxShape.circle,
               ),
             ),

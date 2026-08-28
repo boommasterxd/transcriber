@@ -11,7 +11,7 @@ class SegmentOption {
 
 /// A full-width segmented control whose white selection "thumb" slides
 /// horizontally between options (no ink ripple). Used for theme, language and
-/// the per-stage local/cloud toggles.
+/// provider and language selectors.
 class AnimatedSegmentedControl extends StatelessWidget {
   const AnimatedSegmentedControl({
     super.key,

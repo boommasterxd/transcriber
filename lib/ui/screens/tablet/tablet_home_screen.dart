@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../state/notes_controller.dart';
+import '../../../state/providers.dart';
 import '../home/audio_import.dart';
 import '../home/widgets/tablet_empty_pane.dart';
 import '../home/widgets/tablet_sidebar.dart';
@@ -48,7 +49,10 @@ class _TabletHomeScreenState extends ConsumerState<TabletHomeScreen> {
                 actions: TabletSidebarActions(
                   onQueryChanged: (query) => setState(() => _query = query),
                   onSelect: (id) => setState(() => _selectedId = id),
-                  onPickFile: () => startAudioImport(context),
+                  onPickFile: () => startAudioImport(
+                    context,
+                    cacheManager: ref.read(audioCacheManagerProvider),
+                  ),
                 ),
               ),
             ),

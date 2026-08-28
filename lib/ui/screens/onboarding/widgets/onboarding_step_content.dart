@@ -5,7 +5,7 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../widgets/effects.dart';
 import '../../settings/widgets/appearance_section.dart';
 import '../../settings/widgets/language_section.dart';
-import 'onboarding_models_step.dart';
+import 'onboarding_cloud_step.dart';
 import 'onboarding_permissions_step.dart';
 
 class OnboardingStepContent extends StatelessWidget {
@@ -24,7 +24,7 @@ class OnboardingStepContent extends StatelessWidget {
     1 => _StepBody(
       title: strings.obModelsT,
       subtitle: strings.obModelsS,
-      child: const OnboardingModelsStep(),
+      child: const OnboardingCloudStep(),
     ),
     2 => _StepBody(
       title: strings.obLookT,

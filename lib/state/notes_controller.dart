@@ -1,12 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models/audio_ownership.dart';
 import '../data/models/transcript_note.dart';
 import 'providers.dart';
 
 /// In-memory list of processed notes, backed by [NotesRepository].
 class NotesController extends Notifier<List<TranscriptNote>> {
   @override
-  List<TranscriptNote> build() => ref.read(notesRepositoryProvider).load();
+  List<TranscriptNote> build() => List.of(ref.watch(initialNotesProvider));
 
   Future<void> _persist(List<TranscriptNote> next) async {
     state = next;
@@ -17,8 +18,18 @@ class NotesController extends Notifier<List<TranscriptNote>> {
     [note, ...state]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
   );
 
-  Future<void> delete(String id) =>
-      _persist(state.where((n) => n.id != id).toList());
+  Future<void> delete(String id, {bool deleteAudio = true}) async {
+    final note = byId(id);
+    await _persist(state.where((candidate) => candidate.id != id).toList());
+    if (deleteAudio && note != null) await deleteNoteAudio(note);
+  }
+
+  Future<void> deleteNoteAudio(TranscriptNote note) async {
+    if (note.audioOwnership != AudioOwnership.retained) return;
+    await ref
+        .read(audioCacheManagerProvider)
+        .deleteRetainedPath(note.audioPath);
+  }
 
   TranscriptNote? byId(String id) {
     for (final note in state) {

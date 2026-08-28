@@ -96,7 +96,7 @@ void _registerTranscriptOnlyTest(AppStrings strings) {
 }
 
 void _registerDeleteTest(AppStrings strings) {
-  testWidgets('confirms deletion and removes the selected note', (
+  testWidgets('deletes without audio and restores the note with undo', (
     tester,
   ) async {
     final note = detailTestNote();
@@ -113,9 +113,12 @@ void _registerDeleteTest(AppStrings strings) {
     expect(notes.deletions, isEmpty);
 
     await confirmNoteDeletion(tester, strings);
-    expect(notes.deletions, [note.id]);
+    expect(notes.deletions, [(id: note.id, deleteAudio: false)]);
     expect(find.text(strings.errorTitle), findsOneWidget);
-    await tester.pump(const Duration(seconds: 5));
+
+    tester.widget<SnackBarAction>(find.byType(SnackBarAction)).onPressed();
+    await tester.pump();
+    expect(find.text(note.title), findsOneWidget);
   });
 }
 

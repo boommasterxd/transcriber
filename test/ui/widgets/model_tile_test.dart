@@ -7,8 +7,7 @@ import 'widget_test_helpers.dart';
 void main() {
   _registerModelTileTests();
   _registerSelectionTest();
-  _registerDownloadTest();
-  _registerProgressTest();
+  _registerSelectionIndicatorTest();
 }
 
 void _registerModelTileTests() {
@@ -19,8 +18,8 @@ void _registerModelTileTests() {
     await tester.pumpWidget(
       themed(
         ModelTile(
-          title: 'Whisper Base',
-          subtitle: '74 MB',
+          title: 'gpt-transcribe',
+          subtitle: 'OpenAI',
           leading: const Icon(Icons.mic),
           leadingColor: Colors.red,
           badge: const Text('Recommended'),
@@ -30,11 +29,11 @@ void _registerModelTileTests() {
       ),
     );
 
-    expect(find.text('Whisper Base'), findsOneWidget);
-    expect(find.text('74 MB'), findsOneWidget);
+    expect(find.text('gpt-transcribe'), findsOneWidget);
+    expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('Recommended'), findsOneWidget);
     expect(find.byIcon(Icons.mic), findsOneWidget);
-    await tester.tap(find.text('Whisper Base'));
+    await tester.tap(find.text('gpt-transcribe'));
     expect(tapped, isTrue);
   });
 }
@@ -45,7 +44,7 @@ void _registerSelectionTest() {
       themed(
         const ModelTile(
           title: 'Model',
-          subtitle: 'Local',
+          subtitle: 'Google Gemini',
           isLast: true,
           trailing: SizedBox.shrink(),
         ),
@@ -57,7 +56,7 @@ void _registerSelectionTest() {
   });
 }
 
-void _registerDownloadTest() {
+void _registerSelectionIndicatorTest() {
   testWidgets('SelectionIndicator renders distinct selected states', (
     tester,
   ) async {
@@ -75,47 +74,5 @@ void _registerDownloadTest() {
     expect(find.byIcon(Icons.check), findsOneWidget);
     final containers = tester.widgetList<Container>(find.byType(Container));
     expect(containers.length, greaterThanOrEqualTo(2));
-  });
-}
-
-void _registerProgressTest() {
-  testWidgets('DownloadChip displays download action and invokes callback', (
-    tester,
-  ) async {
-    var tapped = false;
-    await tester.pumpWidget(
-      themed(DownloadChip(label: 'Get', onTap: () => tapped = true)),
-    );
-
-    expect(find.byIcon(Icons.download_rounded), findsOneWidget);
-    expect(find.text('Get'), findsOneWidget);
-    await tester.tap(find.text('Get'));
-    expect(tapped, isTrue);
-  });
-
-  testWidgets('ProgressRing displays a percentage and handles zero progress', (
-    tester,
-  ) async {
-    await tester.pumpWidget(themed(const ProgressRing(progress: 0)));
-    expect(find.text('0'), findsOneWidget);
-    expect(
-      tester
-          .widget<CircularProgressIndicator>(
-            find.byType(CircularProgressIndicator),
-          )
-          .value,
-      isNull,
-    );
-
-    await tester.pumpWidget(themed(const ProgressRing(progress: 0.625)));
-    expect(find.text('63'), findsOneWidget);
-    expect(
-      tester
-          .widget<CircularProgressIndicator>(
-            find.byType(CircularProgressIndicator),
-          )
-          .value,
-      0.625,
-    );
   });
 }

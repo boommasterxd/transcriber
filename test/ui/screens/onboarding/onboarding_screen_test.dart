@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
+import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/onboarding/onboarding_screen.dart';
 
@@ -26,7 +25,7 @@ void _registerNavigationTest(AppStrings strings) {
       tester,
       config: OnboardingTestConfig(
         settings: settings,
-        models: downloadedModels(settings),
+        connections: const {RemoteProviderId.google: true},
         settingsController: controller,
       ),
       child: const OnboardingScreen(),
@@ -59,27 +58,25 @@ void _registerNavigationTest(AppStrings strings) {
 }
 
 void _registerGateTests(AppStrings strings) {
-  testWidgets('missing local model blocks the model step with download hint', (
+  testWidgets('disconnected selected provider blocks the cloud step', (
     tester,
   ) async {
     await pumpOnboardingTestApp(tester, child: const OnboardingScreen());
 
     await _next(tester, strings);
 
-    expect(find.text(strings.obDownloadHint), findsOneWidget);
+    expect(find.text(strings.obConnectHint), findsOneWidget);
     expect(find.text(strings.obNext), findsNothing);
   });
 
-  testWidgets('disconnected cloud provider blocks with connection hint', (
+  testWidgets('connected unselected provider does not satisfy the gate', (
     tester,
   ) async {
-    final settings = AppSettings.initial().copyWith(
-      asrMode: ProcessingMode.cloud,
-      summarizeEnabled: false,
-    );
     await pumpOnboardingTestApp(
       tester,
-      config: OnboardingTestConfig(settings: settings),
+      config: const OnboardingTestConfig(
+        connections: {RemoteProviderId.openai: true},
+      ),
       child: const OnboardingScreen(),
     );
 
@@ -89,12 +86,22 @@ void _registerGateTests(AppStrings strings) {
     expect(find.text(strings.obNext), findsNothing);
   });
 
-  testWidgets('connected cloud provider passes while summary is disabled', (
+  testWidgets('both independently selected providers must be connected', (
     tester,
   ) async {
+    final settings = AppSettings.initial().copyWith(
+      asrProvider: RemoteProviderId.openai,
+      summaryProvider: RemoteProviderId.google,
+    );
     await pumpOnboardingTestApp(
       tester,
-      config: connectedCloudOnboardingConfig(),
+      config: OnboardingTestConfig(
+        settings: settings,
+        connections: const {
+          RemoteProviderId.openai: true,
+          RemoteProviderId.google: true,
+        },
+      ),
       child: const OnboardingScreen(),
     );
 
@@ -105,27 +112,27 @@ void _registerGateTests(AppStrings strings) {
     expect(find.text(strings.obLookT), findsOneWidget);
   });
 
-  testWidgets('summary-off ignores an unavailable local summary model', (
+  testWidgets('summary-off ignores a disconnected summary provider', (
     tester,
   ) async {
-    final settings = AppSettings.initial().copyWith(summarizeEnabled: false);
-    final models = ModelManagerState(
-      whisper: {
-        settings.whisperModelId: const ModelStatus(
-          status: DownloadStatus.downloaded,
-        ),
-      },
+    final settings = AppSettings.initial().copyWith(
+      asrProvider: RemoteProviderId.openai,
+      summaryProvider: RemoteProviderId.google,
+      summarizeEnabled: false,
     );
     await pumpOnboardingTestApp(
       tester,
-      config: OnboardingTestConfig(settings: settings, models: models),
+      config: OnboardingTestConfig(
+        settings: settings,
+        connections: const {RemoteProviderId.openai: true},
+      ),
       child: const OnboardingScreen(),
     );
 
     await _next(tester, strings);
 
     expect(find.text(strings.obNext), findsOneWidget);
-    expect(find.text(strings.obDownloadHint), findsNothing);
+    expect(find.text(strings.obConnectHint), findsNothing);
   });
 }
 

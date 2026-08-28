@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:record/record.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
+import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/recording_controller.dart';
 
@@ -116,16 +120,24 @@ void _registerStopTests(_RecordingFixture fixture) {
 }
 
 class _RecordingFixture {
+  late Directory root;
   late ProviderContainer container;
   late FakeAudioRecorderService recorder;
 
-  void setUp() {
+  Future<void> setUp() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('com.llfbandit.record/messages'),
           (_) async => null,
         );
-    recorder = FakeAudioRecorderService();
+    root = await Directory.systemTemp.createTemp('recording_controller_test_');
+    final paths = StoragePaths(
+      supportRoot: Directory('${root.path}/support'),
+      cacheRoot: Directory('${root.path}/cache'),
+    );
+    recorder = FakeAudioRecorderService(
+      AudioCacheManager(paths: Future.value(paths)),
+    );
     container = ProviderContainer(
       overrides: [audioRecorderProvider.overrideWithValue(recorder)],
     );
@@ -143,5 +155,6 @@ class _RecordingFixture {
           const MethodChannel('com.llfbandit.record/messages'),
           null,
         );
+    await root.delete(recursive: true);
   }
 }

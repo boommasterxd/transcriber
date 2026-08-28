@@ -1,80 +1,56 @@
-import 'dart:convert';
-
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
 
 void main() {
-  group('NotesRepository', () {
-    late SharedPreferences preferences;
-    late NotesRepository repository;
+  late AppDatabase database;
+  late NotesRepository repository;
 
-    setUp(() async {
-      SharedPreferences.setMockInitialValues({});
-      preferences = await SharedPreferences.getInstance();
-      repository = NotesRepository(preferences);
-    });
+  setUp(() {
+    database = AppDatabase(NativeDatabase.memory());
+    repository = NotesRepository(database);
+  });
 
-    test('loads an empty list when no notes are persisted', () {
-      expect(repository.load(), isEmpty);
-    });
+  tearDown(() => database.close());
 
-    test('loads persisted notes newest first', () async {
-      final oldest = _note('oldest', DateTime.utc(2025, 1, 1));
-      final newest = _note('newest', DateTime.utc(2025, 3, 1));
-      final middle = _note('middle', DateTime.utc(2025, 2, 1));
-      await preferences.setString(
-        'notes',
-        jsonEncode([oldest.toJson(), newest.toJson(), middle.toJson()]),
-      );
+  test('loads notes newest first with ordered child collections', () async {
+    await repository.saveAll([
+      _note('old', DateTime.utc(2025, 1, 1)),
+      _note('new', DateTime.utc(2025, 3, 1)),
+    ]);
 
-      final loaded = repository.load();
+    final loaded = await repository.load();
 
-      expect(loaded.map((note) => note.id), ['newest', 'middle', 'oldest']);
-      expect(loaded.first.todos.single.text, 'Follow up newest');
-      expect(loaded.first.transcript.single.text, 'Transcript newest');
-      expect(loaded.first.audioPath, '/audio/newest.m4a');
-    });
+    expect(loaded.map((note) => note.id), ['new', 'old']);
+    expect(loaded.first.points, ['Point new']);
+    expect(loaded.first.todos.single.done, isTrue);
+    expect(loaded.first.transcript.single.text, 'Transcript new');
+  });
 
-    test('returns an empty list for malformed persisted data', () async {
-      for (final malformed in <String>[
-        'not-json',
-        jsonEncode({'id': 'not-a-list'}),
-        jsonEncode([
-          {'title': 'missing-required-id'},
-        ]),
-      ]) {
-        await preferences.setString('notes', malformed);
+  test('saveAll replaces the complete note snapshot atomically', () async {
+    await repository.saveAll([_note('first', DateTime.utc(2025, 1, 1))]);
+    await repository.saveAll([_note('second', DateTime.utc(2025, 2, 1))]);
 
-        expect(repository.load(), isEmpty, reason: malformed);
-      }
-    });
+    final loaded = await repository.load();
+    expect(loaded.map((note) => note.id), ['second']);
+    expect(await database.select(database.notePointsTable).get(), hasLength(1));
+    expect(await database.select(database.notesTable).get(), hasLength(1));
+  });
 
-    test(
-      'saves, updates, and deletes notes through complete snapshots',
-      () async {
-        final first = _note('first', DateTime.utc(2025, 1, 1));
-        final second = _note('second', DateTime.utc(2025, 2, 1));
-        await repository.saveAll([first, second]);
+  test('rejects duplicate note ids before changing persisted data', () async {
+    await repository.saveAll([_note('stable', DateTime.utc(2025, 1, 1))]);
 
-        final updatedFirst = first.copyWith(
-          todos: [TodoItem(text: 'Updated action', done: true)],
-        );
-        await repository.saveAll([updatedFirst]);
-
-        final loadedAfterUpdate = repository.load();
-        expect(loadedAfterUpdate, hasLength(1));
-        expect(loadedAfterUpdate.single.id, 'first');
-        expect(loadedAfterUpdate.single.todos.single.text, 'Updated action');
-        expect(loadedAfterUpdate.single.todos.single.done, isTrue);
-
-        await repository.saveAll([]);
-
-        expect(repository.load(), isEmpty);
-        expect(jsonDecode(preferences.getString('notes')!), isEmpty);
-      },
+    await expectLater(
+      repository.saveAll([
+        _note('duplicate', DateTime.utc(2025, 1, 1)),
+        _note('duplicate', DateTime.utc(2025, 2, 1)),
+      ]),
+      throwsArgumentError,
     );
+
+    expect((await repository.load()).single.id, 'stable');
   });
 }
 
@@ -93,7 +69,7 @@ TranscriptNote _note(String id, DateTime createdAt) => TranscriptNote(
   llmSub: 'Cloud',
   gist: 'Gist $id',
   points: ['Point $id'],
-  todos: [TodoItem(text: 'Follow up $id')],
+  todos: [TodoItem(text: 'Todo $id', done: true)],
   transcript: [TranscriptLine(time: '00:01', text: 'Transcript $id')],
-  audioPath: '/audio/$id.m4a',
+  audioPath: '/external/$id.m4a',
 );

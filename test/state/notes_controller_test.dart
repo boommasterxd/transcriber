@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:transcriber/data/database/app_database.dart';
+import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
+import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/state/providers.dart';
 
@@ -20,7 +25,7 @@ void main() {
 void _registerReadTests(_NotesFixture fixture) {
   test('loads the repository snapshot and finds notes by id', () {
     final existing = _note('existing', DateTime.utc(2025, 1, 1));
-    fixture.repository.loaded = [existing];
+    fixture.initialNotes = [existing];
     fixture.recreateContainer();
     final controller = fixture.container.read(notesControllerProvider.notifier);
 
@@ -34,7 +39,8 @@ void _registerMutationTests(_NotesFixture fixture) {
   test('adds notes newest first and persists the complete snapshot', () async {
     final old = _note('old', DateTime.utc(2025, 1, 1));
     final newest = _note('newest', DateTime.utc(2025, 3, 1));
-    fixture.repository.loaded = [old];
+    fixture.initialNotes = [old];
+    fixture.recreateContainer();
     final controller = fixture.container.read(notesControllerProvider.notifier);
 
     await controller.add(newest);
@@ -49,7 +55,8 @@ void _registerMutationTests(_NotesFixture fixture) {
   test('deletes matching notes and leaves unrelated notes intact', () async {
     final first = _note('first', DateTime.utc(2025, 1, 1));
     final second = _note('second', DateTime.utc(2025, 2, 1));
-    fixture.repository.loaded = [second, first];
+    fixture.initialNotes = [second, first];
+    fixture.recreateContainer();
     final controller = fixture.container.read(notesControllerProvider.notifier);
 
     await controller.delete('first');
@@ -61,6 +68,65 @@ void _registerMutationTests(_NotesFixture fixture) {
       'second',
     ]);
     expect(fixture.repository.saved, hasLength(2));
+  });
+
+  test('deletes retained note audio from app-managed storage', () async {
+    final retainedDirectory = await fixture.storagePaths.retainedAudioDir();
+    final audio = File('${retainedDirectory.path}/note.wav');
+    await audio.writeAsBytes([1, 2, 3]);
+    fixture.initialNotes = [
+      _note(
+        'retained',
+        DateTime.utc(2025),
+        audioPath: audio.path,
+        audioOwnership: AudioOwnership.retained,
+      ),
+    ];
+    fixture.recreateContainer();
+
+    await fixture.container
+        .read(notesControllerProvider.notifier)
+        .delete('retained');
+
+    expect(await audio.exists(), isFalse);
+  });
+
+  test('preserves external audio when deleting its note', () async {
+    final audio = File('${fixture.root.path}/external.wav');
+    await audio.writeAsBytes([1]);
+    fixture.initialNotes = [
+      _note('external', DateTime.utc(2025), audioPath: audio.path),
+    ];
+    fixture.recreateContainer();
+
+    await fixture.container
+        .read(notesControllerProvider.notifier)
+        .delete('external');
+
+    expect(await audio.exists(), isTrue);
+  });
+
+  test('preserves retained audio when note persistence fails', () async {
+    final retainedDirectory = await fixture.storagePaths.retainedAudioDir();
+    final audio = File('${retainedDirectory.path}/stable.wav');
+    await audio.writeAsBytes([1]);
+    fixture.initialNotes = [
+      _note(
+        'stable',
+        DateTime.utc(2025),
+        audioPath: audio.path,
+        audioOwnership: AudioOwnership.retained,
+      ),
+    ];
+    fixture.repository.failOnSave = true;
+    fixture.recreateContainer();
+
+    await expectLater(
+      fixture.container.read(notesControllerProvider.notifier).delete('stable'),
+      throwsStateError,
+    );
+
+    expect(await audio.exists(), isTrue);
   });
 }
 
@@ -76,7 +142,8 @@ void _registerTodoTests(_NotesFixture fixture) {
           TodoItem(text: 'second', done: true),
         ],
       );
-      fixture.repository.loaded = [note];
+      fixture.initialNotes = [note];
+      fixture.recreateContainer();
       final controller = fixture.container.read(
         notesControllerProvider.notifier,
       );
@@ -98,7 +165,8 @@ void _registerTodoTests(_NotesFixture fixture) {
         DateTime.utc(2025, 1, 1),
         todos: [TodoItem(text: 'only')],
       );
-      fixture.repository.loaded = [note];
+      fixture.initialNotes = [note];
+      fixture.recreateContainer();
       final controller = fixture.container.read(
         notesControllerProvider.notifier,
       );
@@ -137,47 +205,71 @@ void _registerErrorTests(_NotesFixture fixture) {
 }
 
 class _NotesFixture {
+  late AppDatabase database;
+  late Directory root;
+  late StoragePaths storagePaths;
+  late AudioCacheManager cacheManager;
   late ProviderContainer container;
   late FakeNotesRepository repository;
+  List<TranscriptNote> initialNotes = [];
   bool _containerInitialized = false;
 
   Future<void> setUp() async {
-    SharedPreferences.setMockInitialValues({});
-    repository = FakeNotesRepository(await SharedPreferences.getInstance());
+    database = createTestDatabase();
+    repository = FakeNotesRepository(database);
+    root = await Directory.systemTemp.createTemp('notes_controller_test_');
+    storagePaths = StoragePaths(
+      supportRoot: Directory('${root.path}/support'),
+      cacheRoot: Directory('${root.path}/cache'),
+    );
+    cacheManager = AudioCacheManager(paths: Future.value(storagePaths));
+    initialNotes = [];
     recreateContainer();
   }
 
   void recreateContainer() {
     if (_containerInitialized) container.dispose();
     container = ProviderContainer(
-      overrides: [notesRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        initialNotesProvider.overrideWithValue(initialNotes),
+        notesRepositoryProvider.overrideWithValue(repository),
+        audioCacheManagerProvider.overrideWithValue(cacheManager),
+      ],
     );
     _containerInitialized = true;
   }
 
-  void tearDown() {
+  Future<void> tearDown() async {
     container.dispose();
     _containerInitialized = false;
+    await database.close();
+    await root.delete(recursive: true);
   }
 }
 
-TranscriptNote _note(String id, DateTime createdAt, {List<TodoItem>? todos}) =>
-    TranscriptNote(
-      id: id,
-      title: 'Title $id',
-      speaker: 'Speaker',
-      source: NoteSource.recording,
-      durationSec: 10,
-      createdAt: createdAt,
-      asrIsLocal: true,
-      summaryIsLocal: true,
-      asrName: 'ASR',
-      asrSub: 'Local',
-      llmName: 'LLM',
-      llmSub: 'Local',
-      gist: 'Gist',
-      points: const ['Point'],
-      todos: todos ?? [TodoItem(text: 'Action')],
-      transcript: const [TranscriptLine(time: '00:01', text: 'Text')],
-      audioPath: '/recordings/$id.wav',
-    );
+TranscriptNote _note(
+  String id,
+  DateTime createdAt, {
+  List<TodoItem>? todos,
+  String? audioPath,
+  AudioOwnership audioOwnership = AudioOwnership.external,
+}) => TranscriptNote(
+  id: id,
+  title: 'Title $id',
+  speaker: 'Speaker',
+  source: NoteSource.recording,
+  durationSec: 10,
+  createdAt: createdAt,
+  asrIsLocal: true,
+  summaryIsLocal: true,
+  asrName: 'ASR',
+  asrSub: 'Local',
+  llmName: 'LLM',
+  llmSub: 'Local',
+  gist: 'Gist',
+  points: const ['Point'],
+  todos: todos ?? [TodoItem(text: 'Action')],
+  transcript: const [TranscriptLine(time: '00:01', text: 'Text')],
+  audioPath: audioPath ?? '/recordings/$id.wav',
+  audioOwnership: audioOwnership,
+);

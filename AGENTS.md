@@ -2,7 +2,7 @@
 
 ## Project Scope
 
-Transcriber is a Flutter Android application that records, imports, or receives shared audio and turns it into transcript notes with optional summaries. Processing stages may use local models or supported cloud providers independently.
+Transcriber is a Flutter Android application that records, imports, or receives shared audio and turns it into transcript notes with optional summaries. Transcription and summarization independently use OpenAI or Google Gemini with personal API keys.
 
 The supported toolchain is defined by `.fvmrc`, `pubspec.yaml`, and the Android Gradle configuration. Do not introduce another application platform, state-management system, persistence layer, or provider abstraction unless a current requirement justifies it.
 
@@ -10,14 +10,15 @@ The supported toolchain is defined by `.fvmrc`, `pubspec.yaml`, and the Android 
 
 - `lib/core/` contains cross-cutting localization, theme, presentation helpers, and utilities.
 - `lib/data/models/` contains application data structures. Models must not depend on UI or state code.
-- `lib/data/catalog/` owns supported local models, providers, defaults, and provider capabilities.
+- `lib/data/catalog/` owns supported cloud providers and model defaults.
+- `lib/data/database/` owns Drift tables, migrations, and generated database adapters.
 - `lib/data/repositories/` owns persisted settings and notes.
-- `lib/services/` owns platform, storage, audio, model, remote-provider, and processing integrations.
+- `lib/services/` owns platform, storage, audio, remote-provider, and processing integrations.
 - `lib/state/` exposes application state and dependency wiring through Riverpod.
 - `lib/ui/` renders state and delegates work to controllers and services.
 - `android/` contains the native Android entry points and build configuration.
 
-Dependency direction is `UI -> state -> services/repositories -> models and external integrations`. Keep provider-specific behavior behind `RemoteApiClient`, transcription behind `TranscriptionService`, summarization behind `SummarizationService`, and local model libraries behind their existing engine classes. Preserve the dedicated share entry point and the foreground-service isolate boundary.
+Dependency direction is `UI -> state -> services/repositories -> models and external integrations`. Keep provider-specific behavior behind `TranscriptionProviderClient`, `SummaryProviderClient`, and `ModelCatalogClient`, transcription behind `TranscriptionService`, and summarization behind `SummarizationService`. Preserve the dedicated share entry point and explicit audio-ownership boundary.
 
 See [`docs/architecture.md`](docs/architecture.md) for entry points, data flows, and integration boundaries.
 
@@ -71,15 +72,15 @@ Commit `pubspec.lock` and update it only through Flutter or Dart package-manager
 - Cover normal, boundary, failure, and security-sensitive misuse paths.
 - Test pure domain and formatting logic without platform services.
 - Mock network, filesystem, secure-storage, model, and platform integrations only at explicit boundaries.
-- Use integration or device-level checks for Android share intents, permissions, foreground services, recording, model execution, and release signing when unit tests cannot represent the behavior.
+- Use integration or device-level checks for Android share intents, permissions, recording, provider requests, and release signing when unit tests cannot represent the behavior.
 - Do not use fixed sleeps, order-dependent state, real provider requests, or production credentials in tests.
 
 ## Security and Privacy
 
 - Treat shared URIs, filenames, audio files, model output, provider responses, and stored JSON as untrusted input.
-- Never place API keys, Hugging Face tokens, signing material, or personal transcript data in source, logs, tests, documentation, or error output.
+- Never place API keys, signing material, or personal transcript data in source, logs, tests, documentation, or error output.
 - Keep long-lived credentials in `FlutterSecureStorage`. Document and minimize any transient handoff to background processing.
-- Make local and cloud processing boundaries visible to users. Cloud ASR sends audio; cloud summarization sends transcript text.
+- Make provider processing boundaries visible to users. Cloud ASR sends audio; cloud summarization sends transcript text.
 - Validate URI, path, response shape, and resource-size assumptions at the responsible boundary.
 - Preserve least privilege in Android permissions, exported components, GitHub Actions permissions, and release environments.
 - Use established cryptography and platform signing. Do not implement custom cryptography.
@@ -89,8 +90,8 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 ## Performance and Resources
 
 - Keep recording and UI work off expensive synchronous paths.
-- Preserve the foreground-isolate design for local model processing.
-- Bound downloads, request timeouts, retries, file sizes, memory use, and retained audio.
+- Stream large provider uploads where supported and keep network calls bounded.
+- Bound uploads, response bodies, request timeouts, retries, file sizes, memory use, and retained audio.
 - Avoid repeated model initialization, unnecessary rebuilds, duplicate storage reads, and unbounded collections.
 - Preserve the arm64-only packaging decision unless supported platforms change.
 
@@ -106,7 +107,10 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 | Document | Purpose |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Describes application layers, entry points, processing flows, and integration boundaries. |
+| [`docs/cache-lifecycle.md`](docs/cache-lifecycle.md) | Defines audio ownership, managed directories, cleanup, TTL, and quota behavior. |
 | [`docs/code-quality.md`](docs/code-quality.md) | Defines strict quality gates, commands, Flutter coverage mappings, and CI behavior. |
 | [`docs/configuration.md`](docs/configuration.md) | Documents supported toolchains, runtime settings, external services, and secret handling. |
+| [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |
 | [`docs/operations.md`](docs/operations.md) | Provides local development, validation, build, and release operating procedures. |
+| [`docs/provider-setup.md`](docs/provider-setup.md) | Explains how to create and safely configure OpenAI and Gemini API keys. |
 | [`docs/security.md`](docs/security.md) | Describes protected assets, trust boundaries, controls, assumptions, and residual risks. |

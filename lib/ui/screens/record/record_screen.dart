@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
+import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/recording_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
@@ -53,9 +54,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     // lingering record screen.
     await AppNavigator.startProcessing(
       context,
-      audioPath: result.path,
-      source: NoteSource.recording,
-      knownDurationSec: result.durationSec,
+      ProcessingNavigationRequest(
+        audioPath: result.path,
+        ownership: AudioOwnership.temporary,
+        source: NoteSource.recording,
+        knownDurationSec: result.durationSec,
+      ),
       replace: true,
     );
   }

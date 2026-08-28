@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../state/providers.dart';
 import 'audio_import.dart';
 import 'widgets/phone_home_view.dart';
 
@@ -20,7 +21,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return PhoneHomeView(
       query: _query,
       onQueryChanged: (query) => setState(() => _query = query),
-      onPickFile: () => startAudioImport(context),
+      onPickFile: () => startAudioImport(
+        context,
+        cacheManager: ref.read(audioCacheManagerProvider),
+      ),
     );
   }
 }

@@ -150,6 +150,7 @@ jobs:
           --threshold 0
           --reporters console
           --format dart
+          --ignore "**/*.g.dart"
           lib test tool
 
   build:

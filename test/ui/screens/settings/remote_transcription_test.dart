@@ -7,11 +7,9 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/state/connections_controller.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
 import 'package:transcriber/state/remote_models_provider.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/remote_model_list.dart';
@@ -120,7 +118,7 @@ void _registerRemoteModelListTests() {
 }
 
 void _registerTranscriptionTests() {
-  testWidgets('TranscriptionSection switches stages and selects cloud models', (
+  testWidgets('TranscriptionSection selects each cloud provider and model', (
     tester,
   ) async {
     final settingsController = _FakeSettingsController(AppSettings.initial());
@@ -129,12 +127,6 @@ void _registerTranscriptionTests() {
       _testApp(
         child: const TranscriptionSection(),
         settingsController: settingsController,
-        modelState: const ModelManagerState(
-          whisper: {
-            'tiny': ModelStatus(status: DownloadStatus.downloaded),
-            'base': ModelStatus(status: DownloadStatus.downloaded),
-          },
-        ),
         connections: const {
           RemoteProviderId.openai: true,
           RemoteProviderId.google: true,
@@ -150,36 +142,27 @@ void _registerTranscriptionTests() {
     );
     await tester.pumpUntilSettled();
 
-    final strings = AppStrings.of(AppLanguage.de);
-    expect(find.text(strings.modeLocalT), findsOneWidget);
-    expect(find.text('Whisper Base'), findsOneWidget);
-    await tester.tap(find.text('Whisper Tiny'));
-    expect(settingsController.state.whisperModelId, 'tiny');
-
-    await tester.tap(find.text(strings.modeRemoteT));
-    await tester.pumpUntilSettled();
     expect(find.text('OpenAI'), findsOneWidget);
-    expect(find.text('Google'), findsOneWidget);
-    expect(find.text('Anthropic'), findsNothing);
-    expect(find.text('gpt-cloud'), findsOneWidget);
-    expect(
-      queries,
-      contains((provider: RemoteProviderId.openai, forTranscription: true)),
-    );
-
-    await tester.tap(find.text('Google'));
-    await tester.pumpUntilSettled();
-    expect(settingsController.state.asrProvider, RemoteProviderId.google);
+    expect(find.text('Google Gemini'), findsOneWidget);
     expect(find.text('gemini-cloud'), findsOneWidget);
     expect(
       queries,
       contains((provider: RemoteProviderId.google, forTranscription: true)),
     );
 
-    await tester.tap(find.text('gemini-cloud'));
+    await tester.tap(find.text('OpenAI'));
+    await tester.pumpUntilSettled();
+    expect(settingsController.state.asrProvider, RemoteProviderId.openai);
+    expect(find.text('gpt-cloud'), findsOneWidget);
     expect(
-      settingsController.state.asrModelByProvider[RemoteProviderId.google],
-      'gemini-cloud',
+      queries,
+      contains((provider: RemoteProviderId.openai, forTranscription: true)),
+    );
+
+    await tester.tap(find.text('gpt-cloud'));
+    expect(
+      settingsController.state.asrModelByProvider[RemoteProviderId.openai],
+      'gpt-cloud',
     );
   });
 }
@@ -187,7 +170,6 @@ void _registerTranscriptionTests() {
 Widget _testApp({
   required Widget child,
   _FakeSettingsController? settingsController,
-  ModelManagerState modelState = const ModelManagerState(),
   Map<RemoteProviderId, bool> connections = const {},
   _RemoteModelsLoader? loadRemoteModels,
 }) {
@@ -198,9 +180,6 @@ Widget _testApp({
       settingsControllerProvider.overrideWith(() => settings),
       connectionsControllerProvider.overrideWith(
         () => _FakeConnectionsController(connections),
-      ),
-      modelManagerControllerProvider.overrideWith(
-        () => _FakeModelManagerController(modelState),
       ),
       if (loadRemoteModels != null)
         remoteModelsProvider.overrideWith(
@@ -230,16 +209,6 @@ final class _FakeSettingsController extends SettingsController {
   AppSettings build() => _initial;
 
   @override
-  Future<void> setAsrMode(ProcessingMode mode) async {
-    state = state.copyWith(asrMode: mode);
-  }
-
-  @override
-  Future<void> setWhisperModel(String id) async {
-    state = state.copyWith(whisperModelId: id);
-  }
-
-  @override
   Future<void> setAsrProvider(RemoteProviderId provider) async {
     state = state.copyWith(asrProvider: provider);
   }
@@ -259,13 +228,4 @@ final class _FakeConnectionsController extends ConnectionsController {
 
   @override
   Map<RemoteProviderId, bool> build() => Map.of(_initial);
-}
-
-final class _FakeModelManagerController extends ModelManagerController {
-  _FakeModelManagerController(this._initial);
-
-  final ModelManagerState _initial;
-
-  @override
-  ModelManagerState build() => _initial;
 }

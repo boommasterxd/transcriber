@@ -1,19 +1,23 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:record/record.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
 import 'package:transcriber/data/repositories/settings_repository.dart';
 import 'package:transcriber/services/audio/audio_recorder_service.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
 
 class FakeSettingsRepository extends SettingsRepository {
-  FakeSettingsRepository(super.preferences);
+  FakeSettingsRepository(super.database);
 
   AppSettings loaded = AppSettings.initial();
   final List<AppSettings> saved = [];
   final Map<RemoteProviderId, String> keys = {};
+  final List<RemoteProviderId> requestedProviders = [];
   bool failOnSave = false;
 
   @override
@@ -27,7 +31,10 @@ class FakeSettingsRepository extends SettingsRepository {
   }
 
   @override
-  Future<String?> apiKey(RemoteProviderId provider) async => keys[provider];
+  Future<String?> apiKey(RemoteProviderId provider) async {
+    requestedProviders.add(provider);
+    return keys[provider];
+  }
 
   @override
   Future<void> setApiKey(RemoteProviderId provider, String key) async {
@@ -41,14 +48,14 @@ class FakeSettingsRepository extends SettingsRepository {
 }
 
 class FakeNotesRepository extends NotesRepository {
-  FakeNotesRepository(super.preferences);
+  FakeNotesRepository(super.database);
 
   List<TranscriptNote> loaded = [];
   final List<List<TranscriptNote>> saved = [];
   bool failOnSave = false;
 
   @override
-  List<TranscriptNote> load() => List.of(loaded);
+  Future<List<TranscriptNote>> load() async => List.of(loaded);
 
   @override
   Future<void> saveAll(List<TranscriptNote> notes) async {
@@ -58,8 +65,11 @@ class FakeNotesRepository extends NotesRepository {
   }
 }
 
+AppDatabase createTestDatabase() => AppDatabase(NativeDatabase.memory());
+
 class FakeAudioRecorderService extends AudioRecorderService {
-  FakeAudioRecorderService() : super();
+  FakeAudioRecorderService(AudioCacheManager cacheManager)
+    : super(cacheManager: cacheManager);
 
   bool permission = true;
   String path = '/recordings/fake.wav';

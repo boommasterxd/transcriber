@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/providers.dart';
@@ -8,80 +8,141 @@ import 'package:transcriber/state/providers.dart';
 import 'state_test_fakes.dart';
 
 void main() {
-  late ProviderContainer container;
-  late FakeSettingsRepository repository;
+  final fixture = _ConnectionsFixture();
+  setUp(fixture.setUp);
+  tearDown(fixture.tearDown);
 
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    repository = FakeSettingsRepository(await SharedPreferences.getInstance());
+  test('seeds both supported provider connection flags', () {
+    final controller = fixture.controller;
+
+    expect(fixture.connections, {
+      RemoteProviderId.openai: true,
+      RemoteProviderId.google: false,
+    });
+    expect(controller.isConnected(RemoteProviderId.openai), isTrue);
+    expect(controller.isConnected(RemoteProviderId.google), isFalse);
+  });
+
+  for (final provider in RemoteProviderId.values) {
+    test('validates and stores a trimmed ${provider.id} key', () async {
+      fixture.tester.onTest = (testedProvider, key) {
+        expect(fixture.repository.keys[testedProvider], isNull);
+      };
+
+      await fixture.controller.connect(provider, '  ${provider.id}-key  ');
+
+      expect(fixture.tester.calls, [(provider, '${provider.id}-key')]);
+      expect(fixture.repository.keys[provider], '${provider.id}-key');
+      expect(fixture.controller.isConnected(provider), isTrue);
+    });
+  }
+
+  test('rejects blank keys without testing or persisting', () async {
+    await expectLater(
+      fixture.controller.connect(RemoteProviderId.google, ' \n\t '),
+      throwsArgumentError,
+    );
+
+    expect(fixture.tester.calls, isEmpty);
+    expect(fixture.repository.keys, isEmpty);
+    expect(fixture.connections[RemoteProviderId.google], isFalse);
+  });
+
+  test('does not replace a stored key when validation fails', () async {
+    fixture.repository.keys[RemoteProviderId.openai] = 'stable-key';
+    fixture.tester.error = StateError('invalid credentials');
+
+    await expectLater(
+      fixture.controller.connect(RemoteProviderId.openai, 'replacement'),
+      throwsStateError,
+    );
+
+    expect(fixture.repository.keys[RemoteProviderId.openai], 'stable-key');
+    expect(fixture.connections[RemoteProviderId.openai], isTrue);
+  });
+
+  test('replaces a stored key only after successful validation', () async {
+    fixture.repository.keys[RemoteProviderId.openai] = 'old-key';
+
+    await fixture.controller.connect(RemoteProviderId.openai, 'new-key');
+
+    expect(fixture.repository.keys[RemoteProviderId.openai], 'new-key');
+    expect(fixture.tester.calls, [(RemoteProviderId.openai, 'new-key')]);
+  });
+
+  test('tests the stored key without replacing it', () async {
+    fixture.repository.keys[RemoteProviderId.google] = 'stored-key';
+
+    await fixture.controller.test(RemoteProviderId.google);
+
+    expect(fixture.tester.calls, [(RemoteProviderId.google, 'stored-key')]);
+    expect(fixture.repository.keys[RemoteProviderId.google], 'stored-key');
+  });
+
+  test('cannot test a provider without a stored key', () async {
+    await expectLater(
+      fixture.controller.test(RemoteProviderId.google),
+      throwsStateError,
+    );
+    expect(fixture.tester.calls, isEmpty);
+  });
+
+  test('disconnect removes only the selected provider key', () async {
+    fixture.repository.keys.addAll({
+      RemoteProviderId.openai: 'openai-key',
+      RemoteProviderId.google: 'google-key',
+    });
+
+    await fixture.controller.disconnect(RemoteProviderId.openai);
+
+    expect(fixture.repository.keys, {RemoteProviderId.google: 'google-key'});
+    expect(fixture.controller.isConnected(RemoteProviderId.openai), isFalse);
+    expect(fixture.controller.isConnected(RemoteProviderId.google), isFalse);
+  });
+}
+
+final class _ConnectionsFixture {
+  late AppDatabase database;
+  late FakeSettingsRepository repository;
+  late _CredentialTester tester;
+  late ProviderContainer container;
+
+  void setUp() {
+    database = createTestDatabase();
+    repository = FakeSettingsRepository(database);
+    tester = _CredentialTester();
     container = ProviderContainer(
       overrides: [
-        initialConnectionsProvider.overrideWithValue({
-          RemoteProviderId.anthropic: true,
-          RemoteProviderId.openai: false,
+        initialConnectionsProvider.overrideWithValue(const {
+          RemoteProviderId.openai: true,
+          RemoteProviderId.google: false,
         }),
         settingsRepositoryProvider.overrideWithValue(repository),
+        providerCredentialTesterProvider.overrideWithValue(tester.call),
       ],
     );
-  });
+  }
 
-  tearDown(() => container.dispose());
+  ConnectionsController get controller =>
+      container.read(connectionsControllerProvider.notifier);
+  Map<RemoteProviderId, bool> get connections =>
+      container.read(connectionsControllerProvider);
 
-  test(
-    'seeds connection state and reports unknown providers as disconnected',
-    () {
-      final controller = container.read(connectionsControllerProvider.notifier);
+  Future<void> tearDown() async {
+    container.dispose();
+    await database.close();
+  }
+}
 
-      expect(container.read(connectionsControllerProvider), {
-        RemoteProviderId.anthropic: true,
-        RemoteProviderId.openai: false,
-      });
-      expect(controller.isConnected(RemoteProviderId.anthropic), isTrue);
-      expect(controller.isConnected(RemoteProviderId.google), isFalse);
-    },
-  );
+final class _CredentialTester {
+  final List<(RemoteProviderId, String)> calls = [];
+  void Function(RemoteProviderId provider, String key)? onTest;
+  Object? error;
 
-  test('connect trims and stores a non-empty key', () async {
-    final controller = container.read(connectionsControllerProvider.notifier);
-
-    await controller.connect(RemoteProviderId.openai, '  openai-key  ');
-
-    expect(repository.keys[RemoteProviderId.openai], 'openai-key');
-    expect(controller.isConnected(RemoteProviderId.openai), isTrue);
-  });
-
-  test('ignores blank keys without changing state or persistence', () async {
-    final controller = container.read(connectionsControllerProvider.notifier);
-
-    await controller.connect(RemoteProviderId.openai, ' \n\t ');
-
-    expect(repository.keys, isEmpty);
-    expect(container.read(connectionsControllerProvider), {
-      RemoteProviderId.anthropic: true,
-      RemoteProviderId.openai: false,
-    });
-  });
-
-  test(
-    'disconnect removes the key and marks only that provider disconnected',
-    () async {
-      repository.keys[RemoteProviderId.anthropic] = 'anthropic-key';
-      final controller = container.read(connectionsControllerProvider.notifier);
-
-      await controller.disconnect(RemoteProviderId.anthropic);
-
-      expect(repository.keys, isEmpty);
-      expect(controller.isConnected(RemoteProviderId.anthropic), isFalse);
-      expect(controller.isConnected(RemoteProviderId.openai), isFalse);
-    },
-  );
-
-  test('returns an empty string when no API key exists', () async {
-    final controller = container.read(connectionsControllerProvider.notifier);
-
-    expect(await controller.apiKey(RemoteProviderId.google), isEmpty);
-
-    repository.keys[RemoteProviderId.google] = 'google-key';
-    expect(await controller.apiKey(RemoteProviderId.google), 'google-key');
-  });
+  Future<void> call(RemoteProviderId provider, String key) async {
+    calls.add((provider, key));
+    onTest?.call(provider, key);
+    final failure = error;
+    if (failure != null) throw failure;
+  }
 }

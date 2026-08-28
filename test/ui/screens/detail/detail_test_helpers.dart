@@ -16,7 +16,7 @@ final class DetailTestNotesController extends NotesController {
 
   final List<TranscriptNote> initialNotes;
   final List<(String, int)> toggles = [];
-  final List<String> deletions = [];
+  final List<({String id, bool deleteAudio})> deletions = [];
 
   @override
   List<TranscriptNote> build() => initialNotes;
@@ -42,8 +42,8 @@ final class DetailTestNotesController extends NotesController {
   }
 
   @override
-  Future<void> delete(String id) async {
-    deletions.add(id);
+  Future<void> delete(String id, {bool deleteAudio = true}) async {
+    deletions.add((id: id, deleteAudio: deleteAudio));
     state = state.where((note) => note.id != id).toList();
   }
 
@@ -133,8 +133,6 @@ Future<void> verifyTranscriptCopy(
 TranscriptNote detailTestNote({
   String id = 'note-1',
   String gist = 'Concise summary',
-  bool asrIsLocal = true,
-  bool summaryIsLocal = false,
 }) => TranscriptNote(
   id: id,
   title: 'Planning session',
@@ -142,12 +140,12 @@ TranscriptNote detailTestNote({
   source: NoteSource.shared,
   durationSec: 65,
   createdAt: DateTime(2026, 8, 28),
-  asrIsLocal: asrIsLocal,
-  summaryIsLocal: summaryIsLocal,
-  asrName: 'Whisper Base',
-  asrSub: asrIsLocal ? 'On device' : 'Cloud ASR',
-  llmName: 'Claude Sonnet',
-  llmSub: summaryIsLocal ? 'On device' : 'Anthropic',
+  asrIsLocal: false,
+  summaryIsLocal: false,
+  asrName: 'gpt-transcribe',
+  asrSub: 'OpenAI',
+  llmName: 'gemini-3.7-flash',
+  llmSub: 'Google Gemini',
   gist: gist,
   points: const ['Confirm the launch plan'],
   todos: [TodoItem(text: 'Send the agenda')],

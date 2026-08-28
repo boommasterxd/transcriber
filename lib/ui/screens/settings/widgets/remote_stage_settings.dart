@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/surfaces.dart';
-import 'provider_connect_card.dart';
 import 'provider_picker.dart';
 import 'remote_model_list.dart';
 
@@ -56,8 +55,6 @@ class RemoteStageSettings extends ConsumerWidget {
           selected: selection.provider,
           onSelect: actions.selectProvider,
         ),
-        const SizedBox(height: 12),
-        ProviderConnectCard(provider: selection.provider),
         const SizedBox(height: 12),
         SectionLabel(
           t.remoteModel,

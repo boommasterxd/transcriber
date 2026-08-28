@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/models/transcript_note.dart';
+import '../services/storage/managed_audio_file.dart';
 import 'screens/detail/transcript_detail_screen.dart';
 import 'screens/processing/processing_screen.dart';
 import 'screens/record/record_screen.dart';
@@ -8,6 +9,23 @@ import 'screens/settings/settings_screen.dart';
 
 /// Global navigator key so background events (share intents) can navigate.
 final navigatorKey = GlobalKey<NavigatorState>();
+
+/// Input needed to open the processing flow for one managed audio file.
+final class ProcessingNavigationRequest {
+  const ProcessingNavigationRequest({
+    required this.audioPath,
+    required this.ownership,
+    required this.source,
+    this.fileName,
+    this.knownDurationSec,
+  });
+
+  final String audioPath;
+  final AudioOwnership ownership;
+  final NoteSource source;
+  final String? fileName;
+  final int? knownDurationSec;
+}
 
 /// A shared fade + slide-up page transition used for all in-app navigation.
 Route<T> _fadeSlideRoute<T>(Widget page) {
@@ -49,24 +67,22 @@ class AppNavigator {
         context,
       ).push(_fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
 
-  /// Starts processing of [audioPath]; the processing screen routes to the
+  /// Starts the processing [request]; the processing screen routes to the
   /// detail screen on success. When [replace] is true the current route is
   /// replaced (used by the record screen so it doesn't linger underneath and
   /// swallow the back-from-detail pop).
   static Future<void> startProcessing(
-    BuildContext context, {
-    required String audioPath,
-    required NoteSource source,
-    String? fileName,
-    int? knownDurationSec,
+    BuildContext context,
+    ProcessingNavigationRequest request, {
     bool replace = false,
   }) {
     final route = _fadeSlideRoute(
       ProcessingScreen(
-        audioPath: audioPath,
-        source: source,
-        fileName: fileName,
-        knownDurationSec: knownDurationSec,
+        audioPath: request.audioPath,
+        ownership: request.ownership,
+        source: request.source,
+        fileName: request.fileName,
+        knownDurationSec: request.knownDurationSec,
       ),
     );
     final nav = Navigator.of(context);

@@ -1,27 +1,24 @@
 import 'dart:async';
 
-import 'package:path/path.dart' as p;
 import 'package:record/record.dart';
 
-import '../storage/storage_paths.dart';
+import '../storage/audio_cache_manager.dart';
+import '../storage/managed_audio_file.dart';
 
-/// Wraps the `record` package to capture microphone audio directly as 16 kHz
-/// mono WAV — exactly the format Whisper needs, so no conversion is required.
+/// Captures provider-compatible mono WAV in the app-owned recording cache.
 class AudioRecorderService {
-  AudioRecorderService();
+  AudioRecorderService({AudioCacheManager? cacheManager})
+    : _cacheManager = cacheManager ?? AudioCacheManager();
 
   final AudioRecorder _recorder = AudioRecorder();
+  final AudioCacheManager _cacheManager;
   String? _currentPath;
 
   Future<bool> hasPermission() => _recorder.hasPermission();
 
   /// Starts a new recording and returns the destination path.
   Future<String> start() async {
-    final dir = await (await StoragePaths.instance()).audioDir();
-    final path = p.join(
-      dir.path,
-      'rec_${DateTime.now().millisecondsSinceEpoch}.wav',
-    );
+    final path = await _cacheManager.recordingDestination();
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.wav,
@@ -40,15 +37,23 @@ class AudioRecorderService {
   /// Stops recording and returns the finished file path (or null on failure).
   Future<String?> stop() async {
     final path = await _recorder.stop();
-    return path ?? _currentPath;
+    final resolved = path ?? _currentPath;
+    _currentPath = null;
+    return resolved;
   }
 
   /// Cancels and discards the current recording.
   Future<void> cancel() async {
+    final path = _currentPath;
     try {
       await _recorder.cancel();
     } catch (_) {}
     _currentPath = null;
+    if (path != null) {
+      await _cacheManager.discard(
+        ManagedAudioFile(path: path, ownership: AudioOwnership.temporary),
+      );
+    }
   }
 
   /// Live amplitude stream (dBFS) for the waveform visualization.

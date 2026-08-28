@@ -1,96 +1,94 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
-import 'package:transcriber/services/audio/audio_converter.dart';
+import 'package:transcriber/data/models/transcription_result.dart';
 import 'package:transcriber/services/audio/audio_metadata.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
-import 'package:transcriber/services/processing/processing_runtime.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
-import 'package:transcriber/services/summarization/summarization_service.dart';
-import 'package:transcriber/services/summarization/summary_result.dart';
-import 'package:transcriber/services/transcription/transcription_service.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
+import 'package:transcriber/services/storage/managed_audio_file.dart';
+import 'package:transcriber/services/storage/storage_paths.dart';
 
-ProcessingRequest testProcessingRequest([
-  void Function(TestProcessingRequestBuilder builder)? configure,
-]) {
-  final builder = TestProcessingRequestBuilder();
-  configure?.call(builder);
-  return builder.build();
+ProcessingRequest testProcessingRequest({
+  required ManagedAudioFile audio,
+  ProcessingRequestOptions? options,
+}) {
+  final requestOptions = options ?? ProcessingRequestOptions();
+  final settings = AppSettings.initial().copyWith(
+    asrProvider: requestOptions.asrProvider,
+    summaryProvider: requestOptions.summaryProvider,
+    asrModelByProvider: {
+      RemoteProviderId.openai: 'openai-asr',
+      RemoteProviderId.google: 'google-asr',
+    },
+    chatModelByProvider: {
+      RemoteProviderId.openai: 'openai-summary',
+      RemoteProviderId.google: 'google-summary',
+    },
+    summarizeEnabled: requestOptions.summarizeEnabled,
+    autoDeleteAudio: requestOptions.autoDeleteAudio,
+    language: AppLanguage.en,
+  );
+  return ProcessingRequest(
+    input: ProcessingInput(
+      audio: audio,
+      source: requestOptions.source,
+      knownDurationSec: requestOptions.knownDurationSec,
+    ),
+    settings: settings,
+    credentials: ProcessingCredentials(
+      asrApiKey: requestOptions.asrApiKey,
+      summaryApiKey: requestOptions.summaryApiKey,
+    ),
+  );
 }
 
-final class TestProcessingRequestBuilder {
-  ProcessingMode asrMode = ProcessingMode.cloud;
-  ProcessingMode summaryMode = ProcessingMode.cloud;
+final class ProcessingRequestOptions {
+  RemoteProviderId asrProvider = RemoteProviderId.openai;
+  RemoteProviderId summaryProvider = RemoteProviderId.openai;
   bool summarizeEnabled = true;
   bool autoDeleteAudio = false;
   int? knownDurationSec = 12;
   NoteSource source = NoteSource.file;
-  String audioPath = '/audio/input.m4a';
   String asrApiKey = 'asr-key';
   String summaryApiKey = 'summary-key';
-  AppLanguage language = AppLanguage.en;
-
-  ProcessingRequest build() {
-    final settings = AppSettings.initial().copyWith(
-      asrMode: asrMode,
-      summaryMode: summaryMode,
-      asrProvider: RemoteProviderId.openai,
-      summaryProvider: RemoteProviderId.openai,
-      summarizeEnabled: summarizeEnabled,
-      autoDeleteAudio: autoDeleteAudio,
-      language: language,
-    );
-    return ProcessingRequest(
-      input: ProcessingInput(
-        audioPath: audioPath,
-        source: source,
-        knownDurationSec: knownDurationSec,
-      ),
-      settings: settings,
-      credentials: ProcessingCredentials(
-        asrApiKey: asrApiKey,
-        summaryApiKey: summaryApiKey,
-      ),
-    );
-  }
 }
 
-TranscriptNote testTranscriptNote({
-  String id = 'note-id',
-  String title = 'Test note',
-  int durationSec = 12,
-}) => TranscriptNote(
-  id: id,
-  title: title,
-  speaker: 'Speaker',
-  source: NoteSource.file,
-  durationSec: durationSec,
-  createdAt: DateTime.utc(2026, 1, 2, 3, 4),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'ASR',
-  asrSub: 'Cloud',
-  llmName: 'LLM',
-  llmSub: 'Cloud',
-  gist: 'Gist',
-  points: const ['Point'],
-  todos: [TodoItem(text: 'Action')],
-  transcript: const [TranscriptLine(time: '0:00', text: 'Transcript text')],
-  audioPath: '/audio/input.m4a',
-);
+final class ProcessingFileFixture {
+  late Directory root;
+  late StoragePaths paths;
+  late AudioCacheManager cacheManager;
 
-final class FakeAudioConverter extends AudioConverter {
-  FakeAudioConverter({this.outputPath = '/audio/converted.wav'});
+  Future<void> setUp() async {
+    root = await Directory.systemTemp.createTemp('processing-pipeline-test-');
+    paths = StoragePaths(
+      supportRoot: Directory(p.join(root.path, 'support')),
+      cacheRoot: Directory(p.join(root.path, 'cache')),
+    );
+    cacheManager = AudioCacheManager(paths: Future.value(paths));
+  }
 
-  final String outputPath;
-  final List<String> inputs = [];
+  Future<void> tearDown() async {
+    if (await root.exists()) await root.delete(recursive: true);
+  }
 
-  @override
-  Future<String> toWhisperWav(String input) async {
-    inputs.add(input);
-    return outputPath;
+  Future<ManagedAudioFile> createAudio(
+    AudioOwnership ownership, {
+    String filename = 'input.m4a',
+  }) async {
+    final directory = switch (ownership) {
+      AudioOwnership.external => Directory(p.join(root.path, 'external')),
+      AudioOwnership.temporary => await paths.importCacheDir(),
+      AudioOwnership.retained => await paths.retainedAudioDir(),
+    };
+    await directory.create(recursive: true);
+    final file = File(p.join(directory.path, filename));
+    await file.writeAsBytes([1, 2, 3]);
+    return ManagedAudioFile(path: file.path, ownership: ownership);
   }
 }
 
@@ -107,157 +105,66 @@ final class FakeAudioMetadata extends AudioMetadata {
   }
 }
 
-final class FakeRemoteApiClient implements RemoteApiClient {
-  FakeRemoteApiClient({this.supportsAudioTranscription = true});
+typedef ClientBuild = ({RemoteProviderId provider, String apiKey});
 
-  @override
-  final bool supportsAudioTranscription;
+final class RecordingClientFactory {
+  final List<ClientBuild> builds = [];
+  final Map<RemoteProviderId, RecordingProviderClient> clients = {};
 
-  int chatCalls = 0;
+  RemoteProviderClient call(RemoteProviderId provider, String apiKey) {
+    builds.add((provider: provider, apiKey: apiKey));
+    return clients.putIfAbsent(provider, RecordingProviderClient.new);
+  }
+}
+
+final class RecordingProviderClient implements RemoteProviderClient {
+  int summaryCalls = 0;
   int transcriptionCalls = 0;
-  Object? chatError;
+  Object? summaryError;
   Object? transcriptionError;
-  String chatResponse =
+  String? audioPath;
+  String? languageCode;
+  String? asrModelId;
+  String? summaryModelId;
+  String? transcript;
+  String summaryResponse =
       '{"title":"Remote title","gist":"Remote gist",'
       '"points":["Point"],"todos":["Action"]}';
-  TranscriptionResult transcription = const TranscriptionResult(
-    text: 'Transcript text',
-    segments: [TranscriptLine(time: '0:00', text: 'Transcript text')],
-  );
-
-  @override
-  Future<String> chat({
-    required String system,
-    required String user,
-    required String modelId,
-  }) async {
-    chatCalls++;
-    if (chatError case final error?) throw error;
-    return chatResponse;
-  }
-
-  @override
-  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) {
-    throw UnsupportedError('Model listing is not used in processing tests');
-  }
 
   @override
   Future<TranscriptionResult> transcribe(
     String audioPath, {
+    required String modelId,
     String? languageCode,
-    required String model,
   }) async {
     transcriptionCalls++;
+    this.audioPath = audioPath;
+    this.languageCode = languageCode;
+    asrModelId = modelId;
     if (transcriptionError case final error?) throw error;
-    return transcription;
+    return const TranscriptionResult(
+      text: 'Transcript text',
+      segments: [TranscriptLine(time: '0:00', text: 'Transcript text')],
+    );
   }
-}
-
-final class FakeTranscriptionService implements TranscriptionService {
-  final List<String> paths = [];
-  final List<String?> languages = [];
-  TranscriptionResult result = const TranscriptionResult(
-    text: 'Local transcript',
-    segments: [TranscriptLine(time: '0:00', text: 'Local transcript')],
-  );
 
   @override
-  Future<TranscriptionResult> transcribe(
-    String audioPath, {
-    String? languageCode,
+  Future<String> summarize({
+    required String systemPrompt,
+    required String userPrompt,
+    required String modelId,
   }) async {
-    paths.add(audioPath);
-    languages.add(languageCode);
-    return result;
-  }
-}
-
-final class FakeSummarizationService implements SummarizationService {
-  final List<String> transcripts = [];
-  final List<bool> germanValues = [];
-  SummaryResult result = const SummaryResult(
-    title: 'Local title',
-    gist: 'Local gist',
-    points: ['Local point'],
-    todos: ['Local action'],
-  );
-
-  @override
-  Future<SummaryResult> summarize(
-    String transcript, {
-    required bool german,
-  }) async {
-    transcripts.add(transcript);
-    germanValues.add(german);
-    return result;
-  }
-}
-
-final class FakeProcessingRuntime implements ProcessingRuntime {
-  bool transcriptionModelAvailable = true;
-  bool summaryModelAvailable = true;
-  int transcriptionAvailabilityChecks = 0;
-  int summaryAvailabilityChecks = 0;
-  int foregroundCalls = 0;
-  int localTranscriptionBuilds = 0;
-  int localSummaryBuilds = 0;
-  bool failDelete = false;
-  DateTime clock = DateTime.utc(2026, 2, 3, 4, 5);
-  String generatedId = 'generated-id';
-  final List<String> deletedPaths = [];
-  final FakeTranscriptionService transcriptionService =
-      FakeTranscriptionService();
-  final FakeSummarizationService summarizationService =
-      FakeSummarizationService();
-  ForegroundProcessingRunner? foreground;
-
-  @override
-  Future<TranscriptNote> runForeground(
-    ProcessingRequest request,
-    ProcessingCallbacks callbacks,
-  ) async {
-    foregroundCalls++;
-    final handler = foreground;
-    if (handler == null) throw StateError('Foreground handler not configured');
-    return handler(request, callbacks);
+    summaryCalls++;
+    transcript = userPrompt;
+    summaryModelId = modelId;
+    if (summaryError case final error?) throw error;
+    return summaryResponse;
   }
 
   @override
-  Future<bool> isLocalTranscriptionModelAvailable(AppSettings settings) async {
-    transcriptionAvailabilityChecks++;
-    return transcriptionModelAvailable;
-  }
+  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) =>
+      throw UnsupportedError('Model listing is outside processing tests');
 
   @override
-  Future<bool> isLocalSummaryModelAvailable(AppSettings settings) async {
-    summaryAvailabilityChecks++;
-    return summaryModelAvailable;
-  }
-
-  @override
-  TranscriptionService createLocalTranscriptionService(AppSettings settings) {
-    localTranscriptionBuilds++;
-    return transcriptionService;
-  }
-
-  @override
-  SummarizationService createLocalSummarizationService(
-    AppSettings settings,
-    String fallbackTitle,
-  ) {
-    localSummaryBuilds++;
-    return summarizationService;
-  }
-
-  @override
-  DateTime now() => clock;
-
-  @override
-  String newId() => generatedId;
-
-  @override
-  Future<void> deleteAudio(String path) async {
-    deletedPaths.add(path);
-    if (failDelete) throw StateError('delete failed');
-  }
+  Future<void> testConnection() async {}
 }

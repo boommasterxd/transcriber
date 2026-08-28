@@ -1,5 +1,5 @@
 name: transcriber
-description: Transcribe and summarize voice notes locally on device.
+description: Transcribe and summarize voice notes with OpenAI or Google Gemini.
 publish_to: "none"
 version: 1.0.0+1
 
@@ -16,30 +16,21 @@ dependencies:
   # State management
   flutter_riverpod: ^3.3.2
 
-  # On-device ML
-  whisper_kit: ^0.3.1
-  flutter_gemma: ^1.0.1
-  flutter_gemma_litertlm: ^1.0.1
-  flutter_gemma_mediapipe: ^1.0.1
-
-  # Keeps on-device summarization running when the app is backgrounded
-  # (Android foreground service).
-  flutter_foreground_task: ^11.0.1
-
-  # Audio capture / playback / conversion
+  # Audio capture and playback
   record: ^7.1.0
   just_audio: ^0.10.5
-  ffmpeg_kit_flutter_new: ^4.2.1
 
   # Platform integration
   receive_sharing_intent: ^1.8.1
   permission_handler: ^13.0.0
   file_picker: ^12.0.0-beta.7
-  background_downloader: ^9.5.5
   path_provider: ^2.1.5
   path: ^1.9.1
 
   # Persistence
+  drift: ^2.34.3
+  drift_flutter: ^0.3.1
+  # Legacy read-only migration. Remove after the documented migration window.
   shared_preferences: ^2.5.5
   flutter_secure_storage: ^11.0.0
 
@@ -54,7 +45,9 @@ dependencies:
 
 dev_dependencies:
   analyzer: ^12.1.0
+  build_runner: ^2.15.1
   dart_code_linter: ^4.3.0
+  drift_dev: ^2.34.0
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

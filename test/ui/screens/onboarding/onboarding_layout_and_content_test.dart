@@ -4,6 +4,7 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/ui/screens/onboarding/onboarding_step_gate.dart';
 import 'package:transcriber/ui/screens/onboarding/widgets/onboarding_layout.dart';
 import 'package:transcriber/ui/screens/onboarding/widgets/onboarding_step_content.dart';
+import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.dart';
 
 import 'onboarding_test_support.dart';
 
@@ -34,6 +35,22 @@ void _registerContentTests(AppStrings strings) {
       );
       expect(find.text(expected[step]), findsOneWidget);
     }
+  });
+
+  testWidgets('cloud step shows both key cards and the privacy notice', (
+    tester,
+  ) async {
+    await pumpOnboardingTestApp(
+      tester,
+      child: Scaffold(
+        body: SingleChildScrollView(
+          child: OnboardingStepContent(step: 1, strings: strings),
+        ),
+      ),
+    );
+
+    expect(find.byType(ProviderConnectCard), findsNWidgets(2));
+    expect(find.text(strings.privacyStatement), findsOneWidget);
   });
 }
 
@@ -92,7 +109,6 @@ void _registerLayoutTests(AppStrings strings) {
     tester,
   ) async {
     final hints = <OnboardingGateHint, String>{
-      OnboardingGateHint.downloadModel: strings.obDownloadHint,
       OnboardingGateHint.connectProvider: strings.obConnectHint,
       OnboardingGateHint.grantPermissions: strings.obPermLocked,
     };

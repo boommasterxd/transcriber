@@ -1,208 +1,317 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/service_exceptions.dart';
+import 'package:transcriber/services/storage/managed_audio_file.dart';
 
 import 'processing_test_support.dart';
 
+typedef ProviderRun = ({
+  ManagedAudioFile audio,
+  RecordingClientFactory clients,
+  TranscriptNote note,
+  List<ProcessingStep> steps,
+});
+
 void main() {
-  group('ProcessingPipeline cloud orchestration', () {
-    _registerCloudStagesTest();
-    _registerSummaryOffTest();
-    _registerCredentialTests();
-    _registerDurationTest();
-    _registerFallbackTest();
-    _registerDeleteTests();
-    _registerErrorTest();
+  final fixture = ProcessingFileFixture();
+
+  setUp(fixture.setUp);
+  tearDown(fixture.tearDown);
+
+  _registerProviderTests(fixture);
+  _registerValidationTests(fixture);
+  _registerAudioLifecycleTests(fixture);
+}
+
+void _registerProviderTests(ProcessingFileFixture fixture) {
+  group('ProcessingPipeline provider orchestration', () {
+    _registerProviderCombinations(fixture);
+    _registerSummaryDisabledTest(fixture);
   });
 }
 
-void _registerFallbackTest() {
-  test('uses source-specific titles when summary is disabled', () async {
-    final pipeline = ProcessingPipeline(
-      runtime: FakeProcessingRuntime(),
-      remoteClientBuilder: (_, _) => FakeRemoteApiClient(),
-    );
-
-    final recording = await pipeline.process(
-      testProcessingRequest((builder) {
-        builder.source = NoteSource.recording;
-        builder.summarizeEnabled = false;
-        builder.summaryApiKey = '';
-      }),
-    );
-    final unnamedFile = await pipeline.process(
-      testProcessingRequest((builder) {
-        builder.audioPath = '/audio/';
-        builder.summarizeEnabled = false;
-        builder.summaryApiKey = '';
-      }),
-    );
-
-    final strings = AppStrings.of(AppLanguage.en);
-    expect(recording.title, strings.recordingLabel);
-    expect(unnamedFile.title, strings.voiceNote);
-  });
+void _registerProviderCombinations(ProcessingFileFixture fixture) {
+  for (final asr in RemoteProviderId.values) {
+    _registerSummaryCombinations(fixture, asr);
+  }
 }
 
-void _registerCloudStagesTest() {
-  test('uses stage credentials and deterministic note metadata', () async {
-    final client = FakeRemoteApiClient();
-    final runtime = FakeProcessingRuntime();
-    final metadata = FakeAudioMetadata();
-    final builds = <({RemoteProviderId provider, String apiKey})>[];
-    final pipeline = ProcessingPipeline(
-      metadata: metadata,
-      runtime: runtime,
-      remoteClientBuilder: (provider, apiKey) {
-        builds.add((provider: provider, apiKey: apiKey));
-        return client;
-      },
-    );
-    final steps = <ProcessingStep>[];
+void _registerSummaryCombinations(
+  ProcessingFileFixture fixture,
+  RemoteProviderId asr,
+) {
+  for (final summary in RemoteProviderId.values) {
+    _registerProviderCombinationTest(fixture, asr, summary);
+  }
+}
 
-    final note = await pipeline.process(
-      testProcessingRequest(),
-      callbacks: ProcessingCallbacks(onStep: steps.add),
-    );
+void _registerProviderCombinationTest(
+  ProcessingFileFixture fixture,
+  RemoteProviderId asr,
+  RemoteProviderId summary,
+) {
+  test('runs ${asr.id} ASR with ${summary.id} summary', () async {
+    final run = await _runProviderCombination(fixture, asr, summary);
+    final asrClient = run.clients.clients[asr]!;
+    final summaryClient = run.clients.clients[summary]!;
 
-    expect(steps, [ProcessingStep.transcribing, ProcessingStep.summarizing]);
-    expect(builds, [
-      (provider: RemoteProviderId.openai, apiKey: 'asr-key'),
-      (provider: RemoteProviderId.openai, apiKey: 'summary-key'),
+    expect(run.clients.builds, [
+      (provider: asr, apiKey: 'asr-key'),
+      (provider: summary, apiKey: 'summary-key'),
     ]);
-    expect(client.transcriptionCalls, 1);
-    expect(client.chatCalls, 1);
-    expect(metadata.paths, isEmpty);
-    expect(note.id, 'generated-id');
-    expect(note.createdAt, runtime.clock);
-    expect(note.title, 'Remote title');
-    expect(note.durationSec, 12);
-    expect(note.transcript.single.text, 'Transcript text');
+    expect(asrClient.transcriptionCalls, 1);
+    expect(asrClient.asrModelId, '${asr.id}-asr');
+    expect(asrClient.audioPath, run.audio.path);
+    expect(asrClient.languageCode, 'auto');
+    expect(summaryClient.summaryCalls, 1);
+    expect(summaryClient.summaryModelId, '${summary.id}-summary');
+    expect(summaryClient.transcript, contains('Transcript text'));
+    expect(run.steps, [
+      ProcessingStep.transcribing,
+      ProcessingStep.summarizing,
+    ]);
+    expect(run.note.title, 'Remote title');
+    expect(run.note.asrName, '${asr.id}-asr');
+    expect(run.note.llmName, '${summary.id}-summary');
+    expect(run.note.asrSub, _providerName(asr));
+    expect(run.note.llmSub, _providerName(summary));
+    expect(run.note.asrIsLocal, isFalse);
+    expect(run.note.summaryIsLocal, isFalse);
+    expect(run.note.transcript.single.text, 'Transcript text');
+    expect(run.note.audioOwnership, AudioOwnership.retained);
+    expect(await File(run.note.audioPath!).exists(), isTrue);
   });
 }
 
-void _registerSummaryOffTest() {
-  test('skips summary credentials, execution, and callback', () async {
-    final client = FakeRemoteApiClient();
-    final runtime = FakeProcessingRuntime();
-    final apiKeys = <String>[];
-    final pipeline = ProcessingPipeline(
-      runtime: runtime,
-      remoteClientBuilder: (_, apiKey) {
-        apiKeys.add(apiKey);
-        return client;
+Future<ProviderRun> _runProviderCombination(
+  ProcessingFileFixture fixture,
+  RemoteProviderId asr,
+  RemoteProviderId summary,
+) async {
+  final audio = await fixture.createAudio(AudioOwnership.external);
+  final clients = RecordingClientFactory();
+  final steps = <ProcessingStep>[];
+  final options = ProcessingRequestOptions()
+    ..asrProvider = asr
+    ..summaryProvider = summary;
+  final note = await _pipeline(fixture, clients).process(
+    testProcessingRequest(audio: audio, options: options),
+    callbacks: ProcessingCallbacks(onStep: steps.add),
+  );
+  return (audio: audio, clients: clients, note: note, steps: steps);
+}
+
+void _registerSummaryDisabledTest(ProcessingFileFixture fixture) {
+  test(
+    'skips summary credentials, client, and callback when disabled',
+    () async {
+      final audio = await fixture.createAudio(AudioOwnership.external);
+      final clients = RecordingClientFactory();
+      final steps = <ProcessingStep>[];
+      final options = ProcessingRequestOptions()
+        ..asrProvider = RemoteProviderId.google
+        ..summaryProvider = RemoteProviderId.openai
+        ..summarizeEnabled = false
+        ..summaryApiKey = '';
+
+      final note = await _pipeline(fixture, clients).process(
+        testProcessingRequest(audio: audio, options: options),
+        callbacks: ProcessingCallbacks(onStep: steps.add),
+      );
+
+      expect(clients.builds, [
+        (provider: RemoteProviderId.google, apiKey: 'asr-key'),
+      ]);
+      expect(clients.clients[RemoteProviderId.openai], isNull);
+      expect(steps, [ProcessingStep.transcribing]);
+      expect(note.title, 'input.m4a');
+      expect(note.gist, isEmpty);
+      expect(note.points, isEmpty);
+      expect(note.todos, isEmpty);
+      expect(note.llmName, AppStrings.of(AppLanguage.en).summaryOff);
+      expect(note.llmSub, isEmpty);
+      expect(note.summaryIsLocal, isFalse);
+    },
+  );
+}
+
+void _registerValidationTests(ProcessingFileFixture fixture) {
+  group('ProcessingPipeline validation and failures', () {
+    test('rejects a blank ASR key before validating audio', () async {
+      await _expectMissingKey(fixture, _missingAsrKeyOptions());
+    });
+
+    test(
+      'rejects a blank enabled summary key before validating audio',
+      () async {
+        await _expectMissingKey(fixture, _missingSummaryKeyOptions());
       },
     );
-    final steps = <ProcessingStep>[];
 
-    final note = await pipeline.process(
-      testProcessingRequest((builder) {
-        builder.summarizeEnabled = false;
-        builder.summaryApiKey = '';
-      }),
-      callbacks: ProcessingCallbacks(onStep: steps.add),
+    test('propagates transcription failure without summarizing', () async {
+      final audio = await fixture.createAudio(AudioOwnership.temporary);
+      final clients = RecordingClientFactory();
+      final failure = StateError('transcription failed');
+      clients.clients[RemoteProviderId.openai] = RecordingProviderClient()
+        ..transcriptionError = failure;
+
+      await expectLater(
+        _pipeline(
+          fixture,
+          clients,
+        ).process(testProcessingRequest(audio: audio)),
+        throwsA(same(failure)),
+      );
+
+      expect(clients.clients[RemoteProviderId.openai]!.summaryCalls, 0);
+      await fixture.cacheManager.discard(audio);
+      expect(await File(audio.path).exists(), isFalse);
+    });
+
+    test('propagates summary failure after transcription', () async {
+      final audio = await fixture.createAudio(AudioOwnership.temporary);
+      final clients = RecordingClientFactory();
+      final failure = StateError('summary failed');
+      clients.clients[RemoteProviderId.openai] = RecordingProviderClient()
+        ..summaryError = failure;
+
+      await expectLater(
+        _pipeline(
+          fixture,
+          clients,
+        ).process(testProcessingRequest(audio: audio)),
+        throwsA(same(failure)),
+      );
+
+      expect(clients.clients[RemoteProviderId.openai]!.transcriptionCalls, 1);
+      await fixture.cacheManager.discard(audio);
+      expect(await File(audio.path).exists(), isFalse);
+    });
+  });
+}
+
+void _registerAudioLifecycleTests(ProcessingFileFixture fixture) {
+  group('ProcessingPipeline audio lifecycle', () {
+    test('reads an unknown duration once and stores it', () async {
+      final audio = await fixture.createAudio(AudioOwnership.external);
+      final metadata = FakeAudioMetadata(duration: 37);
+      final options = ProcessingRequestOptions()..knownDurationSec = null;
+      final note = await _processAudio(fixture, audio, options, metadata);
+
+      expect(metadata.paths, [audio.path]);
+      expect(note.durationSec, 37);
+    });
+
+    test('retains external audio without deleting the source', () async {
+      final audio = await fixture.createAudio(AudioOwnership.external);
+      final note = await _processAudio(fixture, audio);
+
+      expect(note.audioOwnership, AudioOwnership.retained);
+      expect(note.audioPath, isNot(audio.path));
+      expect(await File(note.audioPath!).readAsBytes(), [1, 2, 3]);
+      expect(await File(audio.path).exists(), isTrue);
+    });
+
+    test(
+      'retains audio while staging the temporary source for commit',
+      () async {
+        final audio = await fixture.createAudio(AudioOwnership.temporary);
+        final note = await _processAudio(fixture, audio);
+
+        expect(note.audioOwnership, AudioOwnership.retained);
+        expect(note.audioPath, isNot(audio.path));
+        expect(await File(note.audioPath!).exists(), isTrue);
+        expect(await File(audio.path).exists(), isTrue);
+      },
     );
 
-    expect(apiKeys, ['asr-key']);
-    expect(steps, [ProcessingStep.transcribing]);
-    expect(client.chatCalls, 0);
-    expect(runtime.summaryAvailabilityChecks, 0);
-    expect(note.title, 'input.m4a');
-    expect(note.gist, isEmpty);
-    expect(note.summaryIsLocal, isTrue);
+    test('reuses already retained audio', () async {
+      final audio = await fixture.createAudio(AudioOwnership.retained);
+      final note = await _processAudio(fixture, audio);
+
+      expect(note.audioPath, audio.path);
+      expect(note.audioOwnership, AudioOwnership.retained);
+      expect(await File(audio.path).exists(), isTrue);
+    });
+
+    test('stages auto-delete until the note transaction commits', () async {
+      final audio = await fixture.createAudio(AudioOwnership.temporary);
+      final options = ProcessingRequestOptions()..autoDeleteAudio = true;
+      final note = await _processAudio(fixture, audio, options);
+
+      expect(note.audioPath, isNull);
+      expect(note.audioOwnership, AudioOwnership.external);
+      expect(await File(audio.path).exists(), isTrue);
+    });
+
+    test('uses the localized recording title without a summary', () async {
+      final audio = await fixture.createAudio(AudioOwnership.external);
+      final options = ProcessingRequestOptions()
+        ..source = NoteSource.recording
+        ..summarizeEnabled = false
+        ..summaryApiKey = '';
+      final note = await _processAudio(fixture, audio, options);
+
+      expect(note.title, AppStrings.of(AppLanguage.en).recordingLabel);
+      expect(note.speaker, AppStrings.of(AppLanguage.en).ownRecording);
+    });
   });
 }
 
-void _registerCredentialTests() {
-  test('rejects a missing ASR credential before remote work', () async {
-    await _expectMissingCredential((builder) => builder.asrApiKey = '');
-  });
+Future<TranscriptNote> _processAudio(
+  ProcessingFileFixture fixture,
+  ManagedAudioFile audio, [
+  ProcessingRequestOptions? options,
+  FakeAudioMetadata? metadata,
+]) => _pipeline(
+  fixture,
+  RecordingClientFactory(),
+  metadata: metadata,
+).process(testProcessingRequest(audio: audio, options: options));
 
-  test('rejects a missing enabled summary credential', () async {
-    await _expectMissingCredential((builder) => builder.summaryApiKey = '');
-  });
-}
+ProcessingPipeline _pipeline(
+  ProcessingFileFixture fixture,
+  RecordingClientFactory clients, {
+  FakeAudioMetadata? metadata,
+}) => ProcessingPipeline(
+  metadata: metadata,
+  cacheManager: fixture.cacheManager,
+  clientBuilder: clients.call,
+  now: () => DateTime.utc(2026, 2, 3, 4, 5),
+);
 
-Future<void> _expectMissingCredential(
-  void Function(TestProcessingRequestBuilder builder) configure,
+Future<void> _expectMissingKey(
+  ProcessingFileFixture fixture,
+  ProcessingRequestOptions options,
 ) async {
-  final client = FakeRemoteApiClient();
-  final pipeline = ProcessingPipeline(
-    runtime: FakeProcessingRuntime(),
-    remoteClientBuilder: (_, _) => client,
+  const missing = ManagedAudioFile(
+    path: '/missing/input.m4a',
+    ownership: AudioOwnership.external,
   );
+  final clients = RecordingClientFactory();
 
   await expectLater(
-    pipeline.process(testProcessingRequest(configure)),
+    _pipeline(
+      fixture,
+      clients,
+    ).process(testProcessingRequest(audio: missing, options: options)),
     throwsA(isA<MissingApiKeyException>()),
   );
-  expect(client.transcriptionCalls, 0);
+  expect(clients.builds, isEmpty);
 }
 
-void _registerDurationTest() {
-  test('reads a missing duration once before processing', () async {
-    final metadata = FakeAudioMetadata(duration: 37);
-    final pipeline = ProcessingPipeline(
-      metadata: metadata,
-      runtime: FakeProcessingRuntime(),
-      remoteClientBuilder: (_, _) => FakeRemoteApiClient(),
-    );
+ProcessingRequestOptions _missingAsrKeyOptions() =>
+    ProcessingRequestOptions()..asrApiKey = '  ';
 
-    final note = await pipeline.process(
-      testProcessingRequest((builder) => builder.knownDurationSec = null),
-    );
+ProcessingRequestOptions _missingSummaryKeyOptions() =>
+    ProcessingRequestOptions()..summaryApiKey = '\n';
 
-    expect(metadata.paths, ['/audio/input.m4a']);
-    expect(note.durationSec, 37);
-  });
-}
-
-void _registerDeleteTests() {
-  test('deletes auto-delete audio and removes its note reference', () async {
-    final (:runtime, :note) = await _processAutoDelete(failDelete: false);
-
-    expect(runtime.deletedPaths, ['/audio/input.m4a']);
-    expect(note.audioPath, isNull);
-  });
-
-  test('keeps a completed note when best-effort deletion fails', () async {
-    final (:runtime, :note) = await _processAutoDelete(failDelete: true);
-
-    expect(runtime.deletedPaths, ['/audio/input.m4a']);
-    expect(note.id, 'generated-id');
-    expect(note.audioPath, isNull);
-  });
-}
-
-Future<({FakeProcessingRuntime runtime, TranscriptNote note})>
-_processAutoDelete({required bool failDelete}) async {
-  final runtime = FakeProcessingRuntime()..failDelete = failDelete;
-  final pipeline = ProcessingPipeline(
-    runtime: runtime,
-    remoteClientBuilder: (_, _) => FakeRemoteApiClient(),
-  );
-  final note = await pipeline.process(
-    testProcessingRequest((builder) => builder.autoDeleteAudio = true),
-  );
-  return (runtime: runtime, note: note);
-}
-
-void _registerErrorTest() {
-  test('propagates a transcription failure without summarizing', () async {
-    final client = FakeRemoteApiClient()
-      ..transcriptionError = StateError('transcription failed');
-    final pipeline = ProcessingPipeline(
-      runtime: FakeProcessingRuntime(),
-      remoteClientBuilder: (_, _) => client,
-    );
-
-    await expectLater(
-      pipeline.process(testProcessingRequest()),
-      throwsA(isA<StateError>()),
-    );
-    expect(client.chatCalls, 0);
-  });
-}
+String _providerName(RemoteProviderId provider) => switch (provider) {
+  RemoteProviderId.openai => 'OpenAI',
+  RemoteProviderId.google => 'Google Gemini',
+};

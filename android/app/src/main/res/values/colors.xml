@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launch_bg">#F7F6FB</color>
-    <!-- Fixed brand color for the app icon (launcher, share sheet, and the
-         notification large icon all read this single application icon). -->
+    <!-- Fixed brand color for the app icon used by the launcher and share sheet. -->
     <color name="ic_launcher_background">#2F7BF6</color>
 </resources>

@@ -66,19 +66,17 @@ void _registerColdStartTests(
       '/cache/b.MP3',
       '/cache/c.M4A',
       '/cache/d.MP4',
-      '/cache/e.AAC',
-      '/cache/f.OGG',
-      '/cache/g.OPUS',
-      '/cache/h.FLAC',
-      '/cache/i.WEBM',
-      '/cache/j.AMR',
-      '/cache/k.3GP',
+      '/cache/e.OGG',
+      '/cache/f.FLAC',
+      '/cache/g.WEBM',
+      '/cache/h.MPEG',
+      '/cache/i.MPGA',
     ];
-    _setMockMedia(getController(), paths.map(_media).toList());
 
-    final result = await ShareIntentService().initialSharedAudio();
-
-    expect(result, paths.first);
+    for (final path in paths) {
+      _setMockMedia(getController(), [_media(path)]);
+      expect(await ShareIntentService().initialSharedAudio(), path);
+    }
   });
 
   test(
@@ -95,7 +93,7 @@ void _registerColdStartTests(
 
       final result = await ShareIntentService().initialSharedAudio();
 
-      expect(result, '/cache/final.opus');
+      expect(result, isNull);
     },
   );
 }
