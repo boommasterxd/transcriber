@@ -39,4 +39,4 @@ jobs:
           gh pr create --title "ci: bump gitleaks ${current} -> ${latest}" \
             --body "Updates the pinned gitleaks CLI version and its SHA256 checksum in .gitleaks-version." \
             --label dependencies \
-            --base "$(gh api /repos/${GITHUB_REPOSITORY} --jq .default_branch)" --head "$branch"
+            --base "$(gh api "/repos/${GITHUB_REPOSITORY}" --jq .default_branch)" --head "$branch"
