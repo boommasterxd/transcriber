@@ -16,11 +16,17 @@ Route<T> _fadeSlideRoute<T>(Widget page) {
     reverseTransitionDuration: const Duration(milliseconds: 240),
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, _, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero).animate(curved),
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.03),
+            end: Offset.zero,
+          ).animate(curved),
           child: child,
         ),
       );
@@ -39,7 +45,9 @@ class AppNavigator {
       Navigator.of(context).push(_fadeSlideRoute(const RecordScreen()));
 
   static Future<void> openDetail(BuildContext context, String noteId) =>
-      Navigator.of(context).push(_fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
+      Navigator.of(
+        context,
+      ).push(_fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
 
   /// Starts processing of [audioPath]; the processing screen routes to the
   /// detail screen on success. When [replace] is true the current route is

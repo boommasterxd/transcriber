@@ -9,7 +9,11 @@ import '../../state/notes_controller.dart';
 /// Deletes [note] and shows an "undo" snackbar via the app-wide messenger, so it
 /// works whether or not the originating screen is still mounted (e.g. after the
 /// detail screen pops). Undo re-adds the note in its original place.
-Future<void> deleteNoteWithUndo(WidgetRef ref, TranscriptNote note, AppStrings strings) async {
+Future<void> deleteNoteWithUndo(
+  WidgetRef ref,
+  TranscriptNote note,
+  AppStrings strings,
+) async {
   await ref.read(notesControllerProvider.notifier).delete(note.id);
   final messenger = scaffoldMessengerKey.currentState;
   if (messenger == null) return;
@@ -35,8 +39,14 @@ Future<bool> confirmDeleteNote(BuildContext context, AppStrings strings) async {
       title: Text(strings.deleteNoteTitle),
       content: Text(strings.deleteNoteBody),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(strings.cancel)),
-        TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(strings.delete)),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(strings.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(strings.delete),
+        ),
       ],
     ),
   );

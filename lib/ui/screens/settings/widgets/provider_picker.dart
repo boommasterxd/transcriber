@@ -24,7 +24,9 @@ class ProviderPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(stringsProvider);
-    final providers = RemoteCatalog.providers.where((p) => allowed.contains(p.id)).toList();
+    final providers = RemoteCatalog.providers
+        .where((p) => allowed.contains(p.id))
+        .toList();
     return SurfaceCard(
       clip: true,
       child: Column(
@@ -33,11 +35,17 @@ class ProviderPicker extends ConsumerWidget {
             ModelTile(
               leading: Text(
                 p.glyph,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
               leadingColor: p.color,
               title: p.name,
-              subtitle: p.id == RemoteProviderId.openrouter ? t.providerSubOpenRouter : p.sub,
+              subtitle: p.id == RemoteProviderId.openrouter
+                  ? t.providerSubOpenRouter
+                  : p.sub,
               isLast: i == providers.length - 1,
               trailing: SelectionIndicator(selected: selected == p.id),
               onTap: () => onSelect(p.id),

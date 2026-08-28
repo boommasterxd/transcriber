@@ -17,75 +17,150 @@ class BackendSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
-    final t = ref.watch(stringsProvider);
-    final settings = ref.watch(settingsControllerProvider);
-    final ctrl = ref.read(settingsControllerProvider.notifier);
+    final visibility = ref.watch(
+      settingsControllerProvider.select(
+        (settings) => (
+          showSummary:
+              settings.summarizeEnabled && settings.summaryMode.isLocal,
+          showTranscription: settings.asrMode.isLocal,
+        ),
+      ),
+    );
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (settings.summarizeEnabled && settings.summaryMode.isLocal) ...[
-            Text(
-              t.backendSummary,
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
-            ),
-            const SizedBox(height: 10),
-            AnimatedSegmentedControl(
-              options: [for (final b in InferenceBackend.values) SegmentOption(b.label)],
-              selectedIndex: InferenceBackend.values.indexOf(settings.gemmaBackend),
-              onChanged: (i) => ctrl.setGemmaBackend(InferenceBackend.values[i]),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              t.backendHint,
-              style: TextStyle(fontSize: 12.5, color: palette.muted),
-            ),
-          ],
-          if (settings.summarizeEnabled && settings.summaryMode.isLocal && settings.asrMode.isLocal)
+          if (visibility.showSummary) const _SummaryBackendControl(),
+          if (visibility.showSummary && visibility.showTranscription)
             Divider(height: 28, color: palette.line),
-          if (settings.asrMode.isLocal) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  t.whisperThreads,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(9999)),
-                  child: Text(
-                    '${settings.whisperThreads}',
-                    style: AppTheme.mono(color: palette.accentDeep, size: 13, weight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: palette.accent,
-                inactiveTrackColor: palette.line2,
-                thumbColor: palette.accent,
-                overlayColor: palette.accent.withValues(alpha: 0.12),
-                trackHeight: 4,
-              ),
-              child: Slider(
-                value: settings.whisperThreads.toDouble().clamp(1, 8),
-                min: 1,
-                max: 8,
-                divisions: 7,
-                label: '${settings.whisperThreads}',
-                onChanged: (v) => ctrl.setWhisperThreads(v.round()),
-              ),
-            ),
-            Text(
-              t.whisperThreadsHint,
-              style: TextStyle(fontSize: 12.5, color: palette.muted),
-            ),
-          ],
+          if (visibility.showTranscription)
+            const _TranscriptionThreadsControl(),
         ],
       ),
+    );
+  }
+}
+
+class _SummaryBackendControl extends ConsumerWidget {
+  const _SummaryBackendControl();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final t = ref.watch(stringsProvider);
+    final backend = ref.watch(
+      settingsControllerProvider.select((settings) => settings.gemmaBackend),
+    );
+    final controller = ref.read(settingsControllerProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          t.backendSummary,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: palette.ink,
+          ),
+        ),
+        const SizedBox(height: 10),
+        AnimatedSegmentedControl(
+          options: [
+            for (final value in InferenceBackend.values)
+              SegmentOption(value.label),
+          ],
+          selectedIndex: InferenceBackend.values.indexOf(backend),
+          onChanged: (index) =>
+              controller.setGemmaBackend(InferenceBackend.values[index]),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          t.backendHint,
+          style: TextStyle(fontSize: 12.5, color: palette.muted),
+        ),
+      ],
+    );
+  }
+}
+
+class _TranscriptionThreadsControl extends ConsumerWidget {
+  const _TranscriptionThreadsControl();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final t = ref.watch(stringsProvider);
+    final threads = ref.watch(
+      settingsControllerProvider.select((settings) => settings.whisperThreads),
+    );
+    final controller = ref.read(settingsControllerProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ThreadCountHeader(label: t.whisperThreads, count: threads),
+        SliderTheme(
+          data: SliderThemeData(
+            activeTrackColor: palette.accent,
+            inactiveTrackColor: palette.line2,
+            thumbColor: palette.accent,
+            overlayColor: palette.accent.withValues(alpha: 0.12),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            value: threads.toDouble().clamp(1, 8),
+            min: 1,
+            max: 8,
+            divisions: 7,
+            label: '$threads',
+            onChanged: (value) => controller.setWhisperThreads(value.round()),
+          ),
+        ),
+        Text(
+          t.whisperThreadsHint,
+          style: TextStyle(fontSize: 12.5, color: palette.muted),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThreadCountHeader extends StatelessWidget {
+  const _ThreadCountHeader({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: palette.ink,
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: palette.accentSoft,
+            borderRadius: BorderRadius.circular(9999),
+          ),
+          child: Text(
+            '$count',
+            style: AppTheme.mono(
+              color: palette.accentDeep,
+              size: 13,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

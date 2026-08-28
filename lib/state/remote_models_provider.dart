@@ -6,15 +6,23 @@ import '../services/remote/remote_client_factory.dart';
 import 'connections_controller.dart';
 
 /// Identifies which provider + stage a model list is for.
-typedef RemoteModelsQuery = ({RemoteProviderId provider, bool forTranscription});
+typedef RemoteModelsQuery = ({
+  RemoteProviderId provider,
+  bool forTranscription,
+});
 
 /// Fetches the live model list for a provider from its API (requires a stored
 /// key). Re-runs when the provider's connection changes.
 final remoteModelsProvider =
-    FutureProvider.family<List<RemoteModelInfo>, RemoteModelsQuery>((ref, query) async {
-  ref.watch(connectionsControllerProvider);
-  final key = await ref.read(connectionsControllerProvider.notifier).apiKey(query.provider);
-  if (key.isEmpty) return const [];
-  final client = RemoteClientFactory.create(query.provider, key);
-  return client.listModels(forTranscription: query.forTranscription);
-});
+    FutureProvider.family<List<RemoteModelInfo>, RemoteModelsQuery>((
+      ref,
+      query,
+    ) async {
+      ref.watch(connectionsControllerProvider);
+      final key = await ref
+          .read(connectionsControllerProvider.notifier)
+          .apiKey(query.provider);
+      if (key.isEmpty) return const [];
+      final client = RemoteClientFactory.create(query.provider, key);
+      return client.listModels(forTranscription: query.forTranscription);
+    });

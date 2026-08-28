@@ -1,4 +1,4 @@
-import '../transcription/transcription_service.dart';
+import '../../data/models/transcription_result.dart';
 
 /// A model offered by a cloud provider, fetched live from its API.
 class RemoteModelInfo {

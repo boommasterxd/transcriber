@@ -10,9 +10,9 @@ class SummaryPrompt {
 
   static String system(bool german) => german
       ? 'Du bist ein präziser Assistent, der Sprachnachrichten zusammenfasst. '
-          'Antworte ausschließlich mit gültigem JSON, keine Erklärungen, kein Markdown.'
+            'Antworte ausschließlich mit gültigem JSON, keine Erklärungen, kein Markdown.'
       : 'You are a precise assistant that summarizes voice messages. '
-          'Respond only with valid JSON, no explanations, no markdown.';
+            'Respond only with valid JSON, no explanations, no markdown.';
 
   static String user(String transcript, {required bool german}) {
     if (german) {
@@ -72,17 +72,21 @@ $transcript
       );
     }
 
-    List<String> list(dynamic v) =>
-        (v is List) ? v.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() : const [];
+    List<String> list(dynamic v) => (v is List)
+        ? v.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
+        : const [];
 
-    final title = (map['title'] as String?)?.trim();
+    final title = _trimmedString(map['title']);
     return SummaryResult(
       title: (title == null || title.isEmpty) ? fallbackTitle : title,
-      gist: (map['gist'] as String?)?.trim() ?? '',
+      gist: _trimmedString(map['gist']) ?? '',
       points: list(map['points']),
       todos: list(map['todos']),
     );
   }
+
+  static String? _trimmedString(dynamic value) =>
+      value is String ? value.trim() : null;
 
   static String? _extractJson(String raw) {
     final start = raw.indexOf('{');

@@ -4,7 +4,8 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/transcript_note.dart';
 import '../../../widgets/waveforms.dart';
-import '../home_screen.dart' show noteSubtitle;
+import '../note_presentation.dart';
+import 'note_badges.dart';
 
 /// A single transcript row in the history list.
 class NoteListItem extends StatelessWidget {
@@ -44,65 +45,16 @@ class NoteListItem extends StatelessWidget {
                 ),
                 const SizedBox(width: 13),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        note.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        noteSubtitle(note, t: strings),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12.5, color: palette.muted),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: note.isRemote ? palette.accent : palette.mint,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: Text(
-                              note.modelShort,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: palette.muted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  child: _NoteText(note: note, strings: strings),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: palette.coralSoft,
-                    borderRadius: BorderRadius.circular(9999),
-                  ),
-                  child: Text(
-                    strings.todoLabel(note.todos.length),
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: palette.coralInk),
-                  ),
-                ),
+                TodoCountBadge(count: note.todos.length, strings: strings),
                 const SizedBox(width: 6),
-                Icon(Icons.chevron_right_rounded, size: 18, color: palette.faint),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: palette.faint,
+                ),
               ],
             ),
           ),
@@ -112,6 +64,42 @@ class NoteListItem extends StatelessWidget {
             padding: const EdgeInsets.only(left: 75),
             child: Divider(height: 1, thickness: 1, color: palette.line),
           ),
+      ],
+    );
+  }
+}
+
+class _NoteText extends StatelessWidget {
+  const _NoteText({required this.note, required this.strings});
+
+  final TranscriptNote note;
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          note.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: palette.ink,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          noteSubtitle(note, strings: strings),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12.5, color: palette.muted),
+        ),
+        const SizedBox(height: 5),
+        NoteModelBadge(note: note),
       ],
     );
   }

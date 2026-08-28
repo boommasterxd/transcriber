@@ -13,10 +13,12 @@ class NotesController extends Notifier<List<TranscriptNote>> {
     await ref.read(notesRepositoryProvider).saveAll(next);
   }
 
-  Future<void> add(TranscriptNote note) =>
-      _persist([note, ...state]..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+  Future<void> add(TranscriptNote note) => _persist(
+    [note, ...state]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+  );
 
-  Future<void> delete(String id) => _persist(state.where((n) => n.id != id).toList());
+  Future<void> delete(String id) =>
+      _persist(state.where((n) => n.id != id).toList());
 
   TranscriptNote? byId(String id) {
     for (final note in state) {
@@ -31,7 +33,11 @@ class NotesController extends Notifier<List<TranscriptNote>> {
       final todos = note.todos
           .asMap()
           .entries
-          .map((e) => e.key == index ? TodoItem(text: e.value.text, done: !e.value.done) : e.value)
+          .map(
+            (e) => e.key == index
+                ? TodoItem(text: e.value.text, done: !e.value.done)
+                : e.value,
+          )
           .toList();
       return note.copyWith(todos: todos);
     }).toList();
@@ -40,4 +46,6 @@ class NotesController extends Notifier<List<TranscriptNote>> {
 }
 
 final notesControllerProvider =
-    NotifierProvider<NotesController, List<TranscriptNote>>(NotesController.new);
+    NotifierProvider<NotesController, List<TranscriptNote>>(
+      NotesController.new,
+    );

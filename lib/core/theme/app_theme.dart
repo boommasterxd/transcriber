@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_accent.dart';
 import 'app_palette.dart';
 
-/// Builds the [ThemeData] for a given brightness + accent. Typography uses
-/// Plus Jakarta Sans (UI) with JetBrains Mono available for numeric/mono text.
+/// Builds the [ThemeData] for a given brightness and accent using only fonts
+/// supplied by the operating system.
 class AppTheme {
   const AppTheme._();
 
@@ -15,20 +14,21 @@ class AppTheme {
 
   static ThemeData build(Brightness brightness, AppAccent accent) {
     final palette = AppPalette.from(brightness, accent);
-    final baseScheme = ColorScheme.fromSeed(
-      seedColor: accent.color,
-      brightness: brightness,
-    ).copyWith(
-      surface: palette.surface,
-      primary: palette.accent,
-      onPrimary: palette.onAccent,
-    );
+    final baseScheme =
+        ColorScheme.fromSeed(
+          seedColor: accent.color,
+          brightness: brightness,
+        ).copyWith(
+          surface: palette.surface,
+          primary: palette.accent,
+          onPrimary: palette.onAccent,
+        );
 
-    final textTheme = GoogleFonts.plusJakartaSansTextTheme(
-      brightness == Brightness.dark
-          ? ThemeData.dark().textTheme
-          : ThemeData.light().textTheme,
-    ).apply(bodyColor: palette.body, displayColor: palette.ink);
+    final textTheme =
+        (brightness == Brightness.dark
+                ? ThemeData.dark().textTheme
+                : ThemeData.light().textTheme)
+            .apply(bodyColor: palette.body, displayColor: palette.ink);
 
     return ThemeData(
       useMaterial3: true,
@@ -41,7 +41,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: palette.ink,
-        contentTextStyle: GoogleFonts.plusJakartaSans(
+        contentTextStyle: TextStyle(
           color: palette.bg,
           fontSize: 14,
           fontWeight: FontWeight.w600,
@@ -60,6 +60,10 @@ class AppTheme {
     required Color color,
     double size = 12,
     FontWeight weight = FontWeight.w600,
-  }) =>
-      GoogleFonts.jetBrainsMono(color: color, fontSize: size, fontWeight: weight);
+  }) => TextStyle(
+    fontFamily: 'monospace',
+    color: color,
+    fontSize: size,
+    fontWeight: weight,
+  );
 }

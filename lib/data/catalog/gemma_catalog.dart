@@ -14,7 +14,10 @@ class GemmaCatalog {
 
   /// Sorted alphabetically by display name for the settings list.
   static final List<GemmaModelSpec> models = List.of(_models)
-    ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    ..sort(
+      (a, b) =>
+          a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+    );
 
   static const List<GemmaModelSpec> _models = [
     GemmaModelSpec(
@@ -94,8 +97,11 @@ class GemmaCatalog {
 
   static const String defaultId = 'qwen3_06b';
 
-  static GemmaModelSpec byId(String id) =>
-      models.firstWhere((m) => m.id == id, orElse: () => models.firstWhere((m) => m.id == defaultId));
+  static GemmaModelSpec byId(String id) => models.firstWhere(
+    (m) => m.id == id,
+    orElse: () => models.firstWhere((m) => m.id == defaultId),
+  );
 
-  static List<GemmaModelSpec> get audioCapable => models.where((m) => m.supportsAudio).toList();
+  static List<GemmaModelSpec> get audioCapable =>
+      models.where((m) => m.supportsAudio).toList();
 }

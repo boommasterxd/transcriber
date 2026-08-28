@@ -4,7 +4,8 @@ import 'package:transcriber/services/summarization/summary_prompt.dart';
 void main() {
   group('SummaryPrompt.parse', () {
     test('parses a clean JSON object', () {
-      const raw = '{"title":"Berlin","gist":"Plan","points":["a","b"],"todos":["x"]}';
+      const raw =
+          '{"title":"Berlin","gist":"Plan","points":["a","b"],"todos":["x"]}';
       final result = SummaryPrompt.parse(raw, fallbackTitle: 'fallback');
       expect(result.title, 'Berlin');
       expect(result.gist, 'Plan');
@@ -13,7 +14,8 @@ void main() {
     });
 
     test('extracts JSON wrapped in code fences and prose', () {
-      const raw = 'Here you go:\n```json\n{"title":"T","gist":"G","points":[],"todos":[]}\n```';
+      const raw =
+          'Here you go:\n```json\n{"title":"T","gist":"G","points":[],"todos":[]}\n```';
       final result = SummaryPrompt.parse(raw, fallbackTitle: 'fallback');
       expect(result.title, 'T');
       expect(result.gist, 'G');

@@ -4,7 +4,12 @@ import '../../core/theme/app_palette.dart';
 
 /// Checkable action-item tile (coral background, mint check when done).
 class TodoTile extends StatelessWidget {
-  const TodoTile({super.key, required this.text, required this.done, required this.onToggle});
+  const TodoTile({
+    super.key,
+    required this.text,
+    required this.done,
+    required this.onToggle,
+  });
 
   final String text;
   final bool done;
@@ -26,14 +31,22 @@ class TodoTile extends StatelessWidget {
           children: [
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
               child: done
                   ? Container(
                       key: const ValueKey(true),
                       width: 24,
                       height: 24,
-                      decoration: BoxDecoration(color: palette.mint, borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.check, color: Colors.white, size: 13),
+                      decoration: BoxDecoration(
+                        color: palette.mint,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 13,
+                      ),
                     )
                   : Container(
                       key: const ValueKey(false),
@@ -41,7 +54,10 @@ class TodoTile extends StatelessWidget {
                       height: 24,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: palette.coral.withValues(alpha: 0.55), width: 2),
+                        border: Border.all(
+                          color: palette.coral.withValues(alpha: 0.55),
+                          width: 2,
+                        ),
                       ),
                     ),
             ),

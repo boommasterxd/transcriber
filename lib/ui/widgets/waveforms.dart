@@ -10,12 +10,16 @@ import '../../core/theme/app_palette.dart';
 final Map<int, List<double>> _waveHeightsCache = {};
 
 List<double> _waveHeights(int count) => _waveHeightsCache.putIfAbsent(
-      count,
-      () => List.generate(count, (i) {
-        final a = (math.sin(i * 0.6) + 0.55 * math.sin(i * 0.21) + 0.3 * math.sin(i * 1.3)).abs();
-        return 0.2 + 0.8 * math.min(1.0, a / 1.6);
-      }),
-    );
+  count,
+  () => List.generate(count, (i) {
+    final a =
+        (math.sin(i * 0.6) +
+                0.55 * math.sin(i * 0.21) +
+                0.3 * math.sin(i * 1.3))
+            .abs();
+    return 0.2 + 0.8 * math.min(1.0, a / 1.6);
+  }),
+);
 
 /// Animated equalizer used in onboarding / processing hero badges.
 class EqWave extends StatefulWidget {
@@ -30,8 +34,10 @@ class EqWave extends StatefulWidget {
 }
 
 class _EqWaveState extends State<EqWave> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  )..repeat();
 
   @override
   void dispose() {
@@ -58,7 +64,10 @@ class _EqWaveState extends State<EqWave> with SingleTickerProviderStateMixin {
               child: Container(
                 width: 6,
                 height: 30 * scale,
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(9999)),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(9999),
+                ),
               ),
             );
           }),
@@ -131,7 +140,10 @@ class PlayerWave extends StatelessWidget {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           // How many fixed-width bars fit, evenly spaced by at least _barGap.
-          final count = math.max(1, ((width + _barGap) / (_barWidth + _barGap)).floor());
+          final count = math.max(
+            1,
+            ((width + _barGap) / (_barWidth + _barGap)).floor(),
+          );
           final heights = _waveHeights(count);
           return GestureDetector(
             onTapDown: onSeek == null
@@ -148,7 +160,9 @@ class PlayerWave extends StatelessWidget {
                       width: _barWidth,
                       height: heights[i] * 26 + 8,
                       decoration: BoxDecoration(
-                        color: (i / count) <= progress ? palette.accent : palette.waveOff,
+                        color: (i / count) <= progress
+                            ? palette.accent
+                            : palette.waveOff,
                         borderRadius: BorderRadius.circular(9999),
                       ),
                     ),
@@ -180,9 +194,12 @@ class RecordWave extends StatefulWidget {
   State<RecordWave> createState() => _RecordWaveState();
 }
 
-class _RecordWaveState extends State<RecordWave> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 140))..value = 1;
+class _RecordWaveState extends State<RecordWave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 140),
+  )..value = 1;
 
   late List<double> _from = widget.levels;
   late List<double> _to = widget.levels;
@@ -248,18 +265,28 @@ class _RecordWavePainter extends CustomPainter {
     final slot = size.width / n;
     final t = progress.value;
     final cy = size.height / 2;
-    final maxHeight = size.height - 8; // matches the old 88px bar over a 96px box
+    final maxHeight =
+        size.height - 8; // matches the old 88px bar over a 96px box
     for (var i = 0; i < n; i++) {
       final a = i < from.length ? from[i] : to[i];
       final level = (a + (to[i] - a) * t).clamp(0.05, 1.0);
       final h = level * maxHeight;
       final cx = slot * i + slot / 2;
-      final rect = Rect.fromCenter(center: Offset(cx, cy), width: barWidth, height: h);
-      canvas.drawRRect(RRect.fromRectXY(rect, barWidth / 2, barWidth / 2), paint);
+      final rect = Rect.fromCenter(
+        center: Offset(cx, cy),
+        width: barWidth,
+        height: h,
+      );
+      canvas.drawRRect(
+        RRect.fromRectXY(rect, barWidth / 2, barWidth / 2),
+        paint,
+      );
     }
   }
 
   @override
   bool shouldRepaint(_RecordWavePainter old) =>
-      old.color != color || !identical(old.from, from) || !identical(old.to, to);
+      old.color != color ||
+      !identical(old.from, from) ||
+      !identical(old.to, to);
 }

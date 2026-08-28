@@ -26,6 +26,9 @@ class NotesRepository {
   }
 
   Future<void> saveAll(List<TranscriptNote> notes) async {
-    await _prefs.setString(_key, jsonEncode(notes.map((n) => n.toJson()).toList()));
+    await _prefs.setString(
+      _key,
+      jsonEncode(notes.map((n) => n.toJson()).toList()),
+    );
   }
 }

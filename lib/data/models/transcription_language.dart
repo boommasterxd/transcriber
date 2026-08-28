@@ -8,5 +8,8 @@ enum TranscriptionLanguage {
   final String code;
 
   static TranscriptionLanguage fromCode(String? code) =>
-      TranscriptionLanguage.values.firstWhere((l) => l.code == code, orElse: () => TranscriptionLanguage.auto);
+      TranscriptionLanguage.values.firstWhere(
+        (l) => l.code == code,
+        orElse: () => TranscriptionLanguage.auto,
+      );
 }

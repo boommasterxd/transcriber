@@ -9,13 +9,25 @@ class ShareIntentService {
   ShareIntentService();
 
   static const _audioExtensions = {
-    '.wav', '.mp3', '.m4a', '.mp4', '.aac', '.ogg', '.opus', '.flac', '.webm', '.amr', '.3gp',
+    '.wav',
+    '.mp3',
+    '.m4a',
+    '.mp4',
+    '.aac',
+    '.ogg',
+    '.opus',
+    '.flac',
+    '.webm',
+    '.amr',
+    '.3gp',
   };
 
   StreamSubscription<List<SharedMediaFile>>? _sub;
 
   bool _isAudio(SharedMediaFile f) {
-    if (f.type == SharedMediaType.text || f.type == SharedMediaType.url) return false;
+    if (f.type == SharedMediaType.text || f.type == SharedMediaType.url) {
+      return false;
+    }
     return _audioExtensions.contains(p.extension(f.path).toLowerCase());
   }
 

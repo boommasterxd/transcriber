@@ -51,4 +51,4 @@ jobs:
             --title "chore: bump Flutter ${CURRENT} -> ${LATEST}" \
             --body "A new Flutter **stable** release (\`${LATEST}\`) is available. Updates \`.fvmrc\`, which both local FVM and CI read." \
             --label dependencies \
-            --base "$(gh api /repos/${GITHUB_REPOSITORY} --jq .default_branch)" --head "$branch"
+            --base "$(gh api "/repos/${GITHUB_REPOSITORY}" --jq .default_branch)" --head "$branch"

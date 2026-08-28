@@ -79,25 +79,25 @@ class AppSettings {
       asrModelByProvider[p] ?? RemoteCatalog.asrDefault(p);
 
   factory AppSettings.initial() => const AppSettings(
-        themeMode: ThemeMode.system,
-        accent: AppAccent.blue,
-        language: AppLanguage.de,
-        transcriptionLanguage: TranscriptionLanguage.auto,
-        asrMode: ProcessingMode.onDevice,
-        summaryMode: ProcessingMode.onDevice,
-        whisperModelId: WhisperCatalog.defaultId,
-        gemmaModelId: GemmaCatalog.defaultId,
-        gemmaBackend: InferenceBackend.auto,
-        whisperThreads: 4,
-        asrProvider: RemoteProviderId.openai,
-        summaryProvider: RemoteProviderId.anthropic,
-        chatModelByProvider: {},
-        asrModelByProvider: {},
-        autoDeleteAudio: false,
-        summarizeEnabled: true,
-        onboarded: false,
-        hfToken: '',
-      );
+    themeMode: ThemeMode.system,
+    accent: AppAccent.blue,
+    language: AppLanguage.de,
+    transcriptionLanguage: TranscriptionLanguage.auto,
+    asrMode: ProcessingMode.onDevice,
+    summaryMode: ProcessingMode.onDevice,
+    whisperModelId: WhisperCatalog.defaultId,
+    gemmaModelId: GemmaCatalog.defaultId,
+    gemmaBackend: InferenceBackend.auto,
+    whisperThreads: 4,
+    asrProvider: RemoteProviderId.openai,
+    summaryProvider: RemoteProviderId.anthropic,
+    chatModelByProvider: {},
+    asrModelByProvider: {},
+    autoDeleteAudio: false,
+    summarizeEnabled: true,
+    onboarded: false,
+    hfToken: '',
+  );
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -118,67 +118,74 @@ class AppSettings {
     bool? summarizeEnabled,
     bool? onboarded,
     String? hfToken,
-  }) =>
-      AppSettings(
-        themeMode: themeMode ?? this.themeMode,
-        accent: accent ?? this.accent,
-        language: language ?? this.language,
-        transcriptionLanguage: transcriptionLanguage ?? this.transcriptionLanguage,
-        asrMode: asrMode ?? this.asrMode,
-        summaryMode: summaryMode ?? this.summaryMode,
-        whisperModelId: whisperModelId ?? this.whisperModelId,
-        gemmaModelId: gemmaModelId ?? this.gemmaModelId,
-        gemmaBackend: gemmaBackend ?? this.gemmaBackend,
-        whisperThreads: whisperThreads ?? this.whisperThreads,
-        asrProvider: asrProvider ?? this.asrProvider,
-        summaryProvider: summaryProvider ?? this.summaryProvider,
-        chatModelByProvider: chatModelByProvider ?? this.chatModelByProvider,
-        asrModelByProvider: asrModelByProvider ?? this.asrModelByProvider,
-        autoDeleteAudio: autoDeleteAudio ?? this.autoDeleteAudio,
-        summarizeEnabled: summarizeEnabled ?? this.summarizeEnabled,
-        onboarded: onboarded ?? this.onboarded,
-        hfToken: hfToken ?? this.hfToken,
-      );
+  }) => AppSettings(
+    themeMode: themeMode ?? this.themeMode,
+    accent: accent ?? this.accent,
+    language: language ?? this.language,
+    transcriptionLanguage: transcriptionLanguage ?? this.transcriptionLanguage,
+    asrMode: asrMode ?? this.asrMode,
+    summaryMode: summaryMode ?? this.summaryMode,
+    whisperModelId: whisperModelId ?? this.whisperModelId,
+    gemmaModelId: gemmaModelId ?? this.gemmaModelId,
+    gemmaBackend: gemmaBackend ?? this.gemmaBackend,
+    whisperThreads: whisperThreads ?? this.whisperThreads,
+    asrProvider: asrProvider ?? this.asrProvider,
+    summaryProvider: summaryProvider ?? this.summaryProvider,
+    chatModelByProvider: chatModelByProvider ?? this.chatModelByProvider,
+    asrModelByProvider: asrModelByProvider ?? this.asrModelByProvider,
+    autoDeleteAudio: autoDeleteAudio ?? this.autoDeleteAudio,
+    summarizeEnabled: summarizeEnabled ?? this.summarizeEnabled,
+    onboarded: onboarded ?? this.onboarded,
+    hfToken: hfToken ?? this.hfToken,
+  );
 
   Map<String, dynamic> toJson() => {
-        'themeMode': themeMode.name,
-        'accent': accent.id,
-        'language': language.code,
-        'transcriptionLanguage': transcriptionLanguage.code,
-        'asrMode': asrMode.id,
-        'summaryMode': summaryMode.id,
-        'whisperModelId': whisperModelId,
-        'gemmaModelId': gemmaModelId,
-        'gemmaBackend': gemmaBackend.id,
-        'whisperThreads': whisperThreads,
-        'asrProvider': asrProvider.id,
-        'summaryProvider': summaryProvider.id,
-        'chatModelByProvider': chatModelByProvider.map((k, v) => MapEntry(k.id, v)),
-        'asrModelByProvider': asrModelByProvider.map((k, v) => MapEntry(k.id, v)),
-        'autoDeleteAudio': autoDeleteAudio,
-        'summarizeEnabled': summarizeEnabled,
-        'onboarded': onboarded,
-      };
+    'themeMode': themeMode.name,
+    'accent': accent.id,
+    'language': language.code,
+    'transcriptionLanguage': transcriptionLanguage.code,
+    'asrMode': asrMode.id,
+    'summaryMode': summaryMode.id,
+    'whisperModelId': whisperModelId,
+    'gemmaModelId': gemmaModelId,
+    'gemmaBackend': gemmaBackend.id,
+    'whisperThreads': whisperThreads,
+    'asrProvider': asrProvider.id,
+    'summaryProvider': summaryProvider.id,
+    'chatModelByProvider': chatModelByProvider.map((k, v) => MapEntry(k.id, v)),
+    'asrModelByProvider': asrModelByProvider.map((k, v) => MapEntry(k.id, v)),
+    'autoDeleteAudio': autoDeleteAudio,
+    'summarizeEnabled': summarizeEnabled,
+    'onboarded': onboarded,
+  };
 
-  factory AppSettings.fromJson(Map<String, dynamic> j, {required String hfToken}) {
+  factory AppSettings.fromJson(
+    Map<String, dynamic> j, {
+    required String hfToken,
+  }) {
     Map<RemoteProviderId, String> parseMap(String key) {
       final raw = (j[key] as Map?)?.cast<String, dynamic>() ?? const {};
       return {
-        for (final e in raw.entries) RemoteProviderId.fromId(e.key): e.value.toString(),
+        for (final e in raw.entries)
+          RemoteProviderId.fromId(e.key): e.value.toString(),
       };
     }
 
     final legacyMode = j['mode'] as String?;
-    ProcessingMode mode(String key) => ProcessingMode.fromId((j[key] as String?) ?? legacyMode);
+    ProcessingMode mode(String key) =>
+        ProcessingMode.fromId((j[key] as String?) ?? legacyMode);
 
     return AppSettings(
       themeMode: _themeModeFrom(j),
       accent: AppAccent.fromId(j['accent'] as String?),
       language: AppLanguage.fromCode(j['language'] as String?),
-      transcriptionLanguage: TranscriptionLanguage.fromCode(j['transcriptionLanguage'] as String?),
+      transcriptionLanguage: TranscriptionLanguage.fromCode(
+        j['transcriptionLanguage'] as String?,
+      ),
       asrMode: mode('asrMode'),
       summaryMode: mode('summaryMode'),
-      whisperModelId: j['whisperModelId'] as String? ?? WhisperCatalog.defaultId,
+      whisperModelId:
+          j['whisperModelId'] as String? ?? WhisperCatalog.defaultId,
       gemmaModelId: j['gemmaModelId'] as String? ?? GemmaCatalog.defaultId,
       gemmaBackend: InferenceBackend.fromId(j['gemmaBackend'] as String?),
       whisperThreads: (j['whisperThreads'] as num?)?.toInt() ?? 4,
@@ -196,7 +203,10 @@ class AppSettings {
   static ThemeMode _themeModeFrom(Map<String, dynamic> j) {
     final raw = j['themeMode'] as String?;
     if (raw != null) {
-      return ThemeMode.values.firstWhere((m) => m.name == raw, orElse: () => ThemeMode.system);
+      return ThemeMode.values.firstWhere(
+        (m) => m.name == raw,
+        orElse: () => ThemeMode.system,
+      );
     }
     // Back-compat: older builds stored a light/dark brightness.
     return switch (j['brightness']) {

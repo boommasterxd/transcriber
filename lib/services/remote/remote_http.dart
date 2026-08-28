@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../service_exceptions.dart';
 
@@ -17,4 +18,32 @@ Future<T> guardTimeout<T>(Future<T> future, Duration timeout) {
       'Check your connection and try again.',
     ),
   );
+}
+
+/// Validates a provider response while preserving its provider-specific label.
+void validateRemoteResponse({
+  required int statusCode,
+  required String body,
+  required String errorLabel,
+  bool preferScalarError = false,
+}) {
+  if (statusCode == 200) return;
+  throw RemoteApiException(
+    '$errorLabel ($statusCode): '
+    '${remoteErrorMessage(body, preferScalarError: preferScalarError)}',
+    statusCode: statusCode,
+  );
+}
+
+/// Extracts the conventional `error.message` field with a stable fallback.
+String remoteErrorMessage(String body, {bool preferScalarError = false}) {
+  try {
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final error = json['error'];
+    if (error is Map) return error['message']?.toString() ?? body;
+    if (preferScalarError) return error?.toString() ?? body;
+    return body;
+  } catch (_) {
+    return body;
+  }
 }
