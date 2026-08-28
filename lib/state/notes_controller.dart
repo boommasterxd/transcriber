@@ -9,6 +9,12 @@ class NotesController extends Notifier<List<TranscriptNote>> {
   @override
   List<TranscriptNote> build() => List.of(ref.watch(initialNotesProvider));
 
+  /// Replaces the in-memory snapshot with the current persisted notes.
+  Future<void> refresh() async {
+    final persisted = await ref.read(notesRepositoryProvider).load();
+    state = persisted;
+  }
+
   Future<void> _persist(List<TranscriptNote> next) async {
     state = next;
     await ref.read(notesRepositoryProvider).saveAll(next);

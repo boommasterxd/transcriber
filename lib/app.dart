@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'core/l10n/app_strings.dart';
 import 'core/toast.dart';
+import 'state/notes_controller.dart';
 import 'state/providers.dart';
 import 'state/settings_controller.dart';
 import 'ui/navigation.dart';
@@ -60,9 +63,12 @@ class _RootGateState extends ConsumerState<_RootGate>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Re-check on resume so revoking access in system settings pushes the user
-    // back into setup the next time they return to the app.
-    if (state == AppLifecycleState.resumed) _checkPermissions();
+    if (state != AppLifecycleState.resumed) return;
+    // The share entry point can persist a note through a separate Flutter
+    // engine while this UI is paused, so both OS and persisted state must be
+    // re-read when the main activity becomes active again.
+    unawaited(_checkPermissions());
+    unawaited(_refreshNotes());
   }
 
   /// Setup is only complete while microphone access remains granted.
@@ -70,6 +76,16 @@ class _RootGateState extends ConsumerState<_RootGate>
     final mic = await Permission.microphone.isGranted;
     if (!mounted) return;
     setState(() => _permissionsGranted = mic);
+  }
+
+  Future<void> _refreshNotes() async {
+    try {
+      await ref.read(notesControllerProvider.notifier).refresh();
+    } on Object {
+      if (mounted) {
+        showAppToast(ref.read(stringsProvider).errorTitle, isError: true);
+      }
+    }
   }
 
   Future<void> _setupShareIntents() async {

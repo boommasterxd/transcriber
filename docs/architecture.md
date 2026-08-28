@@ -66,6 +66,8 @@ Drift tables store singleton settings, notes, ordered key points, ordered to-dos
 
 The one-time legacy migration parses old settings and notes before entering a database transaction. The marker, settings, notes, points, to-dos, and transcript segments commit atomically. Successfully imported SharedPreferences values are removed only after the commit.
 
+The main application reloads the persisted note snapshot whenever its activity resumes. This synchronizes notes written by the dedicated share entry point while the main Flutter UI was paused.
+
 ## Audio Ownership
 
 `ManagedAudioFile` carries explicit `external`, `temporary`, or `retained` ownership. Destructive operations validate that a path belongs to the corresponding app directory. External originals are never deleted. See [cache lifecycle](cache-lifecycle.md).
