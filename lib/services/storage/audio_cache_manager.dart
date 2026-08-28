@@ -35,6 +35,7 @@ final class AudioCacheManager {
     '.mpga',
     '.m4a',
     '.ogg',
+    '.opus',
     '.wav',
     '.webm',
   };

@@ -10,7 +10,9 @@ import 'settings_switch_row.dart';
 
 /// Optional cloud summary stage with independent provider and model selection.
 class SummarySection extends ConsumerWidget {
-  const SummarySection({super.key});
+  const SummarySection({super.key, this.showCredentials = false});
+
+  final bool showCredentials;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,6 +39,7 @@ class SummarySection extends ConsumerWidget {
               selectModel: (modelId) =>
                   controller.setSummaryModel(provider, modelId),
             ),
+            showCredentials: showCredentials,
           ),
         ],
       ],

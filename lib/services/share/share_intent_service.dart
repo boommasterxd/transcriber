@@ -14,6 +14,7 @@ class ShareIntentService {
     '.m4a',
     '.mp4',
     '.ogg',
+    '.opus',
     '.flac',
     '.webm',
     '.mpeg',

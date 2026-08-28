@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/catalog/remote_catalog.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
@@ -16,32 +14,21 @@ void main() {
         hasLength(RemoteCatalog.providers.length),
       );
       expect(
-        RemoteCatalog.providers.every(
-          (provider) =>
-              provider.name.isNotEmpty &&
-              provider.glyph.isNotEmpty &&
-              provider.sub.isNotEmpty,
-        ),
+        RemoteCatalog.providers.every((provider) => provider.name.isNotEmpty),
         isTrue,
       );
     });
 
     test('resolves each provider and preserves its display metadata', () {
-      final expected = {
-        RemoteProviderId.openai: ('OpenAI', const Color(0xFF10A37F), 'O'),
-        RemoteProviderId.google: (
-          'Google Gemini',
-          const Color(0xFF4285F4),
-          'G',
-        ),
+      const expected = {
+        RemoteProviderId.openai: 'OpenAI',
+        RemoteProviderId.google: 'Google Gemini',
       };
 
       for (final entry in expected.entries) {
         final provider = RemoteCatalog.provider(entry.key);
         expect(provider.id, entry.key);
-        expect(provider.name, entry.value.$1);
-        expect(provider.color, entry.value.$2);
-        expect(provider.glyph, entry.value.$3);
+        expect(provider.name, entry.value);
       }
     });
 

@@ -51,8 +51,20 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.keyCheckFailed:
       'Der Schlüssel konnte nicht geprüft werden. Prüfe Schlüssel, Abrechnung und Netzwerk.',
   _StringKey.keyPlaceholder: 'sk-… Schlüssel einfügen',
+  _StringKey.openAiKeyPlaceholder: 'sk-… OpenAI-Schlüssel einfügen',
+  _StringKey.googleKeyPlaceholder: 'AIza… Gemini-Schlüssel einfügen',
   _StringKey.keyHint: 'Der Schlüssel wird nur lokal auf dem Gerät gespeichert.',
   _StringKey.remoteModel: 'Modell',
+  _StringKey.showModels: 'Modelle anzeigen',
+  _StringKey.hideModels: 'Modelle ausblenden',
+  _StringKey.transcriptionOpenAiDescription:
+      'Empfohlen: gpt-transcribe, zusätzlich multimodale Audiomodelle',
+  _StringKey.transcriptionGoogleDescription:
+      'Empfohlen: Gemini 3.5 Transcribe, zusätzlich multimodale Audiomodelle',
+  _StringKey.summaryOpenAiDescription:
+      'Aktuelle GPT-5-Modelle für strukturierte Zusammenfassungen',
+  _StringKey.summaryGoogleDescription:
+      'Aktuelle Gemini-Flash-Modelle für schnelle Zusammenfassungen',
   _StringKey.connectFirst: 'Verbinde einen Anbieter, um Modelle zu sehen.',
   _StringKey.processedWith: 'Verarbeitet mit',
   _StringKey.autoDel: 'Audio nach Verarbeitung löschen',

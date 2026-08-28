@@ -9,105 +9,157 @@ import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.dart';
+import 'package:transcriber/ui/widgets/provider_logo.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
 
   for (final provider in RemoteProviderId.values) {
     group(provider.name, () {
-      testWidgets('reports connection errors and accepts a valid key', (
-        tester,
-      ) async {
-        final controller = _FakeConnectionsController()..failConnect = true;
-        await _pumpCard(tester, provider, controller);
-
-        await tester.enterText(find.byType(TextField), '  test-key  ');
-        await tester.tap(find.text(strings.connect));
-        await tester.pump();
-
-        expect(controller.connectCalls, [(provider, '  test-key  ')]);
-        expect(find.text(strings.keyCheckFailed), findsOneWidget);
-        expect(find.byType(TextField), findsOneWidget);
-
-        controller.failConnect = false;
-        await tester.tap(find.text(strings.connect));
-        await tester.pump();
-
-        expect(controller.connectCalls, hasLength(2));
-        expect(find.textContaining(strings.connected), findsOneWidget);
-        expect(find.text(strings.keyVerified), findsOneWidget);
-        expect(find.byType(TextField), findsNothing);
-      });
-
-      testWidgets('checks a stored key and reports verification failures', (
-        tester,
-      ) async {
-        final controller = _FakeConnectionsController(
-          initial: {provider: true},
-        );
-        await _pumpCard(tester, provider, controller);
-
-        await tester.tap(find.text(strings.testKey));
-        await tester.pump();
-        expect(controller.testCalls, [provider]);
-        expect(find.text(strings.keyVerified), findsOneWidget);
-
-        controller.failTest = true;
-        await tester.tap(find.text(strings.testKey));
-        await tester.pump();
-        expect(controller.testCalls, [provider, provider]);
-        expect(find.text(strings.keyCheckFailed), findsOneWidget);
-      });
-
-      testWidgets('replaces the stored key for the selected provider', (
-        tester,
-      ) async {
-        final controller = _FakeConnectionsController(
-          initial: {provider: true},
-        );
-        await _pumpCard(tester, provider, controller);
-
-        await tester.tap(find.text(strings.replaceKey));
-        await tester.pump();
-        expect(find.byType(TextField), findsOneWidget);
-
-        await tester.enterText(find.byType(TextField), 'replacement-key');
-        await tester.tap(find.text(strings.connect));
-        await tester.pump();
-
-        expect(controller.connectCalls, [(provider, 'replacement-key')]);
-        expect(find.textContaining(strings.connected), findsOneWidget);
-        expect(find.text(strings.keyVerified), findsOneWidget);
-      });
-
-      testWidgets('keeps a failed removal and disconnects on retry', (
-        tester,
-      ) async {
-        final controller = _FakeConnectionsController(initial: {provider: true})
-          ..failDisconnect = true;
-        await _pumpCard(tester, provider, controller);
-
-        await tester.tap(find.text(strings.disconnect));
-        await tester.pump();
-        expect(controller.disconnectCalls, [provider]);
-        expect(find.text(strings.keyCheckFailed), findsOneWidget);
-        expect(find.textContaining(strings.connected), findsOneWidget);
-
-        controller.failDisconnect = false;
-        await tester.tap(find.text(strings.disconnect));
-        await tester.pump();
-        expect(controller.disconnectCalls, [provider, provider]);
-        expect(find.byType(TextField), findsOneWidget);
-      });
+      _registerConnectionTests(provider, strings);
+      _registerCredentialTests(provider, strings);
     });
   }
+  _registerResponsiveTest();
+}
+
+void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
+  testWidgets('reports connection errors and accepts a valid key', (
+    tester,
+  ) async {
+    final controller = _FakeConnectionsController()..failConnect = true;
+    await _pumpCard(tester, provider, controller);
+
+    await tester.enterText(find.byType(TextField), '  test-key  ');
+    await tester.tap(find.text(strings.connect));
+    await tester.pump();
+
+    expect(controller.connectCalls, [(provider, '  test-key  ')]);
+    expect(find.text(strings.keyCheckFailed), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+
+    controller.failConnect = false;
+    await tester.tap(find.text(strings.connect));
+    await tester.pump();
+
+    expect(controller.connectCalls, hasLength(2));
+    expect(find.text(strings.keyVerified), findsOneWidget);
+    expect(find.text(strings.replaceKey), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
+  testWidgets('checks a stored key and reports verification failures', (
+    tester,
+  ) async {
+    final controller = _FakeConnectionsController(initial: {provider: true});
+    await _pumpCard(tester, provider, controller);
+
+    await tester.tap(find.text(strings.testKey));
+    await tester.pump();
+    expect(controller.testCalls, [provider]);
+    expect(find.text(strings.keyVerified), findsOneWidget);
+
+    controller.failTest = true;
+    await tester.tap(find.text(strings.testKey));
+    await tester.pump();
+    expect(controller.testCalls, [provider, provider]);
+    expect(find.text(strings.keyCheckFailed), findsOneWidget);
+  });
+}
+
+void _registerCredentialTests(RemoteProviderId provider, AppStrings strings) {
+  testWidgets('replaces the stored key for the selected provider', (
+    tester,
+  ) async {
+    final controller = _FakeConnectionsController(initial: {provider: true});
+    await _pumpCard(tester, provider, controller);
+
+    expect(find.byType(TextField), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'replacement-key');
+    await tester.tap(find.text(strings.replaceKey));
+    await tester.pump();
+
+    expect(controller.connectCalls, [(provider, 'replacement-key')]);
+    expect(find.text(strings.keyVerified), findsOneWidget);
+  });
+
+  testWidgets('keeps a failed removal and disconnects on retry', (
+    tester,
+  ) async {
+    final controller = _FakeConnectionsController(initial: {provider: true})
+      ..failDisconnect = true;
+    await _pumpCard(tester, provider, controller);
+
+    await tester.tap(find.text(strings.disconnect));
+    await tester.pump();
+    expect(controller.disconnectCalls, [provider]);
+    expect(find.text(strings.keyCheckFailed), findsOneWidget);
+    expect(find.text(strings.disconnect), findsOneWidget);
+
+    controller.failDisconnect = false;
+    await tester.tap(find.text(strings.disconnect));
+    await tester.pump();
+    expect(controller.disconnectCalls, [provider, provider]);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text(strings.disconnect), findsNothing);
+  });
+
+  testWidgets('editable card pre-fills and keeps a stored key obscured', (
+    tester,
+  ) async {
+    final controller = _FakeConnectionsController(
+      initial: {provider: true},
+      storedKeys: {provider: 'stored-value'},
+    );
+    await _pumpCard(tester, provider, controller);
+    await tester.pump();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.obscureText, isTrue);
+    expect(field.controller!.text, 'stored-value');
+    expect(find.byType(ProviderLogo), findsOneWidget);
+    expect(find.text(strings.disconnect), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'replacement-value');
+    await tester.tap(find.text(strings.replaceKey));
+    await tester.pump();
+
+    expect(controller.connectCalls, [(provider, 'replacement-value')]);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'replacement-value',
+    );
+  });
+}
+
+void _registerResponsiveTest() {
+  testWidgets('stacks key controls on a narrow screen with larger text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpCard(
+      tester,
+      RemoteProviderId.openai,
+      _FakeConnectionsController(),
+      textScaler: const TextScaler.linear(1.3),
+    );
+
+    final fieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
+    final buttonTop = tester.getTopLeft(find.byType(FilledButton)).dy;
+    expect(buttonTop, greaterThan(fieldBottom));
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpCard(
   WidgetTester tester,
   RemoteProviderId provider,
-  _FakeConnectionsController connections,
-) => tester.pumpWidget(
+  _FakeConnectionsController connections, {
+  TextScaler textScaler = TextScaler.noScaling,
+}) => tester.pumpWidget(
   ProviderScope(
     overrides: [
       settingsControllerProvider.overrideWith(_FakeSettingsController.new),
@@ -115,6 +167,10 @@ Future<void> _pumpCard(
     ],
     child: MaterialApp(
       theme: AppTheme.build(Brightness.light, AppAccent.blue),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: Scaffold(
         body: SingleChildScrollView(
           child: ProviderConnectCard(provider: provider),
@@ -130,9 +186,13 @@ class _FakeSettingsController extends SettingsController {
 }
 
 class _FakeConnectionsController extends ConnectionsController {
-  _FakeConnectionsController({this.initial = const {}});
+  _FakeConnectionsController({
+    this.initial = const {},
+    this.storedKeys = const {},
+  });
 
   final Map<RemoteProviderId, bool> initial;
+  final Map<RemoteProviderId, String> storedKeys;
   final List<(RemoteProviderId, String)> connectCalls = [];
   final List<RemoteProviderId> testCalls = [];
   final List<RemoteProviderId> disconnectCalls = [];
@@ -162,4 +222,8 @@ class _FakeConnectionsController extends ConnectionsController {
     if (failDisconnect) throw StateError('removal failed');
     state = {...state, provider: false};
   }
+
+  @override
+  Future<String> apiKey(RemoteProviderId provider) async =>
+      storedKeys[provider] ?? '';
 }

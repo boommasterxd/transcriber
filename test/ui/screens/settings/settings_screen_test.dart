@@ -15,7 +15,7 @@ import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.da
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
 
-  testWidgets('screen renders cloud settings and both provider key cards', (
+  testWidgets('screen renders credentials inline with both cloud stages', (
     tester,
   ) async {
     await tester.pumpWidget(_settingsScreenApp());
@@ -24,7 +24,6 @@ void main() {
     expect(find.text(strings.setAsr.toUpperCase()), findsOneWidget);
     await _scrollToText(tester, strings.setLlm.toUpperCase());
     expect(find.text(strings.setLlm.toUpperCase()), findsOneWidget);
-    await _scrollToText(tester, strings.apiKey.toUpperCase());
 
     final cards = tester
         .widgetList<ProviderConnectCard>(find.byType(ProviderConnectCard))
@@ -34,6 +33,7 @@ void main() {
       cards.map((card) => card.provider),
       orderedEquals(RemoteProviderId.values),
     );
+    expect(find.text(strings.apiKey.toUpperCase()), findsNothing);
 
     await _scrollToText(tester, strings.setLang.toUpperCase());
     expect(find.text(strings.setLang.toUpperCase()), findsOneWidget);
@@ -67,10 +67,16 @@ Widget _settingsScreenApp() => ProviderScope(
 
 class _ScreenSettingsController extends SettingsController {
   @override
-  AppSettings build() => AppSettings.initial();
+  AppSettings build() => AppSettings.initial().copyWith(
+    asrProvider: RemoteProviderId.openai,
+    summaryProvider: RemoteProviderId.google,
+  );
 }
 
 class _ScreenConnections extends ConnectionsController {
   @override
   Map<RemoteProviderId, bool> build() => const {};
+
+  @override
+  Future<String> apiKey(RemoteProviderId provider) async => '';
 }

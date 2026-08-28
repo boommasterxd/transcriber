@@ -51,8 +51,20 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.keyCheckFailed:
       'The key could not be verified. Check the key, billing, and network.',
   _StringKey.keyPlaceholder: 'sk-… paste key',
+  _StringKey.openAiKeyPlaceholder: 'sk-… paste OpenAI key',
+  _StringKey.googleKeyPlaceholder: 'AIza… paste Gemini key',
   _StringKey.keyHint: 'The key is stored locally on device only.',
   _StringKey.remoteModel: 'Model',
+  _StringKey.showModels: 'Show models',
+  _StringKey.hideModels: 'Hide models',
+  _StringKey.transcriptionOpenAiDescription:
+      'Recommended: gpt-transcribe, plus multimodal audio models',
+  _StringKey.transcriptionGoogleDescription:
+      'Recommended: Gemini 3.5 Transcribe, plus multimodal audio models',
+  _StringKey.summaryOpenAiDescription:
+      'Current GPT-5 models for structured summaries',
+  _StringKey.summaryGoogleDescription:
+      'Current Gemini Flash models for fast summaries',
   _StringKey.connectFirst: 'Connect a provider to see models.',
   _StringKey.processedWith: 'Processed with',
   _StringKey.autoDel: 'Delete audio after processing',

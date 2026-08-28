@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
-import '../../../../data/models/remote_provider.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/surfaces.dart';
-import '../../settings/widgets/provider_connect_card.dart';
 import '../../settings/widgets/summary_section.dart';
 import '../../settings/widgets/transcription_section.dart';
 
@@ -20,15 +18,11 @@ class OnboardingCloudStep extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionLabel(strings.setAsr),
-        const TranscriptionSection(),
+        const TranscriptionSection(showCredentials: true),
         SectionLabel(strings.setLlm),
-        const SummarySection(),
+        const SummarySection(showCredentials: true),
         const SizedBox(height: 12),
         _CloudPrivacyNotice(text: strings.privacyStatement),
-        SectionLabel(strings.apiKey),
-        const ProviderConnectCard(provider: RemoteProviderId.openai),
-        const SizedBox(height: 12),
-        const ProviderConnectCard(provider: RemoteProviderId.google),
       ],
     );
   }
