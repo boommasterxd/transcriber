@@ -12,6 +12,7 @@ void main() {
   _registerCatalogTest();
   _registerSummaryTest();
   _registerTranscriptionTest();
+  _registerMultimodalTranscriptionTest();
   _registerProviderErrorTest();
   _registerMissingFileTest();
 }
@@ -32,6 +33,11 @@ Future<void> _testCatalog() async {
           {'id': 'gpt-transcribe'},
           {'id': 'gpt-5.6-luna'},
           {'id': 'whisper-1'},
+          {'id': 'gpt-audio-1.5'},
+          {'id': 'gpt-4o-audio-preview'},
+          {'id': 'gpt-realtime'},
+          {'id': 'gpt-4o-mini-tts'},
+          {'id': 'omni-moderation-latest'},
         ],
       }),
     ),
@@ -48,8 +54,59 @@ Future<void> _testCatalog() async {
     headerName: 'authorization',
     headerValue: 'Bearer secret-key',
   );
-  expect(asr.map((model) => model.id), ['gpt-transcribe']);
+  expect(asr.map((model) => model.id), [
+    'gpt-4o-audio-preview',
+    'gpt-audio-1.5',
+    'gpt-transcribe',
+    'whisper-1',
+  ]);
   expect(summary.map((model) => model.id), ['gpt-5.6-luna']);
+}
+
+void _registerMultimodalTranscriptionTest() {
+  test(
+    'sends multimodal audio models through chat completions',
+    _testMultimodalTranscription,
+  );
+}
+
+Future<void> _testMultimodalTranscription() async {
+  await withTemporaryAudio(
+    prefix: 'openai-audio-chat-',
+    bytes: [1, 2],
+    action: (file) async {
+      final httpClient = scriptedHttpClient([
+        jsonResponse({
+          'choices': [
+            {
+              'message': {'content': 'Multimodal transcript'},
+            },
+          ],
+        }),
+      ]);
+      final client = OpenAiClient(apiKey: 'secret-key', httpClient: httpClient);
+
+      final result = await client.transcribe(
+        file.path,
+        modelId: 'gpt-audio-1.5',
+        languageCode: 'de',
+      );
+      final captured = httpClient.requests.single as http.Request;
+      final payload = jsonDecode(captured.body) as Map<String, dynamic>;
+      final messages = payload['messages'] as List;
+      final content = (messages.single as Map)['content'] as List;
+
+      expect(captured.url.path, '/v1/chat/completions');
+      expect(payload['model'], 'gpt-audio-1.5');
+      expect(payload['modalities'], ['text']);
+      expect((content.first as Map)['text'], contains('language is de'));
+      expect((content.last as Map)['input_audio'], {
+        'data': 'AQI=',
+        'format': 'wav',
+      });
+      expect(result.text, 'Multimodal transcript');
+    },
+  );
 }
 
 void _registerSummaryTest() {

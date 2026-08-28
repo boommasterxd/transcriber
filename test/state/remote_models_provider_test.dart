@@ -92,6 +92,7 @@ void _registerCapabilityTests() {
     expect(models.map((model) => model.id), [
       'gpt-transcribe',
       'gpt-4o-transcribe',
+      'whisper-1',
     ]);
   });
 }

@@ -45,7 +45,7 @@ Provider behavior is split into small contracts:
 - `ModelCatalogClient` lists selectable models.
 - `RemoteProviderClient` composes the three contracts for the factory.
 
-`OpenAiClient` and `GoogleClient` implement direct REST requests with the existing `http` stack. Provider-specific payloads and errors remain behind those clients. API keys are transmitted in headers and are never placed in URLs, database rows, logs, or user-visible error details.
+`OpenAiClient` and `GoogleClient` implement direct REST requests with the existing `http` stack. Provider model catalogs are loaded dynamically and filtered by `ProviderModelCapabilities` because neither catalog exposes complete audio-input and text-output modality metadata. Dedicated transcription models use provider-native transcription payloads, while compatible multimodal models receive audio plus a plain-text transcription instruction. Provider-specific payloads and errors remain behind those clients. API keys are transmitted in headers and are never placed in URLs, database rows, logs, or user-visible error details.
 
 ## Processing Flow
 

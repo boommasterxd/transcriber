@@ -13,7 +13,11 @@ Transcription and summarization are independent settings.
 | Transcription | `gpt-transcribe` | `gemini-3.5-transcribe` |
 | Summary | `gpt-5.6-luna` | `gemini-3.7-flash` |
 
-The provider model catalog is loaded after a stored key has been verified. The configured default remains selectable if a provider does not expose it in the catalog response.
+The provider model catalog is loaded after a stored key has been verified. The configured default remains selectable if a provider does not expose it in the catalog response. Transcription selection includes dedicated transcription models and compatible multimodal models that accept audio and return text.
+
+OpenAI's model catalog exposes identifiers but no modality metadata. The application therefore recognizes the officially documented transcription and audio model families returned for the user's key. Dedicated transcription models use the Audio Transcriptions API. General audio models use Chat Completions with inline WAV or MP3 audio, which is limited to 20 MiB to bound Base64 memory overhead.
+
+Gemini's catalog is loaded across all pages. Dedicated Transcribe models use transcription configuration through the Files and Interactions APIs. General Gemini models that support `generateContent` use the same uploaded audio plus a text transcription instruction. Image, TTS, embedding, live, and other incompatible specialized families are excluded from the transcription selector.
 
 ## Personal API Keys
 

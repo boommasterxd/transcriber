@@ -4,8 +4,10 @@ Transcriber is a Flutter Android application that records, imports, or receives 
 
 Processing is cloud-only and uses personal API keys:
 
-- OpenAI transcription with `gpt-transcribe`
-- Google Gemini transcription with `gemini-3.5-transcribe`
+- selectable OpenAI transcription and multimodal audio models, defaulting to
+  `gpt-transcribe`
+- selectable Gemini Transcribe and general multimodal audio models, defaulting
+  to `gemini-3.5-transcribe`
 - independently selected OpenAI or Gemini summary models
 
 API keys are stored only in Android-backed `FlutterSecureStorage`. Settings, notes, points, to-dos, transcript segments, and migration state use Drift with SQLite. External source files are never deleted.
