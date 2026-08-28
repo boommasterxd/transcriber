@@ -257,12 +257,12 @@ Future<void> _testTranscription({
         (interaction['input'] as List).single['mime_type'],
         expectedMimeType,
       );
-      expect(
-        interaction['generation_config']['transcription_config']['language_codes'],
-        ['de-DE'],
-      );
+      expect(interaction['generation_config']['transcription_config'], {
+        'mode': {'type': 'smart'},
+        'language_codes': ['de-DE'],
+      });
       expect(result.text, 'Transcript');
-      expect(result.segments.single.time, '0:00');
+      expect(result.segments.single.text, 'Transcript');
     },
   );
 }

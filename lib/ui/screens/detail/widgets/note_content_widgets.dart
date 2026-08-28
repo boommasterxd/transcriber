@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/transcript_note.dart';
 import '../../../widgets/todo_tile.dart';
 
@@ -164,25 +163,20 @@ class TranscriptRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final style = _NoteRowStyle(
-      bottomPadding: bottomPadding,
-      fontSize: fontSize,
-      gap: 12,
-      lineHeight: 1.5,
-    );
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final line in lines)
-          _NoteTextRow(
-            leading: SizedBox(
-              width: 34,
-              child: Text(
-                line.time,
-                style: AppTheme.mono(color: palette.accent, size: 12),
+          Padding(
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: Text(
+              line.text,
+              style: TextStyle(
+                fontSize: fontSize,
+                height: 1.5,
+                color: palette.body,
               ),
             ),
-            text: line.text,
-            style: style,
           ),
       ],
     );

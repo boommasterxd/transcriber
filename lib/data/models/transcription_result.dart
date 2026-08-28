@@ -1,6 +1,6 @@
 import 'transcript_note.dart';
 
-/// Result of a transcription: the full text plus optional time-stamped lines.
+/// Result of a transcription: the full text plus optional structured segments.
 class TranscriptionResult {
   const TranscriptionResult({required this.text, required this.segments});
 

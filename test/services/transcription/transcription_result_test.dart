@@ -12,10 +12,10 @@ void main() {
       expect(result.hasSegments, isFalse);
     });
 
-    test('preserves timestamped lines and reports their presence', () {
+    test('preserves transcript lines and reports their presence', () {
       const segments = [
-        TranscriptLine(time: '0:00', text: 'First'),
-        TranscriptLine(time: '1:02', text: 'Second'),
+        TranscriptLine(text: 'First'),
+        TranscriptLine(text: 'Second'),
       ];
       const result = TranscriptionResult(
         text: 'First Second',
@@ -24,7 +24,7 @@ void main() {
 
       expect(result.hasSegments, isTrue);
       expect(result.segments, same(segments));
-      expect(result.segments.first.time, '0:00');
+      expect(result.segments.first.text, 'First');
       expect(result.segments.last.text, 'Second');
     });
   });

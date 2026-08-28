@@ -144,7 +144,7 @@ final class RecordingProviderClient implements RemoteProviderClient {
     if (transcriptionError case final error?) throw error;
     return const TranscriptionResult(
       text: 'Transcript text',
-      segments: [TranscriptLine(time: '0:00', text: 'Transcript text')],
+      segments: [TranscriptLine(text: 'Transcript text')],
     );
   }
 

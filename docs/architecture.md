@@ -62,7 +62,7 @@ record, import, or share
 
 ## Persistence
 
-Drift tables store singleton settings, notes, ordered key points, ordered to-dos, transcript segments, and migration markers. Repository writes are transactional. API keys remain exclusively in `FlutterSecureStorage`.
+Drift tables store singleton settings, notes, ordered key points, ordered to-dos, ordered transcript text segments, and migration markers. Timestamps are intentionally not part of the transcript domain or database schema. Repository writes are transactional. API keys remain exclusively in `FlutterSecureStorage`.
 
 The one-time legacy migration parses old settings and notes before entering a database transaction. The marker, settings, notes, points, to-dos, and transcript segments commit atomically. Successfully imported SharedPreferences values are removed only after the commit.
 

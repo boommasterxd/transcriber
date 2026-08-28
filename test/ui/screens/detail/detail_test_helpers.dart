@@ -150,7 +150,7 @@ TranscriptNote detailTestNote({
   points: const ['Confirm the launch plan'],
   todos: [TodoItem(text: 'Send the agenda')],
   transcript: const [
-    TranscriptLine(time: '0:03', text: 'We should confirm the launch plan.'),
+    TranscriptLine(text: 'We should confirm the launch plan.'),
   ],
 );
 

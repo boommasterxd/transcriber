@@ -73,7 +73,6 @@ class TranscriptSegmentsTable extends OrderedNoteChildTable {
   @override
   String get tableName => 'transcript_segments';
 
-  TextColumn get time => text()();
   TextColumn get content => text().named('text')();
 }
 

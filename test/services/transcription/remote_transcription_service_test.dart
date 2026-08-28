@@ -7,7 +7,7 @@ import 'package:transcriber/services/transcription/transcription_service.dart';
 void main() {
   const response = TranscriptionResult(
     text: 'Remote transcript',
-    segments: [TranscriptLine(time: '0:03', text: 'Remote transcript')],
+    segments: [TranscriptLine(text: 'Remote transcript')],
   );
 
   test('forwards the path, language, and configured model', () async {

@@ -269,7 +269,7 @@ TranscriptNote _note(
   gist: 'Gist',
   points: const ['Point'],
   todos: todos ?? [TodoItem(text: 'Action')],
-  transcript: const [TranscriptLine(time: '00:01', text: 'Text')],
+  transcript: const [TranscriptLine(text: 'Text')],
   audioPath: audioPath ?? '/recordings/$id.wav',
   audioOwnership: audioOwnership,
 );

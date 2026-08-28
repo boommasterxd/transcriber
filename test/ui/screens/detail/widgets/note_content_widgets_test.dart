@@ -52,7 +52,7 @@ void main() {
     expect(find.text('First key point'), findsOneWidget);
     expect(find.text(strings.shActions.toUpperCase()), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.text('0:03'), findsOneWidget);
+    expect(find.text('0:03'), findsNothing);
     expect(find.text('Transcript text'), findsOneWidget);
   });
 
@@ -91,7 +91,7 @@ TranscriptNote _note() {
     gist: 'Compact summary',
     points: const ['First key point'],
     todos: [TodoItem(text: 'Follow up')],
-    transcript: const [TranscriptLine(time: '0:03', text: 'Transcript text')],
+    transcript: const [TranscriptLine(text: 'Transcript text')],
   );
 }
 
