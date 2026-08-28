@@ -132,7 +132,6 @@ class _HomeControls extends StatelessWidget {
           child: ActiveModelPill(
             label: data.modelStatus.label,
             activeText: strings.modelActive,
-            isLocal: data.modelStatus.fullyLocal,
             warning: data.modelStatus.warning,
             onTap: () => AppNavigator.openSettings(context),
           ),

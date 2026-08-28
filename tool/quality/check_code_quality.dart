@@ -56,6 +56,7 @@ List<String> checkFileLengths() {
 
   final violations = <String>[];
   for (final path in files.paths) {
+    if (_isGeneratedDart(path)) continue;
     final lineCount = File(path).readAsLinesSync().length;
     if (lineCount <= _fileLengthLimit) continue;
     violations.add('$path has $lineCount lines (limit $_fileLengthLimit).');
@@ -69,6 +70,7 @@ List<String> checkCognitiveComplexity() {
 
   final violations = <String>[];
   for (final path in files.paths) {
+    if (_isGeneratedDart(path)) continue;
     final parsed = parseFile(
       path: path,
       featureSet: FeatureSet.latestLanguageVersion(),
@@ -121,6 +123,7 @@ List<String> checkDclMetrics(String metricsPath) {
   for (final recordValue in records) {
     final record = recordValue as Map<String, dynamic>;
     final path = record['path'] as String;
+    if (_isGeneratedDart(path)) continue;
     final functions = record['functions'] as Map<String, dynamic>? ?? const {};
     for (final functionEntry in functions.entries) {
       final function = functionEntry.value as Map<String, dynamic>;
@@ -138,6 +141,15 @@ List<String> checkDclMetrics(String metricsPath) {
     }
   }
   return violations;
+}
+
+bool _isGeneratedDart(String path) {
+  if (!path.endsWith('.g.dart')) return false;
+  final file = File(path);
+  if (!file.existsSync()) return false;
+  return file.readAsStringSync().startsWith(
+    '// GENERATED CODE - DO NOT MODIFY BY HAND',
+  );
 }
 
 final class CognitiveMeasurement {

@@ -65,26 +65,30 @@ class _RootGateState extends ConsumerState<_RootGate>
     if (state == AppLifecycleState.resumed) _checkPermissions();
   }
 
-  /// Setup is only "done" when the wizard was finished AND the microphone and
-  /// notification permissions are still granted; otherwise we force the wizard.
+  /// Setup is only complete while microphone access remains granted.
   Future<void> _checkPermissions() async {
     final mic = await Permission.microphone.isGranted;
-    final notif = await Permission.notification.isGranted;
     if (!mounted) return;
-    setState(() => _permissionsGranted = mic && notif);
+    setState(() => _permissionsGranted = mic);
   }
 
   Future<void> _setupShareIntents() async {
     final service = ref.read(shareIntentServiceProvider);
     final initial = await service.initialSharedAudio();
-    if (initial != null) _handleShared(initial);
+    if (initial != null) await _handleShared(initial);
     service.listen(_handleShared);
   }
 
-  void _handleShared(String path) {
+  Future<void> _handleShared(String path) async {
     // Shared/opened audio is processed in a modal overlay sheet so the result
     // can be previewed and explicitly saved.
-    ShareOverlay.show(audioPath: path, fileName: path.split('/').last);
+    final imported = await ref
+        .read(audioCacheManagerProvider)
+        .importExternal(path);
+    await ShareOverlay.show(
+      audioPath: imported.path,
+      fileName: path.split('/').last,
+    );
   }
 
   @override
@@ -96,7 +100,7 @@ class _RootGateState extends ConsumerState<_RootGate>
     ref.watch(stringsProvider.select((AppStrings s) => s.language));
 
     // When permissions are granted inside the wizard the app never backgrounds,
-    // so re-read the OS status here too — otherwise a user forced back into
+    // so re-read the OS status here too. Otherwise a user forced back into
     // setup by a revoked permission could get stuck after re-granting it.
     ref.listen<bool>(onboardingPermissionsReadyProvider, (_, next) {
       if (next) _checkPermissions();
@@ -105,7 +109,7 @@ class _RootGateState extends ConsumerState<_RootGate>
     // Force the wizard if it was never finished, or if the required permissions
     // are no longer granted (revoked in system settings, etc.). While the first
     // check is pending we keep showing the wizard for a not-yet-onboarded user
-    // and the home for an onboarded one — no flicker in the common case.
+    // and the home for an onboarded one, with no flicker in the common case.
     final needsSetup = !onboarded || _permissionsGranted == false;
 
     return LayoutBuilder(

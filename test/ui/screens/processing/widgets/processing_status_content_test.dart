@@ -10,8 +10,8 @@ import 'processing_widget_test_support.dart';
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
   const profile = ProcessingProfile(
-    asr: StageInfo(name: 'Whisper Base', sub: '75 MB', isLocal: true),
-    summary: StageInfo(name: 'Cloud LLM', sub: 'Provider', isLocal: false),
+    asr: StageInfo(name: 'gpt-transcribe', providerName: 'OpenAI'),
+    summary: StageInfo(name: 'gpt-5.6-luna', providerName: 'OpenAI'),
   );
 
   testWidgets('shows transcription status, file name, and both steps', (
@@ -35,7 +35,7 @@ void main() {
     );
 
     expect(find.text(strings.shTranscribe), findsOneWidget);
-    expect(find.text('Whisper Base · 75 MB'), findsOneWidget);
+    expect(find.text('gpt-transcribe · OpenAI'), findsOneWidget);
     expect(find.text('meeting.m4a'), findsOneWidget);
     expect(find.text(strings.shStep1), findsOneWidget);
     expect(find.text(strings.shStep2), findsOneWidget);
@@ -43,15 +43,12 @@ void main() {
     expect(find.byIcon(Icons.check), findsNothing);
   });
 
-  testWidgets('shows summary download progress and completed first step', (
+  testWidgets('shows summary cloud metadata and completed first step', (
     tester,
   ) async {
     final presentation = ProcessingStatusPresentation.forScreen(
       strings: strings,
-      state: const ProcessingState(
-        step: ProcessingStep.summarizing,
-        modelProgress: 0.574,
-      ),
+      state: const ProcessingState(step: ProcessingStep.summarizing),
       profile: profile,
       summarizeEnabled: true,
     );
@@ -63,7 +60,7 @@ void main() {
     );
 
     expect(find.text(strings.shSummarize), findsOneWidget);
-    expect(find.text('${strings.downloading} 57%'), findsOneWidget);
+    expect(find.text('gpt-5.6-luna · OpenAI'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });

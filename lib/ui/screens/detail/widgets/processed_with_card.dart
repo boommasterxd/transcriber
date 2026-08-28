@@ -6,7 +6,7 @@ import '../../../../data/models/transcript_note.dart';
 import '../../../widgets/surfaces.dart';
 
 /// "Processed with" card: one row per stage (transcription + summary), each
-/// showing whether it ran on-device or in the cloud, the model, and its label.
+/// showing provider, model, and historical processing origin.
 class ProcessedWithCard extends StatelessWidget {
   const ProcessedWithCard({
     super.key,

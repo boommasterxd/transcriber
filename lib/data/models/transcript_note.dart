@@ -1,3 +1,5 @@
+import 'audio_ownership.dart';
+
 /// Origin of an audio note.
 enum NoteSource {
   shared('shared'),
@@ -62,6 +64,7 @@ class TranscriptNote {
     required this.todos,
     required this.transcript,
     this.audioPath,
+    this.audioOwnership = AudioOwnership.external,
   });
 
   final String id;
@@ -71,7 +74,7 @@ class TranscriptNote {
   final int durationSec;
   final DateTime createdAt;
 
-  /// Whether each stage ran on-device (vs. cloud). The two are independent.
+  /// Historical processing origin. New notes always store `false` here.
   final bool asrIsLocal;
   final bool summaryIsLocal;
 
@@ -88,17 +91,22 @@ class TranscriptNote {
 
   /// Local path of the (optionally retained) source audio file.
   final String? audioPath;
+  final AudioOwnership audioOwnership;
 
   /// True if any stage ran in the cloud (used for the history dot color).
   bool get isRemote => !(asrIsLocal && summaryIsLocal);
 
-  /// Compact "Whisper Base · Claude Sonnet 4.5" label used in the history list.
+  /// Compact model label used in the history list.
   String get modelShort => '$asrName · ${llmName.split(' · ').first}';
 
   String get fullTranscriptText =>
       transcript.map((l) => '[${l.time}] ${l.text}').join('\n');
 
-  TranscriptNote copyWith({List<TodoItem>? todos}) => TranscriptNote(
+  TranscriptNote copyWith({
+    List<TodoItem>? todos,
+    String? audioPath,
+    AudioOwnership? audioOwnership,
+  }) => TranscriptNote(
     id: id,
     title: title,
     speaker: speaker,
@@ -115,7 +123,8 @@ class TranscriptNote {
     points: points,
     todos: todos ?? this.todos,
     transcript: transcript,
-    audioPath: audioPath,
+    audioPath: audioPath ?? this.audioPath,
+    audioOwnership: audioOwnership ?? this.audioOwnership,
   );
 
   Map<String, dynamic> toJson() => {
@@ -136,6 +145,7 @@ class TranscriptNote {
     'todos': todos.map((t) => t.toJson()).toList(),
     'transcript': transcript.map((t) => t.toJson()).toList(),
     'audioPath': audioPath,
+    'audioOwnership': audioOwnership.id,
   };
 
   factory TranscriptNote.fromJson(Map<String, dynamic> j) => TranscriptNote(
@@ -167,5 +177,6 @@ class TranscriptNote {
             .toList() ??
         const [],
     audioPath: j['audioPath'] as String?,
+    audioOwnership: AudioOwnership.fromId(j['audioOwnership'] as String?),
   );
 }

@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/service_exceptions.dart';
-import 'package:transcriber/state/connections_controller.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
 import 'package:transcriber/state/processing_controller.dart';
-import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/navigation.dart';
 import 'package:transcriber/ui/screens/share/share_overlay_sheet.dart';
+import '../../../support/app_test_fakes.dart';
 import 'share_test_support.dart';
 
 void main() {
@@ -40,6 +39,7 @@ void _registerPreviewCommitTest() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(controller.lastSave, isFalse);
+    expect(controller.lastInput?.audio.ownership, AudioOwnership.temporary);
     expect(find.text(note.title), findsOneWidget);
 
     await tester.tap(find.text(shareTestStrings.shSave));
@@ -48,6 +48,7 @@ void _registerPreviewCommitTest() {
     await tester.pump();
 
     expect(controller.commitCalls, 1);
+    expect(controller.discardCalls, 1);
     expect(finished, isTrue);
   });
 }
@@ -102,7 +103,7 @@ void _registerRetryTest() {
 }
 
 void _registerSettingsTest() {
-  testWidgets('missing model opens settings after closing share sheet', (
+  testWidgets('missing API key opens settings after closing share sheet', (
     tester,
   ) async {
     var finished = false;
@@ -111,7 +112,7 @@ void _registerSettingsTest() {
       _shareApp(
         observer: observer,
         createProcessing: () => _FakeProcessingController([
-          const ModelNotDownloadedException('Model unavailable'),
+          const MissingApiKeyException('Provider key unavailable'),
         ]),
         child: ShareSheetContent(
           audioPath: '/audio/shared.m4a',
@@ -177,24 +178,23 @@ Widget _shareApp({
   required Widget child,
   required _FakeProcessingController Function() createProcessing,
   NavigatorObserver? observer,
-}) => ProviderScope(
-  overrides: [
-    processingControllerProvider.overrideWith(createProcessing),
-    settingsControllerProvider.overrideWith(ShareTestSettingsController.new),
-    connectionsControllerProvider.overrideWith(
-      ShareTestConnectionsController.new,
+}) {
+  final database = testDatabase();
+  addTearDown(database.close);
+  return appScope(
+    database: database,
+    settings: shareTestSettings(),
+    child: ProviderScope(
+      overrides: [processingControllerProvider.overrideWith(createProcessing)],
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        navigatorObservers: observer == null ? const [] : [observer],
+        theme: shareTestTheme(),
+        home: Scaffold(body: child),
+      ),
     ),
-    modelManagerControllerProvider.overrideWith(
-      ShareTestModelManagerController.new,
-    ),
-  ],
-  child: MaterialApp(
-    navigatorKey: navigatorKey,
-    navigatorObservers: observer == null ? const [] : [observer],
-    theme: shareTestTheme(),
-    home: Scaffold(body: child),
-  ),
-);
+  );
+}
 
 final class _FakeProcessingController extends ProcessingController {
   _FakeProcessingController(this._outcomes);
@@ -202,7 +202,9 @@ final class _FakeProcessingController extends ProcessingController {
   final List<Object> _outcomes;
   int runCalls = 0;
   int commitCalls = 0;
+  int discardCalls = 0;
   bool? lastSave;
+  ProcessingInput? lastInput;
 
   @override
   ProcessingState build() => const ProcessingState();
@@ -214,6 +216,7 @@ final class _FakeProcessingController extends ProcessingController {
     bool save = true,
   }) async {
     runCalls++;
+    lastInput = input;
     lastSave = save;
     final outcome = _outcomes.removeAt(0);
     state = outcome is TranscriptNote
@@ -224,6 +227,11 @@ final class _FakeProcessingController extends ProcessingController {
   @override
   Future<void> commit() async {
     commitCalls++;
+  }
+
+  @override
+  Future<void> discardCurrent() async {
+    discardCalls++;
   }
 }
 

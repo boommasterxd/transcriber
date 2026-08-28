@@ -1,28 +1,34 @@
+import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:transcriber/app_bootstrap.dart';
+import 'package:transcriber/data/database/app_database.dart';
+import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/share_entrypoint.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _ShareChannel channel;
+  late AppDatabase database;
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    FlutterSecureStorage.setMockInitialValues({});
+    database = AppDatabase(NativeDatabase.memory());
     channel = _ShareChannel();
     channel.install();
   });
 
-  tearDown(() => channel.uninstall());
+  tearDown(() async {
+    await channel.uninstall();
+    await database.close();
+  });
 
   testWidgets('finishes the translucent activity when no shared path exists', (
     tester,
   ) async {
     channel.initialPath = null;
 
-    await runShareEntrypoint();
+    await runShareEntrypoint(loadBootstrap: () async => _bootstrap(database));
     await tester.pump();
     await tester.pump();
 
@@ -34,7 +40,7 @@ void main() {
     (tester) async {
       channel.error = PlatformException(code: 'lookup_failed');
 
-      await runShareEntrypoint();
+      await runShareEntrypoint(loadBootstrap: () async => _bootstrap(database));
       await tester.pump();
       await tester.pump();
 
@@ -42,6 +48,14 @@ void main() {
     },
   );
 }
+
+AppBootstrapData _bootstrap(AppDatabase database) => AppBootstrapData(
+  database: database,
+  settings: AppSettings.initial(),
+  connections: const {},
+  notes: const [],
+  cacheManager: AudioCacheManager(),
+);
 
 final class _ShareChannel {
   final _channel = const MethodChannel('app/share');

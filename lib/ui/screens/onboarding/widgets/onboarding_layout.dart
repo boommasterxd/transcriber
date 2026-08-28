@@ -186,7 +186,6 @@ class _OnboardingFooter extends StatelessWidget {
 
   String _hint() => switch (gate.hint) {
     OnboardingGateHint.connectProvider => strings.obConnectHint,
-    OnboardingGateHint.downloadModel => strings.obDownloadHint,
     OnboardingGateHint.grantPermissions => strings.obPermLocked,
     null => '',
   };

@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../state/connections_controller.dart';
-import '../../../state/model_manager_controller.dart';
 import '../../../state/settings_controller.dart';
 import 'onboarding_step_gate.dart';
 import 'widgets/onboarding_layout.dart';
 import 'widgets/onboarding_permissions_step.dart';
 
-/// First-run setup wizard for models, appearance, permissions, and completion.
+/// First-run setup wizard for providers, appearance, permissions, and completion.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -43,22 +42,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   OnboardingStepGate _gate() {
     final settings = ref.watch(settingsControllerProvider);
     final connections = ref.watch(connectionsControllerProvider);
-    final models = ref.watch(modelManagerControllerProvider);
-    final asrReady = settings.asrMode.isLocal
-        ? models.whisperStatus(settings.whisperModelId).isDownloaded
-        : (connections[settings.asrProvider] ?? false);
-    final summaryReady = settings.summaryMode.isLocal
-        ? models.gemmaStatus(settings.gemmaModelId).isDownloaded
-        : (connections[settings.summaryProvider] ?? false);
+    final asrReady = connections[settings.asrProvider] ?? false;
+    final summaryReady = connections[settings.summaryProvider] ?? false;
     return evaluateOnboardingStepGate(
       step: _step,
       permissionsReady: ref.watch(onboardingPermissionsReadyProvider),
-      asr: (usesLocalModel: settings.asrMode.isLocal, ready: asrReady),
-      summary: (
-        enabled: settings.summarizeEnabled,
-        usesLocalModel: settings.summaryMode.isLocal,
-        ready: summaryReady,
-      ),
+      asrReady: asrReady,
+      summaryEnabled: settings.summarizeEnabled,
+      summaryReady: summaryReady,
     );
   }
 

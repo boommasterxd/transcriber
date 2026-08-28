@@ -2,12 +2,8 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/data/catalog/gemma_catalog.dart';
 import 'package:transcriber/data/catalog/remote_catalog.dart';
-import 'package:transcriber/data/catalog/whisper_catalog.dart';
 import 'package:transcriber/data/models/app_settings.dart';
-import 'package:transcriber/data/models/inference_backend.dart';
-import 'package:transcriber/data/models/processing_mode.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcription_language.dart';
 
@@ -21,20 +17,17 @@ void main() {
 
 void _testInitialSettings() {
   group('AppSettings.initial', () {
-    test('provides the documented local-first defaults', () {
+    test('provides the documented cloud defaults', () {
       final settings = AppSettings.initial();
 
       _expectCoreDefaults(settings);
-      expect(settings.whisperThreads, 4);
-      expect(settings.asrProvider, RemoteProviderId.openai);
-      expect(settings.summaryProvider, RemoteProviderId.anthropic);
+      expect(settings.asrProvider, RemoteProviderId.google);
+      expect(settings.summaryProvider, RemoteProviderId.google);
       expect(settings.chatModelByProvider, isEmpty);
       expect(settings.asrModelByProvider, isEmpty);
       expect(settings.autoDeleteAudio, isFalse);
       expect(settings.summarizeEnabled, isTrue);
       expect(settings.onboarded, isFalse);
-      expect(settings.hfToken, isEmpty);
-      expect(settings.isFullyLocal, isTrue);
     });
 
     test('falls back to catalog model defaults for unselected providers', () {
@@ -56,53 +49,38 @@ void _testInitialSettings() {
 
 void _testCopyWith() {
   group('AppSettings.copyWith', () {
-    test('replaces every configurable field', () {
+    test('replaces every configurable cloud field', () {
       final original = AppSettings.initial();
       final chatModels = {RemoteProviderId.google: 'chat-model'};
-      final asrModels = {RemoteProviderId.google: 'asr-model'};
+      final asrModels = {RemoteProviderId.openai: 'asr-model'};
 
       final changed = original.copyWith(
         themeMode: ThemeMode.dark,
         accent: AppAccent.magenta,
         language: AppLanguage.en,
         transcriptionLanguage: TranscriptionLanguage.en,
-        asrMode: ProcessingMode.cloud,
-        summaryMode: ProcessingMode.cloud,
-        whisperModelId: 'small',
-        gemmaModelId: 'gemma4_e2b',
-        gemmaBackend: InferenceBackend.npu,
-        whisperThreads: 8,
-        asrProvider: RemoteProviderId.google,
-        summaryProvider: RemoteProviderId.openrouter,
+        asrProvider: RemoteProviderId.openai,
+        summaryProvider: RemoteProviderId.google,
         chatModelByProvider: chatModels,
         asrModelByProvider: asrModels,
         autoDeleteAudio: true,
         summarizeEnabled: false,
         onboarded: true,
-        hfToken: 'test-token',
       );
 
       expect(changed.themeMode, ThemeMode.dark);
       expect(changed.accent, AppAccent.magenta);
       expect(changed.language, AppLanguage.en);
       expect(changed.transcriptionLanguage, TranscriptionLanguage.en);
-      expect(changed.asrMode, ProcessingMode.cloud);
-      expect(changed.summaryMode, ProcessingMode.cloud);
-      expect(changed.whisperModelId, 'small');
-      expect(changed.gemmaModelId, 'gemma4_e2b');
-      expect(changed.gemmaBackend, InferenceBackend.npu);
-      expect(changed.whisperThreads, 8);
-      expect(changed.asrProvider, RemoteProviderId.google);
-      expect(changed.summaryProvider, RemoteProviderId.openrouter);
+      expect(changed.asrProvider, RemoteProviderId.openai);
+      expect(changed.summaryProvider, RemoteProviderId.google);
       expect(changed.chatModelByProvider, chatModels);
       expect(changed.asrModelByProvider, asrModels);
       expect(changed.autoDeleteAudio, isTrue);
       expect(changed.summarizeEnabled, isFalse);
       expect(changed.onboarded, isTrue);
-      expect(changed.hfToken, 'test-token');
-      expect(changed.isFullyLocal, isFalse);
       expect(changed.summaryModelId(RemoteProviderId.google), 'chat-model');
-      expect(changed.asrModelId(RemoteProviderId.google), 'asr-model');
+      expect(changed.asrModelId(RemoteProviderId.openai), 'asr-model');
     });
 
     test('preserves every field when no replacement is supplied', () {
@@ -110,7 +88,6 @@ void _testCopyWith() {
       final copied = original.copyWith();
 
       expect(copied.toJson(), original.toJson());
-      expect(copied.hfToken, original.hfToken);
       expect(copied.chatModelByProvider, same(original.chatModelByProvider));
       expect(copied.asrModelByProvider, same(original.asrModelByProvider));
     });
@@ -119,15 +96,13 @@ void _testCopyWith() {
 
 void _testJsonRoundTrip() {
   group('AppSettings JSON', () {
-    test('round-trips all persisted values and injects the secure token', () {
+    test('round-trips all persisted cloud settings', () {
       final original = _completeSettings();
       final json = original.toJson();
 
-      expect(json, isNot(contains('hfToken')));
-      final restored = AppSettings.fromJson(json, hfToken: 'restored-token');
+      final restored = AppSettings.fromJson(json);
 
       expect(restored.toJson(), json);
-      expect(restored.hfToken, 'restored-token');
       expect(restored.chatModelByProvider, {
         RemoteProviderId.google: 'gemini-custom',
       });
@@ -140,36 +115,17 @@ void _testJsonRoundTrip() {
 
 void _testLegacyJson() {
   group('AppSettings legacy JSON', () {
-    test('uses independent stage modes over the legacy shared mode', () {
-      final settings = AppSettings.fromJson({
-        'mode': 'remote',
-        'asrMode': 'local',
-        'summaryMode': 'remote',
-      }, hfToken: '');
-
-      expect(settings.asrMode, ProcessingMode.onDevice);
-      expect(settings.summaryMode, ProcessingMode.cloud);
-    });
-
-    test('migrates the legacy shared remote mode to both stages', () {
-      final settings = AppSettings.fromJson({'mode': 'remote'}, hfToken: '');
-
-      expect(settings.asrMode, ProcessingMode.cloud);
-      expect(settings.summaryMode, ProcessingMode.cloud);
-      expect(settings.isFullyLocal, isFalse);
-    });
-
     test('migrates legacy brightness when theme mode is absent', () {
       expect(
-        AppSettings.fromJson({'brightness': 'dark'}, hfToken: '').themeMode,
+        AppSettings.fromJson({'brightness': 'dark'}).themeMode,
         ThemeMode.dark,
       );
       expect(
-        AppSettings.fromJson({'brightness': 'light'}, hfToken: '').themeMode,
+        AppSettings.fromJson({'brightness': 'light'}).themeMode,
         ThemeMode.light,
       );
       expect(
-        AppSettings.fromJson({'brightness': 'unknown'}, hfToken: '').themeMode,
+        AppSettings.fromJson({'brightness': 'unknown'}).themeMode,
         ThemeMode.system,
       );
     });
@@ -179,14 +135,14 @@ void _testLegacyJson() {
         final settings = AppSettings.fromJson({
           'themeMode': mode.name,
           'brightness': 'dark',
-        }, hfToken: '');
+        });
         expect(settings.themeMode, mode);
       }
 
       final invalid = AppSettings.fromJson({
         'themeMode': 'sepia',
         'brightness': 'dark',
-      }, hfToken: '');
+      });
       expect(invalid.themeMode, ThemeMode.system);
     });
   });
@@ -199,27 +155,21 @@ void _testJsonFallbacks() {
         'accent': 'invalid',
         'language': 'invalid',
         'transcriptionLanguage': 'invalid',
-        'asrMode': 'invalid',
-        'summaryMode': 'invalid',
-        'gemmaBackend': 'invalid',
-        'asrProvider': 'anthropic',
-        'summaryProvider': 'invalid',
-      }, hfToken: 'secure');
+        'asrProvider': 'unsupported',
+        'summaryProvider': 'unsupported',
+      });
 
       _expectCoreDefaults(settings);
-      expect(settings.asrProvider, RemoteProviderId.openai);
-      expect(settings.summaryProvider, RemoteProviderId.anthropic);
-      expect(settings.hfToken, 'secure');
+      expect(settings.asrProvider, RemoteProviderId.google);
+      expect(settings.summaryProvider, RemoteProviderId.google);
     });
 
-    test('normalizes numeric thread counts and stringifies map values', () {
+    test('normalizes map values to strings', () {
       final settings = AppSettings.fromJson({
-        'whisperThreads': 3.9,
         'chatModelByProvider': {'google': 42},
         'asrModelByProvider': {'openai': true},
-      }, hfToken: '');
+      });
 
-      expect(settings.whisperThreads, 3);
       expect(settings.chatModelByProvider[RemoteProviderId.google], '42');
       expect(settings.asrModelByProvider[RemoteProviderId.openai], 'true');
     });
@@ -231,11 +181,6 @@ void _expectCoreDefaults(AppSettings settings) {
   expect(settings.accent, AppAccent.blue);
   expect(settings.language, AppLanguage.de);
   expect(settings.transcriptionLanguage, TranscriptionLanguage.auto);
-  expect(settings.asrMode, ProcessingMode.onDevice);
-  expect(settings.summaryMode, ProcessingMode.onDevice);
-  expect(settings.whisperModelId, WhisperCatalog.defaultId);
-  expect(settings.gemmaModelId, GemmaCatalog.defaultId);
-  expect(settings.gemmaBackend, InferenceBackend.auto);
 }
 
 AppSettings _completeSettings() => const AppSettings(
@@ -243,18 +188,11 @@ AppSettings _completeSettings() => const AppSettings(
   accent: AppAccent.amber,
   language: AppLanguage.en,
   transcriptionLanguage: TranscriptionLanguage.de,
-  asrMode: ProcessingMode.cloud,
-  summaryMode: ProcessingMode.onDevice,
-  whisperModelId: 'medium',
-  gemmaModelId: 'deepseek_r1',
-  gemmaBackend: InferenceBackend.cpu,
-  whisperThreads: 6,
-  asrProvider: RemoteProviderId.google,
-  summaryProvider: RemoteProviderId.openrouter,
+  asrProvider: RemoteProviderId.openai,
+  summaryProvider: RemoteProviderId.google,
   chatModelByProvider: {RemoteProviderId.google: 'gemini-custom'},
   asrModelByProvider: {RemoteProviderId.openai: 'transcribe-custom'},
   autoDeleteAudio: true,
   summarizeEnabled: false,
   onboarded: true,
-  hfToken: 'not-persisted',
 );

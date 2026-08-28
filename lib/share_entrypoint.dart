@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'data/repositories/settings_repository.dart';
-import 'state/providers.dart';
+import 'app_bootstrap.dart';
 import 'ui/screens/share/share_overlay_sheet.dart';
 import 'ui/screens/share/widgets/transcriber_app_shell.dart';
 
@@ -16,28 +13,9 @@ const _channel = MethodChannel('app/share');
 
 /// Bootstraps and renders the share overlay over a transparent window. Called
 /// from `shareMain` in main.dart (which is the actual Dart entrypoint).
-Future<void> runShareEntrypoint() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Receives the processing result from the foreground-service isolate.
-  FlutterForegroundTask.initCommunicationPort();
-
-  final prefs = await SharedPreferences.getInstance();
-  final settingsRepo = SettingsRepository(prefs);
-  final settings = await settingsRepo.load();
-  final connections = await settingsRepo.connectedProviders();
-
-  runApp(
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-        initialSettingsProvider.overrideWithValue(settings),
-        initialConnectionsProvider.overrideWithValue(connections),
-      ],
-      child: const _ShareApp(),
-    ),
-  );
-}
+Future<void> runShareEntrypoint({
+  Future<AppBootstrapData> Function()? loadBootstrap,
+}) => runBootstrappedApp(app: const _ShareApp(), loadBootstrap: loadBootstrap);
 
 class _ShareApp extends StatelessWidget {
   const _ShareApp();
@@ -65,7 +43,7 @@ class _ShareHostState extends ConsumerState<_ShareHost> {
   }
 
   /// Loads the shared path, then presents the overlay as a real modal bottom
-  /// sheet — so it slides up from the bottom and supports drag-to-dismiss, just
+  /// sheet, so it slides up from the bottom and supports drag-to-dismiss, just
   /// like the in-app overlay. Finishing the activity returns to the source app.
   Future<void> _open() async {
     if (_opened) return;

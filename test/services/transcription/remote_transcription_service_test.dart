@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
-import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/services/transcription/remote_transcription_service.dart';
 import 'package:transcriber/services/transcription/transcription_service.dart';
 
@@ -12,7 +11,7 @@ void main() {
   );
 
   test('forwards the path, language, and configured model', () async {
-    final client = _RecordingRemoteApiClient(response: response);
+    final client = _RecordingTranscriptionClient(response: response);
     final service = RemoteTranscriptionService(client, 'asr-model');
 
     final result = await service.transcribe(
@@ -29,7 +28,7 @@ void main() {
   });
 
   test('preserves a null language for provider auto-detection', () async {
-    final client = _RecordingRemoteApiClient(response: response);
+    final client = _RecordingTranscriptionClient(response: response);
     final service = RemoteTranscriptionService(client, 'automatic-model');
 
     await service.transcribe('/audio/automatic.wav');
@@ -38,29 +37,9 @@ void main() {
     expect(client.model, 'automatic-model');
   });
 
-  test('rejects unsupported providers without calling them', () {
-    final client = _RecordingRemoteApiClient(
-      response: response,
-      supportsTranscription: false,
-    );
-    final service = RemoteTranscriptionService(client, 'unused-model');
-
-    expect(
-      () => service.transcribe('/audio/input.wav'),
-      throwsA(
-        isA<RemoteApiException>().having(
-          (error) => error.message,
-          'message',
-          contains('does not support audio transcription'),
-        ),
-      ),
-    );
-    expect(client.transcribeCalls, 0);
-  });
-
   test('propagates provider transcription failures unchanged', () async {
     final failure = StateError('provider failed');
-    final client = _RecordingRemoteApiClient(
+    final client = _RecordingTranscriptionClient(
       response: response,
       error: failure,
     );
@@ -74,15 +53,11 @@ void main() {
   });
 }
 
-final class _RecordingRemoteApiClient implements RemoteApiClient {
-  _RecordingRemoteApiClient({
-    required this.response,
-    this.supportsTranscription = true,
-    this.error,
-  });
+final class _RecordingTranscriptionClient
+    implements TranscriptionProviderClient {
+  _RecordingTranscriptionClient({required this.response, this.error});
 
   final TranscriptionResult response;
-  final bool supportsTranscription;
   final Object? error;
   int transcribeCalls = 0;
   String? audioPath;
@@ -90,31 +65,16 @@ final class _RecordingRemoteApiClient implements RemoteApiClient {
   String? model;
 
   @override
-  bool get supportsAudioTranscription => supportsTranscription;
-
-  @override
   Future<TranscriptionResult> transcribe(
     String audioPath, {
     String? languageCode,
-    required String model,
+    required String modelId,
   }) async {
     transcribeCalls++;
     this.audioPath = audioPath;
     this.languageCode = languageCode;
-    this.model = model;
+    model = modelId;
     if (error != null) throw error!;
     return response;
   }
-
-  @override
-  Future<String> chat({
-    required String system,
-    required String user,
-    required String modelId,
-  }) async => throw UnsupportedError('Chat is outside this test boundary');
-
-  @override
-  Future<List<RemoteModelInfo>> listModels({
-    required bool forTranscription,
-  }) async => throw UnsupportedError('Model listing is outside this boundary');
 }

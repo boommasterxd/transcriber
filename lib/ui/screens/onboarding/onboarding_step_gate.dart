@@ -1,4 +1,4 @@
-enum OnboardingGateHint { connectProvider, downloadModel, grantPermissions }
+enum OnboardingGateHint { connectProvider, grantPermissions }
 
 class OnboardingStepGate {
   const OnboardingStepGate({required this.ready, this.hint});
@@ -10,8 +10,9 @@ class OnboardingStepGate {
 OnboardingStepGate evaluateOnboardingStepGate({
   required int step,
   required bool permissionsReady,
-  required ({bool usesLocalModel, bool ready}) asr,
-  required ({bool enabled, bool usesLocalModel, bool ready}) summary,
+  required bool asrReady,
+  required bool summaryEnabled,
+  required bool summaryReady,
 }) {
   if (step == 3) {
     return OnboardingStepGate(
@@ -21,18 +22,12 @@ OnboardingStepGate evaluateOnboardingStepGate({
   }
   if (step != 1) return const OnboardingStepGate(ready: true);
 
-  final effectiveSummaryReady = !summary.enabled || summary.ready;
-  if (asr.ready && effectiveSummaryReady) {
+  final effectiveSummaryReady = !summaryEnabled || summaryReady;
+  if (asrReady && effectiveSummaryReady) {
     return const OnboardingStepGate(ready: true);
   }
-
-  final localDownloadMissing =
-      (asr.usesLocalModel && !asr.ready) ||
-      (summary.enabled && summary.usesLocalModel && !summary.ready);
-  return OnboardingStepGate(
+  return const OnboardingStepGate(
     ready: false,
-    hint: localDownloadMissing
-        ? OnboardingGateHint.downloadModel
-        : OnboardingGateHint.connectProvider,
+    hint: OnboardingGateHint.connectProvider,
   );
 }

@@ -23,6 +23,8 @@ Flutter coverage is line-oriented and currently omits native `FNDA` records. The
 
 `analysis_options.yaml` explicitly excludes generated build output and platform roots from Dart analysis. These are language and tool-scope boundaries, not a quality baseline: CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Maintained Kotlin under `android/app/src/main/kotlin/` is checked separately with Detekt and its formatting rules.
 
+Drift generates `lib/data/database/app_database.g.dart`. The file is checked into source control so builds do not depend on code generation, but it is excluded from direct analyzer, size, complexity, and duplication measurements only when it carries Drift's generated-code header. It remains compiled through `app_database.dart`. Maintained database declarations, queries, repositories, and migrations remain fully subject to every quality gate.
+
 ## Local Commands
 
 Resolve the exact locked dependency graph:
@@ -79,6 +81,7 @@ npx --yes jscpd@5.0.16 \
   --threshold 0 \
   --reporters console \
   --format dart \
+  --ignore "**/*.g.dart" \
   lib test tool
 ```
 

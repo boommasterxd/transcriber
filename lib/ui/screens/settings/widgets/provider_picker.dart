@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../data/models/remote_provider.dart';
-import '../../../../state/settings_controller.dart';
 import '../../../widgets/model_tile.dart';
 import '../../../widgets/surfaces.dart';
 
@@ -23,7 +22,6 @@ class ProviderPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(stringsProvider);
     final providers = RemoteCatalog.providers
         .where((p) => allowed.contains(p.id))
         .toList();
@@ -43,9 +41,7 @@ class ProviderPicker extends ConsumerWidget {
               ),
               leadingColor: p.color,
               title: p.name,
-              subtitle: p.id == RemoteProviderId.openrouter
-                  ? t.providerSubOpenRouter
-                  : p.sub,
+              subtitle: p.sub,
               isLast: i == providers.length - 1,
               trailing: SelectionIndicator(selected: selected == p.id),
               onTap: () => onSelect(p.id),

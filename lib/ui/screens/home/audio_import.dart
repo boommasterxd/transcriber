@@ -2,6 +2,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../data/models/transcript_note.dart';
+import '../../../services/storage/audio_cache_manager.dart';
+import '../../../services/storage/managed_audio_file.dart';
 import '../../navigation.dart';
 
 class AudioImportSelection {
@@ -24,12 +26,24 @@ Future<AudioImportSelection?> pickAudioImport() async {
 
 Future<void> startAudioImport(
   BuildContext context, {
+  required AudioCacheManager cacheManager,
   AudioImportPicker picker = pickAudioImport,
   AudioImportStarter starter = _startProcessing,
 }) async {
   final selection = await picker();
   if (selection == null || !context.mounted) return;
-  await starter(context, selection);
+  final imported = await cacheManager.importExternal(
+    selection.path,
+    displayName: selection.fileName,
+  );
+  if (!context.mounted) {
+    await cacheManager.discard(imported);
+    return;
+  }
+  await starter(
+    context,
+    AudioImportSelection(path: imported.path, fileName: selection.fileName),
+  );
 }
 
 Future<void> _startProcessing(
@@ -38,8 +52,11 @@ Future<void> _startProcessing(
 ) {
   return AppNavigator.startProcessing(
     context,
-    audioPath: selection.path,
-    source: NoteSource.file,
-    fileName: selection.fileName,
+    ProcessingNavigationRequest(
+      audioPath: selection.path,
+      ownership: AudioOwnership.temporary,
+      source: NoteSource.file,
+      fileName: selection.fileName,
+    ),
   );
 }

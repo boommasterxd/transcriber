@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'summary_result.dart';
 
 /// Builds the prompt used to turn a transcript into a structured summary, and
-/// parses the model's JSON response. Shared by both the on-device (Gemma) and
-/// cloud summarizers so the contract stays identical everywhere (DRY).
+/// parses the cloud model's JSON response.
 class SummaryPrompt {
   const SummaryPrompt._();
 
@@ -63,7 +62,7 @@ $transcript
     }
 
     if (map == null) {
-      // Model didn't return JSON — degrade gracefully to a plain gist.
+      // The model did not return JSON, so degrade gracefully to a plain gist.
       return SummaryResult(
         title: fallbackTitle,
         gist: raw.trim(),

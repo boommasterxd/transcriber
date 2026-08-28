@@ -42,7 +42,7 @@ void main() {
 
       final path = await service.start();
 
-      expect(path, startsWith('${root.path}/audio/rec_'));
+      expect(path, startsWith('${root.path}/audio/recording/recording_'));
       expect(path, endsWith('.wav'));
       final start = state.calls.singleWhere((call) => call.method == 'start');
       final args = start.arguments as Map<dynamic, dynamic>;
@@ -123,7 +123,10 @@ class _RecorderState {
 void _installPathProviderMock(Directory root) {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_pathChannel, (call) async {
-        if (call.method == 'getApplicationSupportDirectory') return root.path;
+        if (call.method == 'getApplicationSupportDirectory' ||
+            call.method == 'getTemporaryDirectory') {
+          return root.path;
+        }
         return null;
       });
 }

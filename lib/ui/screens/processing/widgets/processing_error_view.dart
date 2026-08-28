@@ -13,20 +13,20 @@ class ProcessingErrorPresentation {
     required this.body,
     required this.actionLabel,
     required this.dismissLabel,
-    required this.isModelMissing,
+    required this.opensSettings,
   });
 
   factory ProcessingErrorPresentation.resolve(
     Object error,
     AppStrings strings,
   ) {
-    final isModelMissing = error is ModelNotDownloadedException;
+    final opensSettings = error is MissingApiKeyException;
     return ProcessingErrorPresentation(
-      title: isModelMissing ? strings.modelMissingTitle : strings.errorTitle,
-      body: isModelMissing ? strings.modelMissingBody : error.toString(),
-      actionLabel: isModelMissing ? strings.goToSettings : strings.retry,
+      title: opensSettings ? strings.keyMissing : strings.errorTitle,
+      body: opensSettings ? strings.connectFirst : error.toString(),
+      actionLabel: opensSettings ? strings.goToSettings : strings.retry,
       dismissLabel: strings.dismiss,
-      isModelMissing: isModelMissing,
+      opensSettings: opensSettings,
     );
   }
 
@@ -34,7 +34,7 @@ class ProcessingErrorPresentation {
   final String body;
   final String actionLabel;
   final String dismissLabel;
-  final bool isModelMissing;
+  final bool opensSettings;
 }
 
 class ProcessingErrorActions {
@@ -49,7 +49,7 @@ class ProcessingErrorActions {
   final VoidCallback onOpenSettings;
 
   VoidCallback actionFor(ProcessingErrorPresentation presentation) {
-    return presentation.isModelMissing ? onOpenSettings : onRetry;
+    return presentation.opensSettings ? onOpenSettings : onRetry;
   }
 }
 
@@ -123,7 +123,7 @@ class ProcessingErrorContent extends StatelessWidget {
     );
   }
 
-  IconData get _actionIcon => presentation.isModelMissing
+  IconData get _actionIcon => presentation.opensSettings
       ? Icons.settings_outlined
       : Icons.refresh_rounded;
 }
@@ -205,7 +205,7 @@ class _ErrorMessage extends StatelessWidget {
           ),
         ),
         SizedBox(height: isScreen ? 10 : 8),
-        if (isScreen && !presentation.isModelMissing)
+        if (isScreen && !presentation.opensSettings)
           _ScrollableErrorBody(body: presentation.body)
         else
           Text(

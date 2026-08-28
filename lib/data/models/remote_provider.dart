@@ -1,17 +1,15 @@
 import 'dart:ui';
 
-/// Cloud LLM/ASR providers supported in "Cloud API" mode.
+/// Cloud providers supported for transcription and summarization.
 enum RemoteProviderId {
-  anthropic('anthropic'),
   openai('openai'),
-  google('google'),
-  openrouter('openrouter');
+  google('google');
 
   const RemoteProviderId(this.id);
   final String id;
 
   static RemoteProviderId fromId(String? id) => RemoteProviderId.values
-      .firstWhere((p) => p.id == id, orElse: () => RemoteProviderId.anthropic);
+      .firstWhere((provider) => provider.id == id, orElse: () => google);
 }
 
 /// Display metadata for a provider.

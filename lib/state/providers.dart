@@ -1,18 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/database/app_database.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/remote_provider.dart';
+import '../data/models/transcript_note.dart';
 import '../data/repositories/notes_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/audio/audio_recorder_service.dart';
-import '../services/models/local_model_runtime.dart';
 import '../services/processing/processing_pipeline.dart';
+import '../services/remote/remote_client_factory.dart';
 import '../services/share/share_intent_service.dart';
+import '../services/storage/audio_cache_manager.dart';
 
-/// Overridden in `main()` once SharedPreferences has been initialized.
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('sharedPreferencesProvider must be overridden');
+/// Overridden after the Drift database has been initialized.
+final databaseProvider = Provider<AppDatabase>((ref) {
+  throw UnimplementedError('databaseProvider must be overridden');
 });
 
 /// Seed values resolved before `runApp` so the controllers can start synchronously.
@@ -24,24 +26,40 @@ final initialConnectionsProvider = Provider<Map<RemoteProviderId, bool>>((ref) {
   throw UnimplementedError('initialConnectionsProvider must be overridden');
 });
 
+final initialNotesProvider = Provider<List<TranscriptNote>>((ref) {
+  throw UnimplementedError('initialNotesProvider must be overridden');
+});
+
+final audioCacheManagerProvider = Provider<AudioCacheManager>(
+  (ref) => AudioCacheManager(),
+);
+
 final settingsRepositoryProvider = Provider<SettingsRepository>(
-  (ref) => SettingsRepository(ref.watch(sharedPreferencesProvider)),
+  (ref) => SettingsRepository(ref.watch(databaseProvider)),
 );
 
 final notesRepositoryProvider = Provider<NotesRepository>(
-  (ref) => NotesRepository(ref.watch(sharedPreferencesProvider)),
+  (ref) => NotesRepository(ref.watch(databaseProvider)),
 );
 
-final localModelRuntimeProvider = Provider<LocalModelRuntime>(
-  (ref) => EngineLocalModelRuntime(),
+typedef ProviderCredentialTester =
+    Future<void> Function(RemoteProviderId provider, String apiKey);
+
+final providerCredentialTesterProvider = Provider<ProviderCredentialTester>(
+  (ref) =>
+      (provider, apiKey) =>
+          RemoteClientFactory.create(provider, apiKey).testConnection(),
 );
 
 final processingPipelineProvider = Provider<ProcessingPipeline>(
-  (ref) => ProcessingPipeline(),
+  (ref) =>
+      ProcessingPipeline(cacheManager: ref.watch(audioCacheManagerProvider)),
 );
 
 final audioRecorderProvider = Provider<AudioRecorderService>((ref) {
-  final service = AudioRecorderService();
+  final service = AudioRecorderService(
+    cacheManager: ref.watch(audioCacheManagerProvider),
+  );
   ref.onDispose(service.dispose);
   return service;
 });

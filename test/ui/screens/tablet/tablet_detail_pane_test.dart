@@ -7,6 +7,7 @@ import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/ui/screens/tablet/tablet_detail_pane.dart';
 import 'package:transcriber/ui/widgets/buttons.dart';
@@ -119,14 +120,20 @@ Future<FakeNotesRepository> _pumpPane(
 }) async {
   await useTestSurface(tester, size);
 
-  final preferences = await testPreferences();
-  final repository = FakeNotesRepository(preferences)..loaded = [_testNote()];
+  final database = testDatabase();
+  addTearDown(database.close);
+  final note = _testNote();
+  final repository = FakeNotesRepository(database)..loaded = [note];
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        databaseProvider.overrideWithValue(database),
         initialSettingsProvider.overrideWithValue(
           AppSettings.initial().copyWith(language: AppLanguage.en),
         ),
+        initialConnectionsProvider.overrideWithValue(const {}),
+        initialNotesProvider.overrideWithValue([note]),
+        audioCacheManagerProvider.overrideWithValue(AudioCacheManager()),
         notesRepositoryProvider.overrideWithValue(repository),
       ],
       child: MaterialApp(
@@ -150,12 +157,12 @@ TranscriptNote _testNote() => TranscriptNote(
   source: NoteSource.recording,
   durationSec: 65,
   createdAt: DateTime(2026, 8, 27),
-  asrIsLocal: true,
-  summaryIsLocal: true,
-  asrName: 'Whisper Base',
-  asrSub: 'Local',
-  llmName: 'Gemma',
-  llmSub: 'Local',
+  asrIsLocal: false,
+  summaryIsLocal: false,
+  asrName: 'gpt-transcribe',
+  asrSub: 'OpenAI',
+  llmName: 'gemini-3.7-flash',
+  llmSub: 'Google Gemini',
   gist: 'Tablet summary',
   points: const ['Tablet key point'],
   todos: [TodoItem(text: 'Tablet todo')],

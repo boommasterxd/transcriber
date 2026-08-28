@@ -12,20 +12,34 @@ class RecordingHttpClient extends http.BaseClient {
   final List<http.BaseRequest> requests = [];
 
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
     requests.add(request);
-    return _handler(request);
+    final response = _handler(request);
+    await request.finalize().drain<void>();
+    return response;
   }
 }
 
-http.StreamedResponse jsonResponse(Object body, {int statusCode = 200}) {
-  return textResponse(jsonEncode(body), statusCode: statusCode);
+http.StreamedResponse jsonResponse(
+  Object body, {
+  int statusCode = 200,
+  Map<String, String> headers = const {},
+}) {
+  return textResponse(
+    jsonEncode(body),
+    statusCode: statusCode,
+    headers: headers,
+  );
 }
 
-http.StreamedResponse textResponse(String body, {int statusCode = 200}) {
+http.StreamedResponse textResponse(
+  String body, {
+  int statusCode = 200,
+  Map<String, String> headers = const {},
+}) {
   return http.StreamedResponse(
     Stream.value(utf8.encode(body)),
     statusCode,
-    headers: const {'content-type': 'application/json; charset=utf-8'},
+    headers: {'content-type': 'application/json; charset=utf-8', ...headers},
   );
 }

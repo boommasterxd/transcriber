@@ -8,7 +8,6 @@ class ActiveModelPill extends StatelessWidget {
   const ActiveModelPill({
     super.key,
     required this.label,
-    required this.isLocal,
     required this.onTap,
     this.activeText,
     this.warning = false,
@@ -16,7 +15,6 @@ class ActiveModelPill extends StatelessWidget {
 
   final String label;
   final String? activeText;
-  final bool isLocal;
   final VoidCallback onTap;
   final bool warning;
 
@@ -27,11 +25,7 @@ class ActiveModelPill extends StatelessWidget {
       child: Row(
         children: [
           Flexible(
-            child: _ModelStatusBadge(
-              label: label,
-              isLocal: isLocal,
-              warning: warning,
-            ),
+            child: _ModelStatusBadge(label: label, warning: warning),
           ),
           if (activeText != null) ...[
             const SizedBox(width: 10),
@@ -51,22 +45,15 @@ class ActiveModelPill extends StatelessWidget {
 }
 
 class _ModelStatusBadge extends StatelessWidget {
-  const _ModelStatusBadge({
-    required this.label,
-    required this.isLocal,
-    required this.warning,
-  });
+  const _ModelStatusBadge({required this.label, required this.warning});
 
   final String label;
-  final bool isLocal;
   final bool warning;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final indicatorColor = warning
-        ? palette.coral
-        : (isLocal ? palette.mint : palette.accent);
+    final indicatorColor = warning ? palette.coral : palette.accent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: BoxDecoration(

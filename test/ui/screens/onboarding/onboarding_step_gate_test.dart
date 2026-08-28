@@ -2,16 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/ui/screens/onboarding/onboarding_step_gate.dart';
 
 void main() {
-  const readyAsr = (usesLocalModel: true, ready: true);
-  const readySummary = (enabled: true, usesLocalModel: true, ready: true);
-
   test('allows steps without a readiness requirement', () {
     for (final step in [0, 2, 4]) {
       final gate = evaluateOnboardingStepGate(
         step: step,
         permissionsReady: false,
-        asr: (usesLocalModel: true, ready: false),
-        summary: (enabled: true, usesLocalModel: true, ready: false),
+        asrReady: false,
+        summaryEnabled: true,
+        summaryReady: false,
       );
 
       expect(gate.ready, isTrue);
@@ -19,18 +17,20 @@ void main() {
     }
   });
 
-  test('requires both permissions on the permissions step', () {
+  test('requires microphone permission on the permissions step', () {
     final blocked = evaluateOnboardingStepGate(
       step: 3,
       permissionsReady: false,
-      asr: readyAsr,
-      summary: readySummary,
+      asrReady: true,
+      summaryEnabled: true,
+      summaryReady: true,
     );
     final ready = evaluateOnboardingStepGate(
       step: 3,
       permissionsReady: true,
-      asr: readyAsr,
-      summary: readySummary,
+      asrReady: true,
+      summaryEnabled: true,
+      summaryReady: true,
     );
 
     expect(blocked.ready, isFalse);
@@ -39,42 +39,41 @@ void main() {
     expect(ready.hint, isNull);
   });
 
-  test('requests a download when a required local model is missing', () {
-    final missingAsr = evaluateOnboardingStepGate(
-      step: 1,
-      permissionsReady: true,
-      asr: (usesLocalModel: true, ready: false),
-      summary: readySummary,
-    );
-    final missingSummary = evaluateOnboardingStepGate(
-      step: 1,
-      permissionsReady: true,
-      asr: readyAsr,
-      summary: (enabled: true, usesLocalModel: true, ready: false),
-    );
+  test('requires connected providers for both enabled cloud stages', () {
+    for (final readiness in [(false, true), (true, false), (false, false)]) {
+      final gate = evaluateOnboardingStepGate(
+        step: 1,
+        permissionsReady: true,
+        asrReady: readiness.$1,
+        summaryEnabled: true,
+        summaryReady: readiness.$2,
+      );
 
-    expect(missingAsr.hint, OnboardingGateHint.downloadModel);
-    expect(missingSummary.hint, OnboardingGateHint.downloadModel);
+      expect(gate.ready, isFalse);
+      expect(gate.hint, OnboardingGateHint.connectProvider);
+    }
   });
 
-  test('requests a connection when only a cloud stage is unavailable', () {
+  test('allows the cloud step when every enabled stage is connected', () {
     final gate = evaluateOnboardingStepGate(
       step: 1,
       permissionsReady: true,
-      asr: (usesLocalModel: false, ready: true),
-      summary: (enabled: true, usesLocalModel: false, ready: false),
+      asrReady: true,
+      summaryEnabled: true,
+      summaryReady: true,
     );
 
-    expect(gate.ready, isFalse);
-    expect(gate.hint, OnboardingGateHint.connectProvider);
+    expect(gate.ready, isTrue);
+    expect(gate.hint, isNull);
   });
 
   test('ignores summary readiness when summaries are disabled', () {
     final gate = evaluateOnboardingStepGate(
       step: 1,
       permissionsReady: true,
-      asr: readyAsr,
-      summary: (enabled: false, usesLocalModel: true, ready: false),
+      asrReady: true,
+      summaryEnabled: false,
+      summaryReady: false,
     );
 
     expect(gate.ready, isTrue);

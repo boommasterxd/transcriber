@@ -6,7 +6,7 @@ import '../../../../state/settings_controller.dart';
 import '../../../widgets/surfaces.dart';
 import 'settings_switch_row.dart';
 
-/// Privacy preferences: auto-delete the source audio after processing.
+/// Cloud data-flow and app-owned audio retention preferences.
 class PrivacySection extends ConsumerWidget {
   const PrivacySection({super.key});
 
@@ -40,7 +40,7 @@ class PrivacySection extends ConsumerWidget {
           ),
           if (autoDelete) _AutoDeleteWarning(text: t.autoDelNote),
           Divider(height: 26, color: palette.line),
-          _LocalProcessingStatement(text: t.privacyStatement),
+          _CloudProcessingStatement(text: t.privacyStatement),
         ],
       ),
     );
@@ -78,8 +78,8 @@ class _AutoDeleteWarning extends StatelessWidget {
   }
 }
 
-class _LocalProcessingStatement extends StatelessWidget {
-  const _LocalProcessingStatement({required this.text});
+class _CloudProcessingStatement extends StatelessWidget {
+  const _CloudProcessingStatement({required this.text});
 
   final String text;
 
@@ -96,7 +96,7 @@ class _LocalProcessingStatement extends StatelessWidget {
             color: palette.mintSoft,
             borderRadius: BorderRadius.circular(11),
           ),
-          child: Icon(Icons.shield_outlined, size: 18, color: palette.mint),
+          child: Icon(Icons.cloud_outlined, size: 18, color: palette.mint),
         ),
         const SizedBox(width: 13),
         Expanded(

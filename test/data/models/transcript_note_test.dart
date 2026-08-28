@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 
 void main() {
@@ -77,19 +78,20 @@ void _testTodoItem() {
 void _testDerivedValues() {
   group('TranscriptNote derived values', () {
     test('is remote when either processing stage used cloud', () {
-      expect(_note(asrIsLocal: true, summaryIsLocal: true).isRemote, isFalse);
-      expect(_note(asrIsLocal: false, summaryIsLocal: true).isRemote, isTrue);
-      expect(_note(asrIsLocal: true, summaryIsLocal: false).isRemote, isTrue);
-      expect(_note(asrIsLocal: false, summaryIsLocal: false).isRemote, isTrue);
+      expect(_note(localStages: (asr: false, summary: false)).isRemote, isTrue);
+      expect(_note(localStages: (asr: false, summary: true)).isRemote, isTrue);
+      expect(_note(localStages: (asr: true, summary: false)).isRemote, isTrue);
+      // The local combination remains meaningful for historical notes.
+      expect(_note(localStages: (asr: true, summary: true)).isRemote, isFalse);
     });
 
-    test('builds compact model label from the first LLM segment', () {
-      expect(_note().modelShort, 'Whisper Base · Claude Sonnet');
+    test('builds compact cloud model label from the first LLM segment', () {
+      expect(_note().modelShort, 'GPT Transcribe · GPT-5.6 Luna');
       expect(
-        _note(llmName: 'Local Model').modelShort,
-        'Whisper Base · Local Model',
+        _note(llmName: 'Custom Model').modelShort,
+        'GPT Transcribe · Custom Model',
       );
-      expect(_note(llmName: '').modelShort, 'Whisper Base · ');
+      expect(_note(llmName: '').modelShort, 'GPT Transcribe · ');
     });
 
     test('formats timestamped transcript lines in their original order', () {
@@ -134,8 +136,8 @@ void _testJsonRoundTripAndDefaults() {
     test('round-trips all fields and nested values', () {
       final original = _note(
         source: NoteSource.shared,
-        asrIsLocal: false,
-        summaryIsLocal: true,
+        localStages: (asr: false, summary: false),
+        audioOwnership: AudioOwnership.retained,
         todos: [TodoItem(text: 'Follow up', done: true)],
         transcript: const [TranscriptLine(time: '00:01', text: 'Hello')],
       );
@@ -147,6 +149,7 @@ void _testJsonRoundTripAndDefaults() {
       expect(restored.createdAt, original.createdAt);
       expect(restored.todos.single.done, isTrue);
       expect(restored.transcript.single.text, 'Hello');
+      expect(restored.audioOwnership, AudioOwnership.retained);
     });
 
     test('uses deterministic defaults for absent optional fields', () {
@@ -171,6 +174,8 @@ void _testJsonRoundTripAndDefaults() {
       expect(note.todos, isEmpty);
       expect(note.transcript, isEmpty);
       expect(note.audioPath, isNull);
+      // Missing ownership keeps the safe external default for old notes.
+      expect(note.audioOwnership, AudioOwnership.external);
     });
 
     test('normalizes numeric duration and point values', () {
@@ -201,7 +206,7 @@ void _testLegacyJson() {
       expect(note.isRemote, isTrue);
     });
 
-    test('prefers independent stage flags over the legacy mode', () {
+    test('preserves independent historical stage provenance', () {
       final note = TranscriptNote.fromJson({
         'id': 'mixed',
         'createdAt': '2024-01-02T03:04:05Z',
@@ -248,9 +253,9 @@ void _testInvalidJson() {
 
 TranscriptNote _note({
   NoteSource source = NoteSource.recording,
-  bool asrIsLocal = true,
-  bool summaryIsLocal = true,
-  String llmName = 'Claude Sonnet · Cloud',
+  ({bool asr, bool summary}) localStages = (asr: false, summary: false),
+  String llmName = 'GPT-5.6 Luna · Cloud',
+  AudioOwnership audioOwnership = AudioOwnership.external,
   List<TodoItem>? todos,
   List<TranscriptLine>? transcript,
 }) => TranscriptNote(
@@ -260,10 +265,10 @@ TranscriptNote _note({
   source: source,
   durationSec: 65,
   createdAt: DateTime.utc(2024, 1, 2, 3, 4, 5),
-  asrIsLocal: asrIsLocal,
-  summaryIsLocal: summaryIsLocal,
-  asrName: 'Whisper Base',
-  asrSub: 'Local',
+  asrIsLocal: localStages.asr,
+  summaryIsLocal: localStages.summary,
+  asrName: 'GPT Transcribe',
+  asrSub: 'OpenAI',
   llmName: llmName,
   llmSub: 'Provider',
   gist: 'Summary',
@@ -272,4 +277,5 @@ TranscriptNote _note({
   transcript:
       transcript ?? const [TranscriptLine(time: '00:00', text: 'Default')],
   audioPath: '/audio/note.m4a',
+  audioOwnership: audioOwnership,
 );

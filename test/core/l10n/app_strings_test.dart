@@ -1,12 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 
-const _expectedGermanCatalogFingerprint = 3993902868;
-const _expectedEnglishCatalogFingerprint = 705188084;
-const _fnvOffsetBasis = 0x811c9dc5;
-const _fnvPrime = 0x01000193;
-
 void main() {
+  _registerAppLanguageTests();
+  _registerCatalogTests();
+  _registerByokTests();
+  _registerMicrophoneTests();
+  _registerTemplateTests();
+  _registerWeekdayTests();
+}
+
+void _registerAppLanguageTests() {
   group('AppLanguage', () {
     test('exposes stable codes and defaults unknown values to German', () {
       expect(AppLanguage.de.code, 'de');
@@ -18,7 +22,9 @@ void main() {
       expect(AppLanguage.fromCode('unknown'), AppLanguage.de);
     });
   });
+}
 
+void _registerCatalogTests() {
   group('AppStrings catalogs', () {
     test('selects complete German and English catalogs', () {
       final german = AppStrings.of(AppLanguage.de);
@@ -30,15 +36,119 @@ void main() {
       expect(english.language, AppLanguage.en);
       expect(german.isDe, isTrue);
       expect(english.isDe, isFalse);
-      expect(germanValues, hasLength(199));
-      expect(englishValues, hasLength(199));
+      expect(germanValues.length, englishValues.length);
       expect(germanValues, everyElement(isNotEmpty));
       expect(englishValues, everyElement(isNotEmpty));
-      expect(_fingerprint(germanValues), _expectedGermanCatalogFingerprint);
-      expect(_fingerprint(englishValues), _expectedEnglishCatalogFingerprint);
+    });
+
+    test('keeps privacy copy explicit about cloud processing and storage', () {
+      final german = AppStrings.of(AppLanguage.de);
+      final english = AppStrings.of(AppLanguage.en);
+
+      expect(german.privacyStatement, contains('Keine Telemetrie'));
+      expect(german.privacyStatement, contains('zur Transkription'));
+      expect(german.privacyStatement, contains('sicheren Gerätespeicher'));
+      expect(english.privacyStatement, contains('No telemetry'));
+      expect(english.privacyStatement, contains('transcription provider'));
+      expect(english.privacyStatement, contains('secure device storage'));
     });
   });
+}
 
+void _registerByokTests() {
+  group('BYOK key actions', () {
+    final german = AppStrings.of(AppLanguage.de);
+    final english = AppStrings.of(AppLanguage.en);
+    _registerByokLifecycleTest(german, english);
+    _registerByokInputTest(german, english);
+    _registerByokHelpTest(german, english);
+  });
+}
+
+void _registerByokLifecycleTest(AppStrings german, AppStrings english) {
+  test('exposes the current key lifecycle actions in both languages', () {
+    expect(german.connect, 'Verbinden');
+    expect(german.connected, 'Verbunden');
+    expect(german.disconnect, 'Trennen');
+    expect(german.testKey, 'Testen');
+    expect(german.replaceKey, 'Ersetzen');
+    expect(german.keyVerified, 'Schlüssel erfolgreich geprüft.');
+    expect(german.keyCheckFailed, contains('Abrechnung'));
+    expect(english.connect, 'Connect');
+    expect(english.connected, 'Connected');
+    expect(english.disconnect, 'Disconnect');
+    expect(english.testKey, 'Test');
+    expect(english.replaceKey, 'Replace');
+    expect(english.keyVerified, 'Key verified successfully.');
+    expect(english.keyCheckFailed, contains('billing'));
+  });
+}
+
+void _registerByokInputTest(AppStrings german, AppStrings english) {
+  test('keeps key input guidance local and actionable', () {
+    expect(german.keyPlaceholder, contains('Schlüssel einfügen'));
+    expect(german.keyHint, contains('nur lokal'));
+    expect(english.keyPlaceholder, contains('paste key'));
+    expect(english.keyHint, contains('locally on device only'));
+    expect(german.keyMissing, isNotEmpty);
+    expect(english.keyMissing, isNotEmpty);
+  });
+}
+
+void _registerByokHelpTest(AppStrings german, AppStrings english) {
+  test('provides distinct provider-specific key help steps', () {
+    expect(german.keyHelpTitle('OpenAI'), 'API-Schlüssel von OpenAI');
+    expect(english.keyHelpTitle('Google Gemini'), 'Google Gemini API key');
+    expect(german.keyHelpOpenAiSteps, hasLength(4));
+    expect(german.keyHelpGoogleSteps, hasLength(4));
+    expect(english.keyHelpOpenAiSteps, hasLength(4));
+    expect(english.keyHelpGoogleSteps, hasLength(4));
+    expect(
+      german.keyHelpOpenAiSteps.join(' '),
+      allOf(contains('OpenAI'), isNot(contains('Google AI Studio'))),
+    );
+    expect(
+      german.keyHelpGoogleSteps.join(' '),
+      allOf(contains('Google'), isNot(contains('OpenAI Platform'))),
+    );
+    expect(
+      english.keyHelpOpenAiSteps.join(' '),
+      allOf(contains('OpenAI'), isNot(contains('Google AI Studio'))),
+    );
+    expect(
+      english.keyHelpGoogleSteps.join(' '),
+      allOf(contains('Google'), isNot(contains('OpenAI Platform'))),
+    );
+    expect(german.keyHelpNote, contains('Cloud-Anbieter'));
+    expect(english.keyHelpNote, contains('cloud providers'));
+  });
+}
+
+void _registerMicrophoneTests() {
+  group('microphone permission copy', () {
+    final german = AppStrings.of(AppLanguage.de);
+    final english = AppStrings.of(AppLanguage.en);
+
+    test(
+      'explains that microphone access is only needed for in-app recording',
+      () {
+        expect(german.micPermissionBody, contains('Mikrofon'));
+        expect(german.obPermMicS, contains('direkt in der App'));
+        expect(german.obPermsS, contains('nur für Aufnahmen'));
+        expect(
+          german.obPermsS.toLowerCase(),
+          isNot(contains('benachrichtigung')),
+        );
+        expect(english.micPermissionBody, contains('microphone'));
+        expect(english.obPermMicS, contains('right inside the app'));
+        expect(english.obPermsS, contains('only required for recordings'));
+        expect(english.obPermsS.toLowerCase(), isNot(contains('notification')));
+      },
+    );
+  });
+}
+
+void _registerTemplateTests() {
   group('templates and pluralization', () {
     final german = AppStrings.of(AppLanguage.de);
     final english = AppStrings.of(AppLanguage.en);
@@ -46,18 +156,8 @@ void main() {
     test('substitutes numeric and named placeholders', () {
       expect(german.homeSub(0), '0 Sprachnachrichten verarbeitet');
       expect(english.homeSub(12), '12 voice notes processed');
-      expect(german.storage(2, '1,5 GB'), '2 Modelle · 1,5 GB belegt');
-      expect(english.storage(1, '500 MB'), '1 models · 500 MB used');
       expect(german.keyHelpTitle('OpenAI'), 'API-Schlüssel von OpenAI');
       expect(english.keyHelpTitle('OpenAI'), 'OpenAI API key');
-      expect(
-        german.keyHelpStep1('Anthropic'),
-        '1. Bei Anthropic anmelden oder registrieren.',
-      );
-      expect(
-        english.keyHelpStep1('Anthropic'),
-        '1. Sign in or sign up at Anthropic.',
-      );
       expect(german.minutesAgo(3), 'vor 3 Min');
       expect(english.minutesAgo(3), '3 min ago');
       expect(german.hoursAgo(4), 'vor 4 Std');
@@ -72,7 +172,9 @@ void main() {
       expect(english.todoLabel(-1), '-1 to-dos');
     });
   });
+}
 
+void _registerWeekdayTests() {
   group('weekdays and dates', () {
     final german = AppStrings.of(AppLanguage.de);
     final english = AppStrings.of(AppLanguage.en);
@@ -106,24 +208,16 @@ void main() {
 }
 
 List<String> _catalogValues(AppStrings strings) => [
-  ..._catalogStart(strings),
-  ..._catalogMiddle(strings),
-  ..._catalogEnd(strings),
-  ...strings.weekdaysShort,
+  ..._catalogHomeValues(strings),
+  ..._catalogSettingsValues(strings),
+  ..._catalogProviderValues(strings),
+  ..._catalogShareValues(strings),
+  ..._catalogNoteValues(strings),
+  ..._catalogOnboardingValues(strings),
+  ..._catalogActionValues(strings),
 ];
 
-List<String> _catalogStart(AppStrings strings) => [
-  strings.obTag,
-  strings.obTitle,
-  strings.obSub,
-  strings.obF1t,
-  strings.obF1s,
-  strings.obF2t,
-  strings.obF2s,
-  strings.obF3t,
-  strings.obF3s,
-  strings.obCta,
-  strings.obModels,
+List<String> _catalogHomeValues(AppStrings strings) => [
   strings.homeTitle,
   strings.homeSubTemplate,
   strings.search,
@@ -143,6 +237,9 @@ List<String> _catalogStart(AppStrings strings) => [
   strings.recPause,
   strings.recStopShort,
   strings.recCancel,
+];
+
+List<String> _catalogSettingsValues(AppStrings strings) => [
   strings.micPermissionTitle,
   strings.micPermissionBody,
   strings.setTitle,
@@ -157,34 +254,32 @@ List<String> _catalogStart(AppStrings strings) => [
   strings.light,
   strings.dark,
   strings.accentC,
-  strings.dl,
   strings.delete,
-  strings.runningLocal,
   strings.autoLang,
   strings.transLang,
   strings.proc,
-  strings.modeLocalT,
-  strings.modeLocalS,
-  strings.modeRemoteT,
-  strings.modeRemoteS,
-  strings.noteLocal,
-  strings.noteRemote,
+];
+
+List<String> _catalogProviderValues(AppStrings strings) => [
   strings.provider,
   strings.apiKey,
   strings.connect,
   strings.connected,
   strings.disconnect,
+  strings.testKey,
+  strings.replaceKey,
+  strings.keyVerified,
+  strings.keyCheckFailed,
   strings.keyPlaceholder,
   strings.keyHint,
   strings.remoteModel,
-];
-
-List<String> _catalogMiddle(AppStrings strings) => [
   strings.connectFirst,
   strings.processedWith,
   strings.autoDel,
   strings.autoDelSub,
-  strings.storageTemplate,
+];
+
+List<String> _catalogShareValues(AppStrings strings) => [
   strings.shTranscribe,
   strings.shSummarize,
   strings.shStep1,
@@ -200,6 +295,9 @@ List<String> _catalogMiddle(AppStrings strings) => [
   strings.shCopied,
   strings.shShare,
   strings.shSave,
+];
+
+List<String> _catalogNoteValues(AppStrings strings) => [
   strings.mSpkTemplate,
   strings.voiceNote,
   strings.recordingLabel,
@@ -208,10 +306,7 @@ List<String> _catalogMiddle(AppStrings strings) => [
   strings.errorTitle,
   strings.retry,
   strings.dismiss,
-  strings.modelMissingTitle,
-  strings.modelMissingBody,
   strings.goToSettings,
-  strings.downloading,
   strings.todoSingular,
   strings.todoPlural,
   strings.tabEmptyTitle,
@@ -221,22 +316,13 @@ List<String> _catalogMiddle(AppStrings strings) => [
   strings.audioDelTitle,
   strings.audioDelSub,
   strings.keyMissing,
-  strings.notLoaded,
-  strings.deleteModelConfirm,
   strings.cancel,
-  strings.toastDownloaded,
-  strings.toastRemoved,
   strings.privacyStatement,
-  strings.recommended,
-  strings.asrExplain,
-  strings.summaryExplain,
+];
+
+List<String> _catalogOnboardingValues(AppStrings strings) => [
   strings.obModelsT,
   strings.obModelsS,
-  strings.obSimple,
-  strings.obAdvanced,
-  strings.obRecommendedSetup,
-  strings.obDownloadGo,
-  strings.obSkip,
   strings.obNext,
   strings.obStart,
   strings.obWelcomeT,
@@ -244,16 +330,9 @@ List<String> _catalogMiddle(AppStrings strings) => [
   strings.obHiw1T,
   strings.obHiw1S,
   strings.obHiw2T,
-];
-
-List<String> _catalogEnd(AppStrings strings) => [
   strings.obHiw2S,
   strings.obHiw3T,
   strings.obHiw3S,
-  strings.obTranscribeT,
-  strings.obTranscribeS,
-  strings.obSummaryT,
-  strings.obSummaryS,
   strings.obLookT,
   strings.obLookS,
   strings.obPrivacyT,
@@ -264,8 +343,6 @@ List<String> _catalogEnd(AppStrings strings) => [
   strings.obPermsS,
   strings.obPermMicT,
   strings.obPermMicS,
-  strings.obPermNotifT,
-  strings.obPermNotifS,
   strings.obPermEnable,
   strings.obPermGranted,
   strings.obPermRequiredHint,
@@ -273,52 +350,27 @@ List<String> _catalogEnd(AppStrings strings) => [
   strings.obPermBlockedNote,
   strings.obPermOpenSettings,
   strings.obPermLocked,
-  strings.svcChannelName,
-  strings.svcChannelDesc,
+];
+
+List<String> _catalogActionValues(AppStrings strings) => [
   strings.deleteNoteTitle,
   strings.deleteNoteBody,
   strings.noteDeleted,
   strings.undo,
-  strings.summaryQualityHint,
   strings.summarizeTitle,
   strings.summarizeSub,
   strings.summaryOff,
-  strings.backendSummary,
-  strings.backendHint,
-  strings.whisperThreads,
-  strings.whisperThreadsHint,
   strings.autoDelNote,
   strings.keyHelpTitleTemplate,
-  strings.keyHelpStep1Template,
-  strings.keyHelpStep2,
-  strings.keyHelpStep3,
   strings.keyHelpNote,
   strings.openPage,
   strings.keyHelp,
-  strings.badgeVeryFast,
-  strings.badgeFast,
-  strings.badgeBalanced,
-  strings.badgeAccurate,
-  strings.badgeDetailed,
-  strings.badgeMostCapable,
-  strings.badgeCheap,
-  strings.badgeReasoning,
-  strings.providerSubOpenRouter,
   strings.obConnectHint,
-  strings.obDownloadHint,
-  strings.modelsReady,
   strings.ownRecording,
   strings.minutesAgoTemplate,
   strings.hoursAgoTemplate,
   strings.dateMonthDayTemplate,
+  ...strings.keyHelpOpenAiSteps,
+  ...strings.keyHelpGoogleSteps,
+  ...strings.weekdaysShort,
 ];
-
-int _fingerprint(List<String> values) {
-  var hash = _fnvOffsetBasis;
-  for (final value in values) {
-    for (final codeUnit in [...value.codeUnits, 0]) {
-      hash = ((hash ^ codeUnit) * _fnvPrime) & 0xffffffff;
-    }
-  }
-  return hash;
-}

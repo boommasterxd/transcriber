@@ -6,10 +6,10 @@ import 'package:transcriber/data/models/remote_provider.dart';
 
 void main() {
   group('RemoteCatalog providers', () {
-    test('contains metadata for every provider exactly once', () {
+    test('contains only OpenAI and Google provider metadata', () {
       expect(
-        RemoteCatalog.providers.map((provider) => provider.id).toSet(),
-        RemoteProviderId.values.toSet(),
+        RemoteCatalog.providers.map((provider) => provider.id),
+        RemoteProviderId.values,
       );
       expect(
         RemoteCatalog.providers.map((provider) => provider.id).toSet(),
@@ -28,13 +28,11 @@ void main() {
 
     test('resolves each provider and preserves its display metadata', () {
       final expected = {
-        RemoteProviderId.anthropic: ('Anthropic', const Color(0xFFCC785C), 'A'),
         RemoteProviderId.openai: ('OpenAI', const Color(0xFF10A37F), 'O'),
-        RemoteProviderId.google: ('Google', const Color(0xFF4285F4), 'G'),
-        RemoteProviderId.openrouter: (
-          'OpenRouter',
-          const Color(0xFF6566F1),
-          'OR',
+        RemoteProviderId.google: (
+          'Google Gemini',
+          const Color(0xFF4285F4),
+          'G',
         ),
       };
 
@@ -47,51 +45,45 @@ void main() {
       }
     });
 
-    test('limits native ASR capability to OpenAI and Google', () {
-      expect(RemoteCatalog.asrProviders, [
-        RemoteProviderId.openai,
-        RemoteProviderId.google,
-      ]);
+    test('supports native ASR on both cloud providers', () {
+      expect(RemoteCatalog.asrProviders, RemoteProviderId.values);
       expect(RemoteCatalog.asrProviders.toSet(), hasLength(2));
     });
   });
 
   group('RemoteCatalog defaults', () {
-    test('returns a chat default for every provider', () {
+    test('returns the documented chat default for every provider', () {
       expect(
         {
           for (final provider in RemoteProviderId.values)
             provider: RemoteCatalog.chatDefault(provider),
         },
         {
-          RemoteProviderId.anthropic: 'claude-sonnet-4-6',
-          RemoteProviderId.openai: 'gpt-5.5',
-          RemoteProviderId.google: 'gemini-3.5-flash',
-          RemoteProviderId.openrouter: 'openrouter/auto',
+          RemoteProviderId.openai: 'gpt-5.6-luna',
+          RemoteProviderId.google: 'gemini-3.7-flash',
         },
       );
     });
 
-    test('returns provider defaults or a safe fallback for ASR', () {
+    test('returns the documented ASR default for every provider', () {
       expect(
-        RemoteCatalog.asrDefault(RemoteProviderId.openai),
-        'gpt-4o-transcribe',
-      );
-      expect(
-        RemoteCatalog.asrDefault(RemoteProviderId.google),
-        'gemini-3.5-flash',
-      );
-      expect(
-        RemoteCatalog.asrDefault(RemoteProviderId.anthropic),
-        'gpt-4o-transcribe',
-      );
-      expect(
-        RemoteCatalog.asrDefault(RemoteProviderId.openrouter),
-        'gpt-4o-transcribe',
+        {
+          for (final provider in RemoteProviderId.values)
+            provider: RemoteCatalog.asrDefault(provider),
+        },
+        {
+          RemoteProviderId.openai: 'gpt-transcribe',
+          RemoteProviderId.google: 'gemini-3.5-transcribe',
+        },
       );
     });
 
     test('provides an HTTPS API-key page for every provider', () {
+      expect(RemoteCatalog.keyUrl, {
+        RemoteProviderId.openai: 'https://platform.openai.com/api-keys',
+        RemoteProviderId.google: 'https://aistudio.google.com/app/apikey',
+      });
+
       for (final provider in RemoteProviderId.values) {
         final url = RemoteCatalog.keyUrlFor(provider);
         expect(url, RemoteCatalog.keyUrl[provider]);

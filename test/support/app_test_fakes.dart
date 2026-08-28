@@ -1,14 +1,18 @@
+import 'dart:io';
+
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/share/share_intent_service.dart';
+import 'package:transcriber/services/storage/audio_cache_manager.dart';
+import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/connections_controller.dart';
-import 'package:transcriber/state/model_manager_controller.dart';
 import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/settings_controller.dart';
@@ -53,11 +57,6 @@ final class TestConnectionsController extends ConnectionsController {
   Map<RemoteProviderId, bool> build() => Map.of(_initial);
 }
 
-final class TestModelManagerController extends ModelManagerController {
-  @override
-  ModelManagerState build() => const ModelManagerState();
-}
-
 final class TestNotesController extends NotesController {
   @override
   List<TranscriptNote> build() => const [];
@@ -87,29 +86,45 @@ final class TestPermissionChannel {
   }
 }
 
-Future<SharedPreferences> testPreferences() async {
-  SharedPreferences.setMockInitialValues({});
-  return SharedPreferences.getInstance();
-}
+AppDatabase testDatabase() => AppDatabase(NativeDatabase.memory());
 
 Widget appScope({
-  required SharedPreferences preferences,
+  required AppDatabase database,
   required AppSettings settings,
+  AudioCacheManager? cacheManager,
   TestShareIntentService? shareService,
   required Widget child,
 }) => ProviderScope(
   overrides: [
-    sharedPreferencesProvider.overrideWithValue(preferences),
+    databaseProvider.overrideWithValue(database),
     initialSettingsProvider.overrideWithValue(settings),
     initialConnectionsProvider.overrideWithValue(const {}),
+    initialNotesProvider.overrideWithValue(const []),
+    audioCacheManagerProvider.overrideWithValue(
+      cacheManager ?? _testAudioCacheManager(),
+    ),
     settingsControllerProvider.overrideWith(
       () => TestSettingsController(settings),
     ),
     connectionsControllerProvider.overrideWith(TestConnectionsController.new),
-    modelManagerControllerProvider.overrideWith(TestModelManagerController.new),
     notesControllerProvider.overrideWith(TestNotesController.new),
     if (shareService != null)
       shareIntentServiceProvider.overrideWithValue(shareService),
   ],
   child: child,
 );
+
+AudioCacheManager _testAudioCacheManager() {
+  final root = Directory.systemTemp.createTempSync('transcriber_app_test_');
+  addTearDown(() async {
+    if (await root.exists()) await root.delete(recursive: true);
+  });
+  return AudioCacheManager(
+    paths: Future.value(
+      StoragePaths(
+        supportRoot: Directory('${root.path}/support'),
+        cacheRoot: Directory('${root.path}/cache'),
+      ),
+    ),
+  );
+}

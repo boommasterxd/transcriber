@@ -24,7 +24,8 @@ void main() {
   tearDown(() => permissions.uninstall());
 
   testWidgets('app shell applies theme, accent, and locale', (tester) async {
-    final prefs = await testPreferences();
+    final database = testDatabase();
+    addTearDown(database.close);
     final settings = AppSettings.initial().copyWith(
       accent: AppAccent.amber,
       language: AppLanguage.en,
@@ -32,7 +33,7 @@ void main() {
     );
     await tester.pumpWidget(
       appScope(
-        preferences: prefs,
+        database: database,
         settings: settings,
         child: const TranscriberAppShell(home: Text('shell marker')),
       ),
@@ -111,11 +112,12 @@ Future<void> _pumpApp(
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final prefs = await testPreferences();
+  final database = testDatabase();
+  addTearDown(database.close);
   const app = TranscriberApp();
   await tester.pumpWidget(
     appScope(
-      preferences: prefs,
+      database: database,
       settings: settings,
       shareService: TestShareIntentService(),
       child: textScale == null
