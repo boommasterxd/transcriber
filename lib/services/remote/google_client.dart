@@ -7,8 +7,10 @@ import 'package:http/http.dart' as http;
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
+import 'provider_model_capabilities.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
+import 'transcription_prompt.dart';
 
 /// Direct REST client for Gemini generation, files, and interactions APIs.
 class GoogleClient implements RemoteProviderClient {
@@ -30,6 +32,8 @@ class GoogleClient implements RemoteProviderClient {
   static const _baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
   static const _uploadUrl =
       'https://generativelanguage.googleapis.com/upload/v1beta/files';
+  static const _modelPageSize = 1000;
+  static const _maxModelPages = 10;
   @override
   Future<void> testConnection() async {
     await _getJson('/models?pageSize=1', timeout: remoteListTimeout);
@@ -39,30 +43,31 @@ class GoogleClient implements RemoteProviderClient {
   Future<List<RemoteModelInfo>> listModels({
     required bool forTranscription,
   }) async {
-    final json = await _getJson(
-      '/models?pageSize=100',
-      timeout: remoteListTimeout,
-    );
-    final models = json['models'];
-    if (models is! List) return const [];
-    final result = <RemoteModelInfo>[];
-    for (final raw in models.whereType<Map>()) {
+    final models = await _listModelCatalog();
+    final result = <String, RemoteModelInfo>{};
+    for (final raw in models) {
       final id = (raw['name']?.toString() ?? '').replaceFirst('models/', '');
-      if (id.isEmpty || !id.toLowerCase().contains('gemini')) continue;
-      final methods = (raw['supportedGenerationMethods'] as List?)
-          ?.map((method) => method.toString())
-          .toSet();
-      final transcriptionModel = id.toLowerCase().contains('transcribe');
+      if (!id.toLowerCase().startsWith('gemini-')) continue;
+      final methods =
+          (raw['supportedGenerationMethods'] as List?)
+              ?.map((method) => method.toString())
+              .toSet() ??
+          const <String>{};
+      final transcriptionModel =
+          ProviderModelCapabilities.isGeminiTranscriptionModel(id, methods);
       if (forTranscription
           ? !transcriptionModel
-          : methods?.contains('generateContent') != true) {
+          : !methods.contains('generateContent')) {
         continue;
       }
-      result.add(
-        RemoteModelInfo(id: id, label: raw['displayName']?.toString()),
+      result.putIfAbsent(
+        id,
+        () => RemoteModelInfo(id: id, label: raw['displayName']?.toString()),
       );
     }
-    return result;
+    final sorted = result.values.toList()
+      ..sort((left, right) => left.id.compareTo(right.id));
+    return sorted;
   }
 
   @override
@@ -101,16 +106,21 @@ class GoogleClient implements RemoteProviderClient {
     final uploaded = await _uploadFile(file, length);
     try {
       await _waitUntilActive(uploaded.name, uploaded.state);
+      final nativeTranscription =
+          ProviderModelCapabilities.usesGeminiNativeTranscription(modelId);
       final json = await _postJson('/interactions', {
         'model': modelId,
         'input': [
+          if (!nativeTranscription)
+            {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
           {
             'type': 'audio',
             'uri': uploaded.uri,
             'mime_type': uploaded.mimeType,
           },
         ],
-        if (languageCode != null &&
+        if (nativeTranscription &&
+            languageCode != null &&
             languageCode.isNotEmpty &&
             languageCode != 'auto')
           'generation_config': {
@@ -129,6 +139,30 @@ class GoogleClient implements RemoteProviderClient {
     } finally {
       await _deleteFile(uploaded.name);
     }
+  }
+
+  Future<List<Map>> _listModelCatalog() async {
+    final models = <Map>[];
+    final seenTokens = <String>{};
+    String? pageToken;
+    for (var page = 0; page < _maxModelPages; page++) {
+      final query = <String, String>{'pageSize': '$_modelPageSize'};
+      if (pageToken != null) query['pageToken'] = pageToken;
+      final path = Uri(path: '/models', queryParameters: query).toString();
+      final json = await _getJson(path, timeout: remoteListTimeout);
+      final pageModels = json['models'];
+      if (pageModels is List) models.addAll(pageModels.whereType<Map>());
+
+      final next = json['nextPageToken']?.toString();
+      if (next == null || next.isEmpty) return models;
+      if (next.length > 2048 || !seenTokens.add(next)) {
+        throw const RemoteApiException(
+          'Gemini returned invalid model pagination.',
+        );
+      }
+      pageToken = next;
+    }
+    throw const RemoteApiException('Gemini returned too many model pages.');
   }
 
   Future<_GeminiFile> _uploadFile(File file, int length) async {

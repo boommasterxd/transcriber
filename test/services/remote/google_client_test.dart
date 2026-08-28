@@ -10,8 +10,10 @@ import 'remote_test_support.dart';
 
 void main() {
   _registerCatalogTest();
+  _registerCatalogPaginationTest();
   _registerSummaryTest();
   _registerTranscriptionTest();
+  _registerMultimodalTranscriptionTest();
   _registerPollingTest();
   _registerProviderErrorTest();
 }
@@ -53,8 +55,52 @@ Future<void> _testCatalog() async {
     headerValue: 'secret-key',
     expectedQueryKey: 'pageSize',
   );
-  expect(asr.map((model) => model.id), ['gemini-3.5-transcribe']);
+  expect(asr.map((model) => model.id), [
+    'gemini-3.5-transcribe',
+    'gemini-3.7-flash',
+  ]);
   expect(summary.single.display, 'Gemini Flash');
+}
+
+void _registerCatalogPaginationTest() {
+  test('loads and deduplicates every Gemini model page', () async {
+    final httpClient = scriptedHttpClient([
+      jsonResponse({
+        'models': [
+          {
+            'name': 'models/gemini-3.7-flash',
+            'supportedGenerationMethods': ['generateContent'],
+          },
+        ],
+        'nextPageToken': 'second-page',
+      }),
+      jsonResponse({
+        'models': [
+          {
+            'name': 'models/gemini-3.7-flash',
+            'supportedGenerationMethods': ['generateContent'],
+          },
+          {
+            'name': 'models/gemini-3.7-pro',
+            'supportedGenerationMethods': ['generateContent'],
+          },
+        ],
+      }),
+    ]);
+    final client = GoogleClient(apiKey: 'key', httpClient: httpClient);
+
+    final models = await client.listModels(forTranscription: true);
+
+    expect(models.map((model) => model.id), [
+      'gemini-3.7-flash',
+      'gemini-3.7-pro',
+    ]);
+    expect(httpClient.requests, hasLength(2));
+    expect(
+      httpClient.requests.last.url.queryParameters['pageToken'],
+      'second-page',
+    );
+  });
 }
 
 void _registerSummaryTest() {
@@ -168,12 +214,71 @@ Future<void> _testTranscription() async {
           jsonDecode((httpClient.requests[2] as http.Request).body)
               as Map<String, dynamic>;
       expect(interaction['model'], 'gemini-3.5-transcribe');
+      expect((interaction['input'] as List).single['type'], 'audio');
       expect(
         interaction['generation_config']['transcription_config']['language_codes'],
         ['de-DE'],
       );
       expect(result.text, 'Transcript');
       expect(result.segments.single.time, '0:00');
+    },
+  );
+}
+
+void _registerMultimodalTranscriptionTest() {
+  test(
+    'prompts a general multimodal Gemini model without transcription config',
+    _testMultimodalTranscription,
+  );
+}
+
+Future<void> _testMultimodalTranscription() async {
+  await withTemporaryAudio(
+    prefix: 'gemini-multimodal-',
+    action: (file) async {
+      final httpClient = scriptedHttpClient([
+        jsonResponse(
+          {},
+          headers: {'x-goog-upload-url': 'https://upload.test/multimodal'},
+        ),
+        jsonResponse({
+          'file': {
+            'name': 'files/multimodal',
+            'uri': 'https://files.test/multimodal',
+            'mimeType': 'audio/wav',
+            'state': 'ACTIVE',
+          },
+        }),
+        jsonResponse({
+          'status': 'completed',
+          'steps': [
+            {
+              'content': [
+                {'type': 'text', 'text': 'General transcript'},
+              ],
+            },
+          ],
+        }),
+        jsonResponse({}),
+      ]);
+      final client = GoogleClient(apiKey: 'key', httpClient: httpClient);
+
+      final result = await client.transcribe(
+        file.path,
+        modelId: 'gemini-3.7-flash',
+        languageCode: 'en',
+      );
+      final interaction =
+          jsonDecode((httpClient.requests[2] as http.Request).body)
+              as Map<String, dynamic>;
+      final input = interaction['input'] as List;
+
+      expect(input, hasLength(2));
+      expect((input.first as Map)['type'], 'text');
+      expect((input.first as Map)['text'], contains('language is en'));
+      expect((input.last as Map)['type'], 'audio');
+      expect(interaction, isNot(contains('generation_config')));
+      expect(result.text, 'General transcript');
     },
   );
 }

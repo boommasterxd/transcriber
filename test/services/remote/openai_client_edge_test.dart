@@ -8,7 +8,52 @@ import 'remote_test_support.dart';
 void main() {
   _registerSummaryContractTests();
   _registerEmptyTranscriptionTest();
+  _registerUnsupportedModelTest();
+  _registerUnsupportedInlineFormatTest();
   _registerSizeLimitTest();
+}
+
+void _registerUnsupportedModelTest() {
+  test('rejects a text-only model before sending audio', () async {
+    await withTemporaryAudio(
+      prefix: 'openai-text-model-',
+      action: (file) async {
+        final httpClient = scriptedHttpClient([jsonResponse({})]);
+        final client = OpenAiClient(apiKey: 'key', httpClient: httpClient);
+
+        await expectLater(
+          client.transcribe(file.path, modelId: 'gpt-text-only'),
+          throwsA(isA<RemoteApiException>()),
+        );
+        expect(httpClient.requests, isEmpty);
+      },
+    );
+  });
+}
+
+void _registerUnsupportedInlineFormatTest() {
+  test('rejects unsupported inline audio formats before a request', () async {
+    await withTemporaryAudio(
+      prefix: 'openai-inline-format-',
+      fileName: 'voice.m4a',
+      action: (file) async {
+        final httpClient = scriptedHttpClient([jsonResponse({})]);
+        final client = OpenAiClient(apiKey: 'key', httpClient: httpClient);
+
+        await expectLater(
+          client.transcribe(file.path, modelId: 'gpt-audio-1.5'),
+          throwsA(
+            isA<RemoteApiException>().having(
+              (error) => error.message,
+              'message',
+              contains('WAV or MP3'),
+            ),
+          ),
+        );
+        expect(httpClient.requests, isEmpty);
+      },
+    );
+  });
 }
 
 void _registerSummaryContractTests() {
