@@ -13,7 +13,3 @@ Color mixSrgb(Color a, Color b, double amount) {
     lerp(a.b * 255, b.b * 255).round(),
   );
 }
-
-/// Applies an [opacity] (0..1) to [color] without precision loss warnings.
-Color withAlphaFraction(Color color, double opacity) =>
-    color.withValues(alpha: opacity.clamp(0.0, 1.0));

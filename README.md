@@ -1,7 +1,7 @@
 # Transcriber
 
-A modern Flutter Android app that **transcribes and summarizes voice notes** — locally on device or
-via Cloud API — with key points and actionable to-dos. Pill UI, rich animations, light/dark + 5
+A modern Flutter Android app that **transcribes and summarizes voice notes**, locally on device or
+via Cloud API, with key points and actionable to-dos. Pill UI, rich animations, light/dark + 5
 accent colors, DE/EN.
 
 The UI is a 1:1 implementation of the Claude design mock-up; all actions are fully functional
@@ -18,17 +18,20 @@ Cloud API calls).
 Every input runs through the same pipeline: *Transcription → Summarization →
 Detail screen* with a "Processed with" section showing the models used.
 
-## Processing: On-Device vs. Cloud (one or the other, never mixed)
+## Processing: On-Device and Cloud
 
-The master switch in Settings decides between:
+Transcription and summarization are configured independently. Each stage can
+run on-device or through a supported cloud provider, so mixed configurations
+such as local transcription with cloud summarization are supported.
 
 ### On Device (private, offline)
 - **Transcription:** [`whisper_kit`](https://pub.dev/packages/whisper_kit) –
   Whisper Tiny / Base / Small / Medium.
 - **Summarization:** [`flutter_gemma`](https://pub.dev/packages/flutter_gemma) –
-  Gemma 3 270M/1B, Qwen 2.5 0.5B/1.5B, and the multimodal Gemma 3n E2B/E4B
-  (audio-capable). Models are loaded as LiteRT artifacts from Hugging Face
-  (gated models require an HF token, configurable in Settings).
+  Qwen 2.5, Qwen3, DeepSeek R1, Gemma4, and Phi-4 variants from the catalog in
+  `lib/data/catalog/gemma_catalog.dart`. Models are loaded as LiteRT artifacts
+  from configured download sources. Optional Hugging Face token support is
+  available in Settings.
 
 The actual model lists come from the library docs and live in `lib/data/catalog/`.
 
@@ -36,9 +39,11 @@ The actual model lists come from the library docs and live in `lib/data/catalog/
 Real requests to **Anthropic**, **OpenAI**, **Google**, or **OpenRouter**.
 - Summarization: respective chat endpoints.
 - Transcription: OpenAI (`gpt-4o-transcribe`) or Google Gemini (inline audio).
-  Anthropic/OpenRouter have no native ASR — the UI surfaces this clearly.
+  Anthropic/OpenRouter have no native ASR, and the UI surfaces this clearly.
 
-API keys are stored exclusively in `flutter_secure_storage` on device.
+Long-lived API keys are stored in `flutter_secure_storage` on device. Processing
+hands the selected keys to the foreground worker when a local stage requires
+isolated background execution.
 
 ## Architecture
 
@@ -62,15 +67,17 @@ lib/
     widgets/    Shared widgets (waveforms, pills, tiles, effects …)
 ```
 
-Each ML library is encapsulated behind exactly **one** engine file
-(`WhisperEngine`, `GemmaEngine`) so version updates stay local.
+Inference and model-install behavior is centralized in `WhisperEngine` and
+`GemmaEngine`. Application entry points additionally bootstrap the
+`flutter_gemma` engines required in the main and foreground isolates.
 
 ## Build
 
-Prerequisites: Flutter ≥ 3.44, Android SDK, a device with `arm64-v8a`.
+Prerequisites: Flutter 3.47.1 from `.fvmrc`, Android SDK, Java 17, and a device
+with `arm64-v8a`.
 
 ```bash
-flutter pub get
+flutter pub get --enforce-lockfile
 flutter run            # Debug on a connected device
 flutter build apk      # Release APK
 flutter test           # Unit tests
@@ -80,4 +87,12 @@ On first `flutter pub get` Flutter generates `android/local.properties`
 (with the path to the Flutter SDK). The Gradle wrapper (9.7.1) is checked in.
 
 > On-device inference downloads several GB of model weights and requires a real
-> Android device — ML inference cannot run in CI/headless environments.
+> Android device. ML inference cannot run in CI/headless environments.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [Operations](docs/operations.md)
+- [Code quality](docs/code-quality.md)
+- [Security](docs/security.md)

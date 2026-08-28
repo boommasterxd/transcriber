@@ -28,14 +28,13 @@ class RecordingState {
     int? elapsedSec,
     List<double>? levels,
     String? path,
-  }) =>
-      RecordingState(
-        active: active ?? this.active,
-        paused: paused ?? this.paused,
-        elapsedSec: elapsedSec ?? this.elapsedSec,
-        levels: levels ?? this.levels,
-        path: path ?? this.path,
-      );
+  }) => RecordingState(
+    active: active ?? this.active,
+    paused: paused ?? this.paused,
+    elapsedSec: elapsedSec ?? this.elapsedSec,
+    levels: levels ?? this.levels,
+    path: path ?? this.path,
+  );
 }
 
 /// Drives the recording screen: elapsed timer + live amplitude levels.
@@ -51,16 +50,25 @@ class RecordingController extends Notifier<RecordingState> {
     return const RecordingState();
   }
 
-  Future<bool> hasPermission() => ref.read(audioRecorderProvider).hasPermission();
+  Future<bool> hasPermission() =>
+      ref.read(audioRecorderProvider).hasPermission();
 
   Future<bool> start() async {
     final recorder = ref.read(audioRecorderProvider);
-    if (!await recorder.hasPermission()) return false;
+    if (!await recorder.hasPermission()) {
+      return false;
+    }
     final path = await recorder.start();
-    state = RecordingState(active: true, path: path, levels: List.filled(_maxBars, 0.12));
+    state = RecordingState(
+      active: true,
+      path: path,
+      levels: List.filled(_maxBars, 0.12),
+    );
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!state.paused) state = state.copyWith(elapsedSec: state.elapsedSec + 1);
+      if (!state.paused) {
+        state = state.copyWith(elapsedSec: state.elapsedSec + 1);
+      }
     });
     _ampSub = recorder.amplitudeStream().listen(_onAmplitude);
     return true;
@@ -112,4 +120,6 @@ class RecordingController extends Notifier<RecordingState> {
 }
 
 final recordingControllerProvider =
-    NotifierProvider<RecordingController, RecordingState>(RecordingController.new);
+    NotifierProvider<RecordingController, RecordingState>(
+      RecordingController.new,
+    );

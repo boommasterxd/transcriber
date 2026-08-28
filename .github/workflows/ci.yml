@@ -1,8 +1,7 @@
 name: CI
 
-# Static analysis and tests on every PR and on pushes to the default branch.
-# Required status check for the branch ruleset. The heavy APK build stays in
-# build-apk.yml (manual / feature branch) to keep PR CI fast.
+# Required quality gates for pull requests and the default branch. The signed
+# release APK remains in the dedicated build and release workflows.
 on:
   push:
     branches: [main]
@@ -13,9 +12,67 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install workflow linters
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          SHELLCHECK_VERSION: 0.11.0
+          SHELLCHECK_SHA256: b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
+        run: |
+          actionlint_archive="$RUNNER_TEMP/actionlint.tar.gz"
+          actionlint_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location "$actionlint_url" --output "$actionlint_archive"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$actionlint_archive" | sha256sum --check
+          tar -xzf "$actionlint_archive" -C "$RUNNER_TEMP" actionlint
+
+          shellcheck_archive="$RUNNER_TEMP/shellcheck.tar.gz"
+          shellcheck_url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.gz"
+          curl --fail --silent --show-error --location "$shellcheck_url" --output "$shellcheck_archive"
+          printf '%s  %s\n' "$SHELLCHECK_SHA256" "$shellcheck_archive" | sha256sum --check
+          tar -xzf "$shellcheck_archive" -C "$RUNNER_TEMP"
+          mv "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" "$RUNNER_TEMP/shellcheck"
+      - name: Check workflows
+        run: |
+          "$RUNNER_TEMP/actionlint" -color=false -shellcheck="$RUNNER_TEMP/shellcheck"
+      - name: Check shell scripts
+        run: |
+          "$RUNNER_TEMP/shellcheck" tool/package/*.sh tool/quality/*.sh
+
   CI:
-    name: CI
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test tool
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+      - name: Test with coverage
+        run: flutter test --coverage --branch-coverage
+      - name: Enforce coverage thresholds
+        run: dart run tool/quality/check_coverage.dart coverage/lcov.info
+
+  metrics:
+    name: Size and complexity
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -26,9 +83,90 @@ jobs:
           channel: stable
           flutter-version-file: .fvmrc
           cache: true
-      - name: Pub get
-        run: flutter pub get
-      - name: Analyze
-        run: flutter analyze
-      - name: Test
-        run: flutter test
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Collect Dart metrics
+        run: |
+          mkdir -p "$RUNNER_TEMP/code-quality"
+          dart run dart_code_linter:metrics analyze lib test tool \
+            --reporter=json \
+            --json-path="$RUNNER_TEMP/code-quality/metrics.json" \
+            --no-fatal-warnings >/dev/null
+      - name: Enforce size and complexity thresholds
+        run: >-
+          dart run tool/quality/check_code_quality.dart
+          --metrics "$RUNNER_TEMP/code-quality/metrics.json"
+
+  dead-code:
+    name: Dead code
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Check unused code
+        run: >-
+          dart run dart_code_linter:metrics check-unused-code
+          lib test tool --analyze-private-members
+      - name: Check unused files
+        run: dart run dart_code_linter:metrics check-unused-files lib test tool
+
+  kotlin-quality:
+    name: Kotlin quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Check Kotlin quality
+        run: bash tool/quality/check_kotlin_quality.sh
+
+  duplication:
+    name: Duplication
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Check Dart duplication
+        run: >-
+          npx --yes jscpd@5.0.16
+          --min-tokens 50
+          --threshold 0
+          --reporters console
+          --format dart
+          lib test tool
+
+  build:
+    name: Build bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Build Flutter asset bundle
+        run: flutter build bundle --debug
+      - name: Verify bundle
+        run: test -d build/flutter_assets

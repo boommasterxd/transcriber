@@ -1,29 +1,35 @@
 package com.transcriber.app
 
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
+import android.os.BadParcelableException
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.IOException
+import java.util.Locale
+import java.util.UUID
 
-/// Translucent share target. Runs the dedicated `shareMain` Flutter entry point
-/// with a transparent background so the app the user shared from stays visible
-/// behind the overlay. The shared audio (a content:// URI) is copied to the
-/// cache here and handed to Dart via a method channel.
+/** Translucent share target that copies shared audio into the application cache. */
 class ShareActivity : FlutterActivity() {
     private val channelName = "app/share"
     private var sharedPath: String? = null
+    private val audioCache by lazy {
+        ShareAudioCache(cacheDir, contentResolver, ::logShareFailure)
+    }
 
     // shareMain is a top-level @pragma('vm:entry-point') function in the main
     // library (lib/main.dart), so the default entrypoint-library resolution
     // finds it in AOT/release builds.
     override fun getDartEntrypointFunctionName(): String = "shareMain"
 
-    // Transparent window — required so the source app shows through.
+    // Transparent window is required so the source app shows through.
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,40 +54,120 @@ class ShareActivity : FlutterActivity() {
     }
 
     private fun extractSharedAudio(intent: Intent?): String? {
-        if (intent == null) return null
-        @Suppress("DEPRECATION")
-        val uri: Uri? = when (intent.action) {
-            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM)
-            Intent.ACTION_SEND_MULTIPLE ->
-                intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.firstOrNull()
-            else -> null
+        val uri = intent?.takeIf(::isSupportedShareIntent)?.let {
+            try {
+                extractSharedUri(it)
+            } catch (e: BadParcelableException) {
+                logShareFailure(e)
+                null
+            }
         }
-        return uri?.let { copyToCache(it) }
+        return uri?.takeIf(::isSupportedUri)?.let(audioCache::copy)
     }
 
-    private fun copyToCache(uri: Uri): String? {
-        return try {
-            val name = displayName(uri) ?: "shared_audio"
-            val outFile = File(cacheDir, "shared/${System.currentTimeMillis()}_$name")
-            outFile.parentFile?.mkdirs()
-            contentResolver.openInputStream(uri)?.use { input ->
-                outFile.outputStream().use { output -> input.copyTo(output) }
-            } ?: return null
-            outFile.absolutePath
-        } catch (e: Exception) {
-            null
+    private fun isSupportedShareIntent(intent: Intent): Boolean {
+        val actionSupported = intent.action == Intent.ACTION_SEND ||
+            intent.action == Intent.ACTION_SEND_MULTIPLE
+        val type = intent.type?.trim()?.lowercase(Locale.ROOT)
+        return actionSupported && type?.startsWith("audio/") == true
+    }
+
+    private fun extractSharedUri(intent: Intent): Uri? {
+        val stream = intent.extras?.get(Intent.EXTRA_STREAM)
+        return when (intent.action) {
+            Intent.ACTION_SEND -> stream as? Uri
+            Intent.ACTION_SEND_MULTIPLE ->
+                (stream as? ArrayList<*>)?.firstOrNull() as? Uri
+            else -> null
         }
+    }
+
+    private fun isSupportedUri(uri: Uri): Boolean {
+        return when (uri.scheme?.lowercase(Locale.ROOT)) {
+            "content" -> !uri.authority.isNullOrBlank()
+            "file" -> !uri.path.isNullOrBlank()
+            else -> false
+        }
+    }
+
+    private fun logShareFailure(error: Throwable) {
+        val errorType = error::class.java.simpleName.ifEmpty { "UnknownError" }
+        Log.w(logTag, "Unable to import shared audio ($errorType)")
+    }
+
+    private companion object {
+        const val logTag = "ShareActivity"
+    }
+}
+
+/** Copies one validated external audio URI into an app-private cache directory. */
+private class ShareAudioCache(
+    private val cacheDirectory: File,
+    private val contentResolver: ContentResolver,
+    private val onFailure: (Throwable) -> Unit,
+) {
+    fun copy(uri: Uri): String? {
+        var outputFile: File? = null
+        var result: String? = null
+        try {
+            val directory = createSharedDirectory()
+            val name = ShareFileNamePolicy.sanitize(displayName(uri))
+            val candidate = directory?.let { createOutputFile(it, name) }
+            outputFile = candidate
+            if (candidate != null && copyStream(uri, candidate)) {
+                result = candidate.canonicalPath
+            }
+        } catch (error: IOException) {
+            onFailure(error)
+        } catch (error: SecurityException) {
+            onFailure(error)
+        } catch (error: IllegalArgumentException) {
+            onFailure(error)
+        }
+        if (result == null) outputFile?.delete()
+        return result
+    }
+
+    private fun copyStream(uri: Uri, outputFile: File): Boolean {
+        val input = contentResolver.openInputStream(uri) ?: return false
+        input.use { inputStream ->
+            outputFile.outputStream().use { output -> inputStream.copyTo(output) }
+        }
+        return true
+    }
+
+    private fun createSharedDirectory(): File? {
+        val directory = File(cacheDirectory, "shared")
+        if (!directory.exists() && !directory.mkdirs()) return null
+        return directory.takeIf { it.isDirectory }
+    }
+
+    private fun createOutputFile(directory: File, name: String): File? {
+        val cacheRoot = cacheDirectory.canonicalFile
+        val directoryRoot = directory.canonicalFile
+        if (!isWithin(cacheRoot, directoryRoot)) return null
+
+        val output = File(directory, "${System.currentTimeMillis()}_${UUID.randomUUID()}_$name")
+        val outputPath = output.canonicalFile
+        return output.takeIf {
+            isWithin(directoryRoot, outputPath) && it.createNewFile()
+        }
+    }
+
+    private fun isWithin(root: File, candidate: File): Boolean {
+        val rootPath = root.path.trimEnd(File.separatorChar) + File.separator
+        return candidate.path.startsWith(rootPath)
     }
 
     private fun displayName(uri: Uri): String? {
-        if (uri.scheme == "file") return uri.lastPathSegment
-        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (index >= 0 && cursor.moveToFirst()) {
-                val value = cursor.getString(index)
-                if (!value.isNullOrEmpty()) return value
+        val providerName = if (uri.scheme.equals("file", ignoreCase = true)) {
+            null
+        } else {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
             }
         }
-        return uri.lastPathSegment
+        return providerName.takeUnless { it.isNullOrEmpty() } ?: uri.lastPathSegment
     }
 }

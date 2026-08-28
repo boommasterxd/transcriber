@@ -10,5 +10,6 @@ enum ProcessingMode {
   bool get isLocal => this == ProcessingMode.onDevice;
   bool get isCloud => this == ProcessingMode.cloud;
 
-  static ProcessingMode fromId(String? id) => id == 'remote' ? ProcessingMode.cloud : ProcessingMode.onDevice;
+  static ProcessingMode fromId(String? id) =>
+      id == 'remote' ? ProcessingMode.cloud : ProcessingMode.onDevice;
 }

@@ -62,8 +62,10 @@ class RemoteCatalog {
     RemoteProviderId.google: 'gemini-3.5-flash',
   };
 
-  static String chatDefault(RemoteProviderId id) => defaultChatModelId[id] ?? 'gpt-5.5';
-  static String asrDefault(RemoteProviderId id) => defaultAsrModelId[id] ?? 'gpt-4o-transcribe';
+  static String chatDefault(RemoteProviderId id) =>
+      defaultChatModelId[id] ?? 'gpt-5.5';
+  static String asrDefault(RemoteProviderId id) =>
+      defaultAsrModelId[id] ?? 'gpt-4o-transcribe';
 
   /// Page where the user creates an API key for each provider.
   static const Map<RemoteProviderId, String> keyUrl = {
@@ -73,5 +75,6 @@ class RemoteCatalog {
     RemoteProviderId.openrouter: 'https://openrouter.ai/keys',
   };
 
-  static String keyUrlFor(RemoteProviderId id) => keyUrl[id] ?? 'https://huggingface.co';
+  static String keyUrlFor(RemoteProviderId id) =>
+      keyUrl[id] ?? 'https://huggingface.co';
 }

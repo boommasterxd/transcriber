@@ -4,9 +4,9 @@
 .pub-cache/
 .pub/
 build/
+coverage/
 .flutter-plugins
 .flutter-plugins-dependencies
-pubspec.lock
 
 # IDE
 .idea/

@@ -89,7 +89,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "::warning title=Android signing::ANDROID_KEYSTORE_BASE64 is not set — building DEBUG-signed; the release will fail at the Verify step."
+            echo "::warning title=Android signing::ANDROID_KEYSTORE_BASE64 is not set, building DEBUG-signed; the release will fail at the Verify step."
             exit 0
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload.jks
@@ -137,7 +137,7 @@ jobs:
           CERTS=$("$APKSIGNER" verify --print-certs "$APK")
           echo "$CERTS"
           if echo "$CERTS" | grep -qi "CN=Android Debug"; then
-            echo "::error::APK is debug-signed — configure the Android signing secrets before releasing."
+            echo "::error::APK is debug-signed, configure the Android signing secrets before releasing."
             exit 1
           fi
           echo "APK is release-signed."

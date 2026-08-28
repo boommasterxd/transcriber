@@ -29,8 +29,14 @@ void main() {
 
     test('returns just now for recent times', () {
       final now = DateTime(2026, 6, 15, 12, 0, 0);
-      expect(timeAgo(now.subtract(const Duration(seconds: 10)), t: en, now: now), 'just now');
-      expect(timeAgo(now.subtract(const Duration(minutes: 5)), t: de, now: now), 'vor 5 Min');
+      expect(
+        timeAgo(now.subtract(const Duration(seconds: 10)), t: en, now: now),
+        'just now',
+      );
+      expect(
+        timeAgo(now.subtract(const Duration(minutes: 5)), t: de, now: now),
+        'vor 5 Min',
+      );
     });
   });
 }

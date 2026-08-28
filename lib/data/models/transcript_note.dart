@@ -7,8 +7,10 @@ enum NoteSource {
   const NoteSource(this.id);
   final String id;
 
-  static NoteSource fromId(String? id) =>
-      NoteSource.values.firstWhere((s) => s.id == id, orElse: () => NoteSource.file);
+  static NoteSource fromId(String? id) => NoteSource.values.firstWhere(
+    (s) => s.id == id,
+    orElse: () => NoteSource.file,
+  );
 }
 
 /// A single time-stamped transcript line.
@@ -19,8 +21,10 @@ class TranscriptLine {
   final String text;
 
   Map<String, dynamic> toJson() => {'time': time, 'text': text};
-  factory TranscriptLine.fromJson(Map<String, dynamic> j) =>
-      TranscriptLine(time: j['time'] as String? ?? '', text: j['text'] as String? ?? '');
+  factory TranscriptLine.fromJson(Map<String, dynamic> j) => TranscriptLine(
+    time: j['time'] as String? ?? '',
+    text: j['text'] as String? ?? '',
+  );
 }
 
 /// A to-do / action item extracted from the audio.
@@ -31,8 +35,10 @@ class TodoItem {
   bool done;
 
   Map<String, dynamic> toJson() => {'text': text, 'done': done};
-  factory TodoItem.fromJson(Map<String, dynamic> j) =>
-      TodoItem(text: j['text'] as String? ?? '', done: j['done'] as bool? ?? false);
+  factory TodoItem.fromJson(Map<String, dynamic> j) => TodoItem(
+    text: j['text'] as String? ?? '',
+    done: j['done'] as bool? ?? false,
+  );
 }
 
 /// A fully processed audio note: the audio reference plus the transcription and
@@ -93,68 +99,73 @@ class TranscriptNote {
       transcript.map((l) => '[${l.time}] ${l.text}').join('\n');
 
   TranscriptNote copyWith({List<TodoItem>? todos}) => TranscriptNote(
-        id: id,
-        title: title,
-        speaker: speaker,
-        source: source,
-        durationSec: durationSec,
-        createdAt: createdAt,
-        asrIsLocal: asrIsLocal,
-        summaryIsLocal: summaryIsLocal,
-        asrName: asrName,
-        asrSub: asrSub,
-        llmName: llmName,
-        llmSub: llmSub,
-        gist: gist,
-        points: points,
-        todos: todos ?? this.todos,
-        transcript: transcript,
-        audioPath: audioPath,
-      );
+    id: id,
+    title: title,
+    speaker: speaker,
+    source: source,
+    durationSec: durationSec,
+    createdAt: createdAt,
+    asrIsLocal: asrIsLocal,
+    summaryIsLocal: summaryIsLocal,
+    asrName: asrName,
+    asrSub: asrSub,
+    llmName: llmName,
+    llmSub: llmSub,
+    gist: gist,
+    points: points,
+    todos: todos ?? this.todos,
+    transcript: transcript,
+    audioPath: audioPath,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'speaker': speaker,
-        'source': source.id,
-        'durationSec': durationSec,
-        'createdAt': createdAt.toIso8601String(),
-        'asrIsLocal': asrIsLocal,
-        'summaryIsLocal': summaryIsLocal,
-        'asrName': asrName,
-        'asrSub': asrSub,
-        'llmName': llmName,
-        'llmSub': llmSub,
-        'gist': gist,
-        'points': points,
-        'todos': todos.map((t) => t.toJson()).toList(),
-        'transcript': transcript.map((t) => t.toJson()).toList(),
-        'audioPath': audioPath,
-      };
+    'id': id,
+    'title': title,
+    'speaker': speaker,
+    'source': source.id,
+    'durationSec': durationSec,
+    'createdAt': createdAt.toIso8601String(),
+    'asrIsLocal': asrIsLocal,
+    'summaryIsLocal': summaryIsLocal,
+    'asrName': asrName,
+    'asrSub': asrSub,
+    'llmName': llmName,
+    'llmSub': llmSub,
+    'gist': gist,
+    'points': points,
+    'todos': todos.map((t) => t.toJson()).toList(),
+    'transcript': transcript.map((t) => t.toJson()).toList(),
+    'audioPath': audioPath,
+  };
 
   factory TranscriptNote.fromJson(Map<String, dynamic> j) => TranscriptNote(
-        id: j['id'] as String,
-        title: j['title'] as String? ?? '',
-        speaker: j['speaker'] as String? ?? '',
-        source: NoteSource.fromId(j['source'] as String?),
-        durationSec: (j['durationSec'] as num?)?.toInt() ?? 0,
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
-        asrIsLocal: j['asrIsLocal'] as bool? ?? (j['mode'] as String?) != 'remote',
-        summaryIsLocal: j['summaryIsLocal'] as bool? ?? (j['mode'] as String?) != 'remote',
-        asrName: j['asrName'] as String? ?? '',
-        asrSub: j['asrSub'] as String? ?? '',
-        llmName: j['llmName'] as String? ?? '',
-        llmSub: j['llmSub'] as String? ?? '',
-        gist: j['gist'] as String? ?? '',
-        points: (j['points'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-        todos: (j['todos'] as List?)
-                ?.map((e) => TodoItem.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        transcript: (j['transcript'] as List?)
-                ?.map((e) => TranscriptLine.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
-        audioPath: j['audioPath'] as String?,
-      );
+    id: j['id'] as String,
+    title: j['title'] as String? ?? '',
+    speaker: j['speaker'] as String? ?? '',
+    source: NoteSource.fromId(j['source'] as String?),
+    durationSec: (j['durationSec'] as num?)?.toInt() ?? 0,
+    createdAt:
+        DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+    asrIsLocal: j['asrIsLocal'] as bool? ?? (j['mode'] as String?) != 'remote',
+    summaryIsLocal:
+        j['summaryIsLocal'] as bool? ?? (j['mode'] as String?) != 'remote',
+    asrName: j['asrName'] as String? ?? '',
+    asrSub: j['asrSub'] as String? ?? '',
+    llmName: j['llmName'] as String? ?? '',
+    llmSub: j['llmSub'] as String? ?? '',
+    gist: j['gist'] as String? ?? '',
+    points:
+        (j['points'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+    todos:
+        (j['todos'] as List?)
+            ?.map((e) => TodoItem.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [],
+    transcript:
+        (j['transcript'] as List?)
+            ?.map((e) => TranscriptLine.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [],
+    audioPath: j['audioPath'] as String?,
+  );
 }

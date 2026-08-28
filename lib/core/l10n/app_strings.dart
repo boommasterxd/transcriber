@@ -2,701 +2,265 @@
 /// chosen by [AppLanguage] and exposed through the settings controller.
 ///
 /// Strings are a direct port of the DE/EN dictionaries from the original design.
+library;
+
+part 'app_string_key.dart';
+part 'app_strings_de.dart';
+part 'app_strings_en.dart';
+
 enum AppLanguage {
   de('de'),
   en('en');
 
   const AppLanguage(this.code);
+
   final String code;
 
-  static AppLanguage fromCode(String? code) =>
-      AppLanguage.values.firstWhere((l) => l.code == code, orElse: () => AppLanguage.de);
+  static AppLanguage fromCode(String? code) => AppLanguage.values.firstWhere(
+    (language) => language.code == code,
+    orElse: () => AppLanguage.de,
+  );
 }
 
 class AppStrings {
-  const AppStrings({
-    required this.language,
-    required this.obTag,
-    required this.obTitle,
-    required this.obSub,
-    required this.obF1t,
-    required this.obF1s,
-    required this.obF2t,
-    required this.obF2s,
-    required this.obF3t,
-    required this.obF3s,
-    required this.obCta,
-    required this.obModels,
-    required this.homeTitle,
-    required this.homeSubTemplate,
-    required this.search,
-    required this.modelActive,
-    required this.secToday,
-    required this.secWeek,
-    required this.secEarlier,
-    required this.emptyTitle,
-    required this.emptySub,
-    required this.pickTitle,
-    required this.pickSub,
-    required this.recTitle,
-    required this.recording,
-    required this.recPaused,
-    required this.recHint,
-    required this.recResume,
-    required this.recPause,
-    required this.recStopShort,
-    required this.recCancel,
-    required this.micPermissionTitle,
-    required this.micPermissionBody,
-    required this.setTitle,
-    required this.setAppear,
-    required this.setAsr,
-    required this.setLlm,
-    required this.setLang,
-    required this.setPriv,
-    required this.uiLang,
-    required this.theme,
-    required this.system,
-    required this.light,
-    required this.dark,
-    required this.accentC,
-    required this.dl,
-    required this.delete,
-    required this.runningLocal,
-    required this.autoLang,
-    required this.transLang,
-    required this.proc,
-    required this.modeLocalT,
-    required this.modeLocalS,
-    required this.modeRemoteT,
-    required this.modeRemoteS,
-    required this.noteLocal,
-    required this.noteRemote,
-    required this.provider,
-    required this.apiKey,
-    required this.connect,
-    required this.connected,
-    required this.disconnect,
-    required this.keyPlaceholder,
-    required this.keyHint,
-    required this.remoteModel,
-    required this.connectFirst,
-    required this.processedWith,
-    required this.autoDel,
-    required this.autoDelSub,
-    required this.storageTemplate,
-    required this.shTranscribe,
-    required this.shSummarize,
-    required this.shStep1,
-    required this.shStep2,
-    required this.shFrom,
-    required this.shSummary,
-    required this.shPoints,
-    required this.shActions,
-    required this.shShow,
-    required this.shHide,
-    required this.shTranscript,
-    required this.shCopy,
-    required this.shCopied,
-    required this.shShare,
-    required this.shSave,
-    required this.mSpkTemplate,
-    required this.voiceNote,
-    required this.recordingLabel,
-    required this.justNow,
-    required this.processingTitle,
-    required this.errorTitle,
-    required this.retry,
-    required this.dismiss,
-    required this.modelMissingTitle,
-    required this.modelMissingBody,
-    required this.goToSettings,
-    required this.downloading,
-    required this.todoSingular,
-    required this.todoPlural,
-    required this.tabEmptyTitle,
-    required this.tabEmptySub,
-    required this.tabRecord,
-    required this.tabFile,
-    required this.audioDelTitle,
-    required this.audioDelSub,
-    required this.keyMissing,
-    required this.notLoaded,
-    required this.deleteModelConfirm,
-    required this.cancel,
-    required this.toastDownloaded,
-    required this.toastRemoved,
-    required this.privacyStatement,
-    required this.recommended,
-    required this.asrExplain,
-    required this.summaryExplain,
-    required this.obModelsT,
-    required this.obModelsS,
-    required this.obSimple,
-    required this.obAdvanced,
-    required this.obRecommendedSetup,
-    required this.obDownloadGo,
-    required this.obSkip,
-    required this.obNext,
-    required this.obStart,
-    required this.obWelcomeT,
-    required this.obWelcomeS,
-    required this.obHiw1T,
-    required this.obHiw1S,
-    required this.obHiw2T,
-    required this.obHiw2S,
-    required this.obHiw3T,
-    required this.obHiw3S,
-    required this.obTranscribeT,
-    required this.obTranscribeS,
-    required this.obSummaryT,
-    required this.obSummaryS,
-    required this.obLookT,
-    required this.obLookS,
-    required this.obPrivacyT,
-    required this.obPrivacyS,
-    required this.obReadyT,
-    required this.obReadyS,
-    required this.obPermsT,
-    required this.obPermsS,
-    required this.obPermMicT,
-    required this.obPermMicS,
-    required this.obPermNotifT,
-    required this.obPermNotifS,
-    required this.obPermEnable,
-    required this.obPermGranted,
-    required this.obPermRequiredHint,
-    required this.obPermDeniedNote,
-    required this.obPermBlockedNote,
-    required this.obPermOpenSettings,
-    required this.obPermLocked,
-    required this.svcChannelName,
-    required this.svcChannelDesc,
-    required this.deleteNoteTitle,
-    required this.deleteNoteBody,
-    required this.noteDeleted,
-    required this.undo,
-    required this.summaryQualityHint,
-    required this.summarizeTitle,
-    required this.summarizeSub,
-    required this.summaryOff,
-    required this.backendSummary,
-    required this.backendHint,
-    required this.whisperThreads,
-    required this.whisperThreadsHint,
-    required this.autoDelNote,
-    required this.keyHelpTitleTemplate,
-    required this.keyHelpStep1Template,
-    required this.keyHelpStep2,
-    required this.keyHelpStep3,
-    required this.keyHelpNote,
-    required this.openPage,
-    required this.keyHelp,
-    required this.badgeVeryFast,
-    required this.badgeFast,
-    required this.badgeBalanced,
-    required this.badgeAccurate,
-    required this.badgeDetailed,
-    required this.badgeMostCapable,
-    required this.badgeCheap,
-    required this.badgeReasoning,
-    required this.providerSubOpenRouter,
-    required this.obConnectHint,
-    required this.obDownloadHint,
-    required this.modelsReady,
-    required this.ownRecording,
-    required this.minutesAgoTemplate,
-    required this.hoursAgoTemplate,
-    required this.weekdaysShort,
-    required this.dateMonthDayTemplate,
-  });
+  const AppStrings._(this.language, this._values);
 
   final AppLanguage language;
+  final Map<_StringKey, Object> _values;
+
   bool get isDe => language == AppLanguage.de;
 
-  final String obTag,
-      obTitle,
-      obSub,
-      obF1t,
-      obF1s,
-      obF2t,
-      obF2s,
-      obF3t,
-      obF3s,
-      obCta,
-      obModels;
-  final String homeTitle, homeSubTemplate, search, modelActive;
-  final String secToday, secWeek, secEarlier, emptyTitle, emptySub;
-  final String pickTitle, pickSub;
-  final String recTitle,
-      recording,
-      recPaused,
-      recHint,
-      recResume,
-      recPause,
-      recStopShort,
-      recCancel,
-      micPermissionTitle,
-      micPermissionBody;
-  final String setTitle, setAppear, setAsr, setLlm, setLang, setPriv, uiLang;
-  final String theme, system, light, dark, accentC, dl, delete, runningLocal, autoLang, transLang;
-  final String proc, modeLocalT, modeLocalS, modeRemoteT, modeRemoteS, noteLocal, noteRemote;
-  final String provider,
-      apiKey,
-      connect,
-      connected,
-      disconnect,
-      keyPlaceholder,
-      keyHint,
-      remoteModel,
-      connectFirst,
-      processedWith;
-  final String autoDel, autoDelSub, storageTemplate;
-  final String shTranscribe, shSummarize, shStep1, shStep2;
-  final String shFrom, shSummary, shPoints, shActions, shShow, shHide, shTranscript;
-  final String shCopy, shCopied, shShare, shSave;
-  final String mSpkTemplate, voiceNote, recordingLabel, justNow, processingTitle;
-  final String errorTitle, retry, dismiss, modelMissingTitle, modelMissingBody, goToSettings;
-  final String downloading, todoSingular, todoPlural;
-  final String tabEmptyTitle, tabEmptySub, tabRecord, tabFile, audioDelTitle, audioDelSub;
-  final String keyMissing, notLoaded, deleteModelConfirm, cancel, privacyStatement;
-  final String toastDownloaded, toastRemoved;
-  final String recommended, asrExplain, summaryExplain;
-  final String obModelsT, obModelsS, obSimple, obAdvanced, obRecommendedSetup, obDownloadGo;
-  final String obSkip, obNext, obStart;
-  final String obWelcomeT, obWelcomeS;
-  final String obHiw1T, obHiw1S, obHiw2T, obHiw2S, obHiw3T, obHiw3S;
-  final String obTranscribeT, obTranscribeS, obSummaryT, obSummaryS;
-  final String obLookT, obLookS, obPrivacyT, obPrivacyS, obReadyT, obReadyS;
-  final String obPermsT, obPermsS, obPermMicT, obPermMicS, obPermNotifT, obPermNotifS;
-  final String obPermEnable, obPermGranted;
-  final String obPermRequiredHint, obPermDeniedNote, obPermBlockedNote, obPermOpenSettings, obPermLocked;
-  final String svcChannelName, svcChannelDesc;
-  final String deleteNoteTitle, deleteNoteBody, noteDeleted, undo;
-  final String summaryQualityHint, summarizeTitle, summarizeSub, summaryOff;
-  final String backendSummary, backendHint, whisperThreads, whisperThreadsHint;
-  final String autoDelNote;
-  final String keyHelpTitleTemplate, keyHelpStep1Template, keyHelpStep2, keyHelpStep3, keyHelpNote, openPage, keyHelp;
-  final String badgeVeryFast, badgeFast, badgeBalanced, badgeAccurate, badgeDetailed, badgeMostCapable, badgeCheap, badgeReasoning;
-  final String providerSubOpenRouter;
-  final String obConnectHint, obDownloadHint, modelsReady, ownRecording;
-  final String minutesAgoTemplate, hoursAgoTemplate, dateMonthDayTemplate;
-  final List<String> weekdaysShort;
+  String _string(_StringKey key) => _values[key]! as String;
 
-  String minutesAgo(int n) => minutesAgoTemplate.replaceAll('{n}', '$n');
-  String hoursAgo(int n) => hoursAgoTemplate.replaceAll('{n}', '$n');
+  String get obTag => _string(_StringKey.obTag);
+  String get obTitle => _string(_StringKey.obTitle);
+  String get obSub => _string(_StringKey.obSub);
+  String get obF1t => _string(_StringKey.obF1t);
+  String get obF1s => _string(_StringKey.obF1s);
+  String get obF2t => _string(_StringKey.obF2t);
+  String get obF2s => _string(_StringKey.obF2s);
+  String get obF3t => _string(_StringKey.obF3t);
+  String get obF3s => _string(_StringKey.obF3s);
+  String get obCta => _string(_StringKey.obCta);
+  String get obModels => _string(_StringKey.obModels);
+  String get homeTitle => _string(_StringKey.homeTitle);
+  String get homeSubTemplate => _string(_StringKey.homeSubTemplate);
+  String get search => _string(_StringKey.search);
+  String get modelActive => _string(_StringKey.modelActive);
+  String get secToday => _string(_StringKey.secToday);
+  String get secWeek => _string(_StringKey.secWeek);
+  String get secEarlier => _string(_StringKey.secEarlier);
+  String get emptyTitle => _string(_StringKey.emptyTitle);
+  String get emptySub => _string(_StringKey.emptySub);
+  String get pickTitle => _string(_StringKey.pickTitle);
+  String get pickSub => _string(_StringKey.pickSub);
+  String get recTitle => _string(_StringKey.recTitle);
+  String get recording => _string(_StringKey.recording);
+  String get recPaused => _string(_StringKey.recPaused);
+  String get recHint => _string(_StringKey.recHint);
+  String get recResume => _string(_StringKey.recResume);
+  String get recPause => _string(_StringKey.recPause);
+  String get recStopShort => _string(_StringKey.recStopShort);
+  String get recCancel => _string(_StringKey.recCancel);
+  String get micPermissionTitle => _string(_StringKey.micPermissionTitle);
+  String get micPermissionBody => _string(_StringKey.micPermissionBody);
+  String get setTitle => _string(_StringKey.setTitle);
+  String get setAppear => _string(_StringKey.setAppear);
+  String get setAsr => _string(_StringKey.setAsr);
+  String get setLlm => _string(_StringKey.setLlm);
+  String get setLang => _string(_StringKey.setLang);
+  String get setPriv => _string(_StringKey.setPriv);
+  String get uiLang => _string(_StringKey.uiLang);
+  String get theme => _string(_StringKey.theme);
+  String get system => _string(_StringKey.system);
+  String get light => _string(_StringKey.light);
+  String get dark => _string(_StringKey.dark);
+  String get accentC => _string(_StringKey.accentC);
+  String get dl => _string(_StringKey.dl);
+  String get delete => _string(_StringKey.delete);
+  String get runningLocal => _string(_StringKey.runningLocal);
+  String get autoLang => _string(_StringKey.autoLang);
+  String get transLang => _string(_StringKey.transLang);
+  String get proc => _string(_StringKey.proc);
+  String get modeLocalT => _string(_StringKey.modeLocalT);
+  String get modeLocalS => _string(_StringKey.modeLocalS);
+  String get modeRemoteT => _string(_StringKey.modeRemoteT);
+  String get modeRemoteS => _string(_StringKey.modeRemoteS);
+  String get noteLocal => _string(_StringKey.noteLocal);
+  String get noteRemote => _string(_StringKey.noteRemote);
+  String get provider => _string(_StringKey.provider);
+  String get apiKey => _string(_StringKey.apiKey);
+  String get connect => _string(_StringKey.connect);
+  String get connected => _string(_StringKey.connected);
+  String get disconnect => _string(_StringKey.disconnect);
+  String get keyPlaceholder => _string(_StringKey.keyPlaceholder);
+  String get keyHint => _string(_StringKey.keyHint);
+  String get remoteModel => _string(_StringKey.remoteModel);
+  String get connectFirst => _string(_StringKey.connectFirst);
+  String get processedWith => _string(_StringKey.processedWith);
+  String get autoDel => _string(_StringKey.autoDel);
+  String get autoDelSub => _string(_StringKey.autoDelSub);
+  String get storageTemplate => _string(_StringKey.storageTemplate);
+  String get shTranscribe => _string(_StringKey.shTranscribe);
+  String get shSummarize => _string(_StringKey.shSummarize);
+  String get shStep1 => _string(_StringKey.shStep1);
+  String get shStep2 => _string(_StringKey.shStep2);
+  String get shFrom => _string(_StringKey.shFrom);
+  String get shSummary => _string(_StringKey.shSummary);
+  String get shPoints => _string(_StringKey.shPoints);
+  String get shActions => _string(_StringKey.shActions);
+  String get shShow => _string(_StringKey.shShow);
+  String get shHide => _string(_StringKey.shHide);
+  String get shTranscript => _string(_StringKey.shTranscript);
+  String get shCopy => _string(_StringKey.shCopy);
+  String get shCopied => _string(_StringKey.shCopied);
+  String get shShare => _string(_StringKey.shShare);
+  String get shSave => _string(_StringKey.shSave);
+  String get mSpkTemplate => _string(_StringKey.mSpkTemplate);
+  String get voiceNote => _string(_StringKey.voiceNote);
+  String get recordingLabel => _string(_StringKey.recordingLabel);
+  String get justNow => _string(_StringKey.justNow);
+  String get processingTitle => _string(_StringKey.processingTitle);
+  String get errorTitle => _string(_StringKey.errorTitle);
+  String get retry => _string(_StringKey.retry);
+  String get dismiss => _string(_StringKey.dismiss);
+  String get modelMissingTitle => _string(_StringKey.modelMissingTitle);
+  String get modelMissingBody => _string(_StringKey.modelMissingBody);
+  String get goToSettings => _string(_StringKey.goToSettings);
+  String get downloading => _string(_StringKey.downloading);
+  String get todoSingular => _string(_StringKey.todoSingular);
+  String get todoPlural => _string(_StringKey.todoPlural);
+  String get tabEmptyTitle => _string(_StringKey.tabEmptyTitle);
+  String get tabEmptySub => _string(_StringKey.tabEmptySub);
+  String get tabRecord => _string(_StringKey.tabRecord);
+  String get tabFile => _string(_StringKey.tabFile);
+  String get audioDelTitle => _string(_StringKey.audioDelTitle);
+  String get audioDelSub => _string(_StringKey.audioDelSub);
+  String get keyMissing => _string(_StringKey.keyMissing);
+  String get notLoaded => _string(_StringKey.notLoaded);
+  String get deleteModelConfirm => _string(_StringKey.deleteModelConfirm);
+  String get cancel => _string(_StringKey.cancel);
+  String get toastDownloaded => _string(_StringKey.toastDownloaded);
+  String get toastRemoved => _string(_StringKey.toastRemoved);
+  String get privacyStatement => _string(_StringKey.privacyStatement);
+  String get recommended => _string(_StringKey.recommended);
+  String get asrExplain => _string(_StringKey.asrExplain);
+  String get summaryExplain => _string(_StringKey.summaryExplain);
+  String get obModelsT => _string(_StringKey.obModelsT);
+  String get obModelsS => _string(_StringKey.obModelsS);
+  String get obSimple => _string(_StringKey.obSimple);
+  String get obAdvanced => _string(_StringKey.obAdvanced);
+  String get obRecommendedSetup => _string(_StringKey.obRecommendedSetup);
+  String get obDownloadGo => _string(_StringKey.obDownloadGo);
+  String get obSkip => _string(_StringKey.obSkip);
+  String get obNext => _string(_StringKey.obNext);
+  String get obStart => _string(_StringKey.obStart);
+  String get obWelcomeT => _string(_StringKey.obWelcomeT);
+  String get obWelcomeS => _string(_StringKey.obWelcomeS);
+  String get obHiw1T => _string(_StringKey.obHiw1T);
+  String get obHiw1S => _string(_StringKey.obHiw1S);
+  String get obHiw2T => _string(_StringKey.obHiw2T);
+  String get obHiw2S => _string(_StringKey.obHiw2S);
+  String get obHiw3T => _string(_StringKey.obHiw3T);
+  String get obHiw3S => _string(_StringKey.obHiw3S);
+  String get obTranscribeT => _string(_StringKey.obTranscribeT);
+  String get obTranscribeS => _string(_StringKey.obTranscribeS);
+  String get obSummaryT => _string(_StringKey.obSummaryT);
+  String get obSummaryS => _string(_StringKey.obSummaryS);
+  String get obLookT => _string(_StringKey.obLookT);
+  String get obLookS => _string(_StringKey.obLookS);
+  String get obPrivacyT => _string(_StringKey.obPrivacyT);
+  String get obPrivacyS => _string(_StringKey.obPrivacyS);
+  String get obReadyT => _string(_StringKey.obReadyT);
+  String get obReadyS => _string(_StringKey.obReadyS);
+  String get obPermsT => _string(_StringKey.obPermsT);
+  String get obPermsS => _string(_StringKey.obPermsS);
+  String get obPermMicT => _string(_StringKey.obPermMicT);
+  String get obPermMicS => _string(_StringKey.obPermMicS);
+  String get obPermNotifT => _string(_StringKey.obPermNotifT);
+  String get obPermNotifS => _string(_StringKey.obPermNotifS);
+  String get obPermEnable => _string(_StringKey.obPermEnable);
+  String get obPermGranted => _string(_StringKey.obPermGranted);
+  String get obPermRequiredHint => _string(_StringKey.obPermRequiredHint);
+  String get obPermDeniedNote => _string(_StringKey.obPermDeniedNote);
+  String get obPermBlockedNote => _string(_StringKey.obPermBlockedNote);
+  String get obPermOpenSettings => _string(_StringKey.obPermOpenSettings);
+  String get obPermLocked => _string(_StringKey.obPermLocked);
+  String get svcChannelName => _string(_StringKey.svcChannelName);
+  String get svcChannelDesc => _string(_StringKey.svcChannelDesc);
+  String get deleteNoteTitle => _string(_StringKey.deleteNoteTitle);
+  String get deleteNoteBody => _string(_StringKey.deleteNoteBody);
+  String get noteDeleted => _string(_StringKey.noteDeleted);
+  String get undo => _string(_StringKey.undo);
+  String get summaryQualityHint => _string(_StringKey.summaryQualityHint);
+  String get summarizeTitle => _string(_StringKey.summarizeTitle);
+  String get summarizeSub => _string(_StringKey.summarizeSub);
+  String get summaryOff => _string(_StringKey.summaryOff);
+  String get backendSummary => _string(_StringKey.backendSummary);
+  String get backendHint => _string(_StringKey.backendHint);
+  String get whisperThreads => _string(_StringKey.whisperThreads);
+  String get whisperThreadsHint => _string(_StringKey.whisperThreadsHint);
+  String get autoDelNote => _string(_StringKey.autoDelNote);
+  String get keyHelpTitleTemplate => _string(_StringKey.keyHelpTitleTemplate);
+  String get keyHelpStep1Template => _string(_StringKey.keyHelpStep1Template);
+  String get keyHelpStep2 => _string(_StringKey.keyHelpStep2);
+  String get keyHelpStep3 => _string(_StringKey.keyHelpStep3);
+  String get keyHelpNote => _string(_StringKey.keyHelpNote);
+  String get openPage => _string(_StringKey.openPage);
+  String get keyHelp => _string(_StringKey.keyHelp);
+  String get badgeVeryFast => _string(_StringKey.badgeVeryFast);
+  String get badgeFast => _string(_StringKey.badgeFast);
+  String get badgeBalanced => _string(_StringKey.badgeBalanced);
+  String get badgeAccurate => _string(_StringKey.badgeAccurate);
+  String get badgeDetailed => _string(_StringKey.badgeDetailed);
+  String get badgeMostCapable => _string(_StringKey.badgeMostCapable);
+  String get badgeCheap => _string(_StringKey.badgeCheap);
+  String get badgeReasoning => _string(_StringKey.badgeReasoning);
+  String get providerSubOpenRouter => _string(_StringKey.providerSubOpenRouter);
+  String get obConnectHint => _string(_StringKey.obConnectHint);
+  String get obDownloadHint => _string(_StringKey.obDownloadHint);
+  String get modelsReady => _string(_StringKey.modelsReady);
+  String get ownRecording => _string(_StringKey.ownRecording);
+  String get minutesAgoTemplate => _string(_StringKey.minutesAgoTemplate);
+  String get hoursAgoTemplate => _string(_StringKey.hoursAgoTemplate);
+  String get dateMonthDayTemplate => _string(_StringKey.dateMonthDayTemplate);
+
+  List<String> get weekdaysShort =>
+      _values[_StringKey.weekdaysShort]! as List<String>;
+
+  String minutesAgo(int count) =>
+      minutesAgoTemplate.replaceAll('{n}', '$count');
+
+  String hoursAgo(int count) => hoursAgoTemplate.replaceAll('{n}', '$count');
+
   String weekdayShort(int weekday) => weekdaysShort[weekday - 1];
+
   String dateMonthDay(int day, int month) {
-    final d = day.toString().padLeft(2, '0');
-    final m = month.toString().padLeft(2, '0');
-    return dateMonthDayTemplate.replaceAll('{d}', d).replaceAll('{m}', m);
+    final paddedDay = day.toString().padLeft(2, '0');
+    final paddedMonth = month.toString().padLeft(2, '0');
+    return dateMonthDayTemplate
+        .replaceAll('{d}', paddedDay)
+        .replaceAll('{m}', paddedMonth);
   }
 
-  String keyHelpTitle(String name) => keyHelpTitleTemplate.replaceAll('{name}', name);
-  String keyHelpStep1(String name) => keyHelpStep1Template.replaceAll('{name}', name);
+  String keyHelpTitle(String name) =>
+      keyHelpTitleTemplate.replaceAll('{name}', name);
+
+  String keyHelpStep1(String name) =>
+      keyHelpStep1Template.replaceAll('{name}', name);
 
   String homeSub(int count) => homeSubTemplate.replaceAll('{n}', '$count');
+
   String storage(int models, String size) =>
       storageTemplate.replaceAll('{n}', '$models').replaceAll('{size}', size);
-  String todoLabel(int count) => '$count ${count == 1 ? todoSingular : todoPlural}';
 
-  static AppStrings of(AppLanguage language) => language == AppLanguage.de ? _de : _en;
+  String todoLabel(int count) =>
+      '$count ${count == 1 ? todoSingular : todoPlural}';
 
-  static const AppStrings _de = AppStrings(
-    language: AppLanguage.de,
-    obTag: '100 % auf deinem Gerät',
-    obTitle: 'Sprachnachrichten,\nin Sekunden erfasst.',
-    obSub: 'Teile ein Audio – wir transkribieren und fassen zusammen. Lokal, privat, ganz ohne Cloud.',
-    obF1t: 'Privat',
-    obF1s: 'Läuft offline auf deinem Gerät',
-    obF2t: 'Schnell',
-    obF2s: 'Transkript in unter 5 Sekunden',
-    obF3t: 'Klar',
-    obF3s: 'Kernpunkte & To-dos sofort',
-    obCta: "Los geht's",
-    obModels: 'Erst Modelle wählen',
-    homeTitle: 'Deine Transkripte',
-    homeSubTemplate: '{n} Sprachnachrichten verarbeitet',
-    search: 'Transkripte durchsuchen',
-    modelActive: 'Aktiv',
-    secToday: 'Heute',
-    secWeek: 'Diese Woche',
-    secEarlier: 'Früher',
-    emptyTitle: 'Noch keine Transkripte',
-    emptySub: 'Teile eine Sprachnachricht, wähle eine Datei oder nimm direkt etwas auf.',
-    pickTitle: 'Audiodatei auswählen',
-    pickSub: 'Aus deinen Dateien transkribieren',
-    recTitle: 'Aufnahme',
-    recording: 'Nimmt auf',
-    recPaused: 'Pausiert',
-    recHint: 'Lokal · wird nach dem Stoppen transkribiert',
-    recResume: 'Fortsetzen',
-    recPause: 'Pause',
-    recStopShort: 'Stoppen',
-    recCancel: 'Verwerfen',
-    micPermissionTitle: 'Mikrofon-Zugriff nötig',
-    micPermissionBody: 'Erlaube den Mikrofon-Zugriff, um Sprachnotizen aufzunehmen.',
-    setTitle: 'Einstellungen',
-    setAppear: 'Darstellung',
-    setAsr: 'Transkriptions-Modell',
-    setLlm: 'Zusammenfassungs-Modell',
-    setLang: 'Sprache & Region',
-    setPriv: 'Datenschutz',
-    uiLang: 'App-Sprache',
-    theme: 'Erscheinungsbild',
-    system: 'System',
-    light: 'Hell',
-    dark: 'Dunkel',
-    accentC: 'Akzentfarbe',
-    dl: 'Laden',
-    delete: 'Entfernen',
-    runningLocal: 'Läuft lokal',
-    autoLang: 'Automatisch erkennen',
-    transLang: 'Transkriptions-Sprache',
-    proc: 'Verarbeitung',
-    modeLocalT: 'Auf dem Gerät',
-    modeLocalS: 'Privat · Offline',
-    modeRemoteT: 'Cloud-API',
-    modeRemoteS: 'Stärker · Schlüssel',
-    noteLocal: 'Keine Daten verlassen dein Telefon.',
-    noteRemote: 'Audio & Text werden an den Anbieter gesendet.',
-    provider: 'Anbieter',
-    apiKey: 'API-Schlüssel',
-    connect: 'Verbinden',
-    connected: 'Verbunden',
-    disconnect: 'Trennen',
-    keyPlaceholder: 'sk-… Schlüssel einfügen',
-    keyHint: 'Der Schlüssel wird nur lokal auf dem Gerät gespeichert.',
-    remoteModel: 'Modell',
-    connectFirst: 'Verbinde einen Anbieter, um Modelle zu sehen.',
-    processedWith: 'Verarbeitet mit',
-    autoDel: 'Audio nach Verarbeitung löschen',
-    autoDelSub: 'Spart automatisch Speicher',
-    storageTemplate: '{n} Modelle · {size} belegt',
-    shTranscribe: 'Transkribiere Audio…',
-    shSummarize: 'Erstelle Zusammenfassung…',
-    shStep1: 'Transkription',
-    shStep2: 'Zusammenfassung',
-    shFrom: 'Sprachnachricht von',
-    shSummary: 'Zusammenfassung',
-    shPoints: 'Kernpunkte',
-    shActions: 'To-dos',
-    shShow: 'Genaues Transkript ansehen',
-    shHide: 'Transkript ausblenden',
-    shTranscript: 'Transkript',
-    shCopy: 'Kopieren',
-    shCopied: 'Kopiert',
-    shShare: 'Teilen',
-    shSave: 'Speichern',
-    mSpkTemplate: '{n} Sprecher',
-    voiceNote: 'Sprachnachricht',
-    recordingLabel: 'Aufnahme',
-    justNow: 'gerade eben',
-    processingTitle: 'Wird verarbeitet',
-    errorTitle: 'Etwas ist schiefgelaufen',
-    retry: 'Erneut versuchen',
-    dismiss: 'Schließen',
-    modelMissingTitle: 'Modell nicht geladen',
-    modelMissingBody: 'Lade das gewählte Modell in den Einstellungen herunter, um lokal zu verarbeiten.',
-    goToSettings: 'Zu den Einstellungen',
-    downloading: 'Wird geladen…',
-    todoSingular: 'To-do',
-    todoPlural: 'To-dos',
-    tabEmptyTitle: 'Wähle ein Transkript',
-    tabEmptySub: 'Links auswählen – oder ein neues Audio aufnehmen oder importieren.',
-    tabRecord: 'Aufnehmen',
-    tabFile: 'Datei',
-    audioDelTitle: 'Audio gelöscht',
-    audioDelSub: 'Nach der Verarbeitung automatisch entfernt',
-    keyMissing: 'Schlüssel fehlt',
-    notLoaded: 'nicht geladen',
-    deleteModelConfirm: 'Dieses Modell vom Gerät entfernen? Du kannst es jederzeit erneut laden.',
-    cancel: 'Abbrechen',
-    toastDownloaded: 'heruntergeladen',
-    toastRemoved: 'entfernt',
-    privacyStatement: 'Keine Telemetrie, kein Tracking – wir sammeln niemals Daten. Nur im Cloud-Modus werden Audio & Text zur Verarbeitung an den von dir gewählten Anbieter gesendet.',
-    recommended: 'Empfohlen',
-    asrExplain: 'Transkription = Sprache → Text',
-    summaryExplain: 'Zusammenfassung = Kernpunkte & To-dos',
-    obModelsT: 'Modelle',
-    obModelsS: 'Lade die empfohlenen Modelle – oder richte es selbst ein.',
-    obSimple: 'Einfach',
-    obAdvanced: 'Erweitert',
-    obRecommendedSetup: 'Empfohlenes Setup',
-    obDownloadGo: 'Herunterladen & los',
-    obSkip: 'Überspringen',
-    obNext: 'Weiter',
-    obStart: "Los geht's",
-    obWelcomeT: 'Willkommen bei Transcriber',
-    obWelcomeS: 'Sprachnachrichten werden in Sekunden zu Text, Zusammenfassung und To-dos.',
-    obHiw1T: 'Teilen oder aufnehmen',
-    obHiw1S: 'Audio teilen, importieren oder direkt aufnehmen',
-    obHiw2T: 'Transkribieren',
-    obHiw2S: 'Sprache wird zu Text – lokal oder per Cloud',
-    obHiw3T: 'Zusammenfassen',
-    obHiw3S: 'Kernpunkte & To-dos – automatisch',
-    obTranscribeT: 'Transkription',
-    obTranscribeS: 'Wähle das Transkriptions-Modell oder einen Cloud-Anbieter.',
-    obSummaryT: 'Zusammenfassung',
-    obSummaryS: 'Wähle das Zusammenfassungs-Modell oder einen Cloud-Anbieter.',
-    obLookT: 'Sprache & Aussehen',
-    obLookS: 'Stell die App nach deinem Geschmack ein.',
-    obPrivacyT: 'Datenschutz',
-    obPrivacyS: 'Du behältst die Kontrolle über deine Daten.',
-    obReadyT: 'Alles bereit!',
-    obReadyS: 'Du kannst alle Einstellungen später jederzeit anpassen.',
-    obPermsT: 'Zwei kurze Freigaben',
-    obPermsS: 'Damit alles rund läuft, braucht die App zwei Erlaubnisse von dir.',
-    obPermMicT: 'Mikrofon',
-    obPermMicS: 'Damit du Sprachnachrichten direkt in der App aufnehmen kannst.',
-    obPermNotifT: 'Mitteilungen',
-    obPermNotifS: 'Damit du den Fortschritt siehst, während die App im Hintergrund weiterarbeitet.',
-    obPermEnable: 'Aktivieren',
-    obPermGranted: 'Alles freigegeben',
-    obPermRequiredHint: 'Beide Freigaben sind nötig, um fortzufahren.',
-    obPermDeniedNote:
-        'Ohne diese Freigaben kann die App keine Sprachnachrichten aufnehmen und dich nicht über den Fortschritt informieren. Bitte erlaube sie, um die App zu nutzen.',
-    obPermBlockedNote:
-        'Du hast die Freigabe abgelehnt. Aktiviere „Mikrofon" und „Mitteilungen" in den App-Einstellungen und kehre dann hierher zurück.',
-    obPermOpenSettings: 'Einstellungen öffnen',
-    obPermLocked: 'Bitte erlaube den Zugriff, um fortzufahren.',
-    svcChannelName: 'Zusammenfassung',
-    svcChannelDesc: 'Läuft, während eine Zusammenfassung auf dem Gerät erstellt wird.',
-    deleteNoteTitle: 'Transkript löschen?',
-    deleteNoteBody: 'Dieses Transkript wird dauerhaft entfernt.',
-    noteDeleted: 'Transkript gelöscht',
-    undo: 'Rückgängig',
-    summaryQualityHint: 'Größeres Modell = langsamer, aber bessere Qualität.',
-    summarizeTitle: 'Zusammenfassen',
-    summarizeSub: 'Aus = nur das rohe Transkript, keine KI-Zusammenfassung',
-    summaryOff: 'Keine Zusammenfassung',
-    backendSummary: 'Backend (Zusammenfassung)',
-    backendHint: 'GPU am schnellsten · NPU ist geräteabhängig',
-    whisperThreads: 'Whisper-Threads (CPU)',
-    whisperThreadsHint: 'Mehr Threads = schneller, aber höhere CPU-Last. Transkription läuft immer auf der CPU.',
-    autoDelNote: 'Hinweis: Gelöschte Audios können danach nicht mehr in der App abgespielt werden.',
-    keyHelpTitleTemplate: 'API-Schlüssel von {name}',
-    keyHelpStep1Template: '1. Bei {name} anmelden oder registrieren.',
-    keyHelpStep2: '2. Die Seite „API Keys" öffnen (Button unten).',
-    keyHelpStep3: '3. Neuen Schlüssel erstellen, kopieren und hier einfügen.',
-    keyHelpNote: 'Hinweis: Cloud-Anbieter rechnen nach Nutzung ab.',
-    openPage: 'Seite öffnen',
-    keyHelp: 'Wie bekomme ich einen Schlüssel?',
-    badgeVeryFast: 'Klein & schnell',
-    badgeFast: 'Schnell',
-    badgeBalanced: 'Ausgewogen',
-    badgeAccurate: 'Beste Qualität',
-    badgeDetailed: 'Detaillierter',
-    badgeMostCapable: 'Stärkste',
-    badgeCheap: 'Schnell & günstig',
-    badgeReasoning: 'Stark im Denken',
-    providerSubOpenRouter: '300+ Modelle, ein Schlüssel',
-    obConnectHint: 'Verbinde einen Anbieter, um fortzufahren.',
-    obDownloadHint: 'Lade das Modell herunter, um fortzufahren.',
-    modelsReady: 'Modelle bereit',
-    ownRecording: 'Eigene Aufnahme',
-    minutesAgoTemplate: 'vor {n} Min',
-    hoursAgoTemplate: 'vor {n} Std',
-    weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
-    dateMonthDayTemplate: '{d}.{m}.',
-  );
+  static AppStrings of(AppLanguage language) => _catalogs[language]!;
 
-  static const AppStrings _en = AppStrings(
-    language: AppLanguage.en,
-    obTag: '100% on your device',
-    obTitle: 'Voice notes,\ncaptured in seconds.',
-    obSub: 'Share an audio — we transcribe and summarize it. Local, private, no cloud at all.',
-    obF1t: 'Private',
-    obF1s: 'Runs offline on your device',
-    obF2t: 'Fast',
-    obF2s: 'Transcript in under 5 seconds',
-    obF3t: 'Clear',
-    obF3s: 'Key points & to-dos instantly',
-    obCta: 'Get started',
-    obModels: 'Choose models first',
-    homeTitle: 'Your transcripts',
-    homeSubTemplate: '{n} voice notes processed',
-    search: 'Search transcripts',
-    modelActive: 'Active',
-    secToday: 'Today',
-    secWeek: 'This week',
-    secEarlier: 'Earlier',
-    emptyTitle: 'No transcripts yet',
-    emptySub: 'Share a voice note, pick a file or record something directly.',
-    pickTitle: 'Choose an audio file',
-    pickSub: 'Transcribe from your files',
-    recTitle: 'Recording',
-    recording: 'Recording',
-    recPaused: 'Paused',
-    recHint: 'Local · transcribed after you stop',
-    recResume: 'Resume',
-    recPause: 'Pause',
-    recStopShort: 'Stop',
-    recCancel: 'Discard',
-    micPermissionTitle: 'Microphone access needed',
-    micPermissionBody: 'Allow microphone access to record voice notes.',
-    setTitle: 'Settings',
-    setAppear: 'Appearance',
-    setAsr: 'Transcription model',
-    setLlm: 'Summary model',
-    setLang: 'Language & region',
-    setPriv: 'Privacy',
-    uiLang: 'App language',
-    theme: 'Appearance',
-    system: 'System',
-    light: 'Light',
-    dark: 'Dark',
-    accentC: 'Accent color',
-    dl: 'Get',
-    delete: 'Remove',
-    runningLocal: 'Running locally',
-    autoLang: 'Auto-detect',
-    transLang: 'Transcription language',
-    proc: 'Processing',
-    modeLocalT: 'On device',
-    modeLocalS: 'Private · Offline',
-    modeRemoteT: 'Cloud API',
-    modeRemoteS: 'Stronger · Key',
-    noteLocal: 'No data leaves your phone.',
-    noteRemote: 'Audio & text are sent to the provider.',
-    provider: 'Provider',
-    apiKey: 'API key',
-    connect: 'Connect',
-    connected: 'Connected',
-    disconnect: 'Disconnect',
-    keyPlaceholder: 'sk-… paste key',
-    keyHint: 'The key is stored locally on device only.',
-    remoteModel: 'Model',
-    connectFirst: 'Connect a provider to see models.',
-    processedWith: 'Processed with',
-    autoDel: 'Delete audio after processing',
-    autoDelSub: 'Frees up space automatically',
-    storageTemplate: '{n} models · {size} used',
-    shTranscribe: 'Transcribing audio…',
-    shSummarize: 'Writing summary…',
-    shStep1: 'Transcription',
-    shStep2: 'Summary',
-    shFrom: 'Voice note from',
-    shSummary: 'Summary',
-    shPoints: 'Key points',
-    shActions: 'To-dos',
-    shShow: 'View full transcript',
-    shHide: 'Hide transcript',
-    shTranscript: 'Transcript',
-    shCopy: 'Copy',
-    shCopied: 'Copied',
-    shShare: 'Share',
-    shSave: 'Save',
-    mSpkTemplate: '{n} speaker',
-    voiceNote: 'Voice note',
-    recordingLabel: 'Recording',
-    justNow: 'just now',
-    processingTitle: 'Processing',
-    errorTitle: 'Something went wrong',
-    retry: 'Retry',
-    dismiss: 'Dismiss',
-    modelMissingTitle: 'Model not downloaded',
-    modelMissingBody: 'Download the selected model in settings to process on device.',
-    goToSettings: 'Open settings',
-    downloading: 'Downloading…',
-    todoSingular: 'to-do',
-    todoPlural: 'to-dos',
-    tabEmptyTitle: 'Select a transcript',
-    tabEmptySub: 'Pick one on the left — or record or import a new audio.',
-    tabRecord: 'Record',
-    tabFile: 'File',
-    audioDelTitle: 'Audio deleted',
-    audioDelSub: 'Automatically removed after processing',
-    keyMissing: 'Key missing',
-    notLoaded: 'not downloaded',
-    deleteModelConfirm: 'Remove this model from the device? You can download it again anytime.',
-    cancel: 'Cancel',
-    toastDownloaded: 'downloaded',
-    toastRemoved: 'removed',
-    privacyStatement: 'No telemetry, no tracking — we never collect data. Only in cloud mode are audio & text sent to your chosen provider for processing.',
-    recommended: 'Recommended',
-    asrExplain: 'Transcription = speech → text',
-    summaryExplain: 'Summary = key points & to-dos',
-    obModelsT: 'Models',
-    obModelsS: 'Download the recommended models — or set it up yourself.',
-    obSimple: 'Simple',
-    obAdvanced: 'Advanced',
-    obRecommendedSetup: 'Recommended setup',
-    obDownloadGo: 'Download & go',
-    obSkip: 'Skip',
-    obNext: 'Next',
-    obStart: 'Get started',
-    obWelcomeT: 'Welcome to Transcriber',
-    obWelcomeS: 'Voice notes become text, a summary and to-dos in seconds.',
-    obHiw1T: 'Share or record',
-    obHiw1S: 'Share, import or record audio directly',
-    obHiw2T: 'Transcribe',
-    obHiw2S: 'Speech becomes text — on-device or via cloud',
-    obHiw3T: 'Summarize',
-    obHiw3S: 'Key points & to-dos — automatically',
-    obTranscribeT: 'Transcription',
-    obTranscribeS: 'Pick the transcription model or a cloud provider.',
-    obSummaryT: 'Summary',
-    obSummaryS: 'Pick the summary model or a cloud provider.',
-    obLookT: 'Language & look',
-    obLookS: 'Set the app up to your taste.',
-    obPrivacyT: 'Privacy',
-    obPrivacyS: 'You stay in control of your data.',
-    obReadyT: "You're all set!",
-    obReadyS: 'You can adjust every setting later in Settings.',
-    obPermsT: 'Two quick approvals',
-    obPermsS: 'For everything to work smoothly, the app needs two permissions from you.',
-    obPermMicT: 'Microphone',
-    obPermMicS: 'So you can record voice notes right inside the app.',
-    obPermNotifT: 'Notifications',
-    obPermNotifS: 'So you can follow the progress while the app keeps working in the background.',
-    obPermEnable: 'Enable',
-    obPermGranted: 'All approved',
-    obPermRequiredHint: 'Both approvals are needed to continue.',
-    obPermDeniedNote:
-        "Without these the app can't record voice notes or keep you posted on progress. Please allow them to use the app.",
-    obPermBlockedNote:
-        'You declined access. Enable "Microphone" and "Notifications" in the app settings, then come back here.',
-    obPermOpenSettings: 'Open settings',
-    obPermLocked: 'Please grant access to continue.',
-    svcChannelName: 'Summarization',
-    svcChannelDesc: 'Runs while a summary is being generated on your device.',
-    deleteNoteTitle: 'Delete transcript?',
-    deleteNoteBody: 'This transcript will be permanently removed.',
-    noteDeleted: 'Transcript deleted',
-    undo: 'Undo',
-    summaryQualityHint: 'Bigger model = slower, but better quality.',
-    summarizeTitle: 'Summarize',
-    summarizeSub: 'Off = raw transcript only, no AI summary',
-    summaryOff: 'No summary',
-    backendSummary: 'Backend (summary)',
-    backendHint: 'GPU is fastest · NPU is device-dependent',
-    whisperThreads: 'Whisper threads (CPU)',
-    whisperThreadsHint: 'More threads = faster, but higher CPU load. Transcription always runs on the CPU.',
-    autoDelNote: 'Note: deleted audio can no longer be played back in the app afterwards.',
-    keyHelpTitleTemplate: '{name} API key',
-    keyHelpStep1Template: '1. Sign in or sign up at {name}.',
-    keyHelpStep2: '2. Open the "API keys" page (button below).',
-    keyHelpStep3: '3. Create a new key, copy it and paste it here.',
-    keyHelpNote: 'Note: cloud providers charge based on usage.',
-    openPage: 'Open page',
-    keyHelp: 'How do I get a key?',
-    badgeVeryFast: 'Small & fast',
-    badgeFast: 'Fast',
-    badgeBalanced: 'Balanced',
-    badgeAccurate: 'Best quality',
-    badgeDetailed: 'More detailed',
-    badgeMostCapable: 'Most capable',
-    badgeCheap: 'Fast & cheap',
-    badgeReasoning: 'Strong reasoning',
-    providerSubOpenRouter: '300+ models, one key',
-    obConnectHint: 'Connect a provider to continue.',
-    obDownloadHint: 'Download the model to continue.',
-    modelsReady: 'Models ready',
-    ownRecording: 'Your recording',
-    minutesAgoTemplate: '{n} min ago',
-    hoursAgoTemplate: '{n}h ago',
-    weekdaysShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    dateMonthDayTemplate: '{m}/{d}',
-  );
+  static const Map<AppLanguage, AppStrings> _catalogs = {
+    AppLanguage.de: AppStrings._(AppLanguage.de, _deStrings),
+    AppLanguage.en: AppStrings._(AppLanguage.en, _enStrings),
+  };
 }

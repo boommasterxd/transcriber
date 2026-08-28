@@ -26,7 +26,13 @@ class SurfaceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: [BoxShadow(color: palette.shadow, blurRadius: 12, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: palette.shadow,
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: child,
     );
@@ -72,7 +78,8 @@ class FadeEdges extends StatefulWidget {
     this.color,
   });
 
-  final Widget Function(BuildContext context, ScrollController controller) builder;
+  final Widget Function(BuildContext context, ScrollController controller)
+  builder;
   final double topHeight;
   final double bottomHeight;
   final Color? color;
@@ -101,7 +108,9 @@ class _FadeEdgesState extends State<FadeEdges> {
   }
 
   void _update() {
-    if (!_controller.hasClients || !_controller.position.hasContentDimensions) return;
+    if (!_controller.hasClients || !_controller.position.hasContentDimensions) {
+      return;
+    }
     final position = _controller.position;
     final showTop = position.extentBefore > 1.0;
     final showBottom = position.extentAfter > 1.0;
@@ -124,8 +133,18 @@ class _FadeEdgesState extends State<FadeEdges> {
       child: Stack(
         children: [
           Positioned.fill(child: widget.builder(context, _controller)),
-          _Fade(visible: _showTop, height: widget.topHeight, color: c, top: true),
-          _Fade(visible: _showBottom, height: widget.bottomHeight, color: c, top: false),
+          _Fade(
+            visible: _showTop,
+            height: widget.topHeight,
+            color: c,
+            top: true,
+          ),
+          _Fade(
+            visible: _showBottom,
+            height: widget.bottomHeight,
+            color: c,
+            top: false,
+          ),
         ],
       ),
     );
@@ -133,7 +152,12 @@ class _FadeEdgesState extends State<FadeEdges> {
 }
 
 class _Fade extends StatelessWidget {
-  const _Fade({required this.visible, required this.height, required this.color, required this.top});
+  const _Fade({
+    required this.visible,
+    required this.height,
+    required this.color,
+    required this.top,
+  });
 
   final bool visible;
   final double height;

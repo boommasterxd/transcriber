@@ -35,7 +35,10 @@ class AnimatedSegmentedControl extends StatelessWidget {
     return Container(
       height: height,
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: palette.chip, borderRadius: BorderRadius.circular(9999)),
+      decoration: BoxDecoration(
+        color: palette.chip,
+        borderRadius: BorderRadius.circular(9999),
+      ),
       child: Stack(
         children: [
           // Sliding thumb.
@@ -51,7 +54,11 @@ class AnimatedSegmentedControl extends StatelessWidget {
                   color: palette.surface,
                   borderRadius: BorderRadius.circular(9999),
                   boxShadow: [
-                    BoxShadow(color: palette.shadow, blurRadius: 8, offset: const Offset(0, 2)),
+                    BoxShadow(
+                      color: palette.shadow,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
                   ],
                 ),
               ),
@@ -64,7 +71,10 @@ class AnimatedSegmentedControl extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onChanged(i),
-                    child: _Segment(option: options[i], selected: i == selectedIndex),
+                    child: _Segment(
+                      option: options[i],
+                      selected: i == selectedIndex,
+                    ),
                   ),
                 ),
             ],
@@ -95,7 +105,11 @@ class _Segment extends StatelessWidget {
           ],
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 200),
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
             child: Text(option.label),
           ),
         ],

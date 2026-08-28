@@ -16,7 +16,10 @@ class RemoteSummarizationService implements SummarizationService {
   final String fallbackTitle;
 
   @override
-  Future<SummaryResult> summarize(String transcript, {required bool german}) async {
+  Future<SummaryResult> summarize(
+    String transcript, {
+    required bool german,
+  }) async {
     final raw = await client.chat(
       system: SummaryPrompt.system(german),
       user: SummaryPrompt.user(transcript, german: german),

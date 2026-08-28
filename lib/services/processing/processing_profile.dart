@@ -7,7 +7,11 @@ import '../../data/models/app_settings.dart';
 
 /// Resolved label/flags for a single processing stage (transcription or summary).
 class StageInfo {
-  const StageInfo({required this.name, required this.sub, required this.isLocal});
+  const StageInfo({
+    required this.name,
+    required this.sub,
+    required this.isLocal,
+  });
 
   final String name;
   final String sub;
@@ -37,19 +41,35 @@ class ProcessingProfile {
     final StageInfo asr;
     if (s.asrMode.isLocal) {
       final m = WhisperCatalog.byId(s.whisperModelId);
-      asr = StageInfo(name: m.displayName, sub: formatBytes(m.sizeBytes, german: german), isLocal: true);
+      asr = StageInfo(
+        name: m.displayName,
+        sub: formatBytes(m.sizeBytes, german: german),
+        isLocal: true,
+      );
     } else {
       final provider = RemoteCatalog.provider(s.asrProvider);
-      asr = StageInfo(name: s.asrModelId(s.asrProvider), sub: provider.name, isLocal: false);
+      asr = StageInfo(
+        name: s.asrModelId(s.asrProvider),
+        sub: provider.name,
+        isLocal: false,
+      );
     }
 
     final StageInfo summary;
     if (s.summaryMode.isLocal) {
       final m = GemmaCatalog.byId(s.gemmaModelId);
-      summary = StageInfo(name: m.displayName, sub: formatBytes(m.sizeBytes, german: german), isLocal: true);
+      summary = StageInfo(
+        name: m.displayName,
+        sub: formatBytes(m.sizeBytes, german: german),
+        isLocal: true,
+      );
     } else {
       final provider = RemoteCatalog.provider(s.summaryProvider);
-      summary = StageInfo(name: s.summaryModelId(s.summaryProvider), sub: provider.name, isLocal: false);
+      summary = StageInfo(
+        name: s.summaryModelId(s.summaryProvider),
+        sub: provider.name,
+        isLocal: false,
+      );
     }
 
     return ProcessingProfile(asr: asr, summary: summary);

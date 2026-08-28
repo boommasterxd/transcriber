@@ -11,6 +11,6 @@ enum InferenceBackend {
   final String id;
   final String label;
 
-  static InferenceBackend fromId(String? id) =>
-      InferenceBackend.values.firstWhere((b) => b.id == id, orElse: () => InferenceBackend.auto);
+  static InferenceBackend fromId(String? id) => InferenceBackend.values
+      .firstWhere((b) => b.id == id, orElse: () => InferenceBackend.auto);
 }

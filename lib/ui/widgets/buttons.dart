@@ -76,7 +76,9 @@ class PillButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: outlined ? Colors.transparent : palette.accent,
           borderRadius: BorderRadius.circular(9999),
-          border: outlined ? Border.all(color: palette.line2, width: 1.5) : null,
+          border: outlined
+              ? Border.all(color: palette.line2, width: 1.5)
+              : null,
           boxShadow: outlined
               ? null
               : [
@@ -90,15 +92,25 @@ class PillButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon != null) ...[Icon(icon, color: fg, size: 19), const SizedBox(width: 9)],
+            if (icon != null) ...[
+              Icon(icon, color: fg, size: 19),
+              const SizedBox(width: 9),
+            ],
             Flexible(
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: fg),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
+                ),
               ),
             ),
-            if (trailingIcon != null) ...[const SizedBox(width: 9), Icon(trailingIcon, color: fg, size: 19)],
+            if (trailingIcon != null) ...[
+              const SizedBox(width: 9),
+              Icon(trailingIcon, color: fg, size: 19),
+            ],
           ],
         ),
       ),
@@ -108,7 +120,12 @@ class PillButton extends StatelessWidget {
 
 /// Circular surface button (back, settings, share, close).
 class IconCircleButton extends StatelessWidget {
-  const IconCircleButton({super.key, required this.icon, required this.onTap, this.size = 42});
+  const IconCircleButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.size = 42,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
@@ -126,7 +143,13 @@ class IconCircleButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: palette.surface,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: palette.shadow, blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: palette.shadow,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Icon(icon, size: size * 0.45, color: palette.body),
       ),
@@ -136,7 +159,12 @@ class IconCircleButton extends StatelessWidget {
 
 /// Row of selectable accent color swatches.
 class AccentSwatches extends StatelessWidget {
-  const AccentSwatches({super.key, required this.selected, required this.onSelected, this.size = 40});
+  const AccentSwatches({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+    this.size = 40,
+  });
 
   final AppAccent selected;
   final ValueChanged<AppAccent> onSelected;

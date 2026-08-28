@@ -10,3 +10,20 @@ linter:
 analyzer:
   errors:
     invalid_annotation_target: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+dart_code_linter:
+  metrics:
+    cyclomatic-complexity: 20
+    lines-of-code: 100
+    maximum-nesting-level: 4
+    number-of-parameters: 6
+  unused-code:
+    analyze-private-members: true

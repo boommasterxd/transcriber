@@ -26,22 +26,29 @@ class SettingsController extends Notifier<AppSettings> {
     await ref.read(settingsRepositoryProvider).save(next);
   }
 
-  Future<void> setThemeMode(ThemeMode mode) => _persist(state.copyWith(themeMode: mode));
+  Future<void> setThemeMode(ThemeMode mode) =>
+      _persist(state.copyWith(themeMode: mode));
 
   Future<void> setTranscriptionLanguage(TranscriptionLanguage language) =>
       _persist(state.copyWith(transcriptionLanguage: language));
 
-  Future<void> setAccent(AppAccent accent) => _persist(state.copyWith(accent: accent));
+  Future<void> setAccent(AppAccent accent) =>
+      _persist(state.copyWith(accent: accent));
 
-  Future<void> setLanguage(AppLanguage language) => _persist(state.copyWith(language: language));
+  Future<void> setLanguage(AppLanguage language) =>
+      _persist(state.copyWith(language: language));
 
-  Future<void> setAsrMode(ProcessingMode mode) => _persist(state.copyWith(asrMode: mode));
+  Future<void> setAsrMode(ProcessingMode mode) =>
+      _persist(state.copyWith(asrMode: mode));
 
-  Future<void> setSummaryMode(ProcessingMode mode) => _persist(state.copyWith(summaryMode: mode));
+  Future<void> setSummaryMode(ProcessingMode mode) =>
+      _persist(state.copyWith(summaryMode: mode));
 
-  Future<void> setWhisperModel(String id) => _persist(state.copyWith(whisperModelId: id));
+  Future<void> setWhisperModel(String id) =>
+      _persist(state.copyWith(whisperModelId: id));
 
-  Future<void> setGemmaModel(String id) => _persist(state.copyWith(gemmaModelId: id));
+  Future<void> setGemmaModel(String id) =>
+      _persist(state.copyWith(gemmaModelId: id));
 
   Future<void> setGemmaBackend(InferenceBackend backend) =>
       _persist(state.copyWith(gemmaBackend: backend));
@@ -56,23 +63,28 @@ class SettingsController extends Notifier<AppSettings> {
       _persist(state.copyWith(summaryProvider: provider));
 
   Future<void> setSummaryModel(RemoteProviderId provider, String modelId) {
-    final map = Map<RemoteProviderId, String>.of(state.chatModelByProvider)..[provider] = modelId;
+    final map = Map<RemoteProviderId, String>.of(state.chatModelByProvider)
+      ..[provider] = modelId;
     return _persist(state.copyWith(chatModelByProvider: map));
   }
 
   Future<void> setAsrModel(RemoteProviderId provider, String modelId) {
-    final map = Map<RemoteProviderId, String>.of(state.asrModelByProvider)..[provider] = modelId;
+    final map = Map<RemoteProviderId, String>.of(state.asrModelByProvider)
+      ..[provider] = modelId;
     return _persist(state.copyWith(asrModelByProvider: map));
   }
 
-  Future<void> setAutoDelete(bool value) => _persist(state.copyWith(autoDeleteAudio: value));
+  Future<void> setAutoDelete(bool value) =>
+      _persist(state.copyWith(autoDeleteAudio: value));
 
   Future<void> setSummarizeEnabled(bool value) =>
       _persist(state.copyWith(summarizeEnabled: value));
 
-  Future<void> setHfToken(String token) => _persist(state.copyWith(hfToken: token));
+  Future<void> setHfToken(String token) =>
+      _persist(state.copyWith(hfToken: token));
 
-  Future<void> completeOnboarding() => _persist(state.copyWith(onboarded: true));
+  Future<void> completeOnboarding() =>
+      _persist(state.copyWith(onboarded: true));
 }
 
 final settingsControllerProvider =
@@ -80,13 +92,19 @@ final settingsControllerProvider =
 
 /// Active localized strings, derived from the language setting.
 final stringsProvider = Provider<AppStrings>((ref) {
-  final language = ref.watch(settingsControllerProvider.select((s) => s.language));
+  final language = ref.watch(
+    settingsControllerProvider.select((s) => s.language),
+  );
   return AppStrings.of(language);
 });
 
 /// Status of the currently configured models for the home/sidebar chip.
 class HomeModelStatus {
-  const HomeModelStatus({required this.label, required this.fullyLocal, required this.warning});
+  const HomeModelStatus({
+    required this.label,
+    required this.fullyLocal,
+    required this.warning,
+  });
   final String label;
   final bool fullyLocal;
 
@@ -114,7 +132,9 @@ final homeModelStatusProvider = Provider<HomeModelStatus>((ref) {
       return localDownloaded ? null : '$localName · ${t.notLoaded}';
     }
     final connected = connections[provider] ?? false;
-    return connected ? null : '${RemoteCatalog.provider(provider).name} · ${t.keyMissing}';
+    return connected
+        ? null
+        : '${RemoteCatalog.provider(provider).name} · ${t.keyMissing}';
   }
 
   final asrIssue = issueFor(
@@ -133,7 +153,8 @@ final homeModelStatusProvider = Provider<HomeModelStatus>((ref) {
         )
       : null;
 
-  final fullyLocal = s.asrMode.isLocal && (!s.summarizeEnabled || s.summaryMode.isLocal);
+  final fullyLocal =
+      s.asrMode.isLocal && (!s.summarizeEnabled || s.summaryMode.isLocal);
 
   final issue = asrIssue ?? summaryIssue;
   if (issue != null) {
@@ -146,7 +167,11 @@ final homeModelStatusProvider = Provider<HomeModelStatus>((ref) {
   final summary = !s.summarizeEnabled
       ? t.summaryOff
       : (s.summaryMode.isLocal
-          ? GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first
-          : s.summaryModelId(s.summaryProvider));
-  return HomeModelStatus(label: '$asr · $summary', fullyLocal: fullyLocal, warning: false);
+            ? GemmaCatalog.byId(s.gemmaModelId).displayName.split(' · ').first
+            : s.summaryModelId(s.summaryProvider));
+  return HomeModelStatus(
+    label: '$asr · $summary',
+    fullyLocal: fullyLocal,
+    warning: false,
+  );
 });

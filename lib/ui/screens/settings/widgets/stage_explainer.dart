@@ -19,7 +19,11 @@ class StageExplainer extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: palette.muted),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: palette.muted,
+            ),
           ),
         ),
       ],

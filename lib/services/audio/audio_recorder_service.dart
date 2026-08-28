@@ -18,7 +18,10 @@ class AudioRecorderService {
   /// Starts a new recording and returns the destination path.
   Future<String> start() async {
     final dir = await (await StoragePaths.instance()).audioDir();
-    final path = p.join(dir.path, 'rec_${DateTime.now().millisecondsSinceEpoch}.wav');
+    final path = p.join(
+      dir.path,
+      'rec_${DateTime.now().millisecondsSinceEpoch}.wav',
+    );
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.wav,

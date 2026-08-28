@@ -2,8 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../service_exceptions.dart';
-import '../transcription/transcription_service.dart';
+import '../../data/models/transcription_result.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
 
@@ -11,7 +10,7 @@ import 'remote_http.dart';
 /// transcription must use OpenAI/Google or an on-device model.
 class AnthropicClient implements RemoteApiClient {
   AnthropicClient({required this.apiKey, http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+    : _http = httpClient ?? http.Client();
 
   final String apiKey;
   final http.Client _http;
@@ -23,7 +22,9 @@ class AnthropicClient implements RemoteApiClient {
   bool get supportsAudioTranscription => false;
 
   @override
-  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
+  Future<List<RemoteModelInfo>> listModels({
+    required bool forTranscription,
+  }) async {
     if (forTranscription) return const []; // Anthropic has no ASR models.
     final response = await guardTimeout(
       _http.get(
@@ -32,17 +33,22 @@ class AnthropicClient implements RemoteApiClient {
       ),
       remoteListTimeout,
     );
-    if (response.statusCode != 200) {
-      throw RemoteApiException(
-        'Failed to fetch model list (${response.statusCode}): ${_errorBody(response.body)}',
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    validateRemoteResponse(
+      statusCode: response.statusCode,
+      body: response.body,
+      errorLabel: 'Failed to fetch model list',
+    );
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final data = json['data'] as List? ?? const [];
     return data
         .map((e) => e as Map)
-        .map((m) => RemoteModelInfo(id: m['id'].toString(), label: m['display_name']?.toString()))
+        .map(
+          (m) => RemoteModelInfo(
+            id: m['id'].toString(),
+            label: m['display_name']?.toString(),
+          ),
+        )
         .toList();
   }
 
@@ -71,18 +77,20 @@ class AnthropicClient implements RemoteApiClient {
       ),
       remoteChatTimeout,
     );
-    if (response.statusCode != 200) {
-      throw RemoteApiException(
-        'Anthropic error (${response.statusCode}): ${_errorBody(response.body)}',
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    validateRemoteResponse(
+      statusCode: response.statusCode,
+      body: response.body,
+      errorLabel: 'Anthropic error',
+    );
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final content = json['content'] as List?;
     if (content == null || content.isEmpty) return '';
     final buffer = StringBuffer();
     for (final block in content) {
-      if (block is Map && block['type'] == 'text') buffer.write(block['text'] ?? '');
+      if (block is Map && block['type'] == 'text') {
+        buffer.write(block['text'] ?? '');
+      }
     }
     return buffer.toString().trim();
   }
@@ -93,17 +101,8 @@ class AnthropicClient implements RemoteApiClient {
     String? languageCode,
     required String model,
   }) {
-    throw UnsupportedError('Anthropic does not support native audio transcription.');
-  }
-
-  String _errorBody(String body) {
-    try {
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final error = json['error'];
-      if (error is Map) return error['message']?.toString() ?? body;
-      return body;
-    } catch (_) {
-      return body;
-    }
+    throw UnsupportedError(
+      'Anthropic does not support native audio transcription.',
+    );
   }
 }

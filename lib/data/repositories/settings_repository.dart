@@ -10,7 +10,7 @@ import '../models/remote_provider.dart';
 /// secure storage (never written to plain prefs).
 class SettingsRepository {
   SettingsRepository(this._prefs, {FlutterSecureStorage? secureStorage})
-      : _secure = secureStorage ?? const FlutterSecureStorage();
+    : _secure = secureStorage ?? const FlutterSecureStorage();
 
   final SharedPreferences _prefs;
   final FlutterSecureStorage _secure;
@@ -36,7 +36,8 @@ class SettingsRepository {
     await _secure.write(key: _hfTokenKey, value: settings.hfToken);
   }
 
-  Future<String?> apiKey(RemoteProviderId provider) => _secure.read(key: _apiKeyKey(provider));
+  Future<String?> apiKey(RemoteProviderId provider) =>
+      _secure.read(key: _apiKeyKey(provider));
 
   Future<void> setApiKey(RemoteProviderId provider, String key) =>
       _secure.write(key: _apiKeyKey(provider), value: key);
