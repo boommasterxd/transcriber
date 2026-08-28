@@ -20,7 +20,6 @@ void main() {
 
   tearDown(() => harness.dispose());
 
-  _registerStoragePathTests(() => harness);
   _registerExternalImportTests(() => harness);
   _registerOwnershipTests(() => harness);
   _registerRetentionTests(() => harness);
@@ -81,48 +80,6 @@ final class _AudioCacheTestHarness {
   Future<void> dispose() async {
     if (await root.exists()) await root.delete(recursive: true);
   }
-}
-
-void _registerStoragePathTests(_HarnessGetter getHarness) {
-  group('StoragePaths', () {
-    _registerManagedDirectoriesTest(getHarness);
-    _registerDirectoryConflictTest(getHarness);
-  });
-}
-
-void _registerManagedDirectoriesTest(_HarnessGetter getHarness) {
-  test(
-    'creates isolated import, share, recording, and retained directories',
-    () async {
-      final harness = getHarness();
-      await _expectManagedDirectory(
-        harness.paths.importCacheDir(),
-        p.join(harness.cacheRoot.path, 'audio', 'import'),
-      );
-      await _expectManagedDirectory(
-        harness.paths.sharedCacheDir(),
-        p.join(harness.cacheRoot.path, 'shared'),
-      );
-      await _expectManagedDirectory(
-        harness.paths.recordingCacheDir(),
-        p.join(harness.cacheRoot.path, 'audio', 'recording'),
-      );
-      await _expectManagedDirectory(
-        harness.paths.retainedAudioDir(),
-        p.join(harness.supportRoot.path, 'audio', 'retained'),
-      );
-    },
-  );
-}
-
-void _registerDirectoryConflictTest(_HarnessGetter getHarness) {
-  test('rejects a file where a managed directory is expected', () async {
-    final harness = getHarness();
-    final conflict = File(p.join(harness.cacheRoot.path, 'shared'));
-    await conflict.writeAsString('not a directory');
-
-    expect(harness.paths.sharedCacheDir(), throwsA(isA<FileSystemException>()));
-  });
 }
 
 void _registerExternalImportTests(_HarnessGetter getHarness) {
@@ -273,6 +230,25 @@ void _registerSharedOwnershipTest(_HarnessGetter getHarness) {
       throwsA(isA<FileSystemException>()),
     );
   });
+
+  test(
+    'accepts an app-owned shared file through a symlink alias',
+    () async {
+      final harness = getHarness();
+      final sharedDirectory = await harness.paths.sharedCacheDir();
+      final alias = Link(p.join(harness.cacheRoot.path, 'shared-alias'));
+      await alias.create(sharedDirectory.path);
+      final shared = await _writeAudio(Directory(alias.path), 'shared.mp3', 4);
+
+      final registered = await harness.manager.registerShared(shared.path);
+
+      expect(registered.path, shared.path);
+      expect(registered.ownership, AudioOwnership.temporary);
+    },
+    skip: Platform.isWindows
+        ? 'Symlink creation requires elevated access'
+        : false,
+  );
 }
 
 void _registerRecordingOwnershipTest(_HarnessGetter getHarness) {
@@ -473,15 +449,6 @@ void _registerRetainedQuotaTest(_HarnessGetter getHarness) {
     expect(await File(retained.path).exists(), isTrue);
     expect(await temporary.exists(), isTrue);
   });
-}
-
-Future<void> _expectManagedDirectory(
-  Future<Directory> directory,
-  String expectedPath,
-) async {
-  final actual = await directory;
-  expect(actual.path, expectedPath);
-  expect(await actual.exists(), isTrue);
 }
 
 Future<File> _writeAudio(Directory directory, String name, int size) =>

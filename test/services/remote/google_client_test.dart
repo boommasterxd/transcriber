@@ -180,11 +180,22 @@ void _registerTranscriptionTest() {
     'uploads audio, creates an interaction, and deletes the remote file',
     _testTranscription,
   );
+  test(
+    'uploads WhatsApp Opus with native MIME metadata',
+    () => _testTranscription(
+      fileName: 'whatsapp-voice.opus',
+      expectedMimeType: 'audio/opus',
+    ),
+  );
 }
 
-Future<void> _testTranscription() async {
+Future<void> _testTranscription({
+  String fileName = 'voice.wav',
+  String expectedMimeType = 'audio/wav',
+}) async {
   await withTemporaryAudio(
     prefix: 'gemini-test-',
+    fileName: fileName,
     bytes: [1, 2],
     action: (file) async {
       final httpClient = scriptedHttpClient([
@@ -196,7 +207,7 @@ Future<void> _testTranscription() async {
           'file': {
             'name': 'files/test-audio',
             'uri': 'https://files.test/test-audio',
-            'mimeType': 'audio/wav',
+            'mimeType': expectedMimeType,
             'state': 'ACTIVE',
           },
         }),
@@ -223,9 +234,14 @@ Future<void> _testTranscription() async {
       expect(httpClient.requests, hasLength(4));
       expect(httpClient.requests[0].url.path, '/upload/v1beta/files');
       expect(
+        httpClient.requests[0].headers['X-Goog-Upload-Header-Content-Type'],
+        expectedMimeType,
+      );
+      expect(
         httpClient.requests[1].url.toString(),
         'https://upload.test/session',
       );
+      expect(httpClient.requests[1].headers['Content-Type'], expectedMimeType);
       expect(httpClient.requests[2].url.path, '/v1beta/interactions');
       expect(httpClient.requests[3].method, 'DELETE');
       for (final request in httpClient.requests) {
@@ -237,6 +253,10 @@ Future<void> _testTranscription() async {
               as Map<String, dynamic>;
       expect(interaction['model'], 'gemini-3.5-transcribe');
       expect((interaction['input'] as List).single['type'], 'audio');
+      expect(
+        (interaction['input'] as List).single['mime_type'],
+        expectedMimeType,
+      );
       expect(
         interaction['generation_config']['transcription_config']['language_codes'],
         ['de-DE'],

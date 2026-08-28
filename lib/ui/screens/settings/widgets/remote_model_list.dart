@@ -124,37 +124,42 @@ class _ModelPickerCard extends StatelessWidget {
     final canExpand = alternatives.isNotEmpty;
     return SurfaceCard(
       clip: true,
-      child: Column(
-        children: [
-          _ActiveModelTile(
-            model: active,
-            forTranscription: forTranscription,
-            expanded: expanded,
-            expandLabel: expandLabel,
-            onTap: canExpand ? onToggle : null,
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            child: expanded && canExpand
-                ? Column(
-                    children: [
-                      for (final (index, model) in alternatives.indexed)
-                        ModelTile(
-                          leading: _ModelIcon(
-                            forTranscription: forTranscription,
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            _ActiveModelTile(
+              model: active,
+              forTranscription: forTranscription,
+              expanded: expanded,
+              expandLabel: expandLabel,
+              onTap: canExpand ? onToggle : null,
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              child: expanded && canExpand
+                  ? Column(
+                      children: [
+                        for (final (index, model) in alternatives.indexed)
+                          ModelTile(
+                            leading: _ModelIcon(
+                              forTranscription: forTranscription,
+                            ),
+                            title: model.display,
+                            subtitle: model.display == model.id ? '' : model.id,
+                            isLast: index == alternatives.length - 1,
+                            trailing: const SelectionIndicator(selected: false),
+                            onTap: () => onSelect(model.id),
                           ),
-                          title: model.display,
-                          subtitle: model.display == model.id ? '' : model.id,
-                          isLast: index == alternatives.length - 1,
-                          trailing: const SelectionIndicator(selected: false),
-                          onTap: () => onSelect(model.id),
-                        ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }

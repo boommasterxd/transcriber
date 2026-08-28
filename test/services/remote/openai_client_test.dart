@@ -149,11 +149,24 @@ void _registerTranscriptionTest() {
     'sends gpt-transcribe as multipart and creates a fallback segment',
     _testTranscription,
   );
+  test(
+    'presents Opus as supported OGG without converting its bytes',
+    () => _testTranscription(
+      fileName: 'whatsapp-voice.opus',
+      expectedUploadName: 'whatsapp-voice.ogg',
+      expectedContentType: 'audio/ogg',
+    ),
+  );
 }
 
-Future<void> _testTranscription() async {
+Future<void> _testTranscription({
+  String fileName = 'voice.wav',
+  String? expectedUploadName,
+  String? expectedContentType,
+}) async {
   await withTemporaryAudio(
     prefix: 'openai-test-',
+    fileName: fileName,
     bytes: [1, 2],
     action: (file) async {
       final httpClient = scriptedHttpClient([
@@ -182,7 +195,13 @@ Future<void> _testTranscription() async {
         'response_format': 'json',
         'language': 'de',
       });
-      expect(captured.files.single.filename, 'voice.wav');
+      expect(captured.files.single.filename, expectedUploadName ?? fileName);
+      if (expectedContentType != null) {
+        expect(
+          captured.files.single.contentType.toString(),
+          expectedContentType,
+        );
+      }
       expect(result.text, 'result');
       expect(result.segments.single.time, '0:00');
     },

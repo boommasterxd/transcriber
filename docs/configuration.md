@@ -27,6 +27,10 @@ Keys use `FlutterSecureStorage` names `api_key_openai` and `api_key_google`. The
 
 See [provider key setup](provider-setup.md) for provider-specific instructions.
 
+## Provider Brand Assets
+
+Provider marks are bundled locally and are never loaded from a remote host at runtime. The OpenAI mark comes from the verified [OpenAI GitHub organization](https://github.com/openai) and follows the [OpenAI brand guidelines](https://openai.com/brand/). The Gemini app mark comes from the official [Google Gemini Play listing](https://play.google.com/store/apps/details?id=com.google.android.apps.bard) and is used in line with the [Google Brand Resource Center](https://about.google/brand-resource-center/). Keep proportions, clear space, and colors unchanged when updating these assets.
+
 ## Persistence
 
 Drift with SQLite is the active persistence layer. SharedPreferences is retained only to import the legacy `app_settings` and `notes` payloads once. The `shared_preferences_v1` migration marker prevents repeated imports.
@@ -35,7 +39,7 @@ The database file contains transcript content and may contain personal informati
 
 ## Audio Formats and Limits
 
-In-app recording uses mono 16 kHz WAV. Imported and shared files accept FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG, WAV, and WebM. No FFmpeg conversion is performed.
+In-app recording uses mono 16 kHz WAV. Imported and shared files accept FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG/Opus, WAV, and WebM. WhatsApp Opus files keep their original bytes and extension. Gemini receives `audio/opus`; OpenAI's transcription endpoint receives the same bytes with the supported OGG filename and MIME metadata. No FFmpeg conversion is performed.
 
 Application boundaries reject empty files and files larger than 250 MiB. Provider clients apply their own stricter request limits before network access where required.
 

@@ -115,7 +115,8 @@ class OpenAiClient implements RemoteProviderClient {
       await http.MultipartFile.fromPath(
         'file',
         audioPath,
-        filename: audioPath.split(Platform.pathSeparator).last,
+        filename: _openAiUploadFileName(audioPath),
+        contentType: _openAiUploadContentType(audioPath),
       ),
     );
 
@@ -137,6 +138,18 @@ class OpenAiClient implements RemoteProviderClient {
     );
     final text = (json['text'] as String? ?? '').trim();
     return _transcriptionResult(text);
+  }
+
+  String _openAiUploadFileName(String path) {
+    final fileName = path.split(Platform.pathSeparator).last;
+    if (!fileName.toLowerCase().endsWith('.opus')) return fileName;
+    return '${fileName.substring(0, fileName.length - 5)}.ogg';
+  }
+
+  http.MediaType? _openAiUploadContentType(String path) {
+    return path.toLowerCase().endsWith('.opus')
+        ? http.MediaType('audio', 'ogg')
+        : null;
   }
 
   Future<TranscriptionResult> _transcribeWithAudioChat(

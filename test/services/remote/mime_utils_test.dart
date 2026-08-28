@@ -6,11 +6,13 @@ void main() {
     const expected = {
       'clip.wav': 'audio/wav',
       'clip.MP3': 'audio/mpeg',
+      'clip.mpeg': 'audio/mpeg',
+      'clip.mpga': 'audio/mpeg',
       'clip.m4a': 'audio/mp4',
       'clip.mp4': 'audio/mp4',
       'clip.aac': 'audio/aac',
       'clip.ogg': 'audio/ogg',
-      'clip.opus': 'audio/ogg',
+      'clip.opus': 'audio/opus',
       'clip.flac': 'audio/flac',
       'clip.webm': 'audio/webm',
     };

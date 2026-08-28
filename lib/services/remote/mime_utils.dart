@@ -6,6 +6,8 @@ String audioMimeType(String path) {
     case '.wav':
       return 'audio/wav';
     case '.mp3':
+    case '.mpeg':
+    case '.mpga':
       return 'audio/mpeg';
     case '.m4a':
     case '.mp4':
@@ -13,8 +15,9 @@ String audioMimeType(String path) {
     case '.aac':
       return 'audio/aac';
     case '.ogg':
-    case '.opus':
       return 'audio/ogg';
+    case '.opus':
+      return 'audio/opus';
     case '.flac':
       return 'audio/flac';
     case '.webm':
