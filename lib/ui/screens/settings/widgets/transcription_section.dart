@@ -7,7 +7,9 @@ import 'remote_stage_settings.dart';
 
 /// Independently configurable cloud transcription provider and model.
 class TranscriptionSection extends ConsumerWidget {
-  const TranscriptionSection({super.key});
+  const TranscriptionSection({super.key, this.showCredentials = false});
+
+  final bool showCredentials;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,6 +32,7 @@ class TranscriptionSection extends ConsumerWidget {
         selectModel: (modelId) =>
             controller.setAsrModel(selection.provider, modelId),
       ),
+      showCredentials: showCredentials,
     );
   }
 }

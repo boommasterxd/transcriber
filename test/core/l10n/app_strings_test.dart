@@ -87,11 +87,24 @@ void _registerByokLifecycleTest(AppStrings german, AppStrings english) {
 void _registerByokInputTest(AppStrings german, AppStrings english) {
   test('keeps key input guidance local and actionable', () {
     expect(german.keyPlaceholder, contains('Schlüssel einfügen'));
+    expect(german.openAiKeyPlaceholder, contains('OpenAI'));
+    expect(german.googleKeyPlaceholder, contains('Gemini'));
     expect(german.keyHint, contains('nur lokal'));
     expect(english.keyPlaceholder, contains('paste key'));
+    expect(english.openAiKeyPlaceholder, contains('OpenAI'));
+    expect(english.googleKeyPlaceholder, contains('Gemini'));
     expect(english.keyHint, contains('locally on device only'));
     expect(german.keyMissing, isNotEmpty);
     expect(english.keyMissing, isNotEmpty);
+  });
+
+  test('keeps provider descriptions specific to each processing stage', () {
+    expect(german.transcriptionGoogleDescription, contains('Transcribe'));
+    expect(german.summaryGoogleDescription, contains('Flash'));
+    expect(german.summaryGoogleDescription, isNot(contains('Transcribe')));
+    expect(german.summaryOpenAiDescription, contains('GPT-5'));
+    expect(english.transcriptionOpenAiDescription, contains('gpt-transcribe'));
+    expect(english.summaryOpenAiDescription, isNot(contains('transcribe')));
   });
 }
 
@@ -271,8 +284,16 @@ List<String> _catalogProviderValues(AppStrings strings) => [
   strings.keyVerified,
   strings.keyCheckFailed,
   strings.keyPlaceholder,
+  strings.openAiKeyPlaceholder,
+  strings.googleKeyPlaceholder,
   strings.keyHint,
   strings.remoteModel,
+  strings.showModels,
+  strings.hideModels,
+  strings.transcriptionOpenAiDescription,
+  strings.transcriptionGoogleDescription,
+  strings.summaryOpenAiDescription,
+  strings.summaryGoogleDescription,
   strings.connectFirst,
   strings.processedWith,
   strings.autoDel,

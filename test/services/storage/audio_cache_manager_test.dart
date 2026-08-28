@@ -213,10 +213,10 @@ void _registerDisplayNameExtensionTest(_HarnessGetter getHarness) {
 
       final imported = await harness.manager.importExternal(
         source.path,
-        displayName: 'voice.ogg',
+        displayName: 'whatsapp-voice.opus',
       );
 
-      expect(p.extension(imported.path), '.ogg');
+      expect(p.extension(imported.path), '.opus');
     },
   );
 }

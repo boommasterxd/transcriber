@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/surfaces.dart';
+import 'provider_connect_card.dart';
 import 'provider_picker.dart';
 import 'remote_model_list.dart';
 
@@ -39,10 +40,12 @@ class RemoteStageSettings extends ConsumerWidget {
     super.key,
     required this.selection,
     required this.actions,
+    this.showCredentials = false,
   });
 
   final RemoteStageSelection selection;
   final RemoteStageActions actions;
+  final bool showCredentials;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,8 +56,16 @@ class RemoteStageSettings extends ConsumerWidget {
         ProviderPicker(
           allowed: selection.allowedProviders,
           selected: selection.provider,
+          forTranscription: selection.stage == RemoteStage.transcription,
           onSelect: actions.selectProvider,
         ),
+        if (showCredentials) ...[
+          const SizedBox(height: 12),
+          ProviderConnectCard(
+            key: ValueKey(selection.provider),
+            provider: selection.provider,
+          ),
+        ],
         const SizedBox(height: 12),
         SectionLabel(
           t.remoteModel,

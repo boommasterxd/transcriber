@@ -119,19 +119,22 @@ class OpenAiClient implements RemoteProviderClient {
       ),
     );
 
-    final response = await guardTimeout(
-      _http.send(request),
-      remoteTranscribeTimeout,
+    final response = await sendRemoteRequest(
+      _http,
+      request,
+      timeout: remoteTranscribeTimeout,
     );
-    final body = await readRemoteResponseBody(response);
     validateRemoteResponse(
       statusCode: response.statusCode,
-      body: body,
+      body: response.body,
       errorLabel: 'OpenAI transcription error',
       secret: apiKey,
       preferScalarError: true,
     );
-    final json = decodeRemoteJsonObject(body, 'OpenAI transcription response');
+    final json = decodeRemoteJsonObject(
+      response.body,
+      'OpenAI transcription response',
+    );
     final text = (json['text'] as String? ?? '').trim();
     return _transcriptionResult(text);
   }
@@ -220,10 +223,8 @@ class OpenAiClient implements RemoteProviderClient {
     required Duration timeout,
   }) async {
     return _requestJson(
-      _http.send(
-        http.Request('GET', Uri.parse('$_baseUrl$path'))
-          ..headers['Authorization'] = 'Bearer $apiKey',
-      ),
+      http.Request('GET', Uri.parse('$_baseUrl$path'))
+        ..headers['Authorization'] = 'Bearer $apiKey',
       timeout,
     );
   }
@@ -234,31 +235,28 @@ class OpenAiClient implements RemoteProviderClient {
     required Duration timeout,
   }) async {
     return _requestJson(
-      _http.send(
-        http.Request('POST', Uri.parse('$_baseUrl$path'))
-          ..headers.addAll({
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          })
-          ..body = jsonEncode(payload),
-      ),
+      http.Request('POST', Uri.parse('$_baseUrl$path'))
+        ..headers.addAll({
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        })
+        ..body = jsonEncode(payload),
       timeout,
     );
   }
 
   Future<Map<String, dynamic>> _requestJson(
-    Future<http.StreamedResponse> request,
+    http.BaseRequest request,
     Duration timeout,
   ) async {
-    final response = await guardTimeout(request, timeout);
-    final body = await readRemoteResponseBody(response);
+    final response = await sendRemoteRequest(_http, request, timeout: timeout);
     validateRemoteResponse(
       statusCode: response.statusCode,
-      body: body,
+      body: response.body,
       errorLabel: 'OpenAI error',
       secret: apiKey,
       preferScalarError: true,
     );
-    return decodeRemoteJsonObject(body, 'OpenAI response');
+    return decodeRemoteJsonObject(response.body, 'OpenAI response');
   }
 }

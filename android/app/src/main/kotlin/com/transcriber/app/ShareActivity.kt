@@ -35,12 +35,24 @@ class ShareActivity : FlutterActivity() {
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // Cache the share synchronously before Flutter can request it through
+        // the method channel. Otherwise a fast Dart startup can observe null
+        // and close the translucent activity before the copy finishes.
         sharedPath = extractSharedAudio(intent)
+        super.onCreate(savedInstanceState)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
+        // The generic sharing plugin is registered with every Flutter engine.
+        // Hide this already-consumed intent while plugins attach so it cannot
+        // duplicate the file outside the bounded, managed share cache.
+        val sharedIntent = intent
+        setIntent(Intent())
+        try {
+            super.configureFlutterEngine(flutterEngine)
+        } finally {
+            setIntent(sharedIntent)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -113,7 +125,9 @@ private class ShareAudioCache(
         var result: String? = null
         try {
             val directory = createSharedDirectory()
-            val name = ShareFileNamePolicy.sanitize(displayName(uri))
+            val name = canonicalAudioName(
+                ShareFileNamePolicy.sanitize(displayName(uri)),
+            )
             if (!hasSupportedExtension(name)) return null
             val candidate = directory?.let { createOutputFile(it, name) }
             outputFile = candidate
@@ -194,10 +208,19 @@ private class ShareAudioCache(
         return extension in supportedExtensions
     }
 
+    private fun canonicalAudioName(name: String): String {
+        return if (name.endsWith(".opus", ignoreCase = true)) {
+            name.dropLast(opusSuffixLength) + ".ogg"
+        } else {
+            name
+        }
+    }
+
     private companion object {
         const val maximumAudioBytes = 250L * 1024L * 1024L
+        const val opusSuffixLength = 5
         val supportedExtensions = setOf(
-            "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm",
+            "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm",
         )
     }
 }

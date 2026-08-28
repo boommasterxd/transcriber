@@ -79,8 +79,20 @@ class AppStrings {
   String get keyVerified => _string(_StringKey.keyVerified);
   String get keyCheckFailed => _string(_StringKey.keyCheckFailed);
   String get keyPlaceholder => _string(_StringKey.keyPlaceholder);
+  String get openAiKeyPlaceholder => _string(_StringKey.openAiKeyPlaceholder);
+  String get googleKeyPlaceholder => _string(_StringKey.googleKeyPlaceholder);
   String get keyHint => _string(_StringKey.keyHint);
   String get remoteModel => _string(_StringKey.remoteModel);
+  String get showModels => _string(_StringKey.showModels);
+  String get hideModels => _string(_StringKey.hideModels);
+  String get transcriptionOpenAiDescription =>
+      _string(_StringKey.transcriptionOpenAiDescription);
+  String get transcriptionGoogleDescription =>
+      _string(_StringKey.transcriptionGoogleDescription);
+  String get summaryOpenAiDescription =>
+      _string(_StringKey.summaryOpenAiDescription);
+  String get summaryGoogleDescription =>
+      _string(_StringKey.summaryGoogleDescription);
   String get connectFirst => _string(_StringKey.connectFirst);
   String get processedWith => _string(_StringKey.processedWith);
   String get autoDel => _string(_StringKey.autoDel);

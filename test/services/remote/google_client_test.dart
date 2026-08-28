@@ -108,6 +108,23 @@ void _registerSummaryTest() {
     'uses generateContent for summaries with header authentication',
     _testSummary,
   );
+  test('omits Gemini 3 thinking levels for older summary models', () async {
+    final httpClient = scriptedHttpClient([
+      jsonResponse({'candidates': []}),
+    ]);
+    final client = GoogleClient(apiKey: 'key', httpClient: httpClient);
+
+    await client.summarize(
+      systemPrompt: 'system',
+      userPrompt: 'user',
+      modelId: 'gemini-2.5-flash',
+    );
+
+    final request = httpClient.requests.single as http.Request;
+    final body = jsonDecode(request.body) as Map<String, dynamic>;
+    final config = body['generationConfig'] as Map<String, dynamic>;
+    expect(config, isNot(contains('thinkingConfig')));
+  });
 }
 
 Future<void> _testSummary() async {
@@ -150,6 +167,11 @@ Future<void> _testSummary() async {
         ],
       },
     ],
+    'generationConfig': {
+      'responseMimeType': 'application/json',
+      'maxOutputTokens': 1024,
+      'thinkingConfig': {'thinkingLevel': 'LOW'},
+    },
   });
 }
 

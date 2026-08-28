@@ -60,15 +60,17 @@ class OnboardingTestSettingsController extends SettingsController {
 }
 
 class OnboardingTestConnectionsController extends ConnectionsController {
-  OnboardingTestConnectionsController(this.initial);
+  OnboardingTestConnectionsController(this.initial, this.keys);
 
   final Map<RemoteProviderId, bool> initial;
+  final Map<RemoteProviderId, String> keys;
 
   @override
   Map<RemoteProviderId, bool> build() => Map.of(initial);
 
   @override
-  Future<String> apiKey(RemoteProviderId provider) async => '';
+  Future<String> apiKey(RemoteProviderId provider) async =>
+      keys[provider] ?? '';
 }
 
 class OnboardingPermissionChannel {
@@ -123,11 +125,13 @@ class OnboardingTestConfig {
   const OnboardingTestConfig({
     this.settings,
     this.connections = const {},
+    this.keys = const {},
     this.settingsController,
   });
 
   final AppSettings? settings;
   final Map<RemoteProviderId, bool> connections;
+  final Map<RemoteProviderId, String> keys;
   final OnboardingTestSettingsController? settingsController;
 }
 
@@ -147,7 +151,10 @@ Future<ProviderContainer> pumpOnboardingTestApp(
             OnboardingTestSettingsController(initial),
       ),
       connectionsControllerProvider.overrideWith(
-        () => OnboardingTestConnectionsController(config.connections),
+        () => OnboardingTestConnectionsController(
+          config.connections,
+          config.keys,
+        ),
       ),
       remoteModelsProvider.overrideWith((ref, query) async => const []),
     ],

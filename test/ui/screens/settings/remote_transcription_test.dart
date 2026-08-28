@@ -104,6 +104,9 @@ void _registerRemoteModelListTests() {
 
     expect(find.text('Friendly model'), findsOneWidget);
     expect(find.text('friendly-id'), findsOneWidget);
+    expect(find.text('plain-id'), findsNothing);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+    await tester.pumpAndSettle();
     expect(find.text('plain-id'), findsOneWidget);
     expect(find.byType(SelectionIndicator), findsNWidgets(2));
     final indicators = tester
@@ -144,7 +147,7 @@ void _registerTranscriptionTests() {
 
     expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('Google Gemini'), findsOneWidget);
-    expect(find.text('gemini-cloud'), findsOneWidget);
+    expect(find.text('gemini-3.5-transcribe'), findsOneWidget);
     expect(
       queries,
       contains((provider: RemoteProviderId.google, forTranscription: true)),
@@ -153,12 +156,15 @@ void _registerTranscriptionTests() {
     await tester.tap(find.text('OpenAI'));
     await tester.pumpUntilSettled();
     expect(settingsController.state.asrProvider, RemoteProviderId.openai);
-    expect(find.text('gpt-cloud'), findsOneWidget);
+    expect(find.text('gpt-transcribe'), findsOneWidget);
     expect(
       queries,
       contains((provider: RemoteProviderId.openai, forTranscription: true)),
     );
 
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('gpt-cloud'), findsOneWidget);
     await tester.tap(find.text('gpt-cloud'));
     expect(
       settingsController.state.asrModelByProvider[RemoteProviderId.openai],

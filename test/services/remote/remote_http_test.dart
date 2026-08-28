@@ -80,6 +80,39 @@ void _registerTimeoutTests() {
       );
     });
   });
+
+  test('sendRemoteRequest times out while a response body stalls', () async {
+    final stalledBody = StreamController<List<int>>();
+    addTearDown(stalledBody.close);
+    final client = _ResponseClient(
+      http.StreamedResponse(stalledBody.stream, 200),
+    );
+
+    await expectLater(
+      sendRemoteRequest(
+        client,
+        http.Request('GET', Uri.parse('https://example.test')),
+        timeout: Duration.zero,
+      ),
+      throwsA(
+        isA<RemoteApiException>().having(
+          (error) => error.message,
+          'message',
+          contains('Request timed out'),
+        ),
+      ),
+    );
+  });
+}
+
+final class _ResponseClient extends http.BaseClient {
+  _ResponseClient(this.response);
+
+  final http.StreamedResponse response;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      response;
 }
 
 void _registerErrorMessageTests() {
