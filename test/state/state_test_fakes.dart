@@ -52,10 +52,14 @@ class FakeNotesRepository extends NotesRepository {
 
   List<TranscriptNote> loaded = [];
   final List<List<TranscriptNote>> saved = [];
+  bool failOnLoad = false;
   bool failOnSave = false;
 
   @override
-  Future<List<TranscriptNote>> load() async => List.of(loaded);
+  Future<List<TranscriptNote>> load() async {
+    if (failOnLoad) throw StateError('load failed');
+    return List.of(loaded);
+  }
 
   @override
   Future<void> saveAll(List<TranscriptNote> notes) async {

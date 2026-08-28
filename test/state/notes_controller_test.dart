@@ -33,6 +33,21 @@ void _registerReadTests(_NotesFixture fixture) {
     expect(controller.byId('existing'), same(existing));
     expect(controller.byId('missing'), isNull);
   });
+
+  test('refresh replaces stale state with the persisted snapshot', () async {
+    final initial = _note('initial', DateTime.utc(2025, 1, 1));
+    final shared = _note('shared', DateTime.utc(2025, 2, 1));
+    fixture.initialNotes = [initial];
+    fixture.repository.loaded = [shared, initial];
+    fixture.recreateContainer();
+
+    await fixture.container.read(notesControllerProvider.notifier).refresh();
+
+    expect(fixture.container.read(notesControllerProvider).map((n) => n.id), [
+      'shared',
+      'initial',
+    ]);
+  });
 }
 
 void _registerMutationTests(_NotesFixture fixture) {
@@ -202,6 +217,18 @@ void _registerErrorTests(_NotesFixture fixture) {
       expect(fixture.container.read(notesControllerProvider), [note]);
     },
   );
+
+  test('refresh failure preserves the current in-memory snapshot', () async {
+    final stable = _note('stable', DateTime.utc(2025, 1, 1));
+    fixture.initialNotes = [stable];
+    fixture.repository.failOnLoad = true;
+    fixture.recreateContainer();
+    final controller = fixture.container.read(notesControllerProvider.notifier);
+
+    await expectLater(controller.refresh(), throwsStateError);
+
+    expect(fixture.container.read(notesControllerProvider), [stable]);
+  });
 }
 
 class _NotesFixture {
