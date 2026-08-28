@@ -3,11 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/models/app_settings.dart';
 import '../data/models/remote_provider.dart';
-import '../data/repositories/model_install_repository.dart';
 import '../data/repositories/notes_repository.dart';
 import '../data/repositories/settings_repository.dart';
-import '../services/audio/audio_metadata.dart';
 import '../services/audio/audio_recorder_service.dart';
+import '../services/models/local_model_runtime.dart';
 import '../services/processing/processing_pipeline.dart';
 import '../services/share/share_intent_service.dart';
 
@@ -33,13 +32,13 @@ final notesRepositoryProvider = Provider<NotesRepository>(
   (ref) => NotesRepository(ref.watch(sharedPreferencesProvider)),
 );
 
-final modelInstallRepositoryProvider = Provider<ModelInstallRepository>(
-  (ref) => ModelInstallRepository(ref.watch(sharedPreferencesProvider)),
+final localModelRuntimeProvider = Provider<LocalModelRuntime>(
+  (ref) => EngineLocalModelRuntime(),
 );
 
-final processingPipelineProvider = Provider<ProcessingPipeline>((ref) => ProcessingPipeline());
-
-final audioMetadataProvider = Provider<AudioMetadata>((ref) => const AudioMetadata());
+final processingPipelineProvider = Provider<ProcessingPipeline>(
+  (ref) => ProcessingPipeline(),
+);
 
 final audioRecorderProvider = Provider<AudioRecorderService>((ref) {
   final service = AudioRecorderService();

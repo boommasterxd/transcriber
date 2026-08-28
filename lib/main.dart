@@ -19,21 +19,14 @@ import 'state/providers.dart';
 @pragma('vm:entry-point')
 Future<void> shareMain() => runShareEntrypoint();
 
-Future<void> main() async {
+Future<void> main() => bootstrapApplication();
+
+Future<void> bootstrapApplication({
+  void Function()? initializePlatformServices,
+  Future<void> Function(String? huggingFaceToken)? initializeModels,
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Sets up the port used to receive results from the foreground-service
-  // isolate that runs on-device summarization in the background.
-  FlutterForegroundTask.initCommunicationPort();
-
-  // Background model downloads with a foreground-service notification so they
-  // survive the app being backgrounded.
-  FileDownloader().configureNotification(
-    running: const TaskNotification('{filename}', 'Downloading… {progress}'),
-    complete: const TaskNotification('{filename}', 'Download complete'),
-    error: const TaskNotification('{filename}', 'Download failed'),
-    progressBar: true,
-  );
+  (initializePlatformServices ?? _initializePlatformServices)();
 
   final prefs = await SharedPreferences.getInstance();
   final settingsRepo = SettingsRepository(prefs);
@@ -43,9 +36,8 @@ Future<void> main() async {
   // Required before any flutter_gemma use; both engines are registered so the
   // app can run .litertlm (LiteRT-LM FFI) and .task (MediaPipe) models.
   try {
-    await FlutterGemma.initialize(
-      inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-      huggingFaceToken: settings.hfToken.isEmpty ? null : settings.hfToken,
+    await (initializeModels ?? _initializeModels)(
+      settings.hfToken.isEmpty ? null : settings.hfToken,
     );
   } catch (_) {
     // Initialization is best-effort; downloads surface their own errors.
@@ -62,3 +54,24 @@ Future<void> main() async {
     ),
   );
 }
+
+void _initializePlatformServices() {
+  // Sets up the port used to receive results from the foreground-service
+  // isolate that runs on-device summarization in the background.
+  FlutterForegroundTask.initCommunicationPort();
+
+  // Background model downloads with a foreground-service notification so they
+  // survive the app being backgrounded.
+  FileDownloader().configureNotification(
+    running: const TaskNotification('{filename}', 'Downloading… {progress}'),
+    complete: const TaskNotification('{filename}', 'Download complete'),
+    error: const TaskNotification('{filename}', 'Download failed'),
+    progressBar: true,
+  );
+}
+
+Future<void> _initializeModels(String? huggingFaceToken) =>
+    FlutterGemma.initialize(
+      inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
+      huggingFaceToken: huggingFaceToken,
+    );

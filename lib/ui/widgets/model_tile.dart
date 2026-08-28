@@ -36,7 +36,9 @@ class ModelTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          border: isLast ? null : Border(bottom: BorderSide(color: palette.line)),
+          border: isLast
+              ? null
+              : Border(bottom: BorderSide(color: palette.line)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         child: Row(
@@ -63,14 +65,21 @@ class ModelTile extends StatelessWidget {
                         child: Text(
                           title,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: palette.ink,
+                          ),
                         ),
                       ),
                       if (badge != null) ...[const SizedBox(width: 8), badge!],
                     ],
                   ),
                   const SizedBox(height: 1),
-                  Text(subtitle, style: TextStyle(fontSize: 12.5, color: palette.muted)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12.5, color: palette.muted),
+                  ),
                 ],
               ),
             ),
@@ -123,7 +132,10 @@ class DownloadChip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(9999)),
+        decoration: BoxDecoration(
+          color: palette.accentSoft,
+          borderRadius: BorderRadius.circular(9999),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -131,7 +143,11 @@ class DownloadChip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: palette.accentDeep),
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: palette.accentDeep,
+              ),
             ),
           ],
         ),
@@ -166,7 +182,11 @@ class ProgressRing extends StatelessWidget {
           ),
           Text(
             '${(progress * 100).round()}',
-            style: AppTheme.mono(color: palette.accent, size: 8, weight: FontWeight.w600),
+            style: AppTheme.mono(
+              color: palette.accent,
+              size: 8,
+              weight: FontWeight.w600,
+            ),
           ),
         ],
       ),

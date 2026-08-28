@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/theme/app_theme.dart';
 import 'data/repositories/settings_repository.dart';
 import 'state/providers.dart';
-import 'state/settings_controller.dart';
 import 'ui/screens/share/share_overlay_sheet.dart';
+import 'ui/screens/share/widgets/transcriber_app_shell.dart';
 
 /// Channel shared with the native [ShareActivity] (translucent): hands over the
 /// cached path of the shared audio and lets us finish the activity (returning
@@ -41,30 +39,12 @@ Future<void> runShareEntrypoint() async {
   );
 }
 
-class _ShareApp extends ConsumerWidget {
+class _ShareApp extends StatelessWidget {
   const _ShareApp();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(settingsControllerProvider.select((s) => s.themeMode));
-    final accent = ref.watch(settingsControllerProvider.select((s) => s.accent));
-    final language = ref.watch(settingsControllerProvider.select((s) => s.language));
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.build(Brightness.light, accent),
-      darkTheme: AppTheme.build(Brightness.dark, accent),
-      themeMode: themeMode,
-      locale: Locale(language.code),
-      supportedLocales: const [Locale('de'), Locale('en')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      color: const Color(0x00000000),
-      home: const _ShareHost(),
-    );
+  Widget build(BuildContext context) {
+    return const TranscriberAppShell(transparent: true, home: _ShareHost());
   }
 }
 
@@ -101,20 +81,10 @@ class _ShareHostState extends ConsumerState<_ShareHost> {
       _finish();
       return;
     }
-    final isTablet = MediaQuery.of(context).size.width >= 720;
-    final sharedPath = path;
-    await showModalBottomSheet<void>(
+    await presentShareSheet(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      constraints: isTablet ? const BoxConstraints(maxWidth: 600) : null,
-      builder: (sheetCtx) => ShareSheetContent(
-        audioPath: sharedPath,
-        fileName: sharedPath.split('/').last,
-        onFinished: () => Navigator.of(sheetCtx).pop(),
-      ),
+      audioPath: path,
+      fileName: path.split('/').last,
     );
     // Sheet dismissed (saved, closed, dragged or scrim-tapped) → close the
     // translucent activity and return to the app the audio was shared from.

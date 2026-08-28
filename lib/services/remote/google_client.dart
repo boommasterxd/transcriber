@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../data/models/transcript_note.dart';
+import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
-import '../transcription/transcription_service.dart';
 import 'mime_utils.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
@@ -13,7 +13,8 @@ import 'remote_http.dart';
 /// Google Gemini client. Chat via `generateContent`; transcription by sending
 /// the audio inline to a multimodal Gemini model; model listing via `models`.
 class GoogleClient implements RemoteApiClient {
-  GoogleClient({required this.apiKey, http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  GoogleClient({required this.apiKey, http.Client? httpClient})
+    : _http = httpClient ?? http.Client();
 
   final String apiKey;
   final http.Client _http;
@@ -24,26 +25,37 @@ class GoogleClient implements RemoteApiClient {
   bool get supportsAudioTranscription => true;
 
   @override
-  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
+  Future<List<RemoteModelInfo>> listModels({
+    required bool forTranscription,
+  }) async {
     final response = await guardTimeout(
       _http.get(Uri.parse('$_base/models?key=$apiKey&pageSize=200')),
       remoteListTimeout,
     );
-    if (response.statusCode != 200) {
-      throw RemoteApiException(
-        'Failed to fetch model list (${response.statusCode}): ${_errorBody(response.body)}',
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    validateRemoteResponse(
+      statusCode: response.statusCode,
+      body: response.body,
+      errorLabel: 'Failed to fetch model list',
+    );
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final models = json['models'] as List? ?? const [];
     final result = <RemoteModelInfo>[];
     for (final raw in models) {
       final m = raw as Map;
-      final methods = (m['supportedGenerationMethods'] as List?)?.map((e) => e.toString()) ?? const [];
+      final methods =
+          (m['supportedGenerationMethods'] as List?)?.map(
+            (e) => e.toString(),
+          ) ??
+          const [];
       final name = (m['name']?.toString() ?? '').replaceFirst('models/', '');
-      if (!methods.contains('generateContent') || !name.toLowerCase().contains('gemini')) continue;
-      result.add(RemoteModelInfo(id: name, label: m['displayName']?.toString()));
+      if (!methods.contains('generateContent') ||
+          !name.toLowerCase().contains('gemini')) {
+        continue;
+      }
+      result.add(
+        RemoteModelInfo(id: name, label: m['displayName']?.toString()),
+      );
     }
     return result;
   }
@@ -87,7 +99,8 @@ class GoogleClient implements RemoteApiClient {
         'limit ~14 MB). Use shorter audio, OpenAI, or on-device transcription.',
       );
     }
-    final prompt = languageCode == null || languageCode.isEmpty || languageCode == 'auto'
+    final prompt =
+        languageCode == null || languageCode.isEmpty || languageCode == 'auto'
         ? 'Transcribe this audio verbatim. Return only the transcript text.'
         : 'Transcribe this audio verbatim in language "$languageCode". Return only the transcript text.';
     final body = {
@@ -97,16 +110,25 @@ class GoogleClient implements RemoteApiClient {
           'parts': [
             {'text': prompt},
             {
-              'inline_data': {'mime_type': audioMimeType(audioPath), 'data': base64Encode(bytes)},
+              'inline_data': {
+                'mime_type': audioMimeType(audioPath),
+                'data': base64Encode(bytes),
+              },
             },
           ],
         },
       ],
     };
-    final text = (await _generateContent(model, body, timeout: remoteTranscribeTimeout)).trim();
+    final text = (await _generateContent(
+      model,
+      body,
+      timeout: remoteTranscribeTimeout,
+    )).trim();
     return TranscriptionResult(
       text: text,
-      segments: text.isEmpty ? const [] : [TranscriptLine(time: '0:00', text: text)],
+      segments: text.isEmpty
+          ? const []
+          : [TranscriptLine(time: '0:00', text: text)],
     );
   }
 
@@ -124,32 +146,22 @@ class GoogleClient implements RemoteApiClient {
       ),
       timeout,
     );
-    if (response.statusCode != 200) {
-      throw RemoteApiException(
-        'Google error (${response.statusCode}): ${_errorBody(response.body)}',
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    validateRemoteResponse(
+      statusCode: response.statusCode,
+      body: response.body,
+      errorLabel: 'Google error',
+    );
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final candidates = json['candidates'] as List?;
     if (candidates == null || candidates.isEmpty) return '';
-    final parts = ((candidates.first as Map)['content'] as Map?)?['parts'] as List?;
+    final parts =
+        ((candidates.first as Map)['content'] as Map?)?['parts'] as List?;
     if (parts == null) return '';
     final buffer = StringBuffer();
     for (final part in parts) {
       if (part is Map && part['text'] is String) buffer.write(part['text']);
     }
     return buffer.toString().trim();
-  }
-
-  String _errorBody(String body) {
-    try {
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final error = json['error'];
-      if (error is Map) return error['message']?.toString() ?? body;
-      return body;
-    } catch (_) {
-      return body;
-    }
   }
 }

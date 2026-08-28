@@ -51,22 +51,11 @@ String? _option(List<String> arguments, String name) {
 }
 
 List<String> checkFileLengths() {
-  final result = Process.runSync('git', [
-    'ls-files',
-    '*.dart',
-    '*.kt',
-    '*.kts',
-    '*.sh',
-  ]);
-  if (result.exitCode != 0) {
-    return ['Unable to enumerate tracked source files: ${result.stderr}'];
-  }
+  final files = _projectFiles(['*.dart', '*.kt', '*.kts', '*.sh']);
+  if (files.error case final error?) return [error];
 
   final violations = <String>[];
-  for (final path
-      in (result.stdout as String)
-          .split('\n')
-          .where((path) => path.isNotEmpty)) {
+  for (final path in files.paths) {
     final lineCount = File(path).readAsLinesSync().length;
     if (lineCount <= _fileLengthLimit) continue;
     violations.add('$path has $lineCount lines (limit $_fileLengthLimit).');
@@ -75,17 +64,11 @@ List<String> checkFileLengths() {
 }
 
 List<String> checkCognitiveComplexity() {
-  final result = Process.runSync('git', ['ls-files', '*.dart']);
-  if (result.exitCode != 0) {
-    return ['Unable to enumerate Dart files: ${result.stderr}'];
-  }
+  final files = _projectFiles(['*.dart']);
+  if (files.error case final error?) return [error];
 
   final violations = <String>[];
-  final paths = (result.stdout as String)
-      .split('\n')
-      .where((path) => path.isNotEmpty)
-      .toSet();
-  for (final path in paths) {
+  for (final path in files.paths) {
     final parsed = parseFile(
       path: path,
       featureSet: FeatureSet.latestLanguageVersion(),
@@ -106,6 +89,28 @@ List<String> checkCognitiveComplexity() {
     }
   }
   return violations;
+}
+
+({Set<String> paths, String? error}) _projectFiles(List<String> patterns) {
+  final result = Process.runSync('git', [
+    'ls-files',
+    '--cached',
+    '--others',
+    '--exclude-standard',
+    '--',
+    ...patterns,
+  ]);
+  if (result.exitCode != 0) {
+    return (
+      paths: const {},
+      error: 'Unable to enumerate project source files: ${result.stderr}',
+    );
+  }
+  final paths = (result.stdout as String)
+      .split('\n')
+      .where((path) => path.isNotEmpty && File(path).existsSync())
+      .toSet();
+  return (paths: paths, error: null);
 }
 
 List<String> checkDclMetrics(String metricsPath) {

@@ -8,7 +8,7 @@ import '../../../../state/settings_controller.dart';
 import '../../../widgets/segmented_control.dart';
 import '../../../widgets/surfaces.dart';
 
-/// App language and transcription language — each a label above a full-width
+/// App language and transcription language, each a label above a full-width
 /// sliding segmented control.
 class LanguageSection extends ConsumerWidget {
   const LanguageSection({super.key});
@@ -17,13 +17,27 @@ class LanguageSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
-    final settings = ref.watch(settingsControllerProvider);
+    final languages = ref.watch(
+      settingsControllerProvider.select(
+        (settings) => (
+          app: settings.language,
+          transcription: settings.transcriptionLanguage,
+        ),
+      ),
+    );
     final ctrl = ref.read(settingsControllerProvider.notifier);
 
     Widget label(String text) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Text(text, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
-        );
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: palette.ink,
+        ),
+      ),
+    );
 
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
@@ -33,25 +47,28 @@ class LanguageSection extends ConsumerWidget {
           label(t.uiLang),
           AnimatedSegmentedControl(
             options: const [SegmentOption('Deutsch'), SegmentOption('English')],
-            selectedIndex: settings.language == AppLanguage.de ? 0 : 1,
-            onChanged: (i) => ctrl.setLanguage(i == 0 ? AppLanguage.de : AppLanguage.en),
+            selectedIndex: languages.app == AppLanguage.de ? 0 : 1,
+            onChanged: (i) =>
+                ctrl.setLanguage(i == 0 ? AppLanguage.de : AppLanguage.en),
           ),
           Divider(height: 28, color: palette.line),
           label(t.transLang),
           AnimatedSegmentedControl(
-            options: const [SegmentOption('Auto'), SegmentOption('Deutsch'), SegmentOption('English')],
-            selectedIndex: switch (settings.transcriptionLanguage) {
+            options: const [
+              SegmentOption('Auto'),
+              SegmentOption('Deutsch'),
+              SegmentOption('English'),
+            ],
+            selectedIndex: switch (languages.transcription) {
               TranscriptionLanguage.auto => 0,
               TranscriptionLanguage.de => 1,
               TranscriptionLanguage.en => 2,
             },
-            onChanged: (i) => ctrl.setTranscriptionLanguage(
-              switch (i) {
-                1 => TranscriptionLanguage.de,
-                2 => TranscriptionLanguage.en,
-                _ => TranscriptionLanguage.auto,
-              },
-            ),
+            onChanged: (i) => ctrl.setTranscriptionLanguage(switch (i) {
+              1 => TranscriptionLanguage.de,
+              2 => TranscriptionLanguage.en,
+              _ => TranscriptionLanguage.auto,
+            }),
           ),
         ],
       ),

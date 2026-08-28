@@ -1,241 +1,256 @@
-import 'dart:io';
-
-import 'package:uuid/uuid.dart';
-
 import '../../core/l10n/app_strings.dart';
-import '../../data/catalog/gemma_catalog.dart';
 import '../../data/models/app_settings.dart';
+import '../../data/models/remote_provider.dart';
 import '../../data/models/transcript_note.dart';
+import '../../data/models/transcription_result.dart';
 import '../audio/audio_converter.dart';
 import '../audio/audio_metadata.dart';
 import '../remote/remote_api_client.dart';
 import '../remote/remote_client_factory.dart';
 import '../service_exceptions.dart';
-import '../summarization/gemma_engine.dart';
 import '../summarization/remote_summarization_service.dart';
 import '../summarization/summarization_service.dart';
 import '../summarization/summary_result.dart';
 import '../transcription/remote_transcription_service.dart';
 import '../transcription/transcription_service.dart';
-import '../transcription/whisper_engine.dart';
 import 'processing_foreground.dart';
 import 'processing_profile.dart';
+import 'processing_request.dart';
+import 'processing_runtime.dart';
 
-/// The two visible steps of the processing flow (drives the stepper UI).
-enum ProcessingStep { transcribing, summarizing }
+export 'processing_request.dart'
+    show
+        ModelProgressCallback,
+        ProcessingCallbacks,
+        ProcessingCredentials,
+        ProcessingInput,
+        ProcessingRequest,
+        ProcessingStep,
+        ProcessingStepCallback;
 
-/// Orchestrates the full audio → note flow. Transcription and summarization are
-/// resolved independently from [AppSettings]: each may run on-device or via a
-/// (possibly different) cloud provider.
+typedef RemoteClientBuilder =
+    RemoteApiClient Function(RemoteProviderId provider, String apiKey);
+
+/// Orchestrates transcription, optional summarization, and note assembly.
 class ProcessingPipeline {
-  ProcessingPipeline({AudioConverter? converter, AudioMetadata? metadata})
-      : _converter = converter ?? const AudioConverter(),
-        _metadata = metadata ?? const AudioMetadata();
+  ProcessingPipeline({
+    AudioConverter? converter,
+    AudioMetadata? metadata,
+    RemoteClientBuilder? remoteClientBuilder,
+    ProcessingRuntime? runtime,
+  }) : _converter = converter ?? const AudioConverter(),
+       _metadata = metadata ?? const AudioMetadata(),
+       _remoteClientBuilder = remoteClientBuilder ?? RemoteClientFactory.create,
+       _runtime =
+           runtime ??
+           DefaultProcessingRuntime(
+             foreground: (request, callbacks) =>
+                 ProcessingForegroundService.fromStrings(
+                   request.strings,
+                 ).run(request, callbacks: callbacks),
+           );
 
   final AudioConverter _converter;
   final AudioMetadata _metadata;
-  static const _uuid = Uuid();
+  final RemoteClientBuilder _remoteClientBuilder;
+  final ProcessingRuntime _runtime;
 
-  Future<TranscriptNote> process({
-    required String audioPath,
-    required NoteSource source,
-    required AppSettings settings,
-    required AppStrings strings,
-    required String asrApiKey,
-    required String summaryApiKey,
-    int? knownDurationSec,
-    void Function(ProcessingStep step)? onStep,
-    void Function(double progress)? onModelProgress,
+  Future<TranscriptNote> process(
+    ProcessingRequest request, {
+    ProcessingCallbacks callbacks = const ProcessingCallbacks(),
   }) async {
-    // Pre-flight checks run in the main isolate so failures surface fast and
-    // keep their type (the UI distinguishes a missing model from other errors).
+    await _validate(request);
+    final durationSec =
+        request.input.knownDurationSec ??
+        await _metadata.durationSeconds(request.input.audioPath);
+    final resolvedRequest = request.withKnownDuration(durationSec);
+
+    if (_requiresForeground(request.settings)) {
+      return _runtime.runForeground(resolvedRequest, callbacks);
+    }
+    return processCurrentIsolate(resolvedRequest, callbacks: callbacks);
+  }
+
+  Future<void> _validate(ProcessingRequest request) async {
+    final settings = request.settings;
+    final strings = request.strings;
     if (settings.asrMode.isLocal &&
-        !await WhisperEngine.instance.isDownloaded(settings.whisperModelId)) {
+        !await _runtime.isLocalTranscriptionModelAvailable(settings)) {
       throw ModelNotDownloadedException(strings.modelMissingBody);
     }
-    // The summary stage only matters when summarization is enabled.
-    final summaryLocal = settings.summarizeEnabled && settings.summaryMode.isLocal;
-    final summaryCloud = settings.summarizeEnabled && settings.summaryMode.isCloud;
+
+    final summaryLocal = _usesLocalSummary(settings);
     if (summaryLocal &&
-        !await GemmaEngine.instance.isDownloaded(GemmaCatalog.byId(settings.gemmaModelId))) {
+        !await _runtime.isLocalSummaryModelAvailable(settings)) {
       throw ModelNotDownloadedException(strings.modelMissingBody);
     }
-    if (settings.asrMode.isCloud && asrApiKey.isEmpty) {
+    if (settings.asrMode.isCloud && request.credentials.asrApiKey.isEmpty) {
       throw MissingApiKeyException(strings.connectFirst);
     }
-    if (summaryCloud && summaryApiKey.isEmpty) {
+    if (_usesCloudSummary(settings) &&
+        request.credentials.summaryApiKey.isEmpty) {
       throw MissingApiKeyException(strings.connectFirst);
     }
+  }
 
-    // Probe the duration here (uses just_audio, which is happiest on the main
-    // isolate) so the heavy core never has to.
-    final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
+  bool _requiresForeground(AppSettings settings) =>
+      settings.asrMode.isLocal || _usesLocalSummary(settings);
 
-    // If any stage runs on-device, run the WHOLE pipeline inside a foreground
-    // service isolate so whisper_kit and flutter_gemma never touch the main UI
-    // thread (and it survives backgrounding). The service is started here, while
-    // the app is in the foreground — Android 12+ forbids starting one from the
-    // background, so we must not defer it.
-    if (settings.asrMode.isLocal || summaryLocal) {
-      return ProcessingForegroundService(
-        notificationTitle: strings.processingTitle,
-        notificationText: strings.shTranscribe,
-        notificationTextSummary: strings.shSummarize,
-        channelName: strings.svcChannelName,
-        channelDescription: strings.svcChannelDesc,
-      ).run(
-        audioPath: audioPath,
-        source: source,
-        settings: settings,
-        asrApiKey: asrApiKey,
-        summaryApiKey: summaryApiKey,
-        knownDurationSec: durationSec,
-        onStep: onStep,
-        onModelProgress: onModelProgress,
+  bool _usesLocalSummary(AppSettings settings) =>
+      settings.summarizeEnabled && settings.summaryMode.isLocal;
+
+  bool _usesCloudSummary(AppSettings settings) =>
+      settings.summarizeEnabled && settings.summaryMode.isCloud;
+
+  /// Runs the validated processing body in the current isolate.
+  Future<TranscriptNote> processCurrentIsolate(
+    ProcessingRequest request, {
+    ProcessingCallbacks callbacks = const ProcessingCallbacks(),
+  }) async {
+    final fallbackTitle = _fallbackTitle(request);
+    callbacks.onStep?.call(ProcessingStep.transcribing);
+    final transcription = await _transcribe(request);
+    final summary = await _summarizeIfEnabled(
+      request,
+      transcription.text,
+      fallbackTitle,
+      callbacks,
+    );
+    return _assembleNote(request, transcription, summary, fallbackTitle);
+  }
+
+  Future<TranscriptionResult> _transcribe(ProcessingRequest request) {
+    final settings = request.settings;
+    final languageCode = settings.transcriptionLanguage.code;
+    if (settings.asrMode.isLocal) {
+      return _transcribeLocally(request, languageCode);
+    }
+    final client = _remoteClientBuilder(
+      settings.asrProvider,
+      request.credentials.asrApiKey,
+    );
+    return RemoteTranscriptionService(
+      client,
+      settings.asrModelId(settings.asrProvider),
+    ).transcribe(request.input.audioPath, languageCode: languageCode);
+  }
+
+  Future<TranscriptionResult> _transcribeLocally(
+    ProcessingRequest request,
+    String languageCode,
+  ) async {
+    final settings = request.settings;
+    final language = languageCode == 'auto'
+        ? settings.language.code
+        : languageCode;
+    final wav = await _converter.toWhisperWav(request.input.audioPath);
+    return _runtime
+        .createLocalTranscriptionService(settings)
+        .transcribe(wav, languageCode: language);
+  }
+
+  Future<SummaryResult> _summarizeIfEnabled(
+    ProcessingRequest request,
+    String transcript,
+    String fallbackTitle,
+    ProcessingCallbacks callbacks,
+  ) async {
+    if (!request.settings.summarizeEnabled) {
+      return SummaryResult(
+        title: fallbackTitle,
+        gist: '',
+        points: const [],
+        todos: const [],
       );
     }
+    callbacks.onStep?.call(ProcessingStep.summarizing);
+    return _summarize(request, transcript, fallbackTitle);
+  }
 
-    return _core(
-      audioPath: audioPath,
-      source: source,
-      settings: settings,
-      strings: strings,
-      asrApiKey: asrApiKey,
-      summaryApiKey: summaryApiKey,
-      knownDurationSec: durationSec,
-      onStep: onStep,
-      onModelProgress: onModelProgress,
+  Future<SummaryResult> _summarize(
+    ProcessingRequest request,
+    String transcript,
+    String fallbackTitle,
+  ) {
+    final settings = request.settings;
+    final service = settings.summaryMode.isLocal
+        ? _localSummarizationService(settings, fallbackTitle)
+        : _remoteSummarizationService(request, fallbackTitle);
+    return service.summarize(
+      transcript,
+      german: settings.language == AppLanguage.de,
     );
   }
 
-  /// The heavy pipeline body (transcribe → summarize → assemble). Runs either on
-  /// the main isolate (all-cloud) or inside the foreground-service isolate (any
-  /// on-device stage, via [runProcessingCore]); it never starts a service itself.
-  Future<TranscriptNote> _core({
-    required String audioPath,
-    required NoteSource source,
-    required AppSettings settings,
-    required AppStrings strings,
-    required String asrApiKey,
-    required String summaryApiKey,
-    int? knownDurationSec,
-    void Function(ProcessingStep step)? onStep,
-    void Function(double progress)? onModelProgress,
-  }) async {
-    final german = settings.language == AppLanguage.de;
-    final fallbackTitle = _fallbackTitle(audioPath, source, strings);
+  SummarizationService _localSummarizationService(
+    AppSettings settings,
+    String fallbackTitle,
+  ) => _runtime.createLocalSummarizationService(settings, fallbackTitle);
 
-    onStep?.call(ProcessingStep.transcribing);
-    final transcription = await _transcribe(
-      audioPath: audioPath,
-      settings: settings,
-      apiKey: asrApiKey,
-      onModelProgress: onModelProgress,
+  SummarizationService _remoteSummarizationService(
+    ProcessingRequest request,
+    String fallbackTitle,
+  ) {
+    final settings = request.settings;
+    final client = _remoteClientBuilder(
+      settings.summaryProvider,
+      request.credentials.summaryApiKey,
     );
+    return RemoteSummarizationService(
+      client: client,
+      apiModelId: settings.summaryModelId(settings.summaryProvider),
+      fallbackTitle: fallbackTitle,
+    );
+  }
 
-    // Skip the AI summary entirely when the user turned it off — the note then
-    // holds just the transcript.
-    final SummaryResult summary;
-    if (settings.summarizeEnabled) {
-      onStep?.call(ProcessingStep.summarizing);
-      summary = await _summarize(
-        transcript: transcription.text,
-        settings: settings,
-        apiKey: summaryApiKey,
-        german: german,
-        fallbackTitle: fallbackTitle,
-      );
-    } else {
-      summary = SummaryResult(title: fallbackTitle, gist: '', points: const [], todos: const []);
-    }
-
-    final durationSec = knownDurationSec ?? await _metadata.durationSeconds(audioPath);
+  Future<TranscriptNote> _assembleNote(
+    ProcessingRequest request,
+    TranscriptionResult transcription,
+    SummaryResult summary,
+    String fallbackTitle,
+  ) async {
+    final settings = request.settings;
+    final strings = request.strings;
     final profile = ProcessingProfile.resolve(settings);
     final noSummary = !settings.summarizeEnabled;
-
-    final retainedPath = settings.autoDeleteAudio ? null : audioPath;
-    if (settings.autoDeleteAudio) _deleteQuietly(audioPath);
-
+    final durationSec =
+        request.input.knownDurationSec ??
+        await _metadata.durationSeconds(request.input.audioPath);
+    final retainedPath = settings.autoDeleteAudio
+        ? null
+        : request.input.audioPath;
+    if (settings.autoDeleteAudio) {
+      await _deleteQuietly(request.input.audioPath);
+    }
     return TranscriptNote(
-      id: _uuid.v4(),
+      id: _runtime.newId(),
       title: summary.title.isEmpty ? fallbackTitle : summary.title,
-      speaker: _speaker(source, strings),
-      source: source,
+      speaker: _speaker(request.input.source, strings),
+      source: request.input.source,
       durationSec: durationSec,
-      createdAt: DateTime.now(),
+      createdAt: _runtime.now(),
       asrIsLocal: profile.asr.isLocal,
-      summaryIsLocal: noSummary ? true : profile.summary.isLocal,
+      summaryIsLocal: noSummary || profile.summary.isLocal,
       asrName: profile.asr.name,
       asrSub: profile.asr.sub,
       llmName: noSummary ? strings.summaryOff : profile.summary.name,
       llmSub: noSummary ? '' : profile.summary.sub,
       gist: summary.gist,
       points: summary.points,
-      todos: summary.todos.map((t) => TodoItem(text: t)).toList(),
+      todos: summary.todos.map((text) => TodoItem(text: text)).toList(),
       transcript: transcription.segments,
       audioPath: retainedPath,
     );
   }
 
-  Future<TranscriptionResult> _transcribe({
-    required String audioPath,
-    required AppSettings settings,
-    required String apiKey,
-    void Function(double progress)? onModelProgress,
-  }) async {
-    final languageCode = settings.transcriptionLanguage.code;
-    if (settings.asrMode.isLocal) {
-      // whisper_kit returns empty text for the literal language 'auto', so for
-      // auto-detect we fall back to the app's UI language (the best signal we
-      // have) — a concrete code that actually transcribes.
-      final lang = languageCode == 'auto' ? settings.language.code : languageCode;
-      final wav = await _converter.toWhisperWav(audioPath);
-      return WhisperTranscriptionService(
-        settings.whisperModelId,
-        threads: settings.whisperThreads,
-      ).transcribe(wav, languageCode: lang);
-    }
-    final client = RemoteClientFactory.create(settings.asrProvider, apiKey);
-    return RemoteTranscriptionService(client, settings.asrModelId(settings.asrProvider))
-        .transcribe(audioPath, languageCode: languageCode);
-  }
-
-  Future<SummaryResult> _summarize({
-    required String transcript,
-    required AppSettings settings,
-    required String apiKey,
-    required bool german,
-    required String fallbackTitle,
-  }) async {
-    final SummarizationService service;
-    if (settings.summaryMode.isLocal) {
-      // Already running inside the foreground-service isolate (see process()),
-      // so call the engine directly here.
-      service = GemmaSummarizationService(
-        settings.gemmaModelId,
-        fallbackTitle: fallbackTitle,
-        hfToken: settings.hfToken,
-        backendId: settings.gemmaBackend.id,
-      );
-    } else {
-      final RemoteApiClient client = RemoteClientFactory.create(settings.summaryProvider, apiKey);
-      service = RemoteSummarizationService(
-        client: client,
-        apiModelId: settings.summaryModelId(settings.summaryProvider),
-        fallbackTitle: fallbackTitle,
-      );
-    }
-    return service.summarize(transcript, german: german);
-  }
-
-  String _fallbackTitle(String audioPath, NoteSource source, AppStrings strings) {
-    switch (source) {
+  String _fallbackTitle(ProcessingRequest request) {
+    switch (request.input.source) {
       case NoteSource.recording:
-        return strings.recordingLabel;
+        return request.strings.recordingLabel;
       case NoteSource.file:
       case NoteSource.shared:
-        final name = audioPath.split('/').last;
-        return name.isEmpty ? strings.voiceNote : name;
+        final name = request.input.audioPath.split('/').last;
+        return name.isEmpty ? request.strings.voiceNote : name;
     }
   }
 
@@ -250,36 +265,15 @@ class ProcessingPipeline {
     }
   }
 
-  void _deleteQuietly(String path) {
+  Future<void> _deleteQuietly(String path) async {
     try {
-      final file = File(path);
-      if (file.existsSync()) file.deleteSync();
+      await _runtime.deleteAudio(path);
     } catch (_) {}
   }
 }
 
-/// Entry point used by the foreground-service isolate to run the heavy pipeline
-/// (transcription + summarization) without re-entering the service. Lives at top
-/// level so it can reach [ProcessingPipeline]'s private core.
-Future<TranscriptNote> runProcessingCore({
-  required String audioPath,
-  required NoteSource source,
-  required AppSettings settings,
-  required AppStrings strings,
-  required String asrApiKey,
-  required String summaryApiKey,
-  int? knownDurationSec,
-  void Function(ProcessingStep step)? onStep,
-  void Function(double progress)? onModelProgress,
-}) =>
-    ProcessingPipeline()._core(
-      audioPath: audioPath,
-      source: source,
-      settings: settings,
-      strings: strings,
-      asrApiKey: asrApiKey,
-      summaryApiKey: summaryApiKey,
-      knownDurationSec: knownDurationSec,
-      onStep: onStep,
-      onModelProgress: onModelProgress,
-    );
+/// Runs the pipeline core inside the foreground-service isolate.
+Future<TranscriptNote> runProcessingCore(
+  ProcessingRequest request, {
+  ProcessingCallbacks callbacks = const ProcessingCallbacks(),
+}) => ProcessingPipeline().processCurrentIsolate(request, callbacks: callbacks);

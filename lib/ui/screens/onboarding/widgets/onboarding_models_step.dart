@@ -15,13 +15,15 @@ import '../../../widgets/surfaces.dart';
 import '../../settings/widgets/stage_explainer.dart';
 import '../../settings/widgets/summary_section.dart';
 import '../../settings/widgets/transcription_section.dart';
+import 'onboarding_status_row.dart';
 
 /// Onboarding model step with a simple recommended path and an advanced mode.
 class OnboardingModelsStep extends ConsumerStatefulWidget {
   const OnboardingModelsStep({super.key});
 
   @override
-  ConsumerState<OnboardingModelsStep> createState() => _OnboardingModelsStepState();
+  ConsumerState<OnboardingModelsStep> createState() =>
+      _OnboardingModelsStepState();
 }
 
 class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep>
@@ -31,7 +33,8 @@ class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep>
   @override
   bool get wantKeepAlive => true;
 
-  static const _whisperId = WhisperCatalog.defaultId; // Whisper Base (recommended)
+  static const _whisperId =
+      WhisperCatalog.defaultId; // Whisper Base (recommended)
   static const _gemmaId = GemmaCatalog.defaultId; // Gemma 3 1B (recommended)
 
   Future<void> _guard(Future<void> Function() action) async {
@@ -39,7 +42,9 @@ class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep>
       await action();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -90,7 +95,11 @@ class _OnboardingModelsStepState extends ConsumerState<OnboardingModelsStep>
 }
 
 class _RecommendedCard extends ConsumerWidget {
-  const _RecommendedCard({required this.whisperId, required this.gemmaId, required this.onDownload});
+  const _RecommendedCard({
+    required this.whisperId,
+    required this.gemmaId,
+    required this.onDownload,
+  });
 
   final String whisperId;
   final String gemmaId;
@@ -117,7 +126,11 @@ class _RecommendedCard extends ConsumerWidget {
         children: [
           Text(
             t.obRecommendedSetup,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: palette.ink),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: palette.ink,
+            ),
           ),
           const SizedBox(height: 10),
           StageExplainer(text: t.asrExplain),
@@ -129,14 +142,16 @@ class _RecommendedCard extends ConsumerWidget {
           _RecRow(
             icon: Icons.graphic_eq_rounded,
             name: whisper.displayName,
-            sub: '${formatBytes(whisper.sizeBytes, german: german)} · ${whisper.badge.label(t)}',
+            sub:
+                '${formatBytes(whisper.sizeBytes, german: german)} · ${whisper.badge.label(t)}',
             status: wStatus,
           ),
           const SizedBox(height: 8),
           _RecRow(
             icon: Icons.auto_awesome_outlined,
             name: gemma.displayName,
-            sub: '${formatBytes(gemma.sizeBytes, german: german)} · ${gemma.badge.label(t)}',
+            sub:
+                '${formatBytes(gemma.sizeBytes, german: german)} · ${gemma.badge.label(t)}',
             status: gStatus,
           ),
           const SizedBox(height: 16),
@@ -147,7 +162,11 @@ class _RecommendedCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   t.modelsReady,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: palette.mint),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: palette.mint,
+                  ),
                 ),
               ],
             )
@@ -165,7 +184,12 @@ class _RecommendedCard extends ConsumerWidget {
 }
 
 class _RecRow extends StatelessWidget {
-  const _RecRow({required this.icon, required this.name, required this.sub, required this.status});
+  const _RecRow({
+    required this.icon,
+    required this.name,
+    required this.sub,
+    required this.status,
+  });
 
   final IconData icon;
   final String name;
@@ -180,31 +204,23 @@ class _RecRow extends StatelessWidget {
       case DownloadStatus.downloading:
         trailing = ProgressRing(progress: status.progress);
       case DownloadStatus.downloaded:
-        trailing = Icon(Icons.check_circle_rounded, size: 22, color: palette.mint);
+        trailing = Icon(
+          Icons.check_circle_rounded,
+          size: 22,
+          color: palette.mint,
+        );
       case DownloadStatus.notDownloaded:
-        trailing = Icon(Icons.arrow_downward_rounded, size: 18, color: palette.faint);
+        trailing = Icon(
+          Icons.arrow_downward_rounded,
+          size: 18,
+          color: palette.faint,
+        );
     }
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(color: palette.accentSoft2, borderRadius: BorderRadius.circular(11)),
-          child: Icon(icon, size: 18, color: palette.accent),
-        ),
-        const SizedBox(width: 13),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.ink)),
-              Text(sub, style: TextStyle(fontSize: 12, color: palette.muted)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        trailing,
-      ],
+    return OnboardingStatusRow(
+      icon: icon,
+      title: name,
+      subtitle: sub,
+      trailing: trailing,
     );
   }
 }

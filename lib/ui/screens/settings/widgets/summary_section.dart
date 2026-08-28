@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/catalog/gemma_catalog.dart';
@@ -10,10 +9,9 @@ import '../../../../data/models/remote_provider.dart';
 import '../../../../state/model_manager_controller.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/surfaces.dart';
-import 'downloadable_model_tile.dart';
-import 'provider_connect_card.dart';
-import 'provider_picker.dart';
-import 'remote_model_list.dart';
+import 'local_stage_model_list.dart';
+import 'remote_stage_settings.dart';
+import 'settings_switch_row.dart';
 import 'stage_mode_toggle.dart';
 
 /// Summary stage: on-device Gemma, or any cloud provider + a live model list.
@@ -22,101 +20,152 @@ class SummarySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
-    final t = ref.watch(stringsProvider);
-    final settings = ref.watch(settingsControllerProvider);
-    final manager = ref.watch(modelManagerControllerProvider);
-    final ctrl = ref.read(settingsControllerProvider.notifier);
-    final managerCtrl = ref.read(modelManagerControllerProvider.notifier);
-    final isLocal = settings.summaryMode.isLocal;
-    final provider = settings.summaryProvider;
-    final summarize = settings.summarizeEnabled;
-
+    ref.watch(modelManagerControllerProvider);
+    final enabled = ref.watch(
+      settingsControllerProvider.select(
+        (settings) => settings.summarizeEnabled,
+      ),
+    );
+    final settingsController = ref.read(settingsControllerProvider.notifier);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Master toggle: when off, processing stops after transcription.
-        SurfaceCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(color: palette.accentSoft, borderRadius: BorderRadius.circular(11)),
-                child: Icon(Icons.auto_awesome_outlined, size: 18, color: palette.accent),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t.summarizeTitle,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),),
-                    Text(t.summarizeSub, style: TextStyle(fontSize: 12.5, height: 1.35, color: palette.muted)),
-                  ],
-                ),
-              ),
-              Switch(
-                value: summarize,
-                onChanged: ctrl.setSummarizeEnabled,
-                activeTrackColor: palette.accent,
-                inactiveTrackColor: palette.line2,
-              ),
-            ],
-          ),
+        _SummaryAvailabilityCard(
+          enabled: enabled,
+          onChanged: settingsController.setSummarizeEnabled,
         ),
-        if (summarize) ...[
+        if (enabled) ...[
           const SizedBox(height: 12),
-          StageModeToggle(
-          isLocal: isLocal,
-          onChanged: (local) =>
-              ctrl.setSummaryMode(local ? ProcessingMode.onDevice : ProcessingMode.cloud),
-          localLabel: t.modeLocalT,
-          cloudLabel: t.modeRemoteT,
-        ),
-        const SizedBox(height: 12),
-        if (isLocal) ...[
-          SurfaceCard(
-            clip: true,
-            child: Column(
-              children: [
-                for (final (i, m) in GemmaCatalog.models.indexed)
-                  DownloadableModelTile(
-                    icon: Icons.auto_awesome_outlined,
-                    title: m.displayName,
-                    subtitle:
-                        '${formatBytes(m.sizeBytes, german: t.language == AppLanguage.de)} · ${m.badge.label(t)}',
-                    downloadLabel: t.dl,
-                    status: manager.gemmaStatus(m.id),
-                    selected: settings.gemmaModelId == m.id,
-                    isLast: i == GemmaCatalog.models.length - 1,
-                    onSelect: () => ctrl.setGemmaModel(m.id),
-                    onDownload: () => managerCtrl.downloadGemma(m.id),
-                    onDelete: () => managerCtrl.deleteGemma(m.id),
-                  ),
-              ],
-            ),
-          ),
-        ] else ...[
-          ProviderPicker(
-            allowed: RemoteProviderId.values,
-            selected: provider,
-            onSelect: ctrl.setSummaryProvider,
-          ),
-          const SizedBox(height: 12),
-          ProviderConnectCard(provider: provider),
-          const SizedBox(height: 12),
-          SectionLabel(t.remoteModel, padding: const EdgeInsets.fromLTRB(6, 4, 6, 9)),
-          RemoteModelList(
-            provider: provider,
-            forTranscription: false,
-            selectedId: settings.summaryModelId(provider),
-            onSelect: (id) => ctrl.setSummaryModel(provider, id),
-          ),
-        ],
+          const _SummaryStageConfiguration(),
         ],
       ],
+    );
+  }
+}
+
+class _SummaryStageConfiguration extends ConsumerWidget {
+  const _SummaryStageConfiguration();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(stringsProvider);
+    final isLocal = ref.watch(
+      settingsControllerProvider.select(
+        (settings) => settings.summaryMode.isLocal,
+      ),
+    );
+    final controller = ref.read(settingsControllerProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StageModeToggle(
+          isLocal: isLocal,
+          onChanged: (local) => controller.setSummaryMode(
+            local ? ProcessingMode.onDevice : ProcessingMode.cloud,
+          ),
+          labels: (local: t.modeLocalT, cloud: t.modeRemoteT),
+        ),
+        const SizedBox(height: 12),
+        if (isLocal)
+          const _SummaryLocalModels()
+        else
+          const _SummaryCloudModels(),
+      ],
+    );
+  }
+}
+
+class _SummaryLocalModels extends ConsumerWidget {
+  const _SummaryLocalModels();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(stringsProvider);
+    final selectedId = ref.watch(
+      settingsControllerProvider.select((settings) => settings.gemmaModelId),
+    );
+    final status = ref.watch(modelManagerControllerProvider);
+    final settingsController = ref.read(settingsControllerProvider.notifier);
+    final modelController = ref.read(modelManagerControllerProvider.notifier);
+    return LocalStageModelList(
+      icon: Icons.auto_awesome_outlined,
+      downloadLabel: t.dl,
+      options: [
+        for (final model in GemmaCatalog.models)
+          (
+            id: model.id,
+            title: model.displayName,
+            subtitle:
+                '${formatBytes(model.sizeBytes, german: t.isDe)} · ${model.badge.label(t)}',
+            status: status.gemmaStatus(model.id),
+            selected: selectedId == model.id,
+          ),
+      ],
+      actions: LocalStageModelActions(
+        select: settingsController.setGemmaModel,
+        download: modelController.downloadGemma,
+        delete: modelController.deleteGemma,
+      ),
+    );
+  }
+}
+
+class _SummaryCloudModels extends ConsumerWidget {
+  const _SummaryCloudModels();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selection = ref.watch(
+      settingsControllerProvider.select((settings) {
+        final provider = settings.summaryProvider;
+        return (provider: provider, modelId: settings.summaryModelId(provider));
+      }),
+    );
+    final controller = ref.read(settingsControllerProvider.notifier);
+    return RemoteStageSettings(
+      selection: RemoteStageSelection(
+        stage: RemoteStage.summary,
+        allowedProviders: RemoteProviderId.values,
+        provider: selection.provider,
+        modelId: selection.modelId,
+      ),
+      actions: RemoteStageActions(
+        selectProvider: controller.setSummaryProvider,
+        selectModel: (id) => controller.setSummaryModel(selection.provider, id),
+      ),
+    );
+  }
+}
+
+class _SummaryAvailabilityCard extends ConsumerWidget {
+  const _SummaryAvailabilityCard({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final t = ref.watch(stringsProvider);
+    return SurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: SettingsSwitchRow(
+        icon: (
+          data: Icons.auto_awesome_outlined,
+          foreground: palette.accent,
+          background: palette.accentSoft,
+        ),
+        content: (
+          title: t.summarizeTitle,
+          subtitle: t.summarizeSub,
+          subtitleHeight: 1.35,
+        ),
+        value: enabled,
+        onChanged: onChanged,
+      ),
     );
   }
 }

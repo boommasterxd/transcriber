@@ -148,7 +148,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
   }
 
   factory AppPalette.from(Brightness brightness, AppAccent accent) =>
-      brightness == Brightness.dark ? AppPalette.dark(accent) : AppPalette.light(accent);
+      brightness == Brightness.dark
+      ? AppPalette.dark(accent)
+      : AppPalette.light(accent);
 
   @override
   AppPalette copyWith() => this;

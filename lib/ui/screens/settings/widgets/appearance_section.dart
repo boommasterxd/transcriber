@@ -16,7 +16,11 @@ class AppearanceSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
-    final settings = ref.watch(settingsControllerProvider);
+    final appearance = ref.watch(
+      settingsControllerProvider.select(
+        (settings) => (themeMode: settings.themeMode, accent: settings.accent),
+      ),
+    );
     final ctrl = ref.read(settingsControllerProvider.notifier);
 
     return SurfaceCard(
@@ -30,26 +34,33 @@ class AppearanceSection extends ConsumerWidget {
               SegmentOption(t.light, icon: Icons.light_mode_outlined),
               SegmentOption(t.dark, icon: Icons.dark_mode_outlined),
             ],
-            selectedIndex: switch (settings.themeMode) {
+            selectedIndex: switch (appearance.themeMode) {
               ThemeMode.system => 0,
               ThemeMode.light => 1,
               ThemeMode.dark => 2,
             },
-            onChanged: (i) => ctrl.setThemeMode(
-              switch (i) {
-                1 => ThemeMode.light,
-                2 => ThemeMode.dark,
-                _ => ThemeMode.system,
-              },
-            ),
+            onChanged: (i) => ctrl.setThemeMode(switch (i) {
+              1 => ThemeMode.light,
+              2 => ThemeMode.dark,
+              _ => ThemeMode.system,
+            }),
           ),
           Divider(height: 28, color: palette.line),
           Text(
             t.accentC,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: palette.ink,
+            ),
           ),
           const SizedBox(height: 13),
-          Center(child: AccentSwatches(selected: settings.accent, onSelected: ctrl.setAccent)),
+          Center(
+            child: AccentSwatches(
+              selected: appearance.accent,
+              onSelected: ctrl.setAccent,
+            ),
+          ),
         ],
       ),
     );

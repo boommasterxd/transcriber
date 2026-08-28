@@ -30,13 +30,14 @@ The Android manifest registers launcher, audio `VIEW`, `SEND`, and `SEND_MULTIPL
 
 ### Data
 
-`lib/data/models/` contains settings, notes, model specifications, provider identifiers, and processing modes. `lib/data/catalog/` is the source of truth for supported Whisper, local summarization, and remote-provider options. `lib/data/repositories/` persists settings and notes.
+`lib/data/models/` contains settings, notes, transcription results, model specifications, provider identifiers, and processing modes. `lib/data/catalog/` is the source of truth for supported Whisper, local summarization, and remote-provider options. `lib/data/repositories/` persists settings and notes.
 
 ### Services
 
 `lib/services/` owns external and platform boundaries:
 
 - `audio/` records, converts, and probes audio.
+- `models/` provides the runtime boundary used by state controllers to install, inspect, and remove local models.
 - `processing/` validates configuration and orchestrates transcription, optional summarization, metadata assembly, and audio retention.
 - `remote/` implements provider HTTP APIs behind `RemoteApiClient` and `RemoteClientFactory`.
 - `transcription/` defines the transcription interface and local/cloud implementations.
@@ -44,7 +45,7 @@ The Android manifest registers launcher, audio `VIEW`, `SEND`, and `SEND_MULTIPL
 - `share/` handles warm and cold Android share intents.
 - `storage/` owns application-support paths for models and retained recordings.
 
-`WhisperEngine` owns direct `whisper_kit` operations. `GemmaEngine` owns model installation and inference through `flutter_gemma`; the main and foreground-isolate entry points additionally initialize the package engines before dependency wiring or processing.
+`WhisperEngine` owns direct `whisper_kit` operations. `GemmaEngine` owns model installation and inference through `flutter_gemma`; the main and foreground-isolate entry points additionally initialize the package engines before dependency wiring or processing. `LocalModelRuntime` keeps these plugin-specific engines behind an injectable boundary for model-state orchestration.
 
 ### State
 
@@ -70,7 +71,7 @@ record, file, open, or share
   -> persisted history or explicit share-preview save
 ```
 
-`ProcessingPipeline` resolves ASR and summarization independently from `AppSettings`. A local stage causes the complete pipeline to run inside the Android foreground-service isolate so model execution does not block the main UI isolate and can survive backgrounding. All-cloud processing invokes the core pipeline directly.
+`ProcessingPipeline` resolves ASR and summarization independently from the immutable `ProcessingRequest`. The request groups the audio input, settings snapshot, and stage credentials and owns the foreground-isolate JSON handoff. Observer callbacks remain process-local and are never serialized. A local stage causes the complete pipeline to run inside the Android foreground-service isolate so model execution does not block the main UI isolate and can survive backgrounding. All-cloud processing invokes the core pipeline directly.
 
 The share preview uses `save: false`. It persists the completed note only after the user selects Save.
 
@@ -95,6 +96,6 @@ The share preview uses `save: false`. It persists the completed note only after 
 - Summary parsing accepts the documented four-field JSON shape and degrades to plain text when model output is not valid JSON.
 - Share previews are not persisted automatically.
 
-## Known Architectural Debt
+## Service Dependency Direction
 
-The remote client abstraction currently imports the transcription result type while remote transcription depends on the remote client. This services-level cycle should be removed when those interfaces are next changed. Do not add another dependency across the cycle.
+`TranscriptionResult` is a data model shared by local transcription and remote providers. Remote clients depend only on data models and external HTTP integrations. The cloud transcription adapter depends on `RemoteApiClient`, so the service dependency remains one-way from `transcription/` to `remote/`.

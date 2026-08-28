@@ -25,7 +25,7 @@ See [`docs/architecture.md`](docs/architecture.md) for entry points, data flows,
 
 - Use English, ASCII-compatible technical names and `snake_case.dart` file names.
 - Use `UpperCamelCase` for types, `lowerCamelCase` for members, and leading underscores for library-private Dart declarations.
-- Keep user-visible German and English copy in `lib/core/l10n/app_strings.dart` until the localization architecture is deliberately replaced.
+- Keep user-visible German and English copy in the `lib/core/l10n/app_strings_*.dart` catalogs and expose it through `AppStrings`.
 - Place tests in the source-parallel `test/` tree and name test files `*_test.dart`.
 - Keep scripts under a focused `tool/<domain>/` directory.
 - Keep technical Markdown under `docs/` with English `kebab-case` names.

@@ -4,8 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/utils/formatting.dart';
 import '../../data/models/transcript_note.dart';
-import '../service_exceptions.dart';
-import '../transcription/transcription_service.dart';
+import '../../data/models/transcription_result.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
 
@@ -13,7 +12,7 @@ import 'remote_http.dart';
 /// OpenRouter (which is wire-compatible).
 abstract class OpenAiCompatibleClient implements RemoteApiClient {
   OpenAiCompatibleClient({required this.apiKey, http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+    : _http = httpClient ?? http.Client();
 
   final String apiKey;
   final http.Client _http;
@@ -45,13 +44,14 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
       ),
       remoteChatTimeout,
     );
-    if (response.statusCode != 200) {
-      throw RemoteApiException(
-        'API error (${response.statusCode}): ${_errorBody(response.body)}',
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    validateRemoteResponse(
+      statusCode: response.statusCode,
+      body: response.body,
+      errorLabel: 'API error',
+      preferScalarError: true,
+    );
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final choices = json['choices'] as List?;
     if (choices == null || choices.isEmpty) return '';
     final message = (choices.first as Map)['message'] as Map?;
@@ -59,7 +59,9 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
   }
 
   @override
-  Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) async {
+  Future<List<RemoteModelInfo>> listModels({
+    required bool forTranscription,
+  }) async {
     final response = await guardTimeout(
       _http.get(
         Uri.parse('$baseUrl/models'),
@@ -67,20 +69,26 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
       ),
       remoteListTimeout,
     );
-    if (response.statusCode != 200) {
-      throw RemoteApiException(
-        'Failed to fetch model list (${response.statusCode}): ${_errorBody(response.body)}',
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    validateRemoteResponse(
+      statusCode: response.statusCode,
+      body: response.body,
+      errorLabel: 'Failed to fetch model list',
+      preferScalarError: true,
+    );
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     final data = json['data'] as List? ?? const [];
-    final ids = data
-        .map((e) => (e as Map)['id']?.toString() ?? '')
-        .where((id) => id.isNotEmpty)
-        .where((id) => forTranscription ? _isTranscriptionModel(id) : _isChatModel(id))
-        .toList()
-      ..sort();
+    final ids =
+        data
+            .map((e) => (e as Map)['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .where(
+              (id) => forTranscription
+                  ? _isTranscriptionModel(id)
+                  : _isChatModel(id),
+            )
+            .toList()
+          ..sort();
     return ids.map((id) => RemoteModelInfo(id: id)).toList();
   }
 
@@ -91,7 +99,17 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
 
   bool _isChatModel(String id) {
     final l = id.toLowerCase();
-    const blocked = ['embed', 'whisper', 'transcribe', 'tts', 'audio', 'realtime', 'image', 'moderation', 'dall'];
+    const blocked = [
+      'embed',
+      'whisper',
+      'transcribe',
+      'tts',
+      'audio',
+      'realtime',
+      'image',
+      'moderation',
+      'dall',
+    ];
     return !blocked.any(l.contains);
   }
 
@@ -106,51 +124,51 @@ abstract class OpenAiCompatibleClient implements RemoteApiClient {
     // newer gpt-4o-transcribe models reject it — request plain `json` there and
     // fall back to a single segment from the full text below.
     final wantsSegments = model.toLowerCase().contains('whisper');
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/audio/transcriptions'))
-      ..headers['Authorization'] = 'Bearer $apiKey'
-      ..fields['model'] = model
-      ..fields['response_format'] = wantsSegments ? 'verbose_json' : 'json';
-    if (languageCode != null && languageCode.isNotEmpty && languageCode != 'auto') {
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('$baseUrl/audio/transcriptions'),
+          )
+          ..headers['Authorization'] = 'Bearer $apiKey'
+          ..fields['model'] = model
+          ..fields['response_format'] = wantsSegments ? 'verbose_json' : 'json';
+    if (languageCode != null &&
+        languageCode.isNotEmpty &&
+        languageCode != 'auto') {
       request.fields['language'] = languageCode;
     }
     request.files.add(await http.MultipartFile.fromPath('file', audioPath));
 
-    final streamed = await guardTimeout(_http.send(request), remoteTranscribeTimeout);
+    final streamed = await guardTimeout(
+      _http.send(request),
+      remoteTranscribeTimeout,
+    );
     final body = await streamed.stream.bytesToString();
-    if (streamed.statusCode != 200) {
-      throw RemoteApiException(
-        'Transcription error (${streamed.statusCode}): ${_errorBody(body)}',
-        statusCode: streamed.statusCode,
-      );
-    }
+    validateRemoteResponse(
+      statusCode: streamed.statusCode,
+      body: body,
+      errorLabel: 'Transcription error',
+      preferScalarError: true,
+    );
     final json = jsonDecode(body) as Map<String, dynamic>;
     final text = (json['text'] as String?)?.trim() ?? '';
-    final segments = <TranscriptLine>[];
-    final rawSegments = json['segments'] as List?;
-    if (rawSegments != null) {
-      for (final seg in rawSegments) {
-        final m = seg as Map;
-        final start = (m['start'] as num?)?.round() ?? 0;
-        final segText = (m['text'] as String?)?.trim() ?? '';
-        if (segText.isNotEmpty) {
-          segments.add(TranscriptLine(time: formatDuration(start), text: segText));
-        }
-      }
-    }
+    final segments = _transcriptSegments(json['segments'] as List?);
     if (segments.isEmpty && text.isNotEmpty) {
       segments.add(TranscriptLine(time: '0:00', text: text));
     }
     return TranscriptionResult(text: text, segments: segments);
   }
 
-  String _errorBody(String body) {
-    try {
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final error = json['error'];
-      if (error is Map) return error['message']?.toString() ?? body;
-      return error?.toString() ?? body;
-    } catch (_) {
-      return body;
+  List<TranscriptLine> _transcriptSegments(List<dynamic>? rawSegments) {
+    if (rawSegments == null) return [];
+    final segments = <TranscriptLine>[];
+    for (final segment in rawSegments) {
+      final map = segment as Map;
+      final text = (map['text'] as String?)?.trim() ?? '';
+      if (text.isEmpty) continue;
+      final start = (map['start'] as num?)?.round() ?? 0;
+      segments.add(TranscriptLine(time: formatDuration(start), text: text));
     }
+    return segments;
   }
 }

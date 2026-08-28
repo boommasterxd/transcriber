@@ -11,13 +11,20 @@ class RemoteTranscriptionService implements TranscriptionService {
   final String model;
 
   @override
-  Future<TranscriptionResult> transcribe(String audioPath, {String? languageCode}) {
+  Future<TranscriptionResult> transcribe(
+    String audioPath, {
+    String? languageCode,
+  }) {
     if (!client.supportsAudioTranscription) {
       throw const RemoteApiException(
         'This provider does not support audio transcription. '
         'Choose OpenAI or Google, or use on-device processing.',
       );
     }
-    return client.transcribe(audioPath, languageCode: languageCode, model: model);
+    return client.transcribe(
+      audioPath,
+      languageCode: languageCode,
+      model: model,
+    );
   }
 }

@@ -15,7 +15,7 @@ Transcript content and audio may contain personal or confidential information ev
 
 ### External audio
 
-Android `VIEW`, `SEND`, and `SEND_MULTIPLE` intents accept content from other applications. URIs, MIME types, display names, sizes, and bytes are untrusted. `ShareActivity` copies received content into application cache before Flutter processes it. Filename sanitization, size limits, multiple-item behavior, cache cleanup, and malformed-content handling require explicit validation at this boundary.
+Android `VIEW`, `SEND`, and `SEND_MULTIPLE` intents accept content from other applications. URIs, MIME types, display names, sizes, and bytes are untrusted. `ShareActivity` normalizes the external display name to a bounded cache-file name and copies received content into application cache before Flutter processes it. Size limits, multiple-item behavior, cache cleanup, and malformed-content handling require explicit validation at this boundary.
 
 File-picker results and recording paths also cross platform-plugin boundaries. Audio conversion and metadata probing must treat them as untrusted files and bound resource use.
 
@@ -44,6 +44,8 @@ Summary output is untrusted. `SummaryPrompt.parse` attempts to extract a four-fi
 - Long-lived credentials use secure storage rather than shared preferences.
 - Local and cloud stages are explicit settings, and cloud mode is described in the UI.
 - Remote requests use HTTPS endpoints and bounded timeouts.
+- Share-intent display names are reduced to bounded base names before cache paths are created.
+- FFmpeg receives file paths as discrete process arguments rather than interpolated command text.
 - Local model work moves to a foreground-service isolate when either processing stage is local.
 - Android signing material is injected only at build time and remains ignored locally.
 - APK workflows reject debug-signed release artifacts.
@@ -71,15 +73,12 @@ Summary output is untrusted. `SummaryPrompt.parse` attempts to extract a four-fi
 
 ## Residual Risks
 
-- `ShareActivity` derives a cache filename from an external display name without an explicit repository-level sanitization helper.
 - `SEND_MULTIPLE` currently processes only one URI; the intended user and cleanup behavior is not durably specified.
-- FFmpeg command construction requires focused validation for paths containing quotes or other special characters.
 - Shared cache files do not have a documented cleanup lifecycle.
 - Model downloads have no independent repository-configured integrity verification.
 - Transcript notes are not application-level encrypted.
 - Foreground-task credential persistence properties are not established by source evidence.
 - Google query-parameter credentials may appear in infrastructure logs outside application control.
-- The services layer contains a remote-client and transcription-result dependency cycle that complicates boundary review.
 
 These risks are not security guarantees or confirmed vulnerabilities. They are evidence-backed review targets that require focused validation before remediation claims.
 

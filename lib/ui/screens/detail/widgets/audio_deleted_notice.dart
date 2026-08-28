@@ -15,14 +15,24 @@ class AudioDeletedNotice extends StatelessWidget {
     final palette = context.palette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(color: palette.chip, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: palette.chip,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: palette.coralSoft, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.delete_outline_rounded, size: 19, color: palette.coralInk),
+            decoration: BoxDecoration(
+              color: palette.coralSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.delete_outline_rounded,
+              size: 19,
+              color: palette.coralInk,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -31,9 +41,16 @@ class AudioDeletedNotice extends StatelessWidget {
               children: [
                 Text(
                   strings.audioDelTitle,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: palette.ink),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: palette.ink,
+                  ),
                 ),
-                Text(strings.audioDelSub, style: TextStyle(fontSize: 12, color: palette.muted)),
+                Text(
+                  strings.audioDelSub,
+                  style: TextStyle(fontSize: 12, color: palette.muted),
+                ),
               ],
             ),
           ),

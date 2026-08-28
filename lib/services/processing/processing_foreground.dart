@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -10,74 +9,81 @@ import '../../core/l10n/app_strings.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/transcript_note.dart';
 import '../service_exceptions.dart';
+import 'processing_foreground_event.dart';
 import 'processing_pipeline.dart';
 
 const _jobKey = 'processing_job';
 const _serviceId = 2718;
 const _channelId = 'processing';
 
-/// Entry point for the foreground-service isolate. Must be a top-level function
-/// annotated with `vm:entry-point` so it survives tree-shaking in AOT builds.
+/// Entry point for the foreground-service isolate.
 @pragma('vm:entry-point')
 void processingForegroundCallback() {
   FlutterForegroundTask.setTaskHandler(_ProcessingTaskHandler());
 }
 
-/// Runs the full pipeline (transcription + summarization) inside the
-/// foreground-service isolate, so whisper_kit and flutter_gemma never run on the
-/// main UI thread. Step/progress events and the assembled note (or an error) are
-/// sent back to the main isolate.
-class _ProcessingTaskHandler extends TaskHandler {
+final class _ProcessingTaskHandler extends TaskHandler {
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     try {
-      final raw = await FlutterForegroundTask.getData<String>(key: _jobKey);
-      if (raw == null) {
-        FlutterForegroundTask.sendDataToMain(
-          const {'type': 'error', 'error': 'No processing job found'},
-        );
-        return;
-      }
-      final job = jsonDecode(raw) as Map<String, dynamic>;
-      final hfToken = job['hfToken'] as String? ?? '';
-      final settings = AppSettings.fromJson(
-        (job['settings'] as Map).cast<String, dynamic>(),
-        hfToken: hfToken,
-      );
-      final strings = AppStrings.of(settings.language);
-
-      if (settings.summarizeEnabled && settings.summaryMode.isLocal) {
-        try {
-          await FlutterGemma.initialize(
-            inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-            huggingFaceToken: hfToken.isEmpty ? null : hfToken,
-          );
-        } catch (_) {
-          // Best-effort; summarize() surfaces any real load error below.
-        }
-      }
-
+      final request = await _loadRequest();
+      if (request == null) return;
+      await _initializeLocalSummary(request.settings);
       final note = await runProcessingCore(
-        audioPath: job['audioPath'] as String,
-        source: NoteSource.fromId(job['source'] as String?),
-        settings: settings,
-        strings: strings,
-        asrApiKey: job['asrApiKey'] as String? ?? '',
-        summaryApiKey: job['summaryApiKey'] as String? ?? '',
-        knownDurationSec: (job['knownDurationSec'] as num?)?.toInt(),
-        onStep: (step) =>
-            FlutterForegroundTask.sendDataToMain({'type': 'step', 'step': step.name}),
-        onModelProgress: (p) =>
-            FlutterForegroundTask.sendDataToMain({'type': 'modelProgress', 'value': p}),
+        request,
+        callbacks: ProcessingCallbacks(
+          onStep: _sendStep,
+          onModelProgress: _sendModelProgress,
+        ),
       );
-
-      FlutterForegroundTask.sendDataToMain(
-        {'type': 'done', 'note': jsonEncode(note.toJson())},
-      );
-    } catch (e) {
-      FlutterForegroundTask.sendDataToMain({'type': 'error', 'error': e.toString()});
+      _sendDone(note);
+    } catch (error) {
+      _sendError(error.toString());
     }
-    // The main isolate stops the service once it has the result.
+  }
+
+  Future<ProcessingRequest?> _loadRequest() async {
+    final raw = await FlutterForegroundTask.getData<String>(key: _jobKey);
+    if (raw == null) {
+      _sendError('No processing job found');
+      return null;
+    }
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    return ProcessingRequest.fromJson(json);
+  }
+
+  Future<void> _initializeLocalSummary(AppSettings settings) async {
+    if (!settings.summarizeEnabled || !settings.summaryMode.isLocal) return;
+    try {
+      await FlutterGemma.initialize(
+        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
+        huggingFaceToken: settings.hfToken.isEmpty ? null : settings.hfToken,
+      );
+    } catch (_) {
+      // Best-effort; summarize() surfaces any real load error below.
+    }
+  }
+
+  void _sendStep(ProcessingStep step) {
+    FlutterForegroundTask.sendDataToMain({'type': 'step', 'step': step.name});
+  }
+
+  void _sendModelProgress(double progress) {
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'modelProgress',
+      'value': progress,
+    });
+  }
+
+  void _sendDone(TranscriptNote note) {
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'done',
+      'note': jsonEncode(note.toJson()),
+    });
+  }
+
+  void _sendError(String error) {
+    FlutterForegroundTask.sendDataToMain({'type': 'error', 'error': error});
   }
 
   @override
@@ -90,13 +96,7 @@ class _ProcessingTaskHandler extends TaskHandler {
   void onReceiveData(Object data) {}
 }
 
-/// Runs the on-device processing pipeline inside an Android foreground service,
-/// off the main UI thread and surviving the app being backgrounded. A persistent
-/// notification is shown for the run.
-///
-/// Started while the app is in the foreground (Android 12+ forbids starting a
-/// foreground service from the background). Job in via [FlutterForegroundTask.saveData];
-/// progress + result back via [FlutterForegroundTask.sendDataToMain].
+/// Runs processing inside an Android foreground-service isolate.
 class ProcessingForegroundService {
   ProcessingForegroundService({
     required this.notificationTitle,
@@ -106,22 +106,42 @@ class ProcessingForegroundService {
     required this.channelDescription,
   });
 
+  factory ProcessingForegroundService.fromStrings(AppStrings strings) =>
+      ProcessingForegroundService(
+        notificationTitle: strings.processingTitle,
+        notificationText: strings.shTranscribe,
+        notificationTextSummary: strings.shSummarize,
+        channelName: strings.svcChannelName,
+        channelDescription: strings.svcChannelDesc,
+      );
+
   final String notificationTitle;
   final String notificationText;
   final String notificationTextSummary;
   final String channelName;
   final String channelDescription;
 
-  Future<TranscriptNote> run({
-    required String audioPath,
-    required NoteSource source,
-    required AppSettings settings,
-    required String asrApiKey,
-    required String summaryApiKey,
-    int? knownDurationSec,
-    void Function(ProcessingStep step)? onStep,
-    void Function(double progress)? onModelProgress,
+  Future<TranscriptNote> run(
+    ProcessingRequest request, {
+    ProcessingCallbacks callbacks = const ProcessingCallbacks(),
   }) async {
+    _initializeService();
+    await _saveRequest(request);
+    final session = ProcessingForegroundSession(
+      callbacks: callbacks,
+      onSummaryStep: _updateSummaryNotification,
+    );
+    FlutterForegroundTask.addTaskDataCallback(session.onData);
+    try {
+      await _startService();
+      return await session.result;
+    } finally {
+      FlutterForegroundTask.removeTaskDataCallback(session.onData);
+      await FlutterForegroundTask.stopService();
+    }
+  }
+
+  void _initializeService() {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: _channelId,
@@ -141,74 +161,39 @@ class ProcessingForegroundService {
         allowAutoRestart: false,
       ),
     );
+  }
 
-    await FlutterForegroundTask.saveData(
+  Future<void> _saveRequest(ProcessingRequest request) {
+    return FlutterForegroundTask.saveData(
       key: _jobKey,
-      value: jsonEncode({
-        'audioPath': audioPath,
-        'source': source.id,
-        'settings': settings.toJson(),
-        'hfToken': settings.hfToken,
-        'asrApiKey': asrApiKey,
-        'summaryApiKey': summaryApiKey,
-        'knownDurationSec': knownDurationSec,
-      }),
+      value: jsonEncode(request.toJson()),
     );
+  }
 
-    final completer = Completer<TranscriptNote>();
-    void onData(Object data) {
-      if (data is! Map) return;
-      switch (data['type']) {
-        case 'step':
-          final name = data['step'] as String?;
-          if (name != null) onStep?.call(ProcessingStep.values.byName(name));
-          // Also reflect the stage in the notification.
-          if (name == ProcessingStep.summarizing.name) {
-            FlutterForegroundTask.updateService(notificationText: notificationTextSummary);
-          }
-        case 'modelProgress':
-          final value = data['value'];
-          if (value is num) onModelProgress?.call(value.toDouble());
-        case 'done':
-          if (completer.isCompleted) return;
-          completer.complete(
-            TranscriptNote.fromJson(
-              jsonDecode(data['note'] as String) as Map<String, dynamic>,
-            ),
-          );
-        case 'error':
-          if (completer.isCompleted) return;
-          completer.completeError(
-            ProcessingException(data['error']?.toString() ?? 'Processing failed'),
-          );
-      }
-    }
+  void _updateSummaryNotification() {
+    FlutterForegroundTask.updateService(
+      notificationText: notificationTextSummary,
+    );
+  }
 
-    FlutterForegroundTask.addTaskDataCallback(onData);
-    try {
-      if (await FlutterForegroundTask.isRunningService) {
-        await FlutterForegroundTask.stopService();
-      }
-      await FlutterForegroundTask.requestNotificationPermission();
-
-      final started = await FlutterForegroundTask.startService(
-        serviceId: _serviceId,
-        notificationTitle: notificationTitle,
-        notificationText: notificationText,
-        notificationIcon: const NotificationIcon(
-          metaDataName: 'com.transcriber.app.notification_icon',
-        ),
-        callback: processingForegroundCallback,
-      );
-      if (started is ServiceRequestFailure) {
-        throw ProcessingException(
-          'Could not start background service: ${started.error}',
-        );
-      }
-      return await completer.future;
-    } finally {
-      FlutterForegroundTask.removeTaskDataCallback(onData);
+  Future<void> _startService() async {
+    if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
+    }
+    await FlutterForegroundTask.requestNotificationPermission();
+    final started = await FlutterForegroundTask.startService(
+      serviceId: _serviceId,
+      notificationTitle: notificationTitle,
+      notificationText: notificationText,
+      notificationIcon: const NotificationIcon(
+        metaDataName: 'com.transcriber.app.notification_icon',
+      ),
+      callback: processingForegroundCallback,
+    );
+    if (started is ServiceRequestFailure) {
+      throw ProcessingException(
+        'Could not start background service: ${started.error}',
+      );
     }
   }
 }

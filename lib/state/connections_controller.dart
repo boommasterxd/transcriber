@@ -7,7 +7,8 @@ import 'providers.dart';
 /// connect / disconnect. Keys live in secure storage via [SettingsRepository].
 class ConnectionsController extends Notifier<Map<RemoteProviderId, bool>> {
   @override
-  Map<RemoteProviderId, bool> build() => Map.of(ref.watch(initialConnectionsProvider));
+  Map<RemoteProviderId, bool> build() =>
+      Map.of(ref.watch(initialConnectionsProvider));
 
   bool isConnected(RemoteProviderId provider) => state[provider] ?? false;
 
@@ -28,4 +29,6 @@ class ConnectionsController extends Notifier<Map<RemoteProviderId, bool>> {
 }
 
 final connectionsControllerProvider =
-    NotifierProvider<ConnectionsController, Map<RemoteProviderId, bool>>(ConnectionsController.new);
+    NotifierProvider<ConnectionsController, Map<RemoteProviderId, bool>>(
+      ConnectionsController.new,
+    );

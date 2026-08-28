@@ -29,14 +29,31 @@ class AudioConverter {
     // metadata chunk (and may carry a cover-art video stream from m4a/mp3),
     // which can make whisper's minimal reader find 0 samples → empty transcript.
     // -vn drops cover art, -map_metadata -1 + -bitexact strip all extra chunks.
-    final cmd = '-y -i "$input" -vn -map_metadata -1 -bitexact '
-        '-ar $_targetSampleRate -ac 1 -c:a pcm_s16le -f wav "$output"';
-    final session = await FFmpegKit.execute(cmd);
+    final session = await FFmpegKit.executeWithArguments([
+      '-y',
+      '-i',
+      input,
+      '-vn',
+      '-map_metadata',
+      '-1',
+      '-bitexact',
+      '-ar',
+      '$_targetSampleRate',
+      '-ac',
+      '1',
+      '-c:a',
+      'pcm_s16le',
+      '-f',
+      'wav',
+      output,
+    ]);
     final returnCode = await session.getReturnCode();
 
     if (!ReturnCode.isSuccess(returnCode)) {
       final logs = await session.getAllLogsAsString();
-      throw AudioProcessingException('Audio conversion failed: ${logs ?? returnCode}');
+      throw AudioProcessingException(
+        'Audio conversion failed: ${logs ?? returnCode}',
+      );
     }
 
     // A 16 kHz mono 16-bit WAV is 32 kB per second of audio; anything close to

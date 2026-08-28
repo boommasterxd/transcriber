@@ -17,6 +17,8 @@
 
 Use the Flutter version pinned in `.fvmrc` for reproducible local and CI behavior. `pubspec.lock` is committed and CI resolves it with `--enforce-lockfile`.
 
+Flutter 3.47.1 warns that `ffmpeg_kit_flutter_new` still applies the legacy Kotlin Gradle Plugin. The current Android build succeeds, but a future Flutter upgrade may require an upstream plugin release with Built-in Kotlin support. Verify that compatibility before changing the pinned Flutter SDK.
+
 ## Application Defaults
 
 `AppSettings.initial()` currently selects:

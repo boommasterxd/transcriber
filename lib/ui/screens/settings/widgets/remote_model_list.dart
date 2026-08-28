@@ -28,17 +28,26 @@ class RemoteModelList extends ConsumerWidget {
     final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final async = ref.watch(
-      remoteModelsProvider((provider: provider, forTranscription: forTranscription)),
+      remoteModelsProvider((
+        provider: provider,
+        forTranscription: forTranscription,
+      )),
     );
 
-    Widget card(Widget child) => SurfaceCard(padding: const EdgeInsets.all(20), child: Center(child: child));
+    Widget card(Widget child) => SurfaceCard(
+      padding: const EdgeInsets.all(20),
+      child: Center(child: child),
+    );
 
     return async.when(
       loading: () => card(
         SizedBox(
           width: 22,
           height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation(palette.accent)),
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            valueColor: AlwaysStoppedAnimation(palette.accent),
+          ),
         ),
       ),
       error: (e, _) => card(
@@ -50,7 +59,12 @@ class RemoteModelList extends ConsumerWidget {
       ),
       data: (models) {
         if (models.isEmpty) {
-          return card(Text(t.connectFirst, style: TextStyle(fontSize: 13.5, color: palette.muted)));
+          return card(
+            Text(
+              t.connectFirst,
+              style: TextStyle(fontSize: 13.5, color: palette.muted),
+            ),
+          );
         }
         return SurfaceCard(
           clip: true,
@@ -59,7 +73,9 @@ class RemoteModelList extends ConsumerWidget {
               for (final (i, m) in models.indexed)
                 ModelTile(
                   leading: Icon(
-                    forTranscription ? Icons.graphic_eq_rounded : Icons.auto_awesome_outlined,
+                    forTranscription
+                        ? Icons.graphic_eq_rounded
+                        : Icons.auto_awesome_outlined,
                     size: 18,
                     color: palette.accent,
                   ),

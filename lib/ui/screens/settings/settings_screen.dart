@@ -29,7 +29,8 @@ class SettingsScreen extends ConsumerWidget {
     final manager = ref.watch(modelManagerControllerProvider);
     final showBackend = ref.watch(
       settingsControllerProvider.select(
-        (s) => (s.summarizeEnabled && s.summaryMode.isLocal) || s.asrMode.isLocal,
+        (s) =>
+            (s.summarizeEnabled && s.summaryMode.isLocal) || s.asrMode.isLocal,
       ),
     );
 
@@ -45,11 +46,19 @@ class SettingsScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
               child: Row(
                 children: [
-                  IconCircleButton(icon: Icons.arrow_back_ios_new_rounded, onTap: () => Navigator.of(context).pop()),
+                  IconCircleButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     t.setTitle,
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: palette.ink),
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: palette.ink,
+                    ),
                   ),
                 ],
               ),
@@ -60,7 +69,10 @@ class SettingsScreen extends ConsumerWidget {
                   controller: controller,
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 36),
                   children: [
-                    SectionLabel(t.setAsr, padding: const EdgeInsets.fromLTRB(6, 12, 6, 9)),
+                    SectionLabel(
+                      t.setAsr,
+                      padding: const EdgeInsets.fromLTRB(6, 12, 6, 9),
+                    ),
                     const TranscriptionSection(),
                     SectionLabel(t.setLlm),
                     const SummarySection(),

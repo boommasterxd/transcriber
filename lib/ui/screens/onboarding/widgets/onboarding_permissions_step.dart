@@ -6,6 +6,7 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
+import 'onboarding_status_row.dart';
 
 /// True only when both the microphone and notification permissions are granted.
 /// The permissions step keeps this in sync so the wizard can block "continue"
@@ -19,7 +20,9 @@ class OnboardingPermissionsReady extends Notifier<bool> {
 }
 
 final onboardingPermissionsReadyProvider =
-    NotifierProvider<OnboardingPermissionsReady, bool>(OnboardingPermissionsReady.new);
+    NotifierProvider<OnboardingPermissionsReady, bool>(
+      OnboardingPermissionsReady.new,
+    );
 
 /// Onboarding step that explains, in plain language, why the app needs the
 /// microphone and notification permissions, and requests them inline. Handles
@@ -29,10 +32,12 @@ class OnboardingPermissionsStep extends ConsumerStatefulWidget {
   const OnboardingPermissionsStep({super.key});
 
   @override
-  ConsumerState<OnboardingPermissionsStep> createState() => _OnboardingPermissionsStepState();
+  ConsumerState<OnboardingPermissionsStep> createState() =>
+      _OnboardingPermissionsStepState();
 }
 
-class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermissionsStep>
+class _OnboardingPermissionsStepState
+    extends ConsumerState<OnboardingPermissionsStep>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   PermissionStatus? _mic;
   PermissionStatus? _notif;
@@ -96,7 +101,9 @@ class _OnboardingPermissionsStepState extends ConsumerState<OnboardingPermission
     var mic = _mic;
     var notif = _notif;
     if (!(mic?.isGranted ?? false)) mic = await Permission.microphone.request();
-    if (!(notif?.isGranted ?? false)) notif = await Permission.notification.request();
+    if (!(notif?.isGranted ?? false)) {
+      notif = await Permission.notification.request();
+    }
     if (!mounted) return;
     setState(() {
       _mic = mic;
@@ -178,7 +185,10 @@ class _Note extends StatelessWidget {
     final color = palette.coralInk;
     return Container(
       padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(color: palette.coralSoft, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: palette.coralSoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -187,7 +197,12 @@ class _Note extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -213,7 +228,11 @@ class _GrantedRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: palette.mint),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: palette.mint,
+            ),
           ),
         ],
       ),
@@ -239,33 +258,15 @@ class _PermCard extends StatelessWidget {
     final palette = context.palette;
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: palette.accentSoft2, borderRadius: BorderRadius.circular(11)),
-            child: Icon(icon, size: 18, color: palette.accent),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.ink)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 12.5, height: 1.4, color: palette.muted)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(
-            granted ? Icons.check_circle_rounded : Icons.circle_outlined,
-            size: 22,
-            color: granted ? palette.mint : palette.faint,
-          ),
-        ],
+      child: OnboardingStatusRow(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        trailing: Icon(
+          granted ? Icons.check_circle_rounded : Icons.circle_outlined,
+          size: 22,
+          color: granted ? palette.mint : palette.faint,
+        ),
       ),
     );
   }
