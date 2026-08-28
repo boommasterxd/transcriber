@@ -166,5 +166,5 @@ TranscriptNote _testNote() => TranscriptNote(
   gist: 'Tablet summary',
   points: const ['Tablet key point'],
   todos: [TodoItem(text: 'Tablet todo')],
-  transcript: const [TranscriptLine(time: '0:03', text: 'Tablet transcript')],
+  transcript: const [TranscriptLine(text: 'Tablet transcript')],
 );

@@ -195,9 +195,7 @@ class OpenAiClient implements RemoteProviderClient {
     final text = rawText.trim();
     return TranscriptionResult(
       text: text,
-      segments: text.isEmpty
-          ? const []
-          : [TranscriptLine(time: '0:00', text: text)],
+      segments: text.isEmpty ? const [] : [TranscriptLine(text: text)],
     );
   }
 

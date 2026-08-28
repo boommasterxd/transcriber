@@ -176,6 +176,6 @@ TranscriptNote _note(String id) => TranscriptNote(
   gist: 'Legacy gist',
   points: const ['Legacy point'],
   todos: [TodoItem(text: 'Legacy todo')],
-  transcript: const [TranscriptLine(time: '00:01', text: 'Legacy transcript')],
+  transcript: const [TranscriptLine(text: 'Legacy transcript')],
   audioPath: '/external/legacy.m4a',
 );

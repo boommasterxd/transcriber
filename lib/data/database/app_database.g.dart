@@ -2220,15 +2220,6 @@ class $TranscriptSegmentsTableTable extends TranscriptSegmentsTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _timeMeta = const VerificationMeta('time');
-  @override
-  late final GeneratedColumn<String> time = GeneratedColumn<String>(
-    'time',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
   static const VerificationMeta _contentMeta = const VerificationMeta(
     'content',
   );
@@ -2241,7 +2232,7 @@ class $TranscriptSegmentsTableTable extends TranscriptSegmentsTable
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [noteId, position, time, content];
+  List<GeneratedColumn> get $columns => [noteId, position, content];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2269,14 +2260,6 @@ class $TranscriptSegmentsTableTable extends TranscriptSegmentsTable
       );
     } else if (isInserting) {
       context.missing(_positionMeta);
-    }
-    if (data.containsKey('time')) {
-      context.handle(
-        _timeMeta,
-        time.isAcceptableOrUnknown(data['time']!, _timeMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_timeMeta);
     }
     if (data.containsKey('text')) {
       context.handle(
@@ -2306,10 +2289,6 @@ class $TranscriptSegmentsTableTable extends TranscriptSegmentsTable
         DriftSqlType.int,
         data['${effectivePrefix}position'],
       )!,
-      time: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}time'],
-      )!,
       content: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}text'],
@@ -2327,12 +2306,10 @@ class TranscriptSegmentsTableData extends DataClass
     implements Insertable<TranscriptSegmentsTableData> {
   final String noteId;
   final int position;
-  final String time;
   final String content;
   const TranscriptSegmentsTableData({
     required this.noteId,
     required this.position,
-    required this.time,
     required this.content,
   });
   @override
@@ -2340,7 +2317,6 @@ class TranscriptSegmentsTableData extends DataClass
     final map = <String, Expression>{};
     map['note_id'] = Variable<String>(noteId);
     map['position'] = Variable<int>(position);
-    map['time'] = Variable<String>(time);
     map['text'] = Variable<String>(content);
     return map;
   }
@@ -2349,7 +2325,6 @@ class TranscriptSegmentsTableData extends DataClass
     return TranscriptSegmentsTableCompanion(
       noteId: Value(noteId),
       position: Value(position),
-      time: Value(time),
       content: Value(content),
     );
   }
@@ -2362,7 +2337,6 @@ class TranscriptSegmentsTableData extends DataClass
     return TranscriptSegmentsTableData(
       noteId: serializer.fromJson<String>(json['noteId']),
       position: serializer.fromJson<int>(json['position']),
-      time: serializer.fromJson<String>(json['time']),
       content: serializer.fromJson<String>(json['content']),
     );
   }
@@ -2372,7 +2346,6 @@ class TranscriptSegmentsTableData extends DataClass
     return <String, dynamic>{
       'noteId': serializer.toJson<String>(noteId),
       'position': serializer.toJson<int>(position),
-      'time': serializer.toJson<String>(time),
       'content': serializer.toJson<String>(content),
     };
   }
@@ -2380,12 +2353,10 @@ class TranscriptSegmentsTableData extends DataClass
   TranscriptSegmentsTableData copyWith({
     String? noteId,
     int? position,
-    String? time,
     String? content,
   }) => TranscriptSegmentsTableData(
     noteId: noteId ?? this.noteId,
     position: position ?? this.position,
-    time: time ?? this.time,
     content: content ?? this.content,
   );
   TranscriptSegmentsTableData copyWithCompanion(
@@ -2394,7 +2365,6 @@ class TranscriptSegmentsTableData extends DataClass
     return TranscriptSegmentsTableData(
       noteId: data.noteId.present ? data.noteId.value : this.noteId,
       position: data.position.present ? data.position.value : this.position,
-      time: data.time.present ? data.time.value : this.time,
       content: data.content.present ? data.content.value : this.content,
     );
   }
@@ -2404,21 +2374,19 @@ class TranscriptSegmentsTableData extends DataClass
     return (StringBuffer('TranscriptSegmentsTableData(')
           ..write('noteId: $noteId, ')
           ..write('position: $position, ')
-          ..write('time: $time, ')
           ..write('content: $content')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(noteId, position, time, content);
+  int get hashCode => Object.hash(noteId, position, content);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is TranscriptSegmentsTableData &&
           other.noteId == this.noteId &&
           other.position == this.position &&
-          other.time == this.time &&
           other.content == this.content);
 }
 
@@ -2426,37 +2394,31 @@ class TranscriptSegmentsTableCompanion
     extends UpdateCompanion<TranscriptSegmentsTableData> {
   final Value<String> noteId;
   final Value<int> position;
-  final Value<String> time;
   final Value<String> content;
   final Value<int> rowid;
   const TranscriptSegmentsTableCompanion({
     this.noteId = const Value.absent(),
     this.position = const Value.absent(),
-    this.time = const Value.absent(),
     this.content = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TranscriptSegmentsTableCompanion.insert({
     required String noteId,
     required int position,
-    required String time,
     required String content,
     this.rowid = const Value.absent(),
   }) : noteId = Value(noteId),
        position = Value(position),
-       time = Value(time),
        content = Value(content);
   static Insertable<TranscriptSegmentsTableData> custom({
     Expression<String>? noteId,
     Expression<int>? position,
-    Expression<String>? time,
     Expression<String>? content,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (noteId != null) 'note_id': noteId,
       if (position != null) 'position': position,
-      if (time != null) 'time': time,
       if (content != null) 'text': content,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2465,14 +2427,12 @@ class TranscriptSegmentsTableCompanion
   TranscriptSegmentsTableCompanion copyWith({
     Value<String>? noteId,
     Value<int>? position,
-    Value<String>? time,
     Value<String>? content,
     Value<int>? rowid,
   }) {
     return TranscriptSegmentsTableCompanion(
       noteId: noteId ?? this.noteId,
       position: position ?? this.position,
-      time: time ?? this.time,
       content: content ?? this.content,
       rowid: rowid ?? this.rowid,
     );
@@ -2486,9 +2446,6 @@ class TranscriptSegmentsTableCompanion
     }
     if (position.present) {
       map['position'] = Variable<int>(position.value);
-    }
-    if (time.present) {
-      map['time'] = Variable<String>(time.value);
     }
     if (content.present) {
       map['text'] = Variable<String>(content.value);
@@ -2504,7 +2461,6 @@ class TranscriptSegmentsTableCompanion
     return (StringBuffer('TranscriptSegmentsTableCompanion(')
           ..write('noteId: $noteId, ')
           ..write('position: $position, ')
-          ..write('time: $time, ')
           ..write('content: $content, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4454,7 +4410,6 @@ typedef $$TranscriptSegmentsTableTableCreateCompanionBuilder =
     TranscriptSegmentsTableCompanion Function({
       required String noteId,
       required int position,
-      required String time,
       required String content,
       Value<int> rowid,
     });
@@ -4462,7 +4417,6 @@ typedef $$TranscriptSegmentsTableTableUpdateCompanionBuilder =
     TranscriptSegmentsTableCompanion Function({
       Value<String> noteId,
       Value<int> position,
-      Value<String> time,
       Value<String> content,
       Value<int> rowid,
     });
@@ -4512,11 +4466,6 @@ class $$TranscriptSegmentsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get time => $composableBuilder(
-    column: $table.time,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
     builder: (column) => ColumnFilters(column),
@@ -4560,11 +4509,6 @@ class $$TranscriptSegmentsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get time => $composableBuilder(
-    column: $table.time,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get content => $composableBuilder(
     column: $table.content,
     builder: (column) => ColumnOrderings(column),
@@ -4605,9 +4549,6 @@ class $$TranscriptSegmentsTableTableAnnotationComposer
   });
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
-
-  GeneratedColumn<String> get time =>
-      $composableBuilder(column: $table.time, builder: (column) => column);
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
@@ -4680,13 +4621,11 @@ class $$TranscriptSegmentsTableTableTableManager
               ({
                 Value<String> noteId = const Value.absent(),
                 Value<int> position = const Value.absent(),
-                Value<String> time = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TranscriptSegmentsTableCompanion(
                 noteId: noteId,
                 position: position,
-                time: time,
                 content: content,
                 rowid: rowid,
               ),
@@ -4694,13 +4633,11 @@ class $$TranscriptSegmentsTableTableTableManager
               ({
                 required String noteId,
                 required int position,
-                required String time,
                 required String content,
                 Value<int> rowid = const Value.absent(),
               }) => TranscriptSegmentsTableCompanion.insert(
                 noteId: noteId,
                 position: position,
-                time: time,
                 content: content,
                 rowid: rowid,
               ),

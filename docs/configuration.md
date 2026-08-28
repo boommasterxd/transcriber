@@ -17,7 +17,7 @@ The provider model catalog is loaded after a stored key has been verified. The c
 
 OpenAI's model catalog exposes identifiers but no modality metadata. The application therefore recognizes the officially documented transcription and audio model families returned for the user's key. Dedicated transcription models use the Audio Transcriptions API. General audio models use Chat Completions with inline WAV or MP3 audio, which is limited to 20 MiB to bound Base64 memory overhead.
 
-Gemini's catalog is loaded across all pages. Dedicated Transcribe models use transcription configuration through the Files and Interactions APIs. General Gemini models that support `generateContent` use the same uploaded audio plus a text transcription instruction. Image, TTS, embedding, live, and other incompatible specialized families are excluded from the transcription selector.
+Gemini's catalog is loaded across all pages. Dedicated Transcribe models use `smart` transcription mode through the Files and Interactions APIs. This produces readable text without requesting timestamps or speaker diarization. General Gemini models that support `generateContent` use the same uploaded audio plus a text transcription instruction. Image, TTS, embedding, live, and other incompatible specialized families are excluded from the transcription selector.
 
 ## Personal API Keys
 
@@ -36,6 +36,8 @@ Provider marks are bundled locally and are never loaded from a remote host at ru
 Drift with SQLite is the active persistence layer. SharedPreferences is retained only to import the legacy `app_settings` and `notes` payloads once. The `shared_preferences_v1` migration marker prevents repeated imports.
 
 The database file contains transcript content and may contain personal information. API keys are explicitly excluded.
+
+Transcript segments preserve text and ordering only. Provider timestamps are neither requested nor persisted, and legacy timestamp values are discarded during database migration without changing the transcript text.
 
 ## Audio Formats and Limits
 

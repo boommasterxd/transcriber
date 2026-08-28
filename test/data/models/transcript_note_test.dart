@@ -36,19 +36,22 @@ void _testNoteSource() {
 
 void _testTranscriptLine() {
   group('TranscriptLine', () {
-    test('round-trips time and text', () {
-      const line = TranscriptLine(time: '01:02', text: 'A transcript line.');
+    test('round-trips text', () {
+      const line = TranscriptLine(text: 'A transcript line.');
 
-      expect(TranscriptLine.fromJson(line.toJson()).time, line.time);
       expect(TranscriptLine.fromJson(line.toJson()).text, line.text);
     });
 
-    test('defaults missing values to empty strings', () {
+    test('defaults missing text and ignores legacy timestamps', () {
       final line = TranscriptLine.fromJson(const {});
+      final legacyLine = TranscriptLine.fromJson(const {
+        'time': '01:02',
+        'text': 'Legacy line',
+      });
 
-      expect(line.time, isEmpty);
       expect(line.text, isEmpty);
-      expect(line.toJson(), {'time': '', 'text': ''});
+      expect(line.toJson(), {'text': ''});
+      expect(legacyLine.toJson(), {'text': 'Legacy line'});
     });
   });
 }
@@ -94,15 +97,15 @@ void _testDerivedValues() {
       expect(_note(llmName: '').modelShort, 'GPT Transcribe · ');
     });
 
-    test('formats timestamped transcript lines in their original order', () {
+    test('formats transcript lines in their original order', () {
       final note = _note(
         transcript: const [
-          TranscriptLine(time: '00:00', text: 'First'),
-          TranscriptLine(time: '00:05', text: 'Second'),
+          TranscriptLine(text: 'First'),
+          TranscriptLine(text: 'Second'),
         ],
       );
 
-      expect(note.fullTranscriptText, '[00:00] First\n[00:05] Second');
+      expect(note.fullTranscriptText, 'First\nSecond');
       expect(_note(transcript: const []).fullTranscriptText, isEmpty);
     });
   });
@@ -139,7 +142,7 @@ void _testJsonRoundTripAndDefaults() {
         localStages: (asr: false, summary: false),
         audioOwnership: AudioOwnership.retained,
         todos: [TodoItem(text: 'Follow up', done: true)],
-        transcript: const [TranscriptLine(time: '00:01', text: 'Hello')],
+        transcript: const [TranscriptLine(text: 'Hello')],
       );
 
       final json = original.toJson();
@@ -274,8 +277,7 @@ TranscriptNote _note({
   gist: 'Summary',
   points: const ['Point one', 'Point two'],
   todos: todos ?? [TodoItem(text: 'Default todo')],
-  transcript:
-      transcript ?? const [TranscriptLine(time: '00:00', text: 'Default')],
+  transcript: transcript ?? const [TranscriptLine(text: 'Default')],
   audioPath: '/audio/note.m4a',
   audioOwnership: audioOwnership,
 );
