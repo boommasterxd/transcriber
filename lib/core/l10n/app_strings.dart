@@ -182,6 +182,48 @@ class AppStrings {
   String get minutesAgoTemplate => _string(_StringKey.minutesAgoTemplate);
   String get hoursAgoTemplate => _string(_StringKey.hoursAgoTemplate);
   String get dateMonthDayTemplate => _string(_StringKey.dateMonthDayTemplate);
+  String get keyboardSection => _string(_StringKey.keyboardSection);
+  String get keyboardTitle => _string(_StringKey.keyboardTitle);
+  String get keyboardDescription => _string(_StringKey.keyboardDescription);
+  String get keyboardEnabled => _string(_StringKey.keyboardEnabled);
+  String get keyboardDisabled => _string(_StringKey.keyboardDisabled);
+  String get keyboardSelected => _string(_StringKey.keyboardSelected);
+  String get keyboardOpenSettings => _string(_StringKey.keyboardOpenSettings);
+  String get keyboardChoose => _string(_StringKey.keyboardChoose);
+  String get keyboardPrivacy => _string(_StringKey.keyboardPrivacy);
+  String get keyboardReady => _string(_StringKey.keyboardReady);
+  String get keyboardConnect => _string(_StringKey.keyboardConnect);
+  String get keyboardRecording => _string(_StringKey.keyboardRecording);
+  String get keyboardCorrecting => _string(_StringKey.keyboardCorrecting);
+  String get keyboardReconnect => _string(_StringKey.keyboardReconnect);
+  String get keyboardStopping => _string(_StringKey.keyboardStopping);
+  String get keyboardSensitiveField =>
+      _string(_StringKey.keyboardSensitiveField);
+  String get keyboardMicMissing => _string(_StringKey.keyboardMicMissing);
+  String get keyboardKeyMissing => _string(_StringKey.keyboardKeyMissing);
+  String get keyboardConnectionError =>
+      _string(_StringKey.keyboardConnectionError);
+  String get keyboardRetry => _string(_StringKey.keyboardRetry);
+  String get keyboardCancel => _string(_StringKey.keyboardCancel);
+  String get keyboardStop => _string(_StringKey.keyboardStop);
+  String get keyboardSwitchBack => _string(_StringKey.keyboardSwitchBack);
+  String get keyboardLivePreview => _string(_StringKey.keyboardLivePreview);
+  String get keyboardSetup => _string(_StringKey.keyboardSetup);
+  String get keyboardSetupTitle => _string(_StringKey.keyboardSetupTitle);
+  String get keyboardSetupSubtitle => _string(_StringKey.keyboardSetupSubtitle);
+  String get keyboardSetupProviderTitle =>
+      _string(_StringKey.keyboardSetupProviderTitle);
+  String get keyboardSetupProviderBody =>
+      _string(_StringKey.keyboardSetupProviderBody);
+  String get keyboardSetupEnableTitle =>
+      _string(_StringKey.keyboardSetupEnableTitle);
+  String get keyboardSetupEnableBody =>
+      _string(_StringKey.keyboardSetupEnableBody);
+  String get keyboardSetupChooseTitle =>
+      _string(_StringKey.keyboardSetupChooseTitle);
+  String get keyboardSetupChooseBody =>
+      _string(_StringKey.keyboardSetupChooseBody);
+  String get keyboardSetupDone => _string(_StringKey.keyboardSetupDone);
 
   List<String> get weekdaysShort =>
       _values[_StringKey.weekdaysShort]! as List<String>;

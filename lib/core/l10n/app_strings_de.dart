@@ -175,4 +175,48 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.hoursAgoTemplate: 'vor {n} Std',
   _StringKey.weekdaysShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
   _StringKey.dateMonthDayTemplate: '{d}.{m}.',
+  _StringKey.keyboardSection: 'Transcriber-Tastatur',
+  _StringKey.keyboardTitle: 'Überall live diktieren',
+  _StringKey.keyboardDescription:
+      'Aktiviere Transcriber als Tastatur und füge Sprache direkt in das aktuelle Textfeld ein.',
+  _StringKey.keyboardEnabled: 'Aktiviert',
+  _StringKey.keyboardDisabled: 'Nicht aktiviert',
+  _StringKey.keyboardSelected: 'Aktuell ausgewählt',
+  _StringKey.keyboardOpenSettings: 'Aktivieren',
+  _StringKey.keyboardChoose: 'Tastatur auswählen',
+  _StringKey.keyboardPrivacy:
+      'Live-Audio wird an den gewählten Cloud-Anbieter übertragen und nicht gespeichert. Es können nutzungsabhängige Kosten entstehen.',
+  _StringKey.keyboardReady: 'Bereit für Live-Diktat',
+  _StringKey.keyboardConnect: 'Verbindung wird hergestellt…',
+  _StringKey.keyboardRecording: 'Live-Diktat läuft',
+  _StringKey.keyboardCorrecting: 'Text wird live korrigiert',
+  _StringKey.keyboardReconnect: 'Verbindung wird wiederhergestellt…',
+  _StringKey.keyboardStopping: 'Letzter Abschnitt wird abgeschlossen…',
+  _StringKey.keyboardSensitiveField:
+      'In diesem geschützten Textfeld ist Diktieren deaktiviert.',
+  _StringKey.keyboardMicMissing:
+      'Erlaube den Mikrofonzugriff in den App-Einstellungen.',
+  _StringKey.keyboardKeyMissing:
+      'Für diesen Anbieter fehlt ein gültiger API-Schlüssel.',
+  _StringKey.keyboardConnectionError:
+      'Die Live-Verbindung wurde beendet. Prüfe Netzwerk, Schlüssel und Abrechnung.',
+  _StringKey.keyboardRetry: 'Erneut verbinden',
+  _StringKey.keyboardCancel: 'Abbrechen',
+  _StringKey.keyboardStop: 'Stoppen',
+  _StringKey.keyboardSwitchBack: 'Vorherige Tastatur',
+  _StringKey.keyboardLivePreview: 'Live-Vorschau',
+  _StringKey.keyboardSetup: 'Einrichtung starten',
+  _StringKey.keyboardSetupTitle: 'Transcriber-Tastatur einrichten',
+  _StringKey.keyboardSetupSubtitle:
+      'Drei kurze Schritte, danach kannst du in fast jedem Textfeld live diktieren.',
+  _StringKey.keyboardSetupProviderTitle: 'Live-Anbieter prüfen',
+  _StringKey.keyboardSetupProviderBody:
+      'Transcriber verwendet deinen gewählten Anbieter, API-Schlüssel und deine Spracheinstellung.',
+  _StringKey.keyboardSetupEnableTitle: 'In Android aktivieren',
+  _StringKey.keyboardSetupEnableBody:
+      'Aktiviere „Transcriber“ einmalig in den Android-Tastatureinstellungen.',
+  _StringKey.keyboardSetupChooseTitle: 'Als Tastatur auswählen',
+  _StringKey.keyboardSetupChooseBody:
+      'Öffne die Tastaturauswahl und tippe auf „Transcriber“. Du kannst jederzeit zurückwechseln.',
+  _StringKey.keyboardSetupDone: 'Einrichtung abschließen',
 };

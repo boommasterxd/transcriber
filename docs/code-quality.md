@@ -64,7 +64,11 @@ Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and format
 
 ```bash
 bash tool/quality/check_kotlin_quality.sh
+JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
+  :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
 ```
+
+Run `:app:connectedDebugAndroidTest` separately on an attached Android device or emulator. CI compiles the maintained instrumented test sources, while device-specific input-method behavior remains part of release verification.
 
 Generate and enforce test coverage:
 
@@ -100,7 +104,7 @@ test -d build/flutter_assets
 - `Analyze and test` checks the lockfile, formatting, analysis, tests, and coverage.
 - `Size and complexity` enforces all source-size and complexity limits.
 - `Dead code` checks unused declarations and files.
-- `Kotlin quality` enforces the same function, complexity, parameter, nesting, formatting, and unused-private-code boundaries for maintained Kotlin.
+- `Kotlin quality and tests` enforces the same function, complexity, parameter, nesting, formatting, and unused-private-code boundaries for maintained Kotlin, runs JVM unit tests, and compiles instrumented Android tests.
 - `Duplication` rejects every Dart clone of at least 50 tokens.
 - `Build bundle` proves that Flutter can assemble the application asset bundle.
 

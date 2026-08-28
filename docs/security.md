@@ -10,11 +10,13 @@
 
 ## Trust Boundaries
 
-External URIs, filenames, audio bytes, provider responses, legacy JSON, and model output are untrusted. OpenAI and Google are external processors. Selecting different providers for transcription and summary creates two distinct data transfers: audio goes to the transcription provider, while transcript text goes to the summary provider.
+External URIs, filenames, audio bytes, provider responses, legacy JSON, editor metadata, and model output are untrusted. OpenAI and Google are external processors. Selecting different providers for transcription and summary creates two distinct data transfers: audio goes to the transcription provider, while transcript text goes to the summary provider. Live keyboard dictation adds an Android editor boundary and sends microphone PCM to the selected live transcription provider while recording is active.
 
 ## Credentials
 
 Keys are stored only in `FlutterSecureStorage`. They are sent in HTTPS request headers, never query parameters. Drift and SharedPreferences do not store active keys. Validation happens before persistence, replacement preserves the previous key on failure, and UI errors never interpolate provider keys.
+
+Live WebSocket handshakes authenticate through headers. The Dart controller releases the key-bearing configuration when a session ends. Keys are not placed in WebSocket URLs, events, logs, or editor content.
 
 Provider response bodies are bounded and error messages are normalized, whitespace-limited, truncated, and redacted. The application does not log request headers, credentials, transcript bodies, or raw provider responses.
 
@@ -44,7 +46,11 @@ The application does not pin TLS certificates. It relies on Android's platform t
 
 ## Android
 
-The main activity is exported for the launcher and audio `VIEW` intents. Incoming paths are copied into validated app-owned storage before processing. The translucent share activity is exported only for audio share intents, validates schemes and MIME type, sanitizes names, bounds copies, and stores data in application cache. The application requests microphone access only for recording. Local-model download, media-read, notification, and foreground-service permissions and components have been removed.
+The main activity is exported for the launcher and audio `VIEW` intents. Incoming paths are copied into validated app-owned storage before processing. The translucent share activity is exported only for audio share intents, validates schemes and MIME type, sanitizes names, bounds copies, and stores data in application cache.
+
+The exported input-method service is protected by Android's `BIND_INPUT_METHOD` permission, so ordinary applications cannot bind to it. It records only while its keyboard window is visible and a current supported editor is active. Password variations, numeric PINs, non-text editors, and editors that prohibit personalized learning are rejected before recording. Every editor transition invalidates the previous session; late audio, provider events, and text mutations are discarded. Partial text uses composing spans and finalized text uses `commitText`. The service never requests surrounding editor text.
+
+Keyboard audio remains in memory and is never written to application storage. Stopping, cancelling, hiding the keyboard, changing editor, losing the active session, or destroying the service stops `AudioRecord`, clears composing text, closes the WebSocket, and clears queued audio. No foreground service is used because background dictation is intentionally prohibited.
 
 ## Residual Risks
 
@@ -52,6 +58,8 @@ The main activity is exported for the launcher and audio `VIEW` intents. Incomin
 - transcription and summary output may be inaccurate or maliciously structured;
 - a rooted or otherwise compromised device can bypass application storage protections;
 - device-level secure-storage and share-intent verification cannot be fully represented by unit tests;
+- third-party editor implementations can vary in their `InputConnection` and composing-text behavior, so release testing must cover supported Samsung and Pixel applications;
+- direct mobile BYOK exposes provider credentials to the application process during an active request even though storage and transport avoid plaintext URLs;
 - active cloud processing is not guaranteed to survive Android process suspension or termination because no foreground service is retained;
 - deleting a Gemini Files resource is best-effort if the cleanup request itself cannot reach Google.
 
