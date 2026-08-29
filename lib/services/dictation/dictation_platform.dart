@@ -61,7 +61,7 @@ abstract interface class DictationPlatform {
   Future<void> startRecording(String sessionId, int sampleRate);
   Future<void> pauseRecording(String sessionId);
   Future<void> resumeRecording(String sessionId);
-  Future<void> stopRecording();
+  Future<bool> stopRecording(String sessionId);
   Future<bool> setComposingText(String sessionId, String text);
   Future<bool> commitText(String sessionId, String text);
   Future<bool> clearComposingText(String sessionId);
@@ -106,7 +106,11 @@ final class MethodChannelDictationPlatform implements DictationPlatform {
       methods.invokeMethod<void>('resumeRecording', {'sessionId': sessionId});
 
   @override
-  Future<void> stopRecording() => methods.invokeMethod<void>('stopRecording');
+  Future<bool> stopRecording(String sessionId) async =>
+      await methods.invokeMethod<bool>('stopRecording', {
+        'sessionId': sessionId,
+      }) ??
+      false;
 
   @override
   Future<bool> setComposingText(String sessionId, String text) =>

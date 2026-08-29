@@ -84,8 +84,9 @@ class PcmAudioRecorder(
     }
 
     private fun createAndStart(sampleRate: Int, minimum: Int, captureGeneration: Int): Boolean {
+        var audioRecord: AudioRecord? = null
         return try {
-            val audioRecord = AudioRecord(
+            audioRecord = AudioRecord(
                 MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 sampleRate,
                 AudioFormat.CHANNEL_IN_MONO,
@@ -97,18 +98,22 @@ class PcmAudioRecorder(
                 running.set(false)
                 false
             } else {
-                recorder = audioRecord
                 audioRecord.startRecording()
+                recorder = audioRecord
                 worker = Thread(
                     { readLoop(audioRecord, sampleRate, captureGeneration) },
                     workerName,
                 ).also { it.start() }
                 true
             }
-        } catch (_: SecurityException) {
-            running.set(false)
-            false
-        } catch (_: IllegalArgumentException) {
+        } catch (_: RuntimeException) {
+            try {
+                audioRecord?.stop()
+            } catch (_: IllegalStateException) {
+                // Capture may have failed before Android entered recording state.
+            }
+            audioRecord?.release()
+            if (recorder === audioRecord) recorder = null
             running.set(false)
             false
         }
@@ -116,16 +121,37 @@ class PcmAudioRecorder(
 
     private fun readLoop(audioRecord: AudioRecord, sampleRate: Int, captureGeneration: Int) {
         val buffer = ByteArray(sampleRate / chunksPerSecond * bytesPerSample)
-        while (running.get() && generation.get() == captureGeneration) {
-            val count = audioRecord.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
-            if (count > 0 && running.get() && generation.get() == captureGeneration) {
-                val chunk = buffer.copyOf(count)
-                onChunk(chunk, PcmLevelMeter.normalizedLevel(chunk))
-            } else if (count < 0 && running.get() && generation.get() == captureGeneration) {
-                onFailure("audio_read_failed")
-                running.set(false)
+        try {
+            while (running.get() && generation.get() == captureGeneration) {
+                val count = audioRecord.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
+                if (count > 0 && running.get() && generation.get() == captureGeneration) {
+                    val chunk = buffer.copyOf(count)
+                    onChunk(chunk, PcmLevelMeter.normalizedLevel(chunk))
+                } else if (count < 0 && running.get() && generation.get() == captureGeneration) {
+                    onFailure("audio_read_failed")
+                    break
+                }
             }
+        } catch (_: IllegalStateException) {
+            if (running.get() && generation.get() == captureGeneration) {
+                onFailure("audio_read_failed")
+            }
+        } finally {
+            releaseCompletedCapture(audioRecord, captureGeneration)
         }
+    }
+
+    private fun releaseCompletedCapture(audioRecord: AudioRecord, captureGeneration: Int) {
+        if (!generation.compareAndSet(captureGeneration, captureGeneration + 1)) return
+        running.set(false)
+        try {
+            audioRecord.stop()
+        } catch (_: IllegalStateException) {
+            // Android may already have stopped capture after an audio error.
+        }
+        audioRecord.release()
+        if (recorder === audioRecord) recorder = null
+        if (worker === Thread.currentThread()) worker = null
     }
 
     private companion object {

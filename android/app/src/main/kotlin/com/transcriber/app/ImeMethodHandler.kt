@@ -27,7 +27,7 @@ class ImeMethodHandler(
             "startRecording" -> startRecording(call, result)
             "pauseRecording" -> changeRecording(call, result, recorder::pause)
             "resumeRecording" -> changeRecording(call, result, recorder::resume)
-            "stopRecording" -> stopRecording(result)
+            "stopRecording" -> stopRecording(call, result)
             "setComposingText" -> editText(call, result, composing = true)
             "commitText" -> editText(call, result, composing = false)
             "clearComposingText" -> clearComposingText(call, result)
@@ -50,9 +50,10 @@ class ImeMethodHandler(
         }
     }
 
-    private fun stopRecording(result: MethodChannel.Result) {
-        recorder.stop()
-        result.success(true)
+    private fun stopRecording(call: MethodCall, result: MethodChannel.Result) {
+        val current = editor.accepts(call.argument("sessionId"))
+        if (current) recorder.stop()
+        result.success(current)
     }
 
     private fun changeRecording(

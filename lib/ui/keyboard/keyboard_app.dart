@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_strings.dart';
@@ -38,7 +40,7 @@ class _KeyboardAppState extends State<KeyboardApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _controller.initialize();
+    unawaited(_initializeController());
   }
 
   @override
@@ -47,8 +49,20 @@ class _KeyboardAppState extends State<KeyboardApp> with WidgetsBindingObserver {
   }
 
   Future<void> _reloadSettings() async {
-    final settings = await widget.settingsRepository.load();
-    if (mounted) setState(() => _settings = settings);
+    try {
+      final settings = await widget.settingsRepository.load();
+      if (mounted) setState(() => _settings = settings);
+    } catch (_) {
+      // Preserve the last usable keyboard theme and language on storage errors.
+    }
+  }
+
+  Future<void> _initializeController() async {
+    try {
+      await _controller.initialize();
+    } catch (_) {
+      // The Flutter surface must remain mounted while Android restores the IME.
+    }
   }
 
   @override

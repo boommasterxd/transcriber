@@ -36,6 +36,42 @@ void _registerSessionLifecycleTests() {
   });
 
   test(
+    'restores the newest editor after slow hidden-session cleanup',
+    () async {
+      await controller.start();
+      final closeGate = Completer<void>();
+      clients.single.closeGate = closeGate;
+
+      platform.changeEditor(
+        const KeyboardEditorState(
+          sessionId: 'hidden-editor',
+          visible: false,
+          supported: false,
+          microphoneGranted: true,
+        ),
+      );
+      await pumpEventQueue();
+      platform.changeEditor(
+        const KeyboardEditorState(
+          sessionId: 'restored-editor',
+          visible: true,
+          supported: true,
+          microphoneGranted: true,
+        ),
+      );
+      await pumpEventQueue();
+
+      closeGate.complete();
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.phase, DictationPhase.ready);
+      expect(controller.state.visible, isTrue);
+      expect(controller.state.editorSupported, isTrue);
+      expect(clients.single.closed, isTrue);
+    },
+  );
+
+  test(
     'discard waits for an in-flight composition before clearing it',
     () async {
       final compositionGate = Completer<bool>();

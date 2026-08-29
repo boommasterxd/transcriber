@@ -60,7 +60,7 @@ void _registerImeMethodTests() {
     expect(await platform.commitText('session', 'final'), isTrue);
     expect(await platform.clearComposingText('session'), isTrue);
     expect(await platform.deleteBackward('session'), 1);
-    await platform.stopRecording();
+    expect(await platform.stopRecording('session'), isFalse);
     expect(await platform.switchToPreviousInputMethod(), isFalse);
 
     expect(editor.sessionId, 'session');
@@ -74,6 +74,8 @@ void _registerImeMethodTests() {
     expect(calls[5].arguments, {'sessionId': 'session', 'text': 'final'});
     expect(calls[7].method, 'deleteBackward');
     expect(calls[7].arguments, {'sessionId': 'session'});
+    expect(calls[8].method, 'stopRecording');
+    expect(calls[8].arguments, {'sessionId': 'session'});
   });
 }
 

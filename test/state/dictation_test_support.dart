@@ -47,7 +47,10 @@ final class FakeDictationPlatform implements DictationPlatform {
   Future<void> resumeRecording(String sessionId) async => resumeCount++;
 
   @override
-  Future<void> stopRecording() async => stopCount++;
+  Future<bool> stopRecording(String sessionId) async {
+    stopCount++;
+    return currentEditor.sessionId == sessionId;
+  }
 
   @override
   Future<bool> setComposingText(String sessionId, String text) async {

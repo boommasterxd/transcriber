@@ -25,6 +25,7 @@ class ImeEventPublisher(
                 override fun onCancel(arguments: Any?) {
                     sink = null
                     recorder.stop()
+                    editor.invalidate()
                 }
             },
         )

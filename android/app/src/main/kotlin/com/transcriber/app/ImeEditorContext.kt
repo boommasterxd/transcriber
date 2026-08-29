@@ -23,16 +23,21 @@ class ImeEditorContext(
 
     fun invalidate() {
         service.currentInputConnection?.finishComposingText()
+        visible = false
         gate.invalidate()
     }
 
     fun accepts(candidate: String?): Boolean =
         visible && gate.accepts(candidate) && EditorFieldPolicy.isSupported(service.currentInputEditorInfo)
 
-    fun state(microphoneGranted: Boolean): Map<String, Any> = mapOf(
-        "sessionId" to gate.sessionId,
-        "visible" to visible,
-        "supported" to (visible && EditorFieldPolicy.isSupported(service.currentInputEditorInfo)),
-        "microphoneGranted" to microphoneGranted,
-    )
+    fun state(microphoneGranted: Boolean): Map<String, Any> {
+        val supported = gate.accepts(gate.sessionId) &&
+            EditorFieldPolicy.isSupported(service.currentInputEditorInfo)
+        return mapOf(
+            "sessionId" to gate.sessionId,
+            "visible" to visible,
+            "supported" to supported,
+            "microphoneGranted" to microphoneGranted,
+        )
+    }
 }

@@ -65,6 +65,7 @@ class ImeSessionCoordinator(
 
     fun startInput(attribute: EditorInfo?) {
         recorder.stop()
+        editor.setVisible(false)
         editor.start(attribute)
         events.emitEditorState(recorder)
     }
@@ -87,11 +88,17 @@ class ImeSessionCoordinator(
         events.emitEditorState(recorder)
     }
 
+    fun unbindInput() {
+        recorder.stop()
+        editor.invalidate()
+        events.emitEditorState(recorder)
+    }
+
     fun destroy() {
         recorder.stop()
         editor.invalidate()
-        flutterView.detachFromFlutterEngine()
         engine.lifecycleChannel.appIsDetached()
+        flutterView.detachFromFlutterEngine()
         engine.destroy()
     }
 

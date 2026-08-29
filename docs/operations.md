@@ -61,6 +61,7 @@ Use non-production speech without personal information. Verify the complete matr
 - block network access before starting and confirm the keyboard leaves the connecting state with a timeout message within the bounded connection deadline;
 - stop while a partial segment exists and verify the last segment is finalized;
 - change fields, switch applications, hide or replace the keyboard, and confirm recording stops immediately;
+- press Home, lock and unlock the display, and immediately reopen the previous editor, confirming the keyboard returns ready instead of showing a stale unavailable surface;
 - interrupt and restore the network, then confirm bounded reconnect behavior and no duplicated text;
 - terminate the app and keyboard process, then verify that microphone and socket resources are released;
 - confirm password fields, PIN fields, and other sensitive editors cannot start dictation;

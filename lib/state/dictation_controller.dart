@@ -52,6 +52,7 @@ final class DictationController extends ChangeNotifier {
   DateTime? _startedAt;
   Duration _elapsedBeforeSegment = Duration.zero;
   Future<void> _editorWrites = Future.value();
+  Future<void> _editorTransitions = Future.value();
   String _finalized = '';
   String _partial = '';
   int _connectionGeneration = 0;
@@ -129,7 +130,7 @@ final class DictationController extends ChangeNotifier {
     if (!_state.isActive) return;
     final sessionId = _editor?.sessionId;
     _setState(_state.copyWith(phase: DictationPhase.stopping));
-    await _platform.stopRecording();
+    if (sessionId != null) await _platform.stopRecording(sessionId);
     _stopTimer();
     try {
       await _client?.finish();
@@ -176,15 +177,7 @@ final class DictationController extends ChangeNotifier {
   }
 
   Future<void> cancel() async {
-    final sessionId = _editor?.sessionId;
-    _textGeneration++;
-    await _platform.stopRecording();
-    _stopTimer();
-    await _closeClient();
-    await _editorWrites;
-    if (sessionId != null) await _platform.clearComposingText(sessionId);
-    _finalized = '';
-    _partial = '';
+    await _discardSession();
     _setReadyState();
   }
 
@@ -202,12 +195,18 @@ final class DictationController extends ChangeNotifier {
   void _handlePlatformEvent(DictationPlatformEvent event) {
     switch (event) {
       case DictationEditorChanged(:final editor):
-        unawaited(_applyEditor(editor));
+        _queueEditorTransition(editor);
       case DictationAudioChunk(:final sessionId, :final pcm, :final level):
         if (_isCurrent(sessionId)) _handleAudio(pcm, level);
       case DictationPlatformFailure(:final sessionId, :final code):
         if (_isCurrent(sessionId)) unawaited(_abortWithError(code));
     }
+  }
+
+  void _queueEditorTransition(KeyboardEditorState editor) {
+    final transition = _editorTransitions.then((_) => _applyEditor(editor));
+    _editorTransitions = transition.onError((_, _) {});
+    unawaited(_editorTransitions);
   }
 
   void _handleAudio(Uint8List pcm, double level) {
@@ -226,6 +225,7 @@ final class DictationController extends ChangeNotifier {
   }
 
   Future<void> _applyEditor(KeyboardEditorState editor) async {
+    if (_disposed) return;
     final changed = _editor?.sessionId != editor.sessionId;
     final available = editor.visible && editor.supported;
     if (_state.isActive && (changed || !available)) await cancel();
@@ -253,12 +253,16 @@ final class DictationController extends ChangeNotifier {
 
   Future<void> _abortWithError(String code) async {
     _fail(code);
+    await _discardSession();
+  }
+
+  Future<void> _discardSession() async {
     _textGeneration++;
-    await _platform.stopRecording();
+    final sessionId = _editor?.sessionId;
+    if (sessionId != null) await _platform.stopRecording(sessionId);
     _stopTimer();
     await _closeClient();
     await _editorWrites;
-    final sessionId = _editor?.sessionId;
     if (sessionId != null) await _platform.clearComposingText(sessionId);
     _finalized = '';
     _partial = '';
@@ -350,13 +354,14 @@ final class DictationController extends ChangeNotifier {
     final platformSubscription = _platformSubscription;
     final clientSubscription = _clientSubscription;
     final client = _client;
+    final sessionId = _editor?.sessionId;
     _platformSubscription = null;
     _clientSubscription = null;
     _client = null;
     unawaited(platformSubscription?.cancel());
     unawaited(clientSubscription?.cancel());
     unawaited(client?.close());
-    unawaited(_platform.stopRecording());
+    if (sessionId != null) unawaited(_platform.stopRecording(sessionId));
     super.dispose();
   }
 

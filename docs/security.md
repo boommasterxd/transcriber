@@ -50,7 +50,7 @@ The main activity is exported for the launcher and audio `VIEW` intents. Incomin
 
 The exported input-method service is protected by Android's `BIND_INPUT_METHOD` permission, so ordinary applications cannot bind to it. It records only while its keyboard window is visible and a current supported editor is active. Password variations, numeric PINs, non-text editors, and editors that prohibit personalized learning are rejected before recording. Every editor transition invalidates the previous session; late audio, provider events, and text mutations are discarded. Partial text uses composing spans and finalized text uses `commitText`. The service never requests surrounding editor text.
 
-Keyboard audio remains in memory and is never written to application storage. Stopping, cancelling, hiding the keyboard, changing editor, losing the active session, or destroying the service stops `AudioRecord`, clears composing text, closes the WebSocket, and clears queued audio. No foreground service is used because background dictation is intentionally prohibited.
+Keyboard audio remains in memory and is never written to application storage. Stopping, cancelling, hiding the keyboard, changing editor, unbinding the input connection, losing the active session, or destroying the service stops `AudioRecord`, closes the WebSocket, and clears queued audio. Session-checked stop calls prevent stale Flutter cleanup from stopping a newer recording. No foreground service is used because background dictation is intentionally prohibited. A hard process termination has no guaranteed lifecycle callback; Android reclaims native resources and the provider connection expires without preserving the active dictation session.
 
 ## Residual Risks
 

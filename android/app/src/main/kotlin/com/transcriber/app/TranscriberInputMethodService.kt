@@ -5,7 +5,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 
 /** Android lifecycle host for the Flutter-rendered dictation input method. */
-class TranscriberInputMethodService : InputMethodService() {
+class TranscriberInputMethodService : NonFullscreenInputMethodService() {
     private lateinit var coordinator: ImeSessionCoordinator
 
     override fun onCreate() {
@@ -15,8 +15,6 @@ class TranscriberInputMethodService : InputMethodService() {
     }
 
     override fun onCreateInputView(): View = coordinator.inputView
-
-    override fun onEvaluateFullscreenMode(): Boolean = false
 
     override fun onWindowShown() {
         super.onWindowShown()
@@ -48,8 +46,18 @@ class TranscriberInputMethodService : InputMethodService() {
         super.onFinishInput()
     }
 
+    override fun onUnbindInput() {
+        coordinator.unbindInput()
+        super.onUnbindInput()
+    }
+
     override fun onDestroy() {
         coordinator.destroy()
         super.onDestroy()
     }
+}
+
+/** Prevents Android's extract UI from replacing the bounded keyboard surface. */
+abstract class NonFullscreenInputMethodService : InputMethodService() {
+    final override fun onEvaluateFullscreenMode(): Boolean = false
 }
