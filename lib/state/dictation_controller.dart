@@ -3,7 +3,6 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../data/models/transcription_language.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/dictation/dictation_platform.dart';
 import '../services/dictation/live_transcription.dart';
@@ -84,7 +83,10 @@ final class DictationController extends ChangeNotifier {
       _config = LiveTranscriptionConfig(
         provider: settings.asrProvider,
         apiKey: key,
-        languageCode: _languageCode(settings.transcriptionLanguage),
+        languageCode: LiveDictationModelCatalog.languageCodeFor(
+          settings.asrProvider,
+          settings.transcriptionLanguage,
+        ),
       );
       _setState(
         _state.copyWith(
@@ -103,6 +105,8 @@ final class DictationController extends ChangeNotifier {
       _startedAt = DateTime.now();
       _startTimer();
       _setState(_state.copyWith(phase: DictationPhase.recording));
+    } on LiveConnectionException catch (error) {
+      await _abortWithError(error.code);
     } on PlatformException catch (error) {
       await _abortWithError(error.code);
     } catch (_) {
@@ -245,9 +249,6 @@ final class DictationController extends ChangeNotifier {
 
   bool _isCurrent(String sessionId) =>
       _editor?.sessionId == sessionId && _editor?.visible == true;
-
-  String? _languageCode(TranscriptionLanguage language) =>
-      language == TranscriptionLanguage.auto ? null : language.code;
 
   void _setState(DictationState next) {
     if (_disposed) return;

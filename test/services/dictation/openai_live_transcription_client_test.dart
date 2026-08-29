@@ -38,7 +38,7 @@ void _registerConnectionTests() {
   test(
     'connects with header auth and configures realtime transcription',
     () async {
-      await client.connect();
+      final connecting = client.connect();
       await pumpEventQueue();
 
       expect(connector.uri!.queryParameters['model'], 'gpt-live-transcribe');
@@ -49,6 +49,11 @@ void _registerConnectionTests() {
       expect(input['format'], {'type': 'audio/pcm', 'rate': 24000});
       expect(input['transcription']['languages'], ['de']);
       expect(input['turn_detection']['type'], 'server_vad');
+      expect(events.whereType<LiveTranscriptionReady>(), isEmpty);
+
+      socket.controller.add(jsonEncode({'type': 'session.updated'}));
+      await connecting;
+      await pumpEventQueue();
       expect(events, contains(isA<LiveTranscriptionReady>()));
     },
   );
@@ -56,7 +61,7 @@ void _registerConnectionTests() {
   test(
     'reports protocol errors, disconnects, and malformed messages safely',
     () async {
-      await client.connect();
+      await _connectClient();
       socket.controller.add('not json');
       socket.controller.add([1, 2]);
       socket.controller.add(
@@ -70,16 +75,38 @@ void _registerConnectionTests() {
 
       expect(
         events.whereType<LiveTranscriptionFailure>().single.code,
-        'rate_limit',
+        'quota_exceeded',
       );
       expect(events.whereType<LiveTranscriptionDisconnected>(), hasLength(1));
     },
   );
+
+  test('reports a rejected setup before recording starts', () async {
+    final connecting = client.connect();
+    await pumpEventQueue();
+    socket.controller.add(
+      jsonEncode({
+        'type': 'error',
+        'error': {'code': 'invalid_api_key'},
+      }),
+    );
+
+    await expectLater(
+      connecting,
+      throwsA(
+        isA<LiveConnectionException>().having(
+          (error) => error.code,
+          'code',
+          'authentication_failed',
+        ),
+      ),
+    );
+  });
 }
 
 void _registerTranscriptionTests() {
   test('streams PCM and reconciles deltas with the final transcript', () async {
-    await client.connect();
+    await _connectClient();
     client.addAudio(Uint8List.fromList([1, 2, 3]));
     socket.controller.add(
       jsonEncode({
@@ -117,7 +144,7 @@ void _registerTranscriptionTests() {
   test(
     'commits pending audio on finish and ignores an empty-commit error',
     () async {
-      await client.connect();
+      await _connectClient();
       client.addAudio(Uint8List.fromList([1, 2]));
       final finishing = client.finish();
       await pumpEventQueue();
@@ -133,4 +160,12 @@ void _registerTranscriptionTests() {
       expect(events.whereType<LiveTranscriptionFailure>(), isEmpty);
     },
   );
+}
+
+Future<void> _connectClient() async {
+  final connecting = client.connect();
+  await pumpEventQueue();
+  socket.controller.add(jsonEncode({'type': 'session.updated'}));
+  await connecting;
+  await pumpEventQueue();
 }

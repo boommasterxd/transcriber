@@ -30,7 +30,7 @@ class KeyboardOnboardingScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: context.palette.bg,
         foregroundColor: context.palette.ink,
-        title: Text(strings.keyboardSetupTitle),
+        title: Text(strings.keyboardSection),
       ),
       body: KeyboardStatusLoader(
         platform: platform,
@@ -63,7 +63,50 @@ class _SetupContent extends StatelessWidget {
   final KeyboardStatusActions actions;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
+  Widget build(BuildContext context) =>
+      status.selected ? _completed(context) : _setup(context);
+
+  Widget _completed(BuildContext context) => SafeArea(
+    top: false,
+    child: ListView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+      children: [
+        _SetupHero(strings: strings, configured: true),
+        const SizedBox(height: 18),
+        SurfaceCard(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: context.palette.mint),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$provider · $model',
+                  style: TextStyle(
+                    color: context.palette.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          strings.keyboardPrivacy,
+          style: TextStyle(color: context.palette.muted),
+        ),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.check_rounded),
+          label: Text(strings.keyboardDone),
+        ),
+      ],
+    ),
+  );
+
+  Widget _setup(BuildContext context) => SafeArea(
     top: false,
     child: ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -127,9 +170,10 @@ class _SetupContent extends StatelessWidget {
 }
 
 class _SetupHero extends StatelessWidget {
-  const _SetupHero({required this.strings});
+  const _SetupHero({required this.strings, this.configured = false});
 
   final AppStrings strings;
+  final bool configured;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -142,14 +186,14 @@ class _SetupHero extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(
-          Icons.keyboard_voice_rounded,
+          configured ? Icons.check_rounded : Icons.keyboard_voice_rounded,
           size: 34,
           color: context.palette.accent,
         ),
       ),
       const SizedBox(height: 14),
       Text(
-        strings.keyboardTitle,
+        configured ? strings.keyboardConfiguredTitle : strings.keyboardTitle,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: context.palette.ink,
@@ -159,7 +203,9 @@ class _SetupHero extends StatelessWidget {
       ),
       const SizedBox(height: 7),
       Text(
-        strings.keyboardSetupSubtitle,
+        configured
+            ? strings.keyboardConfiguredBody
+            : strings.keyboardSetupSubtitle,
         textAlign: TextAlign.center,
         style: TextStyle(color: context.palette.body, height: 1.4),
       ),

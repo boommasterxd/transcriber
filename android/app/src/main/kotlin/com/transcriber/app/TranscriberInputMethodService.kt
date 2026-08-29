@@ -16,6 +16,8 @@ class TranscriberInputMethodService : InputMethodService() {
 
     override fun onCreateInputView(): View = coordinator.inputView
 
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
     override fun onWindowShown() {
         super.onWindowShown()
         coordinator.windowShown()

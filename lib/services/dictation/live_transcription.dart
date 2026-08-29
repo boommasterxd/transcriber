@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../data/models/remote_provider.dart';
+import '../../data/models/transcription_language.dart';
 
 /// Live models are intentionally separate from the file-transcription catalog.
 class LiveDictationModelCatalog {
@@ -16,6 +17,25 @@ class LiveDictationModelCatalog {
 
   static int sampleRateFor(RemoteProviderId provider) =>
       provider == RemoteProviderId.openai ? 24000 : 16000;
+
+  static String? languageCodeFor(
+    RemoteProviderId provider,
+    TranscriptionLanguage language,
+  ) {
+    if (language == TranscriptionLanguage.auto) return null;
+    if (provider == RemoteProviderId.openai) return language.code;
+    return switch (language) {
+      TranscriptionLanguage.de => 'de-DE',
+      TranscriptionLanguage.en => 'en-US',
+      TranscriptionLanguage.auto => null,
+    };
+  }
+}
+
+final class LiveConnectionException implements Exception {
+  const LiveConnectionException(this.code);
+
+  final String code;
 }
 
 class LiveTranscriptionConfig {

@@ -58,10 +58,13 @@ class KeyboardSection extends ConsumerWidget {
           const SizedBox(height: 12),
           KeyboardStatusLoader(
             platform: platform,
-            builder: (context, status, _) => _StatusActions(
+            builder: (context, status, actions) => _StatusActions(
               status: status,
               strings: strings,
-              onSetup: () => _openSetup(context),
+              onSetup: () async {
+                await _openSetup(context);
+                actions.refresh();
+              },
             ),
           ),
           const SizedBox(height: 12),
@@ -152,7 +155,13 @@ class _StatusActions extends StatelessWidget {
             icon: Icon(
               selected ? Icons.check_rounded : Icons.arrow_forward_rounded,
             ),
-            label: Text(strings.keyboardSetup),
+            label: Text(
+              selected
+                  ? strings.keyboardManage
+                  : enabled
+                  ? strings.keyboardChoose
+                  : strings.keyboardSetup,
+            ),
           ),
         ),
       ],

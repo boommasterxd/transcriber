@@ -200,15 +200,29 @@ const Map<_StringKey, Object> _deStrings = {
       'Für diesen Anbieter fehlt ein gültiger API-Schlüssel.',
   _StringKey.keyboardConnectionError:
       'Die Live-Verbindung wurde beendet. Prüfe Netzwerk, Schlüssel und Abrechnung.',
+  _StringKey.keyboardAuthenticationError:
+      'Der Anbieter hat den API-Schlüssel abgelehnt. Prüfe den Schlüssel in Transcriber.',
+  _StringKey.keyboardQuotaError:
+      'Kontingent oder Abrechnung des Anbieters erlauben gerade kein Live-Diktat.',
+  _StringKey.keyboardModelError:
+      'Das Live-Modell ist für diesen API-Schlüssel nicht verfügbar.',
+  _StringKey.keyboardConfigurationError:
+      'Der Anbieter hat die Live-Konfiguration abgelehnt. Aktualisiere die App oder prüfe die Spracheinstellung.',
+  _StringKey.keyboardTimeoutError:
+      'Der Anbieter antwortet nicht. Prüfe die Verbindung und versuche es erneut.',
   _StringKey.keyboardRetry: 'Erneut verbinden',
   _StringKey.keyboardCancel: 'Abbrechen',
   _StringKey.keyboardStop: 'Stoppen',
   _StringKey.keyboardSwitchBack: 'Vorherige Tastatur',
   _StringKey.keyboardLivePreview: 'Live-Vorschau',
   _StringKey.keyboardSetup: 'Einrichtung starten',
+  _StringKey.keyboardManage: 'Tastatur verwalten',
   _StringKey.keyboardSetupTitle: 'Transcriber-Tastatur einrichten',
   _StringKey.keyboardSetupSubtitle:
       'Drei kurze Schritte, danach kannst du in fast jedem Textfeld live diktieren.',
+  _StringKey.keyboardConfiguredTitle: 'Tastatur ist eingerichtet',
+  _StringKey.keyboardConfiguredBody:
+      'Transcriber ist in Android aktiviert und aktuell als Tastatur ausgewählt.',
   _StringKey.keyboardSetupProviderTitle: 'Live-Anbieter prüfen',
   _StringKey.keyboardSetupProviderBody:
       'Transcriber verwendet deinen gewählten Anbieter, API-Schlüssel und deine Spracheinstellung.',
@@ -219,4 +233,5 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.keyboardSetupChooseBody:
       'Öffne die Tastaturauswahl und tippe auf „Transcriber“. Du kannst jederzeit zurückwechseln.',
   _StringKey.keyboardSetupDone: 'Einrichtung abschließen',
+  _StringKey.keyboardDone: 'Fertig',
 };

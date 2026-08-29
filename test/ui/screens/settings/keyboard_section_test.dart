@@ -9,25 +9,19 @@ import '../../keyboard/keyboard_settings_test_support.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('test/settings/keyboard');
-  final methods = <String>[];
+  late FakeKeyboardSettingsChannel fakeChannel;
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          methods.add(call.method);
-          if (call.method == 'getStatus') {
-            return {'enabled': true, 'selected': true};
-          }
-          return true;
-        });
+    fakeChannel = FakeKeyboardSettingsChannel(
+      channel,
+      enabled: true,
+      selected: true,
+    )..install();
   });
 
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
-  });
+  tearDown(() => fakeChannel.uninstall());
 
-  testWidgets('shows status and opens the guided keyboard setup', (
+  testWidgets('shows completed status and opens keyboard management', (
     tester,
   ) async {
     await pumpKeyboardSettingsSurface(
@@ -42,10 +36,42 @@ void main() {
     expect(find.text('Aktuell ausgewählt'), findsOneWidget);
     expect(find.textContaining('gemini-3.5-transcribe-live'), findsOneWidget);
     expect(find.textContaining('nicht gespeichert'), findsOneWidget);
+    expect(find.text('Einrichtung starten'), findsNothing);
+    await tester.tap(find.text('Tastatur verwalten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tastatur ist eingerichtet'), findsOneWidget);
+    expect(find.text('Fertig'), findsOneWidget);
+    expect(
+      fakeChannel.methods.where((method) => method == 'getStatus'),
+      hasLength(2),
+    );
+  });
+
+  testWidgets('refreshes settings after setup finishes', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    fakeChannel.enabled = false;
+    fakeChannel.selected = false;
+    await pumpKeyboardSettingsSurface(
+      tester,
+      child: const Scaffold(
+        body: KeyboardSection(
+          platform: KeyboardSettingsPlatform(channel: channel),
+        ),
+      ),
+    );
+
     await tester.tap(find.text('Einrichtung starten'));
     await tester.pumpAndSettle();
-    expect(find.text('Transcriber-Tastatur einrichten'), findsOneWidget);
-    expect(find.text('Live-Anbieter prüfen'), findsOneWidget);
-    expect(methods.where((method) => method == 'getStatus'), hasLength(2));
+    await tester.tap(find.text('Aktivieren'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Tastatur auswählen'));
+    await tester.tap(find.text('Tastatur auswählen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fertig'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tastatur verwalten'), findsOneWidget);
+    expect(find.text('Einrichtung starten'), findsNothing);
   });
 }

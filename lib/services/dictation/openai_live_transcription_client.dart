@@ -19,14 +19,11 @@ final class OpenAiLiveTranscriptionClient
   bool _audioSinceFinal = false;
 
   @override
-  Future<void> connect() async {
-    final socket = await connectSocket(
-      Uri.parse('wss://api.openai.com/v1/realtime?model=${_config.modelId}'),
-      {'Authorization': 'Bearer ${_config.apiKey}'},
-    );
-    socket.add(jsonEncode(_sessionUpdate()));
-    emit(const LiveTranscriptionReady());
-  }
+  Future<void> connect() => connectWithSetup(
+    Uri.parse('wss://api.openai.com/v1/realtime?model=${_config.modelId}'),
+    {'Authorization': 'Bearer ${_config.apiKey}'},
+    _sessionUpdate(),
+  );
 
   @override
   void addAudio(Uint8List pcm) {
@@ -70,7 +67,9 @@ final class OpenAiLiveTranscriptionClient
     final message = decodeMessage(raw);
     if (message == null) return;
     final type = message['type'];
-    if (type == 'conversation.item.input_audio_transcription.delta') {
+    if (type == 'session.updated') {
+      completeSetup();
+    } else if (type == 'conversation.item.input_audio_transcription.delta') {
       _handleDelta(message);
     } else if (type ==
         'conversation.item.input_audio_transcription.completed') {
@@ -107,6 +106,11 @@ final class OpenAiLiveTranscriptionClient
       completeFinalization();
       return;
     }
-    emit(LiveTranscriptionFailure(code ?? 'openai_realtime_error'));
+    failSetupOrEmit(
+      classifyProviderFailure(
+        code: code,
+        message: error is Map ? error['message'] : null,
+      ),
+    );
   }
 }

@@ -9,33 +9,13 @@ import '../../keyboard/keyboard_settings_test_support.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('test/onboarding/keyboard');
-  var enabled = false;
-  var selected = false;
-  final methods = <String>[];
+  late FakeKeyboardSettingsChannel fakeChannel;
 
   setUp(() {
-    enabled = false;
-    selected = false;
-    methods.clear();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          methods.add(call.method);
-          switch (call.method) {
-            case 'getStatus':
-              return {'enabled': enabled, 'selected': selected};
-            case 'openInputMethodSettings':
-              enabled = true;
-            case 'showInputMethodPicker':
-              selected = true;
-          }
-          return true;
-        });
+    fakeChannel = FakeKeyboardSettingsChannel(channel)..install();
   });
 
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
-  });
+  tearDown(() => fakeChannel.uninstall());
 
   testWidgets('guides activation and selection in three clear steps', (
     tester,
@@ -61,14 +41,12 @@ void main() {
     await tester.tap(find.text('Tastatur auswählen'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Aktuell ausgewählt'), findsOneWidget);
-    final doneButton = find.widgetWithText(
-      FilledButton,
-      'Einrichtung abschließen',
-    );
+    expect(find.text('Tastatur ist eingerichtet'), findsOneWidget);
+    expect(find.text('Einrichtung starten'), findsNothing);
+    final doneButton = find.widgetWithText(FilledButton, 'Fertig');
     expect(tester.widget<FilledButton>(doneButton).onPressed, isNotNull);
     expect(
-      methods,
+      fakeChannel.methods,
       containsAllInOrder([
         'getStatus',
         'openInputMethodSettings',

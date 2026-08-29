@@ -9,6 +9,12 @@ final class FakeLiveSocket implements LiveSocket {
   bool closed = false;
 
   @override
+  int? closeCode;
+
+  @override
+  String? closeReason;
+
+  @override
   Stream<Object?> get messages => controller.stream;
 
   @override
@@ -17,6 +23,12 @@ final class FakeLiveSocket implements LiveSocket {
   @override
   Future<void> close() async {
     closed = true;
+    if (!controller.isClosed) await controller.close();
+  }
+
+  Future<void> disconnect({int? code, String? reason}) async {
+    closeCode = code;
+    closeReason = reason;
     if (!controller.isClosed) await controller.close();
   }
 }

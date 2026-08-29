@@ -64,6 +64,26 @@ void _registerConnectionTests() {
     expect(events.whereType<LiveTranscriptionPartial>(), isEmpty);
     expect(events.whereType<LiveTranscriptionFinal>(), isEmpty);
   });
+
+  test('classifies a rejected setup without waiting for timeout', () async {
+    final connecting = client.connect();
+    await pumpEventQueue();
+    await socket.disconnect(
+      code: 1007,
+      reason: 'API key not valid. Please pass a valid API key.',
+    );
+
+    await expectLater(
+      connecting,
+      throwsA(
+        isA<LiveConnectionException>().having(
+          (error) => error.code,
+          'code',
+          'authentication_failed',
+        ),
+      ),
+    );
+  });
 }
 
 void _registerTranscriptionTests() {

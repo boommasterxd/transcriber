@@ -203,14 +203,26 @@ class AppStrings {
   String get keyboardKeyMissing => _string(_StringKey.keyboardKeyMissing);
   String get keyboardConnectionError =>
       _string(_StringKey.keyboardConnectionError);
+  String get keyboardAuthenticationError =>
+      _string(_StringKey.keyboardAuthenticationError);
+  String get keyboardQuotaError => _string(_StringKey.keyboardQuotaError);
+  String get keyboardModelError => _string(_StringKey.keyboardModelError);
+  String get keyboardConfigurationError =>
+      _string(_StringKey.keyboardConfigurationError);
+  String get keyboardTimeoutError => _string(_StringKey.keyboardTimeoutError);
   String get keyboardRetry => _string(_StringKey.keyboardRetry);
   String get keyboardCancel => _string(_StringKey.keyboardCancel);
   String get keyboardStop => _string(_StringKey.keyboardStop);
   String get keyboardSwitchBack => _string(_StringKey.keyboardSwitchBack);
   String get keyboardLivePreview => _string(_StringKey.keyboardLivePreview);
   String get keyboardSetup => _string(_StringKey.keyboardSetup);
+  String get keyboardManage => _string(_StringKey.keyboardManage);
   String get keyboardSetupTitle => _string(_StringKey.keyboardSetupTitle);
   String get keyboardSetupSubtitle => _string(_StringKey.keyboardSetupSubtitle);
+  String get keyboardConfiguredTitle =>
+      _string(_StringKey.keyboardConfiguredTitle);
+  String get keyboardConfiguredBody =>
+      _string(_StringKey.keyboardConfiguredBody);
   String get keyboardSetupProviderTitle =>
       _string(_StringKey.keyboardSetupProviderTitle);
   String get keyboardSetupProviderBody =>
@@ -224,6 +236,7 @@ class AppStrings {
   String get keyboardSetupChooseBody =>
       _string(_StringKey.keyboardSetupChooseBody);
   String get keyboardSetupDone => _string(_StringKey.keyboardSetupDone);
+  String get keyboardDone => _string(_StringKey.keyboardDone);
 
   List<String> get weekdaysShort =>
       _values[_StringKey.weekdaysShort]! as List<String>;

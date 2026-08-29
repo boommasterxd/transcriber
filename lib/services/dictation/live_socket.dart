@@ -6,6 +6,8 @@ import 'live_transcription.dart';
 
 abstract interface class LiveSocket {
   Stream<Object?> get messages;
+  int? get closeCode;
+  String? get closeReason;
   void add(String message);
   Future<void> close();
 }
@@ -27,6 +29,12 @@ final class IoLiveSocket implements LiveSocket {
   Stream<Object?> get messages => _socket;
 
   @override
+  int? get closeCode => _socket.closeCode;
+
+  @override
+  String? get closeReason => _socket.closeReason;
+
+  @override
   void add(String message) => _socket.add(message);
 
   @override
@@ -45,6 +53,7 @@ abstract base class LiveSocketTranscriptionClient
       StreamController<LiveTranscriptionEvent>.broadcast(sync: true);
   LiveSocket? activeSocket;
   StreamSubscription<Object?>? _subscription;
+  Completer<void>? _setupCompleter;
   Completer<void>? _finishCompleter;
   bool isClosed = false;
 
@@ -57,11 +66,31 @@ abstract base class LiveSocketTranscriptionClient
     activeSocket = socket;
     _subscription = socket.messages.listen(
       handleSocketMessage,
-      onError: (_) => emit(const LiveTranscriptionDisconnected()),
-      onDone: () => emit(const LiveTranscriptionDisconnected()),
+      onError: (_) => handleTransportFailure(null),
+      onDone: () => handleTransportFailure(
+        classifyLiveSocketClosure(socket.closeCode, socket.closeReason),
+      ),
       cancelOnError: false,
     );
     return socket;
+  }
+
+  Future<void> connectWithSetup(
+    Uri uri,
+    Map<String, String> headers,
+    Object setupMessage,
+  ) async {
+    _setupCompleter = Completer<void>();
+    try {
+      final socket = await connectSocket(uri, headers);
+      socket.add(jsonEncode(setupMessage));
+      await _setupCompleter!.future.timeout(const Duration(seconds: 10));
+      emit(const LiveTranscriptionReady());
+    } on TimeoutException {
+      throw const LiveConnectionException('connection_timeout');
+    } finally {
+      _setupCompleter = null;
+    }
   }
 
   Future<void> sendAndAwaitFinal(Object message, {bool skip = false}) async {
@@ -77,6 +106,20 @@ abstract base class LiveSocketTranscriptionClient
   void completeFinalization() {
     _finishCompleter?.complete();
     _finishCompleter = null;
+  }
+
+  void completeSetup() {
+    final setup = _setupCompleter;
+    if (setup != null && !setup.isCompleted) setup.complete();
+  }
+
+  void failSetupOrEmit(String code) {
+    final setup = _setupCompleter;
+    if (setup != null && !setup.isCompleted) {
+      setup.completeError(LiveConnectionException(code));
+    } else {
+      emit(LiveTranscriptionFailure(code));
+    }
   }
 
   void send(Object message) {
@@ -101,6 +144,18 @@ abstract base class LiveSocketTranscriptionClient
     if (isClosed) throw StateError('The live transcription client is closed.');
   }
 
+  void handleTransportFailure(String? code) {
+    if (_setupCompleter != null) {
+      failSetupOrEmit(code ?? 'connection_failed');
+      return;
+    }
+    emit(
+      code == null
+          ? const LiveTranscriptionDisconnected()
+          : LiveTranscriptionFailure(code),
+    );
+  }
+
   void handleSocketMessage(Object? raw);
 
   @override
@@ -112,3 +167,67 @@ abstract base class LiveSocketTranscriptionClient
     await eventController.close();
   }
 }
+
+String? classifyLiveSocketClosure(int? closeCode, String? closeReason) {
+  if (closeCode == null || closeCode == WebSocketStatus.normalClosure) {
+    return null;
+  }
+  return classifyProviderFailure(
+    code: closeCode.toString(),
+    message: closeReason,
+  );
+}
+
+String classifyProviderFailure({Object? code, Object? message}) {
+  final detail = '${code ?? ''} ${message ?? ''}'.toLowerCase();
+  if (_containsAny(detail, const [
+    'api key',
+    'invalid_api_key',
+    'authentication',
+    'unauthenticated',
+    'unauthorized',
+    '401',
+  ])) {
+    return 'authentication_failed';
+  }
+  if (_containsAny(detail, const [
+    'quota',
+    'rate_limit',
+    'rate limit',
+    'resource_exhausted',
+    'billing',
+    '429',
+  ])) {
+    return 'quota_exceeded';
+  }
+  if (_containsAny(detail, const [
+    'model',
+    'not_found',
+    'not found',
+    'unsupported',
+    'unavailable',
+  ])) {
+    return 'model_unavailable';
+  }
+  if (_containsAny(detail, const [
+    'permission',
+    'access denied',
+    'forbidden',
+    '403',
+  ])) {
+    return 'provider_access_denied';
+  }
+  if (_containsAny(detail, const [
+    'invalid_request',
+    'invalid argument',
+    'configuration',
+    'language',
+    '1007',
+  ])) {
+    return 'configuration_rejected';
+  }
+  return 'provider_rejected';
+}
+
+bool _containsAny(String value, List<String> needles) =>
+    needles.any(value.contains);

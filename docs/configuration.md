@@ -20,7 +20,7 @@ Live keyboard dictation has a separate, fixed compatibility mapping:
 | OpenAI | `gpt-live-transcribe` | mono PCM16, 24 kHz |
 | Google Gemini | `gemini-3.5-transcribe-live` | mono PCM16, 16 kHz |
 
-The keyboard inherits the selected transcription provider, language, and that provider's existing API key. It does not reuse the batch model selector because batch and live endpoints have different compatibility requirements. The settings card displays the effective live model explicitly.
+The keyboard inherits the selected transcription provider, language, and that provider's existing API key. It does not reuse the batch model selector because batch and live endpoints have different compatibility requirements. OpenAI receives the application's `de` or `en` hint, while Gemini receives the required BCP-47 `de-DE` or `en-US` hint; automatic detection omits the hint. The settings card displays the effective live model explicitly.
 
 The provider model catalog is loaded after a stored key has been verified. The configured default remains selectable if a provider does not expose it in the catalog response. Transcription selection includes dedicated transcription models and compatible multimodal models that accept audio and return text.
 

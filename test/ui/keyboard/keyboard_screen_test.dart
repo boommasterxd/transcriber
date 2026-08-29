@@ -8,6 +8,11 @@ import 'package:transcriber/state/dictation_state.dart';
 import 'package:transcriber/ui/keyboard/keyboard_screen.dart';
 
 void main() {
+  _registerInteractionTests();
+  _registerErrorTests();
+}
+
+void _registerInteractionTests() {
   testWidgets('shows the active live model and starts live dictation', (
     tester,
   ) async {
@@ -85,8 +90,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.mic_rounded));
     expect(settingsOpened, 1);
   });
+}
 
-  testWidgets('shows missing-key and generic connection errors', (
+void _registerErrorTests() {
+  testWidgets('shows actionable provider and connection errors', (
     tester,
   ) async {
     await _pumpKeyboard(
@@ -94,6 +101,38 @@ void main() {
       _state(DictationPhase.error).copyWith(errorCode: 'api_key_missing'),
     );
     expect(find.textContaining('API-Schlüssel'), findsOneWidget);
+
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.error).copyWith(errorCode: 'authentication_failed'),
+    );
+    expect(find.textContaining('Schlüssel abgelehnt'), findsOneWidget);
+
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.error).copyWith(errorCode: 'quota_exceeded'),
+    );
+    expect(find.textContaining('Kontingent'), findsOneWidget);
+
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.error).copyWith(errorCode: 'model_unavailable'),
+    );
+    expect(find.textContaining('Live-Modell'), findsOneWidget);
+
+    await _pumpKeyboard(
+      tester,
+      _state(
+        DictationPhase.error,
+      ).copyWith(errorCode: 'configuration_rejected'),
+    );
+    expect(find.textContaining('Live-Konfiguration'), findsOneWidget);
+
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.error).copyWith(errorCode: 'connection_timeout'),
+    );
+    expect(find.textContaining('antwortet nicht'), findsOneWidget);
 
     await _pumpKeyboard(
       tester,
@@ -121,7 +160,7 @@ Future<void> _pumpKeyboard(
   double textScale = 1,
   _KeyboardActions actions = const _KeyboardActions(),
 }) async {
-  tester.view.physicalSize = const Size(900, 420);
+  tester.view.physicalSize = const Size(900, 280);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

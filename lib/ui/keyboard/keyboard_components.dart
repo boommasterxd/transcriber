@@ -167,6 +167,12 @@ String _statusText(DictationState state, AppStrings strings) {
     return switch (state.errorCode) {
       'microphone_denied' => strings.keyboardMicMissing,
       'api_key_missing' => strings.keyboardKeyMissing,
+      'authentication_failed' => strings.keyboardAuthenticationError,
+      'quota_exceeded' => strings.keyboardQuotaError,
+      'model_unavailable' ||
+      'provider_access_denied' => strings.keyboardModelError,
+      'configuration_rejected' => strings.keyboardConfigurationError,
+      'connection_timeout' => strings.keyboardTimeoutError,
       _ => strings.keyboardConnectionError,
     };
   }

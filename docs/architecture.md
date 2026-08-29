@@ -42,9 +42,9 @@ The main and share entry points call `loadAppBootstrap`, which:
 
 SharedPreferences remains a read-only legacy source until the migration window is intentionally removed. It is not the active persistence layer.
 
-The keyboard entry point deliberately loads only the database, settings repository, active settings, and secure credential boundary. It does not load notes or run cache cleanup. `TranscriberInputMethodService` owns a dedicated `FlutterEngine` and embeds the keyboard Flutter view. Native Android code owns editor lifecycle, microphone capture, and `InputConnection`; Flutter owns the live-session controller and keyboard presentation.
+The keyboard entry point deliberately loads only the database, settings repository, active settings, and secure credential boundary. It does not load notes or run cache cleanup. `TranscriberInputMethodService` owns a dedicated `FlutterEngine` and embeds the keyboard Flutter view in a measured 280 dp input container. Fullscreen extract mode is disabled so Android cannot expand the dictation surface over the application. Native Android code owns editor lifecycle, microphone capture, and `InputConnection`; Flutter owns the live-session controller and keyboard presentation.
 
-Keyboard activation remains optional. The settings card opens a dedicated Flutter onboarding screen that explains the effective live provider and guides users through enabling the input method and selecting it in Android. It reads status from Android after every system action and application resume; it does not mark setup complete until Android reports Transcriber as selected.
+Keyboard activation remains optional. The settings card opens a dedicated Flutter onboarding screen that explains the effective live provider and guides users through enabling the input method and selecting it in Android. It reads status from Android after every system action, application resume, and return from onboarding; it does not mark setup complete until Android reports Transcriber as selected. Once complete, settings offer keyboard management and onboarding renders a completed state instead of setup actions.
 
 ## Provider Boundaries
 
@@ -57,7 +57,7 @@ Provider behavior is split into small contracts:
 
 `OpenAiClient` and `GoogleClient` implement direct REST requests with the existing `http` stack. Provider model catalogs are loaded dynamically and filtered by `ProviderModelCapabilities` because neither catalog exposes complete audio-input and text-output modality metadata. Dedicated transcription models use provider-native transcription payloads, while compatible multimodal models receive audio plus a plain-text transcription instruction. Provider-specific payloads and errors remain behind those clients. API keys are transmitted in headers and are never placed in URLs, database rows, logs, or user-visible error details.
 
-Keyboard dictation uses the separate `LiveTranscriptionClient` contract. Its fixed compatibility catalog maps OpenAI `gpt-live-transcribe` to 24 kHz PCM and Gemini `gemini-3.5-transcribe-live` to 16 kHz PCM. Native `AudioRecord` emits mono PCM16 chunks through an event channel. The selected live client streams those chunks over WebSocket and emits partial and final text events.
+Keyboard dictation uses the separate `LiveTranscriptionClient` contract. Its fixed compatibility catalog maps OpenAI `gpt-live-transcribe` to 24 kHz PCM and Gemini `gemini-3.5-transcribe-live` to 16 kHz PCM. Language hints are normalized per protocol, including `de-DE` and `en-US` for Gemini. Native `AudioRecord` emits mono PCM16 chunks through an event channel. The selected live client confirms provider setup before recording, streams those chunks over WebSocket, and emits partial and final text events. Sanitized connection failures distinguish authentication, quota, model access, rejected configuration, timeout, and transient disconnects without exposing provider responses or credentials.
 
 ## Processing Flow
 

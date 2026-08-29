@@ -19,6 +19,7 @@ late AppDatabase database;
 late SettingsRepository repository;
 late FakeDictationPlatform platform;
 late List<FakeLiveTranscriptionClient> clients;
+late List<LiveTranscriptionConfig> configs;
 late DictationController controller;
 Completer<void>? nextConnectGate;
 Object? nextConnectError;
@@ -37,13 +38,15 @@ void main() {
     );
     platform = FakeDictationPlatform();
     clients = [];
+    configs = [];
     nextConnectGate = null;
     nextConnectError = null;
     controllerDisposed = false;
     controller = DictationController(
       settingsRepository: repository,
       platform: platform,
-      clientFactory: (_) {
+      clientFactory: (config) {
+        configs.add(config);
         final client = FakeLiveTranscriptionClient();
         client.connectGate = nextConnectGate;
         client.connectError = nextConnectError;
@@ -66,6 +69,7 @@ void main() {
   });
 
   _registerStartupAndEditingTests();
+  _registerProviderConfigurationTests();
   _registerSafetyTests();
   _registerRecoveryTests();
   _registerResourceLifecycleTests();
@@ -84,6 +88,7 @@ void _registerStartupAndEditingTests() {
       expect(platform.starts.single.sessionId, 'editor-1');
       expect(platform.starts.single.sampleRate, 24000);
       expect(clients.single.connected, isTrue);
+      expect(configs.single.languageCode, 'de');
     },
   );
 
@@ -152,6 +157,23 @@ void _registerStartupAndEditingTests() {
     expect(platform.clears, ['editor-1']);
     expect(platform.commits, isEmpty);
     expect(controller.state.phase, DictationPhase.ready);
+  });
+}
+
+void _registerProviderConfigurationTests() {
+  test('normalizes Gemini language and sample-rate configuration', () async {
+    await repository.save(
+      AppSettings.initial().copyWith(
+        asrProvider: RemoteProviderId.google,
+        transcriptionLanguage: TranscriptionLanguage.de,
+      ),
+    );
+    FlutterSecureStorage.setMockInitialValues({'api_key_google': 'test-key'});
+
+    await controller.start();
+
+    expect(configs.single.languageCode, 'de-DE');
+    expect(platform.starts.single.sampleRate, 16000);
   });
 }
 
@@ -254,6 +276,16 @@ void _registerRecoveryTests() {
     expect(controller.state.phase, DictationPhase.error);
     expect(controller.state.errorCode, 'quota');
     expect(platform.clears, contains('editor-1'));
+  });
+
+  test('preserves a classified connection setup failure', () async {
+    nextConnectError = const LiveConnectionException('authentication_failed');
+
+    await controller.start();
+
+    expect(controller.state.phase, DictationPhase.error);
+    expect(controller.state.errorCode, 'authentication_failed');
+    expect(clients.single.closed, isTrue);
   });
 
   test('platform audio failures enter the same safe error state', () async {

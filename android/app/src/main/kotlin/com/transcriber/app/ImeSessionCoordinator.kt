@@ -1,7 +1,10 @@
 package com.transcriber.app
 
+import android.content.Context
+import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.widget.FrameLayout
 import io.flutter.FlutterInjector
 import io.flutter.embedding.android.FlutterSurfaceView
 import io.flutter.embedding.android.FlutterView
@@ -18,8 +21,8 @@ class ImeSessionCoordinator(
     private lateinit var editor: ImeEditorContext
     private lateinit var events: ImeEventPublisher
 
-    val inputView: FlutterView
-        get() = flutterView
+    lateinit var inputView: View
+        private set
 
     fun create() {
         engine = FlutterEngine(service.applicationContext)
@@ -31,10 +34,18 @@ class ImeSessionCoordinator(
         KeyboardSettingsChannel(service, engine.dartExecutor.binaryMessenger).register()
         startDartEntrypoint()
         flutterView = FlutterView(service, FlutterSurfaceView(service))
-        flutterView.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
+        inputView = FixedHeightInputView(
+            service,
             (keyboardHeightDp * service.resources.displayMetrics.density).toInt(),
-        )
+        ).apply {
+            addView(
+                flutterView,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
         flutterView.attachToFlutterEngine(engine)
     }
 
@@ -96,6 +107,25 @@ class ImeSessionCoordinator(
 
     private companion object {
         const val keyboardEntrypoint = "keyboardMain"
-        const val keyboardHeightDp = 304
+        const val keyboardHeightDp = 280
+    }
+}
+
+/** Gives Android's WRAP_CONTENT IME host a bounded, keyboard-sized measurement. */
+private class FixedHeightInputView(
+    context: Context,
+    private val desiredHeight: Int,
+) : FrameLayout(context) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val availableHeight = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED) {
+            desiredHeight
+        } else {
+            MeasureSpec.getSize(heightMeasureSpec)
+        }
+        val measuredHeight = minOf(desiredHeight, availableHeight)
+        super.onMeasure(
+            widthMeasureSpec,
+            MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY),
+        )
     }
 }

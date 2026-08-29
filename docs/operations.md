@@ -18,7 +18,7 @@ flutter run
 
 On first launch, select providers and models, add the required keys, review the cloud data notice, and grant microphone access for recording. A key is saved only after its provider accepts an authenticated model-list request.
 
-To enable keyboard dictation, open Settings in Transcriber and select **Start setup** in the Transcriber keyboard card. The dedicated setup screen shows the effective live provider and guides the user through **Enable in Android** and **Select the keyboard**. It finishes only after Android reports Transcriber as the selected input method. Android controls the system keyboard switcher shown by Samsung Keyboard and Gboard.
+To enable keyboard dictation, open Settings in Transcriber and select **Start setup** in the Transcriber keyboard card. The dedicated setup screen shows the effective live provider and guides the user through **Enable in Android** and **Select the keyboard**. It finishes only after Android reports Transcriber as the selected input method. Completed setup is shown as **Manage keyboard** instead of another setup prompt. Android controls the system keyboard switcher shown by Samsung Keyboard and Gboard.
 
 ## Validation
 
@@ -51,7 +51,7 @@ JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
 Use non-production speech without personal information. Verify the complete matrix on at least one current Samsung device and one current Pixel device:
 
 - enable, select, and switch back from the Transcriber input method through Android;
-- render and operate the Flutter keyboard with touch and TalkBack;
+- render and operate the 280 dp Flutter keyboard with touch and TalkBack, confirming it never enters fullscreen extract mode;
 - use Samsung Keyboard and Gboard as the previous keyboard;
 - dictate in WhatsApp, a browser text field, and a multiline editor;
 - verify partial composing text is replaced without duplication and final text is committed once;
@@ -97,6 +97,7 @@ Also test summary disabled, key replacement failure, provider throttling, networ
 - Processing is interrupted after leaving the app: keep Transcriber visible and retry. Cloud requests intentionally do not run in an Android foreground service.
 - Keyboard recording does not start: confirm microphone permission, a valid key for the selected transcription provider, and a normal non-sensitive text field.
 - The keyboard does not appear in the picker: use the Transcriber settings card to open Android's input-method settings and enable it first.
+- Live setup is rejected: follow the keyboard's specific authentication, quota, model-access, configuration, or timeout message. Gemini language hints must use supported BCP-47 values such as `de-DE` and `en-US`; OpenAI live transcription may require billing or model access beyond basic key validation.
 - Live text stops updating: stop the session and retry on a stable network. Switching fields or hiding the keyboard intentionally terminates the current session.
 - Migration fails: preserve the original SharedPreferences payload and inspect the database transaction error before retrying.
 

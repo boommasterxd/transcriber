@@ -194,15 +194,29 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.keyboardKeyMissing: 'This provider does not have a valid API key.',
   _StringKey.keyboardConnectionError:
       'The live connection ended. Check the network, key, and billing.',
+  _StringKey.keyboardAuthenticationError:
+      'The provider rejected the API key. Check the key in Transcriber.',
+  _StringKey.keyboardQuotaError:
+      'The provider quota or billing does not currently allow live dictation.',
+  _StringKey.keyboardModelError:
+      'The live model is not available for this API key.',
+  _StringKey.keyboardConfigurationError:
+      'The provider rejected the live configuration. Update the app or check the language setting.',
+  _StringKey.keyboardTimeoutError:
+      'The provider is not responding. Check the connection and try again.',
   _StringKey.keyboardRetry: 'Reconnect',
   _StringKey.keyboardCancel: 'Cancel',
   _StringKey.keyboardStop: 'Stop',
   _StringKey.keyboardSwitchBack: 'Previous keyboard',
   _StringKey.keyboardLivePreview: 'Live preview',
   _StringKey.keyboardSetup: 'Start setup',
+  _StringKey.keyboardManage: 'Manage keyboard',
   _StringKey.keyboardSetupTitle: 'Set up the Transcriber keyboard',
   _StringKey.keyboardSetupSubtitle:
       'Three short steps, then you can dictate live in almost any text field.',
+  _StringKey.keyboardConfiguredTitle: 'Keyboard is ready',
+  _StringKey.keyboardConfiguredBody:
+      'Transcriber is enabled in Android and currently selected as the keyboard.',
   _StringKey.keyboardSetupProviderTitle: 'Check the live provider',
   _StringKey.keyboardSetupProviderBody:
       'Transcriber uses your selected provider, API key, and language setting.',
@@ -213,4 +227,5 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.keyboardSetupChooseBody:
       'Open the keyboard picker and tap “Transcriber”. You can switch back at any time.',
   _StringKey.keyboardSetupDone: 'Finish setup',
+  _StringKey.keyboardDone: 'Done',
 };

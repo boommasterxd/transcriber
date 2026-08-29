@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -16,18 +15,11 @@ final class GoogleLiveTranscriptionClient
   GoogleLiveTranscriptionClient._(this._config, super.connector);
 
   final LiveTranscriptionConfig _config;
-  Completer<void>? _setupCompleter;
 
   @override
-  Future<void> connect() async {
-    final socket = await connectSocket(liveUri, {
-      'x-goog-api-key': _config.apiKey,
-    });
-    _setupCompleter = Completer<void>();
-    socket.add(jsonEncode(_setupMessage()));
-    await _setupCompleter!.future.timeout(const Duration(seconds: 10));
-    emit(const LiveTranscriptionReady());
-  }
+  Future<void> connect() => connectWithSetup(liveUri, {
+    'x-goog-api-key': _config.apiKey,
+  }, _setupMessage());
 
   @override
   void addAudio(Uint8List pcm) {
@@ -66,8 +58,16 @@ final class GoogleLiveTranscriptionClient
     final message = decodeMessage(raw);
     if (message == null) return;
     if (message.containsKey('setupComplete')) {
-      _setupCompleter?.complete();
-      _setupCompleter = null;
+      completeSetup();
+      return;
+    }
+    if (message['error'] case final error?) {
+      failSetupOrEmit(
+        classifyProviderFailure(
+          code: error is Map ? error['code'] : null,
+          message: error is Map ? error['message'] : error,
+        ),
+      );
       return;
     }
     final content = message['serverContent'];
