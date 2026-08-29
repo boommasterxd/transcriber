@@ -119,9 +119,9 @@ jobs:
         run: dart run dart_code_linter:metrics check-unused-files lib test tool
 
   kotlin-quality:
-    name: Kotlin quality
+    name: Kotlin quality and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Java
@@ -129,8 +129,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
       - name: Check Kotlin quality
         run: bash tool/quality/check_kotlin_quality.sh
+      - name: Run native unit tests and compile device tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
 
   duplication:
     name: Duplication

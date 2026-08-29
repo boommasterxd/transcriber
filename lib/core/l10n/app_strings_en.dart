@@ -171,4 +171,62 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.hoursAgoTemplate: '{n}h ago',
   _StringKey.weekdaysShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   _StringKey.dateMonthDayTemplate: '{m}/{d}',
+  _StringKey.keyboardSection: 'Transcriber keyboard',
+  _StringKey.keyboardTitle: 'Dictate anywhere, live',
+  _StringKey.keyboardDescription:
+      'Enable Transcriber as a keyboard and insert speech directly into the active text field.',
+  _StringKey.keyboardEnabled: 'Enabled',
+  _StringKey.keyboardDisabled: 'Not enabled',
+  _StringKey.keyboardSelected: 'Currently selected',
+  _StringKey.keyboardOpenSettings: 'Enable',
+  _StringKey.keyboardChoose: 'Choose keyboard',
+  _StringKey.keyboardPrivacy:
+      'Live audio is sent to the selected cloud provider and is not stored. Usage charges may apply.',
+  _StringKey.keyboardReady: 'Ready for live dictation',
+  _StringKey.keyboardConnect: 'Connecting…',
+  _StringKey.keyboardRecording: 'Live dictation is running',
+  _StringKey.keyboardCorrecting: 'Correcting text live',
+  _StringKey.keyboardReconnect: 'Reconnecting…',
+  _StringKey.keyboardStopping: 'Finalizing the last segment…',
+  _StringKey.keyboardSensitiveField:
+      'Dictation is disabled in this protected text field.',
+  _StringKey.keyboardMicMissing: 'Allow microphone access in app settings.',
+  _StringKey.keyboardKeyMissing: 'This provider does not have a valid API key.',
+  _StringKey.keyboardConnectionError:
+      'The live connection ended. Check the network, key, and billing.',
+  _StringKey.keyboardAuthenticationError:
+      'The provider rejected the API key. Check the key in Transcriber.',
+  _StringKey.keyboardQuotaError:
+      'The provider quota or billing does not currently allow live dictation.',
+  _StringKey.keyboardModelError:
+      'The live model is not available for this API key.',
+  _StringKey.keyboardConfigurationError:
+      'The provider rejected the live configuration. Update the app or check the language setting.',
+  _StringKey.keyboardTimeoutError:
+      'The provider is not responding. Check the connection and try again.',
+  _StringKey.keyboardRetry: 'Reconnect',
+  _StringKey.keyboardCancel: 'Cancel',
+  _StringKey.keyboardStop: 'Stop',
+  _StringKey.keyboardSwitchBack: 'Previous keyboard',
+  _StringKey.keyboardDeleteCharacter: 'Delete character',
+  _StringKey.keyboardLivePreview: 'Live preview',
+  _StringKey.keyboardSetup: 'Start setup',
+  _StringKey.keyboardManage: 'Manage keyboard',
+  _StringKey.keyboardSetupTitle: 'Set up the Transcriber keyboard',
+  _StringKey.keyboardSetupSubtitle:
+      'Three short steps, then you can dictate live in almost any text field.',
+  _StringKey.keyboardConfiguredTitle: 'Keyboard is ready',
+  _StringKey.keyboardConfiguredBody:
+      'Transcriber is enabled in Android and currently selected as the keyboard.',
+  _StringKey.keyboardSetupProviderTitle: 'Check the live provider',
+  _StringKey.keyboardSetupProviderBody:
+      'Transcriber uses your selected provider, API key, and language setting.',
+  _StringKey.keyboardSetupEnableTitle: 'Enable in Android',
+  _StringKey.keyboardSetupEnableBody:
+      'Enable “Transcriber” once in Android keyboard settings.',
+  _StringKey.keyboardSetupChooseTitle: 'Select the keyboard',
+  _StringKey.keyboardSetupChooseBody:
+      'Open the keyboard picker and tap “Transcriber”. You can switch back at any time.',
+  _StringKey.keyboardSetupDone: 'Finish setup',
+  _StringKey.keyboardDone: 'Done',
 };
