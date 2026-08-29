@@ -8,7 +8,6 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.math.sqrt
 
 /** Streams bounded, in-memory PCM chunks. It never creates an audio file. */
 class PcmAudioRecorder(
@@ -121,7 +120,7 @@ class PcmAudioRecorder(
             val count = audioRecord.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
             if (count > 0 && running.get() && generation.get() == captureGeneration) {
                 val chunk = buffer.copyOf(count)
-                onChunk(chunk, normalizedLevel(chunk))
+                onChunk(chunk, PcmLevelMeter.normalizedLevel(chunk))
             } else if (count < 0 && running.get() && generation.get() == captureGeneration) {
                 onFailure("audio_read_failed")
                 running.set(false)
@@ -129,28 +128,10 @@ class PcmAudioRecorder(
         }
     }
 
-    private fun normalizedLevel(bytes: ByteArray): Double {
-        if (bytes.size < bytesPerSample) return 0.0
-        var sum = 0.0
-        var index = 0
-        while (index + 1 < bytes.size) {
-            val sample = (
-                (bytes[index + 1].toInt() shl bitsPerByte) or
-                    (bytes[index].toInt() and unsignedByteMask)
-                ).toShort()
-            val normalized = sample.toDouble() / Short.MAX_VALUE
-            sum += normalized * normalized
-            index += bytesPerSample
-        }
-        return sqrt(sum / (bytes.size / bytesPerSample)).coerceIn(0.0, 1.0)
-    }
-
     private companion object {
         const val chunksPerSecond = 10
         const val bufferSlicesPerSecond = 5
         const val bytesPerSample = 2
-        const val bitsPerByte = 8
-        const val unsignedByteMask = 0xff
         const val workerName = "transcriber-pcm-recorder"
     }
 }

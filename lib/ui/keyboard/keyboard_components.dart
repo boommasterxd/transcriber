@@ -1,28 +1,10 @@
 part of 'keyboard_screen.dart';
 
-const _keyboardIdleLevels = <double>[
-  0.18,
-  0.26,
-  0.2,
-  0.38,
-  0.24,
-  0.46,
-  0.3,
-  0.56,
-  0.36,
-  0.68,
-  0.42,
-  0.62,
-  0.34,
-  0.52,
-  0.28,
-  0.44,
-  0.22,
-  0.34,
-  0.2,
-  0.28,
-  0.18,
-];
+final _keyboardIdleLevels = List<double>.filled(
+  DictationController.maximumLevels,
+  DictationController.initialWaveformLevel,
+  growable: false,
+);
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
@@ -49,9 +31,11 @@ class _TopBar extends StatelessWidget {
           button: true,
           label: strings.keyboardSwitchBack,
           child: IconButton(
-            visualDensity: VisualDensity.compact,
+            tooltip: strings.keyboardSwitchBack,
             onPressed: onBack,
-            icon: const Icon(Icons.keyboard_alt_outlined),
+            icon: provider == null
+                ? const Icon(Icons.graphic_eq_rounded)
+                : ProviderLogo(provider: provider, size: 34),
           ),
         ),
         const SizedBox(width: 4),

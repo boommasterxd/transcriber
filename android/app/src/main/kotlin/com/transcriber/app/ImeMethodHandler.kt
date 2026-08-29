@@ -1,6 +1,8 @@
 package com.transcriber.app
 
 import android.os.Build
+import android.view.KeyEvent
+import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -92,11 +94,18 @@ class ImeMethodHandler(
 
     private fun deleteBackward(call: MethodCall, result: MethodChannel.Result) {
         val changed = if (editor.accepts(call.argument("sessionId"))) {
-            service.currentInputConnection?.deleteSurroundingTextInCodePoints(1, 0) ?: false
+            service.currentInputConnection?.let(::deleteBackward) ?: false
         } else {
             false
         }
         result.success(changed)
+    }
+
+    private fun deleteBackward(connection: InputConnection): Boolean {
+        if (connection.deleteSurroundingTextInCodePoints(1, 0)) return true
+        val down = connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+        val up = connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
+        return down || up
     }
 
     private fun switchBack(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

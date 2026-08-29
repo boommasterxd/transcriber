@@ -7,10 +7,12 @@ import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/dictation_state.dart';
 import 'package:transcriber/ui/keyboard/keyboard_screen.dart';
 import 'package:transcriber/ui/widgets/recording_controls.dart';
+import 'package:transcriber/ui/widgets/provider_logo.dart';
 import 'package:transcriber/ui/widgets/waveforms.dart';
 
 void main() {
   _registerInteractionTests();
+  _registerBrandingTests();
   _registerAccessibilityAndRecoveryTests();
   _registerErrorTests();
 }
@@ -28,6 +30,10 @@ void _registerInteractionTests() {
 
     expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('gpt-live-transcribe'), findsOneWidget);
+    expect(
+      tester.widget<ProviderLogo>(find.byType(ProviderLogo)).provider,
+      RemoteProviderId.openai,
+    );
     expect(find.text('Bereit für Live-Diktat'), findsNWidgets(2));
     await tester.tap(find.byIcon(Icons.mic_rounded));
     expect(starts, 1);
@@ -61,8 +67,15 @@ void _registerInteractionTests() {
     expect(find.text('Guten Mor'), findsOneWidget);
     expect(find.text('02:07'), findsOneWidget);
     final wave = tester.widget<RecordWave>(find.byType(RecordWave));
-    expect(wave.height, greaterThanOrEqualTo(44));
-    expect(wave.barWidth, 4);
+    expect(wave.barWidth, 5);
+    expect(tester.getSize(find.byType(RecordWave)).height, greaterThan(70));
+    expect(
+      find.ancestor(
+        of: find.byType(RecordWave),
+        matching: find.byType(Container),
+      ),
+      findsNothing,
+    );
     await tester.tap(find.byIcon(Icons.backspace_outlined));
     await tester.tap(find.text('Stoppen'));
     expect(find.byType(RecordWave), findsOneWidget);
@@ -91,6 +104,22 @@ void _registerInteractionTests() {
     expect(tester.widget<RecordWave>(find.byType(RecordWave)).paused, isTrue);
     await tester.tap(find.text('Fortsetzen'));
     expect(resumes, 1);
+  });
+}
+
+void _registerBrandingTests() {
+  testWidgets('uses the selected Google provider logo in the switch action', (
+    tester,
+  ) async {
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.ready).copyWith(provider: RemoteProviderId.google),
+    );
+
+    expect(
+      tester.widget<ProviderLogo>(find.byType(ProviderLogo)).provider,
+      RemoteProviderId.google,
+    );
   });
 }
 

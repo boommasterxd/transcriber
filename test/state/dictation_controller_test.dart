@@ -87,6 +87,14 @@ void _registerStartupAndEditingTests() {
       await controller.start();
 
       expect(controller.state.phase, DictationPhase.recording);
+      expect(
+        controller.state.levels,
+        everyElement(DictationController.initialWaveformLevel),
+      );
+      expect(
+        controller.state.levels,
+        hasLength(DictationController.maximumLevels),
+      );
       expect(platform.starts.single.sessionId, 'editor-1');
       expect(platform.starts.single.sampleRate, 24000);
       expect(clients.single.connected, isTrue);
@@ -103,7 +111,11 @@ void _registerStartupAndEditingTests() {
       await pumpEventQueue();
 
       expect(clients.single.audio.single, [1, 2, 3]);
-      expect(controller.state.levels, [0.7]);
+      expect(
+        controller.state.levels,
+        hasLength(DictationController.maximumLevels),
+      );
+      expect(controller.state.levels.last, 0.7);
       expect(controller.state.phase, DictationPhase.correcting);
       expect(platform.compositions.single.text, 'Hal');
 

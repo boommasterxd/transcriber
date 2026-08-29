@@ -104,7 +104,12 @@ final class DictationController extends ChangeNotifier {
       if (!_isCurrent(editor.sessionId)) return;
       await _platform.startRecording(editor.sessionId, _config!.sampleRate);
       _startTimer();
-      _setState(_state.copyWith(phase: DictationPhase.recording));
+      _setState(
+        _state.copyWith(
+          phase: DictationPhase.recording,
+          levels: List.filled(maximumLevels, initialWaveformLevel),
+        ),
+      );
     } on LiveConnectionException catch (error) {
       await _handleStartFailure(editor.sessionId, error.code);
     } on PlatformException catch (error) {
@@ -332,6 +337,7 @@ final class DictationController extends ChangeNotifier {
     super.dispose();
   }
 
-  static const int maximumLevels = 28;
+  static const int maximumLevels = 42;
   static const int maximumPendingChunks = 12;
+  static const double initialWaveformLevel = 0.12;
 }

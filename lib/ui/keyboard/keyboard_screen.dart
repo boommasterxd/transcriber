@@ -7,6 +7,7 @@ import '../../data/catalog/remote_catalog.dart';
 import '../../state/dictation_controller.dart';
 import '../../state/dictation_state.dart';
 import '../widgets/recording_controls.dart';
+import '../widgets/provider_logo.dart';
 import '../widgets/waveforms.dart';
 
 part 'keyboard_components.dart';
@@ -138,25 +139,14 @@ class _StatusPanel extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       label: status,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isError ? context.palette.coral : context.palette.line2,
-          ),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => _StatusPanelContent(
-            state: state,
-            status: status,
-            isError: isError,
-            paused: paused,
-            compact: constraints.maxHeight < 112,
-            showWave: constraints.maxHeight >= 58,
-          ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => _StatusPanelContent(
+          state: state,
+          status: status,
+          isError: isError,
+          paused: paused,
+          compact: constraints.maxHeight < 112,
+          showWave: constraints.maxHeight >= 58,
         ),
       ),
     );
@@ -191,11 +181,12 @@ class _StatusPanelContent extends StatelessWidget {
         _statusRow(),
         if (state.isActive && showWave) ...[
           const SizedBox(height: 4),
-          RecordWave(
-            levels: state.levels.isEmpty ? _keyboardIdleLevels : state.levels,
-            paused: paused,
-            height: compact ? 42 : 52,
-            barWidth: 4,
+          Expanded(
+            child: RecordWave(
+              levels: state.levels.isEmpty ? _keyboardIdleLevels : state.levels,
+              paused: paused,
+              barWidth: 5,
+            ),
           ),
         ],
         if (!compact && state.preview.isNotEmpty) ...[
