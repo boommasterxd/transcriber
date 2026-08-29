@@ -148,7 +148,6 @@ class _StatusPanel extends StatelessWidget {
           status: status,
           isError: isError,
           paused: paused,
-          compact: constraints.maxHeight < 112,
           showWave: constraints.maxHeight >= 58,
         ),
       ),
@@ -162,7 +161,6 @@ class _StatusPanelContent extends StatelessWidget {
     required this.status,
     required this.isError,
     required this.paused,
-    required this.compact,
     required this.showWave,
   });
 
@@ -170,7 +168,6 @@ class _StatusPanelContent extends StatelessWidget {
   final String status;
   final bool isError;
   final bool paused;
-  final bool compact;
   final bool showWave;
 
   @override
@@ -190,16 +187,6 @@ class _StatusPanelContent extends StatelessWidget {
               paused: paused,
               barWidth: 5,
             ),
-          ),
-        ],
-        if (!compact && state.preview.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            state.preview,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: context.palette.body, fontSize: 13),
           ),
         ],
       ],

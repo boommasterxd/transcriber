@@ -66,7 +66,7 @@ void _registerInteractionTests() {
     );
 
     expect(find.text('Text wird live korrigiert'), findsOneWidget);
-    expect(find.text('Guten Mor'), findsOneWidget);
+    expect(find.text('Guten Mor'), findsNothing);
     expect(find.text('02:07'), findsOneWidget);
     final wave = tester.widget<RecordWave>(find.byType(RecordWave));
     expect(wave.barWidth, 5);
