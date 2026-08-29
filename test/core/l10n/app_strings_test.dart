@@ -260,6 +260,7 @@ List<String> _catalogKeyboardValues(AppStrings strings) => [
   strings.keyboardCancel,
   strings.keyboardStop,
   strings.keyboardSwitchBack,
+  strings.keyboardDeleteCharacter,
   strings.keyboardLivePreview,
   strings.keyboardSetup,
   strings.keyboardManage,

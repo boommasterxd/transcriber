@@ -214,6 +214,7 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.keyboardCancel: 'Abbrechen',
   _StringKey.keyboardStop: 'Stoppen',
   _StringKey.keyboardSwitchBack: 'Vorherige Tastatur',
+  _StringKey.keyboardDeleteCharacter: 'Zeichen löschen',
   _StringKey.keyboardLivePreview: 'Live-Vorschau',
   _StringKey.keyboardSetup: 'Einrichtung starten',
   _StringKey.keyboardManage: 'Tastatur verwalten',

@@ -20,7 +20,10 @@ void main() {
               'supported': true,
               'microphoneGranted': false,
             },
-            'setComposingText' || 'commitText' || 'clearComposingText' => true,
+            'setComposingText' ||
+            'commitText' ||
+            'clearComposingText' ||
+            'deleteBackward' => true,
             'switchToPreviousInputMethod' => false,
             _ => null,
           };
@@ -58,6 +61,7 @@ void _registerImeMethodTests() {
     expect(await platform.setComposingText('session', 'partial'), isTrue);
     expect(await platform.commitText('session', 'final'), isTrue);
     expect(await platform.clearComposingText('session'), isTrue);
+    expect(await platform.deleteBackward('session'), isTrue);
     await platform.stopRecording();
     expect(await platform.switchToPreviousInputMethod(), isFalse);
 
@@ -70,6 +74,8 @@ void _registerImeMethodTests() {
     expect(calls[3].arguments, {'sessionId': 'session'});
     expect(calls[4].arguments, {'sessionId': 'session', 'text': 'partial'});
     expect(calls[5].arguments, {'sessionId': 'session', 'text': 'final'});
+    expect(calls[7].method, 'deleteBackward');
+    expect(calls[7].arguments, {'sessionId': 'session'});
   });
 }
 

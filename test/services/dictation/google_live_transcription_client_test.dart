@@ -47,6 +47,7 @@ void _registerConnectionTests() {
     final setup = jsonDecode(socket.sent.single) as Map<String, dynamic>;
     expect(setup['setup']['model'], 'models/gemini-3.5-transcribe-live');
     expect(setup['setup']['inputAudioTranscription']['languageCodes'], isEmpty);
+    expect(setup['setup']['inputAudioTranscription']['mode'], 'SMART');
 
     socket.controller.add(jsonEncode({'setupComplete': {}}));
     await connecting;

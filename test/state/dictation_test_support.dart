@@ -21,6 +21,7 @@ final class FakeDictationPlatform implements DictationPlatform {
   final List<({String sessionId, String text})> compositions = [];
   final List<({String sessionId, String text})> commits = [];
   final List<String> clears = [];
+  final List<String> deletes = [];
   int stopCount = 0;
   int pauseCount = 0;
   int resumeCount = 0;
@@ -62,6 +63,12 @@ final class FakeDictationPlatform implements DictationPlatform {
   @override
   Future<bool> clearComposingText(String sessionId) async {
     clears.add(sessionId);
+    return acceptEdits;
+  }
+
+  @override
+  Future<bool> deleteBackward(String sessionId) async {
+    deletes.add(sessionId);
     return acceptEdits;
   }
 

@@ -65,7 +65,10 @@ final class GoogleLiveTranscriptionClient
         'generationConfig': {
           'responseModalities': ['TEXT'],
         },
-        'inputAudioTranscription': {'languageCodes': languageCodes},
+        'inputAudioTranscription': {
+          'languageCodes': languageCodes,
+          'mode': 'SMART',
+        },
       },
     };
   }

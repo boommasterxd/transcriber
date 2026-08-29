@@ -1,15 +1,41 @@
 part of 'keyboard_screen.dart';
 
+const _keyboardIdleLevels = <double>[
+  0.18,
+  0.26,
+  0.2,
+  0.38,
+  0.24,
+  0.46,
+  0.3,
+  0.56,
+  0.36,
+  0.68,
+  0.42,
+  0.62,
+  0.34,
+  0.52,
+  0.28,
+  0.44,
+  0.22,
+  0.34,
+  0.2,
+  0.28,
+  0.18,
+];
+
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.state,
     required this.strings,
     required this.onBack,
+    required this.onDelete,
   });
 
   final DictationState state;
   final AppStrings strings;
   final VoidCallback onBack;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -50,9 +76,58 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
+        if (state.isActive) ...[
+          const SizedBox(width: 6),
+          _Timer(elapsed: state.elapsed),
+          const SizedBox(width: 2),
+        ],
+        Semantics(
+          button: true,
+          label: strings.keyboardDeleteCharacter,
+          child: IconButton(
+            tooltip: strings.keyboardDeleteCharacter,
+            onPressed: onDelete,
+            icon: const Icon(Icons.backspace_outlined),
+          ),
+        ),
       ],
     );
   }
+}
+
+class _KeyboardActiveStatus extends StatelessWidget {
+  const _KeyboardActiveStatus({required this.status, required this.paused});
+
+  final String status;
+  final bool paused;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(
+          color: paused ? context.palette.faint : context.palette.mint,
+          shape: BoxShape.circle,
+        ),
+      ),
+      const SizedBox(width: 6),
+      Flexible(
+        child: Text(
+          status,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: context.palette.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 class _Controls extends StatelessWidget {
@@ -178,9 +253,18 @@ class _Timer extends StatelessWidget {
   Widget build(BuildContext context) {
     final minutes = elapsed.inMinutes.toString().padLeft(2, '0');
     final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
-    return Text(
-      '$minutes:$seconds',
-      style: AppTheme.mono(color: context.palette.muted),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.palette.chip,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$minutes:$seconds',
+        style: AppTheme.mono(
+          color: context.palette.muted,
+        ).copyWith(fontSize: 11),
+      ),
     );
   }
 }

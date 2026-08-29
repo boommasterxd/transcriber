@@ -171,6 +171,12 @@ final class DictationController extends ChangeNotifier {
     await _platform.switchToPreviousInputMethod();
   }
 
+  Future<void> deleteBackward() async {
+    final editor = _editor;
+    if (editor == null || !_isCurrent(editor.sessionId)) return;
+    await _platform.deleteBackward(editor.sessionId);
+  }
+
   void _handlePlatformEvent(DictationPlatformEvent event) {
     switch (event) {
       case DictationEditorChanged(:final editor):

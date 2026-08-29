@@ -65,6 +65,7 @@ abstract interface class DictationPlatform {
   Future<bool> setComposingText(String sessionId, String text);
   Future<bool> commitText(String sessionId, String text);
   Future<bool> clearComposingText(String sessionId);
+  Future<bool> deleteBackward(String sessionId);
   Future<bool> switchToPreviousInputMethod();
 }
 
@@ -118,6 +119,13 @@ final class MethodChannelDictationPlatform implements DictationPlatform {
   @override
   Future<bool> clearComposingText(String sessionId) async =>
       await methods.invokeMethod<bool>('clearComposingText', {
+        'sessionId': sessionId,
+      }) ??
+      false;
+
+  @override
+  Future<bool> deleteBackward(String sessionId) async =>
+      await methods.invokeMethod<bool>('deleteBackward', {
         'sessionId': sessionId,
       }) ??
       false;

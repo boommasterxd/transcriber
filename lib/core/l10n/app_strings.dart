@@ -214,6 +214,8 @@ class AppStrings {
   String get keyboardCancel => _string(_StringKey.keyboardCancel);
   String get keyboardStop => _string(_StringKey.keyboardStop);
   String get keyboardSwitchBack => _string(_StringKey.keyboardSwitchBack);
+  String get keyboardDeleteCharacter =>
+      _string(_StringKey.keyboardDeleteCharacter);
   String get keyboardLivePreview => _string(_StringKey.keyboardLivePreview);
   String get keyboardSetup => _string(_StringKey.keyboardSetup);
   String get keyboardManage => _string(_StringKey.keyboardManage);

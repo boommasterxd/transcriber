@@ -29,6 +29,7 @@ class ImeMethodHandler(
             "setComposingText" -> editText(call, result, composing = true)
             "commitText" -> editText(call, result, composing = false)
             "clearComposingText" -> clearComposingText(call, result)
+            "deleteBackward" -> deleteBackward(call, result)
             "switchToPreviousInputMethod" -> result.success(switchBack())
             else -> result.notImplemented()
         }
@@ -83,6 +84,15 @@ class ImeMethodHandler(
         val changed = if (editor.accepts(call.argument("sessionId"))) {
             connection?.setComposingText("", cursorPosition)
             connection?.finishComposingText() ?: false
+        } else {
+            false
+        }
+        result.success(changed)
+    }
+
+    private fun deleteBackward(call: MethodCall, result: MethodChannel.Result) {
+        val changed = if (editor.accepts(call.argument("sessionId"))) {
+            service.currentInputConnection?.deleteSurroundingTextInCodePoints(1, 0) ?: false
         } else {
             false
         }

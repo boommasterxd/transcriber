@@ -33,6 +33,7 @@ class KeyboardScreen extends StatelessWidget {
       stop: controller.stop,
       togglePause: controller.togglePause,
       cancel: controller.cancel,
+      deleteBackward: controller.deleteBackward,
       switchBack: controller.switchBack,
       openAppSettings: openAppSettings ?? controller.start,
     ),
@@ -45,6 +46,7 @@ class _KeyboardActions {
     required this.stop,
     required this.togglePause,
     required this.cancel,
+    required this.deleteBackward,
     required this.switchBack,
     required this.openAppSettings,
   });
@@ -52,6 +54,7 @@ class _KeyboardActions {
   final VoidCallback stop;
   final VoidCallback togglePause;
   final VoidCallback cancel;
+  final VoidCallback deleteBackward;
   final VoidCallback switchBack;
   final VoidCallback openAppSettings;
 }
@@ -65,6 +68,7 @@ class KeyboardView extends StatelessWidget {
     required this.stop,
     required this.togglePause,
     required this.cancel,
+    required this.deleteBackward,
     required this.switchBack,
     required this.openAppSettings,
   });
@@ -75,6 +79,7 @@ class KeyboardView extends StatelessWidget {
   final VoidCallback stop;
   final VoidCallback togglePause;
   final VoidCallback cancel;
+  final VoidCallback deleteBackward;
   final VoidCallback switchBack;
   final VoidCallback openAppSettings;
 
@@ -86,6 +91,7 @@ class KeyboardView extends StatelessWidget {
       stop: stop,
       togglePause: togglePause,
       cancel: cancel,
+      deleteBackward: deleteBackward,
       switchBack: switchBack,
       openAppSettings: openAppSettings,
     );
@@ -94,19 +100,20 @@ class KeyboardView extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 6, 14, 4),
+          padding: const EdgeInsets.fromLTRB(14, 2, 14, 2),
           child: Column(
             children: [
               _TopBar(
                 state: state,
                 strings: strings,
                 onBack: actions.switchBack,
+                onDelete: actions.deleteBackward,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Expanded(
                 child: _StatusPanel(state: state, strings: strings),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               _Controls(state: state, strings: strings, actions: actions),
             ],
           ),
@@ -154,8 +161,6 @@ class _StatusPanel extends StatelessWidget {
       ),
     );
   }
-
-  static const _idleLevels = <double>[0.08, 0.12, 0.08, 0.16, 0.1, 0.14, 0.08];
 }
 
 class _StatusPanelContent extends StatelessWidget {
@@ -185,14 +190,12 @@ class _StatusPanelContent extends StatelessWidget {
       children: [
         _statusRow(),
         if (state.isActive && showWave) ...[
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           RecordWave(
-            levels: state.levels.isEmpty
-                ? _StatusPanel._idleLevels
-                : state.levels,
+            levels: state.levels.isEmpty ? _keyboardIdleLevels : state.levels,
             paused: paused,
-            height: compact ? 22 : 28,
-            barWidth: 3,
+            height: compact ? 42 : 52,
+            barWidth: 4,
           ),
         ],
         if (!compact && state.preview.isNotEmpty) ...[
@@ -209,22 +212,9 @@ class _StatusPanelContent extends StatelessWidget {
     );
   }
 
-  Widget _statusRow() => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Flexible(
-        child: _KeyboardStatusPill(
-          status: status,
-          isError: isError,
-          paused: paused,
-        ),
-      ),
-      if (state.isActive) ...[
-        const SizedBox(width: 10),
-        _Timer(elapsed: state.elapsed),
-      ],
-    ],
-  );
+  Widget _statusRow() => state.isActive
+      ? _KeyboardActiveStatus(status: status, paused: paused)
+      : _KeyboardStatusPill(status: status, isError: isError, paused: paused);
 }
 
 class _KeyboardStatusPill extends StatelessWidget {

@@ -73,6 +73,7 @@ void main() {
   _registerProviderConfigurationTests();
   _registerSafetyTests();
   _registerRecoveryTests();
+  _registerEditorActionTests();
   _registerResourceLifecycleTests();
 }
 
@@ -375,6 +376,27 @@ void _registerRecoveryTests() {
     expect(platform.switchCount, 1);
     expect(clients.single.closed, isTrue);
     expect(controller.state.phase, DictationPhase.ready);
+  });
+}
+
+void _registerEditorActionTests() {
+  test('deletes one character only in the current editor session', () async {
+    await controller.deleteBackward();
+
+    expect(platform.deletes, ['editor-1']);
+
+    platform.changeEditor(
+      const KeyboardEditorState(
+        sessionId: 'editor-2',
+        visible: false,
+        supported: false,
+        microphoneGranted: true,
+      ),
+    );
+    await pumpEventQueue();
+    await controller.deleteBackward();
+
+    expect(platform.deletes, ['editor-1']);
   });
 }
 

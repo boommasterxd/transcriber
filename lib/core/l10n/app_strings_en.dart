@@ -208,6 +208,7 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.keyboardCancel: 'Cancel',
   _StringKey.keyboardStop: 'Stop',
   _StringKey.keyboardSwitchBack: 'Previous keyboard',
+  _StringKey.keyboardDeleteCharacter: 'Delete character',
   _StringKey.keyboardLivePreview: 'Live preview',
   _StringKey.keyboardSetup: 'Start setup',
   _StringKey.keyboardManage: 'Manage keyboard',

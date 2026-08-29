@@ -39,6 +39,7 @@ void _registerInteractionTests() {
     var stops = 0;
     var cancels = 0;
     var pauses = 0;
+    var deletes = 0;
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.correcting).copyWith(
@@ -52,12 +53,17 @@ void _registerInteractionTests() {
         stop: () => stops++,
         cancel: () => cancels++,
         togglePause: () => pauses++,
+        deleteBackward: () => deletes++,
       ),
     );
 
     expect(find.text('Text wird live korrigiert'), findsOneWidget);
     expect(find.text('Guten Mor'), findsOneWidget);
     expect(find.text('02:07'), findsOneWidget);
+    final wave = tester.widget<RecordWave>(find.byType(RecordWave));
+    expect(wave.height, greaterThanOrEqualTo(44));
+    expect(wave.barWidth, 4);
+    await tester.tap(find.byIcon(Icons.backspace_outlined));
     await tester.tap(find.text('Stoppen'));
     expect(find.byType(RecordWave), findsOneWidget);
     await tester.tap(find.text('Pause'));
@@ -65,6 +71,7 @@ void _registerInteractionTests() {
     expect(stops, 1);
     expect(cancels, 1);
     expect(pauses, 1);
+    expect(deletes, 1);
   });
 
   testWidgets('shows paused waveform and resume action', (tester) async {
@@ -145,6 +152,7 @@ void _registerAccessibilityAndRecoveryTests() {
       isNull,
     );
     expect(find.bySemanticsLabel('Vorherige Tastatur'), findsOneWidget);
+    expect(find.bySemanticsLabel('Zeichen löschen'), findsOneWidget);
     semantics.dispose();
   });
 
@@ -254,6 +262,7 @@ Future<void> _pumpKeyboard(
           stop: actions.stop ?? _noOp,
           togglePause: actions.togglePause ?? _noOp,
           cancel: actions.cancel ?? _noOp,
+          deleteBackward: actions.deleteBackward ?? _noOp,
           switchBack: _noOp,
           openAppSettings: actions.openAppSettings ?? _noOp,
         ),
@@ -270,6 +279,7 @@ class _KeyboardActions {
     this.stop,
     this.cancel,
     this.togglePause,
+    this.deleteBackward,
     this.openAppSettings,
   });
 
@@ -277,5 +287,6 @@ class _KeyboardActions {
   final VoidCallback? stop;
   final VoidCallback? cancel;
   final VoidCallback? togglePause;
+  final VoidCallback? deleteBackward;
   final VoidCallback? openAppSettings;
 }

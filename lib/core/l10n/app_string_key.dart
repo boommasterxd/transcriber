@@ -174,6 +174,7 @@ enum _StringKey {
   keyboardCancel,
   keyboardStop,
   keyboardSwitchBack,
+  keyboardDeleteCharacter,
   keyboardLivePreview,
   keyboardSetup,
   keyboardManage,

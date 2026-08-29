@@ -292,7 +292,7 @@ class _RecordWavePainter extends CustomPainter {
     for (var i = 0; i < n; i++) {
       final a = i < from.length ? from[i] : to[i];
       final level = (a + (to[i] - a) * t).clamp(0.05, 1.0);
-      final h = level * maxHeight;
+      final h = math.max(barWidth * 2, level * maxHeight);
       final cx = slot * i + slot / 2;
       final rect = Rect.fromCenter(
         center: Offset(cx, cy),
