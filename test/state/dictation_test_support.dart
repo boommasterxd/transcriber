@@ -104,6 +104,7 @@ final class FakeLiveTranscriptionClient implements LiveTranscriptionClient {
   bool finished = false;
   bool closed = false;
   String? finalTextOnFinish;
+  Completer<void>? closeGate;
 
   @override
   Stream<LiveTranscriptionEvent> get events => controller.stream;
@@ -131,5 +132,6 @@ final class FakeLiveTranscriptionClient implements LiveTranscriptionClient {
   @override
   Future<void> close() async {
     closed = true;
+    await closeGate?.future;
   }
 }

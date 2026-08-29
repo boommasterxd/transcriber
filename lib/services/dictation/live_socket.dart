@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'live_failure_classifier.dart';
 import 'live_transcription.dart';
 
 abstract interface class LiveSocket {
@@ -46,23 +47,50 @@ final class IoLiveSocket implements LiveSocket {
 /// Shared transport lifecycle for provider-specific live transcription clients.
 abstract base class LiveSocketTranscriptionClient
     implements LiveTranscriptionClient {
-  LiveSocketTranscriptionClient(this.connector);
+  LiveSocketTranscriptionClient(
+    this.connector, {
+    this.connectionTimeout = const Duration(seconds: 10),
+    this.closeTimeout = const Duration(seconds: 2),
+  });
 
   final LiveSocketConnector connector;
+  final Duration connectionTimeout;
+  final Duration closeTimeout;
   final StreamController<LiveTranscriptionEvent> eventController =
       StreamController<LiveTranscriptionEvent>.broadcast(sync: true);
   LiveSocket? activeSocket;
   StreamSubscription<Object?>? _subscription;
-  Completer<void>? _setupCompleter;
+  _LiveConnectionAttempt? _connectionAttempt;
   Completer<void>? _finishCompleter;
   bool isClosed = false;
 
   @override
   Stream<LiveTranscriptionEvent> get events => eventController.stream;
 
-  Future<LiveSocket> connectSocket(Uri uri, Map<String, String> headers) async {
-    ensureOpen();
-    final socket = await connector(uri, headers);
+  Future<void> _connectSocket(
+    Uri uri,
+    Map<String, String> headers,
+    Object setupMessage,
+    _LiveConnectionAttempt attempt,
+  ) async {
+    final pendingSocket = connector(uri, headers);
+    unawaited(
+      pendingSocket.then((socket) async {
+        if (!_isCurrent(attempt)) await _closeSocket(socket);
+      }, onError: (_) {}),
+    );
+    final result = await Future.any<Object>([
+      pendingSocket,
+      attempt.cancelled.future.then((_) => _ConnectionSignal.cancelled),
+    ]);
+    if (identical(result, _ConnectionSignal.cancelled)) {
+      throw const _LiveConnectionCancelled();
+    }
+    final socket = result as LiveSocket;
+    if (!_isCurrent(attempt)) {
+      await _closeSocket(socket);
+      throw const _LiveConnectionCancelled();
+    }
     activeSocket = socket;
     _subscription = socket.messages.listen(
       handleSocketMessage,
@@ -72,7 +100,14 @@ abstract base class LiveSocketTranscriptionClient
       ),
       cancelOnError: false,
     );
-    return socket;
+    socket.add(jsonEncode(setupMessage));
+    final setupResult = await Future.any<Object>([
+      attempt.setup.future.then((_) => _ConnectionSignal.setup),
+      attempt.cancelled.future.then((_) => _ConnectionSignal.cancelled),
+    ]);
+    if (identical(setupResult, _ConnectionSignal.cancelled)) {
+      throw const _LiveConnectionCancelled();
+    }
   }
 
   Future<void> connectWithSetup(
@@ -80,16 +115,30 @@ abstract base class LiveSocketTranscriptionClient
     Map<String, String> headers,
     Object setupMessage,
   ) async {
-    _setupCompleter = Completer<void>();
+    ensureOpen();
+    if (_connectionAttempt != null) {
+      throw StateError('A live connection attempt is already active.');
+    }
+    final attempt = _LiveConnectionAttempt();
+    _connectionAttempt = attempt;
     try {
-      final socket = await connectSocket(uri, headers);
-      socket.add(jsonEncode(setupMessage));
-      await _setupCompleter!.future.timeout(const Duration(seconds: 10));
+      await _connectSocket(
+        uri,
+        headers,
+        setupMessage,
+        attempt,
+      ).timeout(connectionTimeout);
+      if (!_isCurrent(attempt)) throw const _LiveConnectionCancelled();
       emit(const LiveTranscriptionReady());
     } on TimeoutException {
+      attempt.cancel();
       throw const LiveConnectionException('connection_timeout');
+    } on _LiveConnectionCancelled {
+      throw const LiveConnectionException('connection_cancelled');
     } finally {
-      _setupCompleter = null;
+      if (identical(_connectionAttempt, attempt)) {
+        _connectionAttempt = null;
+      }
     }
   }
 
@@ -109,17 +158,19 @@ abstract base class LiveSocketTranscriptionClient
   }
 
   void completeSetup() {
-    final setup = _setupCompleter;
+    final setup = _connectionAttempt?.setup;
     if (setup != null && !setup.isCompleted) setup.complete();
   }
 
   void failSetupOrEmit(String code) {
-    final setup = _setupCompleter;
-    if (setup != null && !setup.isCompleted) {
-      setup.completeError(LiveConnectionException(code));
-    } else {
-      emit(LiveTranscriptionFailure(code));
+    final setup = _connectionAttempt?.setup;
+    if (setup != null) {
+      if (!setup.isCompleted) {
+        setup.completeError(LiveConnectionException(code));
+      }
+      return;
     }
+    emit(LiveTranscriptionFailure(code));
   }
 
   void send(Object message) {
@@ -145,7 +196,7 @@ abstract base class LiveSocketTranscriptionClient
   }
 
   void handleTransportFailure(String? code) {
-    if (_setupCompleter != null) {
+    if (_connectionAttempt != null) {
       failSetupOrEmit(code ?? 'connection_failed');
       return;
     }
@@ -162,72 +213,47 @@ abstract base class LiveSocketTranscriptionClient
   Future<void> close() async {
     if (isClosed) return;
     isClosed = true;
-    await _subscription?.cancel();
-    await activeSocket?.close();
+    final attempt = _connectionAttempt;
+    _connectionAttempt = null;
+    attempt?.cancel();
+    final subscription = _subscription;
+    _subscription = null;
+    final socket = activeSocket;
+    activeSocket = null;
+    await Future.wait([
+      if (subscription != null) _runBoundedCleanup(subscription.cancel()),
+      if (socket != null) _closeSocket(socket),
+    ]);
     await eventController.close();
   }
+
+  bool _isCurrent(_LiveConnectionAttempt attempt) =>
+      !isClosed && identical(_connectionAttempt, attempt);
+
+  Future<void> _closeSocket(LiveSocket socket) async {
+    await _runBoundedCleanup(socket.close());
+  }
+
+  Future<void> _runBoundedCleanup(Future<void> operation) async {
+    try {
+      await operation.timeout(closeTimeout, onTimeout: () {});
+    } catch (_) {
+      // Cleanup failures must not keep the input method in a transient state.
+    }
+  }
 }
 
-String? classifyLiveSocketClosure(int? closeCode, String? closeReason) {
-  if (closeCode == null || closeCode == WebSocketStatus.normalClosure) {
-    return null;
+final class _LiveConnectionAttempt {
+  final Completer<void> setup = Completer<void>();
+  final Completer<void> cancelled = Completer<void>();
+
+  void cancel() {
+    if (!cancelled.isCompleted) cancelled.complete();
   }
-  return classifyProviderFailure(
-    code: closeCode.toString(),
-    message: closeReason,
-  );
 }
 
-String classifyProviderFailure({Object? code, Object? message}) {
-  final detail = '${code ?? ''} ${message ?? ''}'.toLowerCase();
-  if (_containsAny(detail, const [
-    'api key',
-    'invalid_api_key',
-    'authentication',
-    'unauthenticated',
-    'unauthorized',
-    '401',
-  ])) {
-    return 'authentication_failed';
-  }
-  if (_containsAny(detail, const [
-    'quota',
-    'rate_limit',
-    'rate limit',
-    'resource_exhausted',
-    'billing',
-    '429',
-  ])) {
-    return 'quota_exceeded';
-  }
-  if (_containsAny(detail, const [
-    'model',
-    'not_found',
-    'not found',
-    'unsupported',
-    'unavailable',
-  ])) {
-    return 'model_unavailable';
-  }
-  if (_containsAny(detail, const [
-    'permission',
-    'access denied',
-    'forbidden',
-    '403',
-  ])) {
-    return 'provider_access_denied';
-  }
-  if (_containsAny(detail, const [
-    'invalid_request',
-    'invalid argument',
-    'configuration',
-    'language',
-    '1007',
-  ])) {
-    return 'configuration_rejected';
-  }
-  return 'provider_rejected';
+final class _LiveConnectionCancelled implements Exception {
+  const _LiveConnectionCancelled();
 }
 
-bool _containsAny(String value, List<String> needles) =>
-    needles.any(value.contains);
+enum _ConnectionSignal { setup, cancelled }

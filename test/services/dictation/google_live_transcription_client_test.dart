@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/dictation/google_live_transcription_client.dart';
+import 'package:transcriber/services/dictation/live_socket.dart';
 import 'package:transcriber/services/dictation/live_transcription.dart';
 
 import 'live_test_support.dart';
@@ -31,6 +33,7 @@ void main() {
   tearDown(() => harness.close());
 
   _registerConnectionTests();
+  _registerConnectionLifecycleTests();
   _registerTranscriptionTests();
 }
 
@@ -83,6 +86,71 @@ void _registerConnectionTests() {
         ),
       ),
     );
+  });
+}
+
+void _registerConnectionLifecycleTests() {
+  test(
+    'bounds the socket handshake as part of the connection timeout',
+    () async {
+      final pendingSocket = Completer<LiveSocket>();
+      final stalledClient = _googleClient(
+        (_, _) => pendingSocket.future,
+        connectionTimeout: const Duration(milliseconds: 20),
+      );
+
+      await _expectConnectionTimeout(stalledClient);
+      await stalledClient.close();
+    },
+  );
+
+  test('closes a socket that arrives after its attempt timed out', () async {
+    final pendingSocket = Completer<LiveSocket>();
+    final lateSocket = FakeLiveSocket();
+    final stalledClient = _googleClient(
+      (_, _) => pendingSocket.future,
+      connectionTimeout: const Duration(milliseconds: 20),
+    );
+
+    await _expectConnectionTimeout(stalledClient);
+    pendingSocket.complete(lateSocket);
+    await pumpEventQueue();
+
+    expect(lateSocket.closed, isTrue);
+    expect(lateSocket.sent, isEmpty);
+    await stalledClient.close();
+  });
+
+  test('closing cancels an outstanding setup immediately', () async {
+    final openSocket = FakeLiveSocket();
+    final pendingClient = _googleClient((_, _) async => openSocket);
+    final connecting = pendingClient.connect();
+    await pumpEventQueue();
+    final cancelled = expectLater(
+      connecting,
+      throwsA(_connectionError('connection_cancelled')),
+    );
+
+    await pendingClient.close();
+
+    await cancelled;
+    expect(openSocket.closeCount, 1);
+  });
+
+  test('bounds a stalled socket shutdown', () async {
+    final openSocket = FakeLiveSocket();
+    final closeGate = Completer<void>();
+    openSocket.closeGate = closeGate;
+    final pendingClient = _googleClient((_, _) async => openSocket);
+    final connecting = pendingClient.connect();
+    await pumpEventQueue();
+    openSocket.controller.add(jsonEncode({'setupComplete': {}}));
+    await connecting;
+
+    await pendingClient.close();
+
+    expect(openSocket.closeCount, 1);
+    closeGate.complete();
   });
 }
 
@@ -140,3 +208,27 @@ void _registerTranscriptionTests() {
     await finishing;
   });
 }
+
+GoogleLiveTranscriptionClient _googleClient(
+  LiveSocketConnector connector, {
+  Duration connectionTimeout = const Duration(seconds: 10),
+}) => GoogleLiveTranscriptionClient(
+  const LiveTranscriptionConfig(
+    provider: RemoteProviderId.google,
+    apiKey: 'test-key',
+    languageCode: null,
+  ),
+  connector: connector,
+  connectionTimeout: connectionTimeout,
+  closeTimeout: const Duration(milliseconds: 20),
+);
+
+Matcher _connectionError(String code) =>
+    isA<LiveConnectionException>().having((error) => error.code, 'code', code);
+
+Future<void> _expectConnectionTimeout(
+  GoogleLiveTranscriptionClient stalledClient,
+) => expectLater(
+  stalledClient.connect(),
+  throwsA(_connectionError('connection_timeout')),
+);

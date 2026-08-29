@@ -106,11 +106,11 @@ final class DictationController extends ChangeNotifier {
       _startTimer();
       _setState(_state.copyWith(phase: DictationPhase.recording));
     } on LiveConnectionException catch (error) {
-      await _abortWithError(error.code);
+      await _handleStartFailure(editor.sessionId, error.code);
     } on PlatformException catch (error) {
-      await _abortWithError(error.code);
+      await _handleStartFailure(editor.sessionId, error.code);
     } catch (_) {
-      await _abortWithError('connection_failed');
+      await _handleStartFailure(editor.sessionId, 'connection_failed');
     }
   }
 
@@ -224,13 +224,20 @@ final class DictationController extends ChangeNotifier {
   }
 
   Future<void> _abortWithError(String code) async {
+    _fail(code);
     await _platform.stopRecording();
     _stopTimer();
     await _closeClient();
     final sessionId = _editor?.sessionId;
     if (sessionId != null) await _platform.clearComposingText(sessionId);
     _partial = '';
-    _fail(code);
+  }
+
+  Future<void> _handleStartFailure(String sessionId, String code) async {
+    if (!_isCurrent(sessionId) || _state.phase != DictationPhase.connecting) {
+      return;
+    }
+    await _abortWithError(code);
   }
 
   void _startTimer() {

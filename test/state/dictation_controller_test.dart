@@ -308,6 +308,22 @@ void _registerRecoveryTests() {
     expect(platform.clears, contains('editor-1'));
   });
 
+  test('shows a provider error before slow socket cleanup completes', () async {
+    await controller.start();
+    final closeGate = Completer<void>();
+    clients.single.closeGate = closeGate;
+
+    clients.single.controller.add(
+      const LiveTranscriptionFailure('connection_timeout'),
+    );
+    await pumpEventQueue();
+
+    expect(controller.state.phase, DictationPhase.error);
+    expect(controller.state.errorCode, 'connection_timeout');
+    closeGate.complete();
+    await pumpEventQueue();
+  });
+
   test('preserves a classified connection setup failure', () async {
     nextConnectError = const LiveConnectionException('authentication_failed');
 
@@ -315,6 +331,29 @@ void _registerRecoveryTests() {
 
     expect(controller.state.phase, DictationPhase.error);
     expect(controller.state.errorCode, 'authentication_failed');
+    expect(clients.single.closed, isTrue);
+  });
+
+  test('ignores a late connection failure after the editor changes', () async {
+    final gate = Completer<void>();
+    nextConnectGate = gate;
+    final starting = controller.start();
+    await pumpEventQueue();
+
+    platform.changeEditor(
+      const KeyboardEditorState(
+        sessionId: 'editor-2',
+        visible: true,
+        supported: true,
+        microphoneGranted: true,
+      ),
+    );
+    await pumpEventQueue();
+    gate.completeError(const LiveConnectionException('connection_timeout'));
+    await starting;
+
+    expect(controller.state.phase, DictationPhase.ready);
+    expect(controller.state.errorCode, isNull);
     expect(clients.single.closed, isTrue);
   });
 

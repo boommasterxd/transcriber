@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'live_failure_classifier.dart';
 import 'live_socket.dart';
 import 'live_transcription.dart';
 
@@ -10,9 +11,25 @@ final class OpenAiLiveTranscriptionClient
   factory OpenAiLiveTranscriptionClient(
     LiveTranscriptionConfig config, {
     LiveSocketConnector connector = connectLiveSocket,
-  }) => OpenAiLiveTranscriptionClient._(config, connector);
+    Duration connectionTimeout = const Duration(seconds: 10),
+    Duration closeTimeout = const Duration(seconds: 2),
+  }) => OpenAiLiveTranscriptionClient._(
+    config,
+    connector,
+    connectionTimeout,
+    closeTimeout,
+  );
 
-  OpenAiLiveTranscriptionClient._(this._config, super.connector);
+  OpenAiLiveTranscriptionClient._(
+    this._config,
+    LiveSocketConnector connector,
+    Duration connectionTimeout,
+    Duration closeTimeout,
+  ) : super(
+        connector,
+        connectionTimeout: connectionTimeout,
+        closeTimeout: closeTimeout,
+      );
 
   final LiveTranscriptionConfig _config;
   final Map<String, StringBuffer> _partials = {};

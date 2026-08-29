@@ -7,6 +7,8 @@ final class FakeLiveSocket implements LiveSocket {
   final controller = StreamController<Object?>.broadcast();
   final List<String> sent = [];
   bool closed = false;
+  int closeCount = 0;
+  Completer<void>? closeGate;
 
   @override
   int? closeCode;
@@ -22,7 +24,9 @@ final class FakeLiveSocket implements LiveSocket {
 
   @override
   Future<void> close() async {
+    closeCount++;
     closed = true;
+    await closeGate?.future;
     if (!controller.isClosed) await controller.close();
   }
 
