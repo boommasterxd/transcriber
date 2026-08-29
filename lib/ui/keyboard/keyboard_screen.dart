@@ -176,45 +176,52 @@ class _StatusPanelContent extends StatelessWidget {
   final bool showWave;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) {
+    if (state.phase == DictationPhase.connecting) {
+      return _ConnectingStatus(status: status);
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _statusRow(),
+        if (state.isActive && showWave) ...[
+          const SizedBox(height: 3),
+          RecordWave(
+            levels: state.levels.isEmpty
+                ? _StatusPanel._idleLevels
+                : state.levels,
+            paused: paused,
+            height: compact ? 22 : 28,
+            barWidth: 3,
+          ),
+        ],
+        if (!compact && state.preview.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            state.preview,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: context.palette.body, fontSize: 13),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _statusRow() => Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Flexible(
-            child: _KeyboardStatusPill(
-              status: status,
-              isError: isError,
-              paused: paused,
-            ),
-          ),
-          if (state.isActive) ...[
-            const SizedBox(width: 10),
-            _Timer(elapsed: state.elapsed),
-          ],
-        ],
-      ),
-      if (state.isActive && showWave) ...[
-        const SizedBox(height: 3),
-        RecordWave(
-          levels: state.levels.isEmpty
-              ? _StatusPanel._idleLevels
-              : state.levels,
+      Flexible(
+        child: _KeyboardStatusPill(
+          status: status,
+          isError: isError,
           paused: paused,
-          height: compact ? 22 : 28,
-          barWidth: 3,
         ),
-      ],
-      if (!compact && state.preview.isNotEmpty) ...[
-        const SizedBox(height: 2),
-        Text(
-          state.preview,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: context.palette.body, fontSize: 13),
-        ),
+      ),
+      if (state.isActive) ...[
+        const SizedBox(width: 10),
+        _Timer(elapsed: state.elapsed),
       ],
     ],
   );
@@ -262,8 +269,9 @@ class _KeyboardStatusPill extends StatelessWidget {
           Flexible(
             child: Text(
               status,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isError ? 3 : 1,
+              overflow: isError ? null : TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: foreground,
                 fontSize: 13,

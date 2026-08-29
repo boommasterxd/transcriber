@@ -178,9 +178,14 @@ abstract base class LiveSocketTranscriptionClient
   }
 
   Map<String, dynamic>? decodeMessage(Object? raw) {
-    if (raw is! String) return null;
     try {
-      final decoded = jsonDecode(raw);
+      final text = switch (raw) {
+        String value => value,
+        List<int> bytes => utf8.decode(bytes),
+        _ => null,
+      };
+      if (text == null) return null;
+      final decoded = jsonDecode(text);
       return decoded is Map<String, dynamic> ? decoded : null;
     } on FormatException {
       return null;

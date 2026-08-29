@@ -54,12 +54,25 @@ void _registerConnectionTests() {
     expect(events, contains(isA<LiveTranscriptionReady>()));
   });
 
+  test('accepts setup completion delivered as a binary frame', () async {
+    final connecting = client.connect();
+    await pumpEventQueue();
+
+    socket.controller.add(
+      Uint8List.fromList(utf8.encode(jsonEncode({'setupComplete': {}}))),
+    );
+
+    await connecting;
+    expect(events, contains(isA<LiveTranscriptionReady>()));
+  });
+
   test('ignores malformed and unrelated server messages', () async {
     final connecting = client.connect();
     await pumpEventQueue();
     socket.controller.add(jsonEncode({'setupComplete': {}}));
     await connecting;
     socket.controller.add('invalid');
+    socket.controller.add(Uint8List.fromList([0xff]));
     socket.controller.add(jsonEncode({'serverContent': 'wrong'}));
     socket.controller.add(jsonEncode({'other': true}));
     await pumpEventQueue();
@@ -206,6 +219,31 @@ void _registerTranscriptionTests() {
       }),
     );
     await finishing;
+  });
+
+  test('decodes transcription delivered as a binary frame', () async {
+    final connecting = client.connect();
+    await pumpEventQueue();
+    socket.controller.add(jsonEncode({'setupComplete': {}}));
+    await connecting;
+
+    socket.controller.add(
+      Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'serverContent': {
+              'inputTranscription': {'text': 'Binary text'},
+            },
+          }),
+        ),
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(
+      events.whereType<LiveTranscriptionFinal>().single.text,
+      'Binary text',
+    );
   });
 }
 

@@ -67,6 +67,12 @@ class _Controls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.phase == DictationPhase.connecting) {
+      return _ConnectionCancelControl(
+        label: strings.keyboardCancel,
+        onCancel: actions.cancel,
+      );
+    }
     if (state.isActive) return _activeControls();
     final canStart =
         state.phase == DictationPhase.ready ||
@@ -103,6 +109,65 @@ class _Controls extends StatelessWidget {
         state.phase == DictationPhase.correcting ||
         state.phase == DictationPhase.paused,
   );
+}
+
+class _ConnectionCancelControl extends StatelessWidget {
+  const _ConnectionCancelControl({required this.label, required this.onCancel});
+
+  final String label;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: OutlinedButton.icon(
+      onPressed: onCancel,
+      icon: const Icon(Icons.close_rounded, size: 20),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: context.palette.body,
+        minimumSize: const Size(152, 48),
+        side: BorderSide(color: context.palette.line2),
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+  );
+}
+
+class _ConnectingStatus extends StatelessWidget {
+  const _ConnectingStatus({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final animationsDisabled = MediaQuery.disableAnimationsOf(context);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox.square(
+          dimension: 30,
+          child: CircularProgressIndicator(
+            value: animationsDisabled ? 0.7 : null,
+            strokeWidth: 3,
+            color: context.palette.accent,
+            backgroundColor: context.palette.accentSoft,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          status,
+          maxLines: 2,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: context.palette.ink,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _Timer extends StatelessWidget {

@@ -88,6 +88,29 @@ void _registerInteractionTests() {
 }
 
 void _registerAccessibilityAndRecoveryTests() {
+  testWidgets('shows a compact cancellable connection state', (tester) async {
+    var cancels = 0;
+    final strings = AppStrings.of(AppLanguage.de);
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.connecting),
+      textScale: 1.6,
+      size: const Size(360, 280),
+      actions: _KeyboardActions(cancel: () => cancels++),
+    );
+
+    expect(find.text(strings.keyboardConnect), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(RecordControls), findsNothing);
+    expect(find.text(strings.recStopShort), findsNothing);
+    expect(find.text(strings.recPause), findsNothing);
+    expect(find.text(strings.recCancel), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text(strings.keyboardCancel));
+    expect(cancels, 1);
+  });
+
   testWidgets('fits active controls on a small keyboard with large text', (
     tester,
   ) async {
@@ -182,8 +205,11 @@ void _registerErrorTests() {
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.error).copyWith(errorCode: 'connection_timeout'),
+      size: const Size(360, 280),
     );
-    expect(find.textContaining('antwortet nicht'), findsOneWidget);
+    final timeoutText = find.textContaining('antwortet nicht');
+    expect(timeoutText, findsOneWidget);
+    expect(tester.widget<Text>(timeoutText).overflow, isNull);
 
     await _pumpKeyboard(
       tester,
