@@ -20,6 +20,11 @@ void main() {
     expect(find.byType(Container), findsNWidgets(7));
   });
 
+  _registerPlayerWaveTests();
+  _registerRecordWaveTests();
+}
+
+void _registerPlayerWaveTests() {
   testWidgets('PlayerWave colors bars by progress and seeks by tap position', (
     tester,
   ) async {
@@ -70,7 +75,9 @@ void main() {
     await tester.tapAt(topLeft + Offset(0, size.height / 2));
     expect(seek, closeTo(0, 0.01));
   });
+}
 
+void _registerRecordWaveTests() {
   testWidgets(
     'RecordWave paints paused and active states and repaints on new levels',
     (tester) async {
@@ -99,4 +106,28 @@ void main() {
       await tester.pump(const Duration(milliseconds: 140));
     },
   );
+
+  testWidgets('RecordWave respects reduced-motion settings', (tester) async {
+    await tester.pumpWidget(
+      themed(
+        const MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: RecordWave(levels: [0.2, 0.8, 0.4], paused: false),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      themed(
+        const MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: RecordWave(levels: [0.7, 0.3, 0.9], paused: false),
+        ),
+      ),
+    );
+    final frames = await tester.pumpAndSettle();
+
+    expect(find.byType(RecordWave), findsOneWidget);
+    expect(frames, lessThanOrEqualTo(3));
+  });
 }

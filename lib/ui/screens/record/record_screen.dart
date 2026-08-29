@@ -7,8 +7,8 @@ import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/recording_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
+import '../../widgets/recording_controls.dart';
 import 'widgets/record_body.dart';
-import 'widgets/record_controls.dart';
 import 'widgets/record_header.dart';
 
 /// In-app recording screen with a live timer + waveform. Stopping flows into the

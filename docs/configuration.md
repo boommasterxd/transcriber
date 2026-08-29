@@ -13,6 +13,15 @@ Transcription and summarization are independent settings.
 | Transcription | `gpt-transcribe` | `gemini-3.5-transcribe` |
 | Summary | `gpt-5.6-luna` | `gemini-3.7-flash` |
 
+Live keyboard dictation has a separate, fixed compatibility mapping:
+
+| Provider | Live model | PCM input |
+|---|---|---|
+| OpenAI | `gpt-live-transcribe` | mono PCM16, 24 kHz |
+| Google Gemini | `gemini-3.5-transcribe-live` | mono PCM16, 16 kHz |
+
+The keyboard inherits the selected transcription provider, language, and that provider's existing API key. It does not reuse the batch model selector because batch and live endpoints have different compatibility requirements. OpenAI receives the application's `de` or `en` hint, while Gemini receives the required BCP-47 `de-DE` or `en-US` hint; automatic detection omits the hint. The settings card displays the effective live model explicitly.
+
 The provider model catalog is loaded after a stored key has been verified. The configured default remains selectable if a provider does not expose it in the catalog response. Transcription selection includes dedicated transcription models and compatible multimodal models that accept audio and return text.
 
 OpenAI's model catalog exposes identifiers but no modality metadata. The application therefore recognizes the officially documented transcription and audio model families returned for the user's key. Dedicated transcription models use the Audio Transcriptions API. General audio models use Chat Completions with inline WAV or MP3 audio, which is limited to 20 MiB to bound Base64 memory overhead.
@@ -24,6 +33,8 @@ Gemini's catalog is loaded across all pages. Dedicated Transcribe models use `sm
 OpenAI and Gemini keys are independent. The application supports adding, validating, replacing, retesting, and removing each key. Validation occurs before a replacement is persisted, so a failed replacement does not destroy a working key.
 
 Keys use `FlutterSecureStorage` names `api_key_openai` and `api_key_google`. They must never be placed in source files, environment files committed to Git, Drift, SharedPreferences, screenshots, logs, tests, or issue reports.
+
+Live WebSocket authentication also uses request headers. Long-lived keys are not included in WebSocket URLs. The live client keeps the selected key only for the active session and releases its configuration when the session closes.
 
 See [provider key setup](provider-setup.md) for provider-specific instructions.
 
@@ -46,3 +57,5 @@ In-app recording uses mono 16 kHz WAV. Imported and shared files accept FLAC, MP
 Application boundaries reject empty files and files larger than 250 MiB. Provider clients apply their own stricter request limits before network access where required.
 
 Temporary audio has a 24-hour TTL and a 512 MiB quota. These values are centralized in `AudioCacheManager`.
+
+Keyboard dictation does not create an audio file. Native capture is streamed in memory, its reconnect queue is bounded, and all queued chunks are discarded when recording stops or the editor session becomes invalid.

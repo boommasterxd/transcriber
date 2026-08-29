@@ -36,6 +36,7 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             // arm64-v8a only: every real Android device is arm64. x86_64 is just
             // for emulators and would increase packaging cost. Flutter 3.35+
@@ -70,6 +71,11 @@ android {
             isShrinkResources = false
         }
     }
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 }
 
 // Built-in Kotlin (AGP 9+): the Kotlin toolchain is configured via the new
