@@ -51,8 +51,11 @@ final class DictationController extends ChangeNotifier {
   Timer? _timer;
   DateTime? _startedAt;
   Duration _elapsedBeforeSegment = Duration.zero;
+  Future<void> _editorWrites = Future.value();
+  String _finalized = '';
   String _partial = '';
   int _connectionGeneration = 0;
+  int _textGeneration = 0;
   int _reconnectAttempt = 0;
   bool _connected = false;
   bool _disposed = false;
@@ -89,6 +92,9 @@ final class DictationController extends ChangeNotifier {
           settings.transcriptionLanguage,
         ),
       );
+      _textGeneration++;
+      _finalized = '';
+      _partial = '';
       _setState(
         _state.copyWith(
           phase: DictationPhase.connecting,
@@ -127,12 +133,20 @@ final class DictationController extends ChangeNotifier {
     _stopTimer();
     try {
       await _client?.finish();
-      if (sessionId != null && _partial.isNotEmpty && _isCurrent(sessionId)) {
-        await _platform.commitText(sessionId, _partial);
-        _partial = '';
+      await _editorWrites;
+      final transcript = _sessionTranscript;
+      if (sessionId != null && transcript.isNotEmpty && _isCurrent(sessionId)) {
+        await _platform.commitText(sessionId, transcript);
       }
+      _textGeneration++;
+      _finalized = '';
+      _partial = '';
     } catch (_) {
+      _textGeneration++;
+      await _editorWrites;
       if (sessionId != null) await _platform.clearComposingText(sessionId);
+      _finalized = '';
+      _partial = '';
       _fail('finalization_failed');
     } finally {
       await _closeClient();
@@ -163,10 +177,13 @@ final class DictationController extends ChangeNotifier {
 
   Future<void> cancel() async {
     final sessionId = _editor?.sessionId;
+    _textGeneration++;
     await _platform.stopRecording();
     _stopTimer();
     await _closeClient();
+    await _editorWrites;
     if (sessionId != null) await _platform.clearComposingText(sessionId);
+    _finalized = '';
     _partial = '';
     _setReadyState();
   }
@@ -236,11 +253,14 @@ final class DictationController extends ChangeNotifier {
 
   Future<void> _abortWithError(String code) async {
     _fail(code);
+    _textGeneration++;
     await _platform.stopRecording();
     _stopTimer();
     await _closeClient();
+    await _editorWrites;
     final sessionId = _editor?.sessionId;
     if (sessionId != null) await _platform.clearComposingText(sessionId);
+    _finalized = '';
     _partial = '';
   }
 
@@ -318,11 +338,14 @@ final class DictationController extends ChangeNotifier {
     _disposed = true;
     _connected = false;
     _connectionGeneration++;
+    _textGeneration++;
     _timer?.cancel();
     _timer = null;
     _startedAt = null;
     _elapsedBeforeSegment = Duration.zero;
     _config = null;
+    _finalized = '';
+    _partial = '';
     _pendingAudio.clear();
     final platformSubscription = _platformSubscription;
     final clientSubscription = _clientSubscription;
@@ -340,4 +363,22 @@ final class DictationController extends ChangeNotifier {
   static const int maximumLevels = 42;
   static const int maximumPendingChunks = 12;
   static const double initialWaveformLevel = 0.12;
+
+  String get _sessionTranscript => _joinTranscript(_finalized, _partial);
 }
+
+String _joinTranscript(String finalized, String current) {
+  if (finalized.isEmpty) return current;
+  if (current.isEmpty) return finalized;
+  if (_hasBoundaryWhitespace(finalized, current) ||
+      _startsWithPunctuation(current)) {
+    return '$finalized$current';
+  }
+  return '$finalized $current';
+}
+
+bool _hasBoundaryWhitespace(String left, String right) =>
+    RegExp(r'\s$').hasMatch(left) || RegExp(r'^\s').hasMatch(right);
+
+bool _startsWithPunctuation(String value) =>
+    RegExp(r'^[.,!?;:)}\]]').hasMatch(value);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/theme/app_accent.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../services/dictation/dictation_platform.dart';
@@ -92,7 +93,19 @@ class _ModelLine extends StatelessWidget {
     ),
     child: Row(
       children: [
-        Icon(Icons.graphic_eq_rounded, size: 18, color: context.palette.accent),
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: AppAccent.blue.color,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: const Icon(
+            Icons.graphic_eq_rounded,
+            size: 18,
+            color: Colors.white,
+          ),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

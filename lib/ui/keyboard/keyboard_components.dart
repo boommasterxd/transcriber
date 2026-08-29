@@ -68,15 +68,100 @@ class _TopBar extends StatelessWidget {
         Semantics(
           button: true,
           label: strings.keyboardDeleteCharacter,
-          child: IconButton(
+          child: _RepeatingDeleteButton(
             tooltip: strings.keyboardDeleteCharacter,
-            onPressed: onDelete,
-            icon: const Icon(Icons.backspace_outlined),
+            onDelete: onDelete,
           ),
         ),
       ],
     );
   }
+}
+
+class _RepeatingDeleteButton extends StatefulWidget {
+  const _RepeatingDeleteButton({required this.tooltip, required this.onDelete});
+
+  final String tooltip;
+  final VoidCallback onDelete;
+
+  @override
+  State<_RepeatingDeleteButton> createState() => _RepeatingDeleteButtonState();
+}
+
+class _RepeatingDeleteButtonState extends State<_RepeatingDeleteButton> {
+  Timer? _holdTimer;
+  Timer? _repeatTimer;
+  Duration _repeatElapsed = Duration.zero;
+  bool _suppressTap = false;
+
+  void _handlePointerDown(PointerDownEvent _) {
+    _stopTimers();
+    _suppressTap = false;
+    _holdTimer = Timer(kLongPressTimeout, _startRepeating);
+  }
+
+  void _startRepeating() {
+    _suppressTap = true;
+    _repeatElapsed = Duration.zero;
+    widget.onDelete();
+    _scheduleNext(_initialRepeatDelay);
+  }
+
+  void _scheduleNext(Duration delay) {
+    _repeatTimer?.cancel();
+    _repeatTimer = Timer(delay, () {
+      widget.onDelete();
+      _repeatElapsed += delay;
+      final nextDelay = _repeatElapsed >= _accelerationAfter
+          ? _fastRepeatDelay
+          : _repeatDelay;
+      _scheduleNext(nextDelay);
+    });
+  }
+
+  void _stopTimers([Object? _]) {
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+  }
+
+  void _handlePointerCancel(PointerCancelEvent _) {
+    _stopTimers();
+    _suppressTap = false;
+  }
+
+  void _handleTap() {
+    if (_suppressTap) {
+      _suppressTap = false;
+      return;
+    }
+    widget.onDelete();
+  }
+
+  @override
+  void dispose() {
+    _stopTimers();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.opaque,
+    onPointerDown: _handlePointerDown,
+    onPointerUp: _stopTimers,
+    onPointerCancel: _handlePointerCancel,
+    child: IconButton(
+      tooltip: widget.tooltip,
+      onPressed: _handleTap,
+      icon: const Icon(Icons.backspace_outlined),
+    ),
+  );
+
+  static const _initialRepeatDelay = Duration(milliseconds: 110);
+  static const _repeatDelay = Duration(milliseconds: 75);
+  static const _fastRepeatDelay = Duration(milliseconds: 40);
+  static const _accelerationAfter = Duration(milliseconds: 900);
 }
 
 class _KeyboardActiveStatus extends StatelessWidget {

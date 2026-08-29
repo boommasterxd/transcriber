@@ -93,19 +93,26 @@ class ImeMethodHandler(
     }
 
     private fun deleteBackward(call: MethodCall, result: MethodChannel.Result) {
-        val changed = if (editor.accepts(call.argument("sessionId"))) {
-            service.currentInputConnection?.let(::deleteBackward) ?: false
+        val deletedCodePoints = if (editor.accepts(call.argument("sessionId"))) {
+            service.currentInputConnection?.let(::deleteBackward) ?: 0
         } else {
-            false
+            0
         }
-        result.success(changed)
+        result.success(deletedCodePoints)
     }
 
-    private fun deleteBackward(connection: InputConnection): Boolean {
-        if (connection.deleteSurroundingTextInCodePoints(1, 0)) return true
-        val down = connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
-        val up = connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
-        return down || up
+    private fun deleteBackward(connection: InputConnection): Int {
+        val selection = connection.getSelectedText(0)
+        return when {
+            !selection.isNullOrEmpty() && connection.commitText("", cursorPosition) ->
+                Character.codePointCount(selection, 0, selection.length)
+            connection.deleteSurroundingTextInCodePoints(1, 0) -> 1
+            else -> {
+                val down = connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+                val up = connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
+                if (down || up) 1 else 0
+            }
+        }
     }
 
     private fun switchBack(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

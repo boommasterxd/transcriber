@@ -42,7 +42,7 @@ The main and share entry points call `loadAppBootstrap`, which:
 
 SharedPreferences remains a read-only legacy source until the migration window is intentionally removed. It is not the active persistence layer.
 
-The keyboard entry point deliberately loads only the database, settings repository, active settings, and secure credential boundary. It does not load notes or run cache cleanup. `TranscriberInputMethodService` owns a dedicated `FlutterEngine` and embeds the keyboard Flutter view in a measured 280 dp input container. Fullscreen extract mode is disabled so Android cannot expand the dictation surface over the application. Native Android code owns editor lifecycle, microphone capture, and `InputConnection`; Flutter owns the live-session controller and keyboard presentation.
+The keyboard entry point deliberately loads only the database, settings repository, active settings, and secure credential boundary. It does not load notes or run cache cleanup. `TranscriberInputMethodService` owns a dedicated `FlutterEngine` and embeds the keyboard Flutter view in a measured 312 dp input container. Fullscreen extract mode is disabled so Android cannot expand the dictation surface over the application. Native Android code owns editor lifecycle, microphone capture, and `InputConnection`; Flutter owns the live-session controller and keyboard presentation.
 
 Keyboard activation remains optional. The settings card opens a dedicated Flutter onboarding screen that explains the effective live provider and guides users through enabling the input method and selecting it in Android. It reads status from Android after every system action, application resume, and return from onboarding; it does not mark setup complete until Android reports Transcriber as selected. Once complete, settings offer keyboard management and onboarding renders a completed state instead of setup actions.
 
@@ -78,14 +78,15 @@ record, import, or share
 active supported editor
   -> session-scoped AudioRecord PCM chunks
   -> selected live provider over WebSocket
-  -> partial text via setComposingText
-  -> final text via commitText
+  -> partial and finalized segments remain replaceable via setComposingText
   -> pause releases microphone capture while retaining the live provider session
   -> resume restarts capture for the same editor and provider session
-  -> stop, editor change, keyboard hide, or failure closes all session resources
+  -> stop commits the complete session transcript
+  -> discard clears the complete composing transcript
+  -> editor change, keyboard hide, or failure closes all session resources
 ```
 
-`EditorFieldPolicy` rejects password, PIN, non-text, and no-personalized-learning editors before recording can start. `EditorSessionGate` assigns a new identifier on every editor transition and rejects late platform calls and provider events from stale sessions. No surrounding editor text is requested. The keyboard exposes only a session-gated, code-point-safe backward deletion action, with a delete-key event fallback for editors that do not implement code-point deletion. A bounded in-memory audio queue bridges short reconnects and is cleared when the session ends. Gemini uses its SMART input-transcription mode, while OpenAI partials remain replaceable composing text until the authoritative final event is committed. The compact keyboard reuses the application's recording controls and animated waveform, with a reduced-motion path and dedicated connecting, recording, paused, reconnecting, and stopping states. Its cardless waveform region uses the same 42-bar history and perceptual dBFS amplitude mapping as the full-screen recorder. The active timer sits in the top bar, and the switch action carries the active provider logo. The initial connecting state shows only progress and cancellation, while provider messages accept both text and binary WebSocket frames.
+`EditorFieldPolicy` rejects password, PIN, non-text, and no-personalized-learning editors before recording can start. `EditorSessionGate` assigns a new identifier on every editor transition and rejects late platform calls and provider events from stale sessions. No surrounding editor text is requested. Final provider segments remain part of one composing region until the user stops, so discard can clear the entire current dictation without touching text that existed before recording. Editor writes are serialized to prevent a late partial from reappearing after discard. The session-gated backward action deletes an active selection first, otherwise deletes one code point with a delete-key event fallback for incompatible editors. Holding the action repeats and accelerates until release. A bounded in-memory audio queue bridges short reconnects and is cleared when the session ends. Gemini uses its SMART input-transcription mode, while OpenAI partials remain replaceable until the complete session is committed. The compact keyboard reuses the application's recording controls and animated waveform, with a reduced-motion path and dedicated connecting, recording, paused, reconnecting, and stopping states. Its cardless waveform region uses the same 42-bar history and perceptual dBFS amplitude mapping as the full-screen recorder. The active timer sits in the top bar, and the switch action carries the active provider logo. The initial connecting state shows only progress and cancellation, while provider messages accept both text and binary WebSocket frames.
 
 ## Persistence
 

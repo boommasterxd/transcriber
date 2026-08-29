@@ -15,6 +15,8 @@ import 'package:transcriber/state/dictation_state.dart';
 
 import 'dictation_test_support.dart';
 
+part 'dictation_controller_session_cases.dart';
+
 late AppDatabase database;
 late SettingsRepository repository;
 late FakeDictationPlatform platform;
@@ -69,6 +71,7 @@ void main() {
   });
 
   _registerStartupAndEditingTests();
+  _registerSessionLifecycleTests();
   _registerPauseTests();
   _registerProviderConfigurationTests();
   _registerSafetyTests();
@@ -121,9 +124,10 @@ void _registerStartupAndEditingTests() {
 
       clients.single.controller.add(const LiveTranscriptionFinal('Hallo'));
       await pumpEventQueue();
-      expect(platform.commits.single.text, 'Hallo');
+      expect(platform.compositions.last.text, 'Hallo');
+      expect(platform.commits, isEmpty);
       expect(controller.state.phase, DictationPhase.recording);
-      expect(controller.state.preview, isEmpty);
+      expect(controller.state.preview, 'Hallo');
     },
   );
 
@@ -160,18 +164,6 @@ void _registerStartupAndEditingTests() {
       expect(platform.commits.map((entry) => entry.text), ['Vollständig']);
     },
   );
-
-  test('cancel removes composing text without committing it', () async {
-    await controller.start();
-    clients.single.controller.add(const LiveTranscriptionPartial('Verwerfen'));
-    await pumpEventQueue();
-
-    await controller.cancel();
-
-    expect(platform.clears, ['editor-1']);
-    expect(platform.commits, isEmpty);
-    expect(controller.state.phase, DictationPhase.ready);
-  });
 }
 
 void _registerPauseTests() {

@@ -37,6 +37,20 @@ void main() {
     expect(find.textContaining('gemini-3.5-transcribe-live'), findsOneWidget);
     expect(find.textContaining('nicht gespeichert'), findsOneWidget);
     expect(find.text('Einrichtung starten'), findsNothing);
+    final waveIcon = tester.widget<Icon>(find.byIcon(Icons.graphic_eq_rounded));
+    expect(waveIcon.color, Colors.white);
+    final iconBackground = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.byIcon(Icons.graphic_eq_rounded),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect(
+      (iconBackground.decoration as BoxDecoration).color,
+      const Color(0xFF2F7BF6),
+    );
     await tester.tap(find.text('Tastatur verwalten'));
     await tester.pumpAndSettle();
     expect(find.text('Tastatur ist eingerichtet'), findsOneWidget);

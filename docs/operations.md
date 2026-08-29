@@ -51,10 +51,12 @@ JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
 Use non-production speech without personal information. Verify the complete matrix on at least one current Samsung device and one current Pixel device:
 
 - enable, select, and switch back from the Transcriber input method through Android;
-- render and operate the 280 dp Flutter keyboard with touch and TalkBack, confirming it never enters fullscreen extract mode;
+- render and operate the 312 dp Flutter keyboard with touch and TalkBack, confirming it never enters fullscreen extract mode;
 - use Samsung Keyboard and Gboard as the previous keyboard;
 - dictate in WhatsApp, a browser text field, and a multiline editor;
-- verify partial composing text is replaced without duplication and final text is committed once;
+- verify partial and finalized segments remain one composing transcript without duplication until stop commits it once;
+- discard after multiple finalized segments and confirm the complete current dictation disappears while pre-existing editor text remains;
+- tap backspace to delete one code point, delete a selected range, and hold it to verify accelerated repeat deletion stops immediately on release;
 - pause and resume dictation, confirming the timer and waveform freeze, no paused audio is sent, and the existing live session continues;
 - block network access before starting and confirm the keyboard leaves the connecting state with a timeout message within the bounded connection deadline;
 - stop while a partial segment exists and verify the last segment is finalized;

@@ -107,7 +107,7 @@ class ImeSessionCoordinator(
 
     private companion object {
         const val keyboardEntrypoint = "keyboardMain"
-        const val keyboardHeightDp = 280
+        const val keyboardHeightDp = 312
     }
 }
 

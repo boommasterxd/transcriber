@@ -27,6 +27,7 @@ final class FakeDictationPlatform implements DictationPlatform {
   int resumeCount = 0;
   int switchCount = 0;
   bool acceptEdits = true;
+  Completer<bool>? compositionGate;
 
   @override
   Stream<DictationPlatformEvent> get events => controller.stream;
@@ -51,6 +52,8 @@ final class FakeDictationPlatform implements DictationPlatform {
   @override
   Future<bool> setComposingText(String sessionId, String text) async {
     compositions.add((sessionId: sessionId, text: text));
+    final gate = compositionGate;
+    if (gate != null) return gate.future;
     return acceptEdits;
   }
 
@@ -67,9 +70,9 @@ final class FakeDictationPlatform implements DictationPlatform {
   }
 
   @override
-  Future<bool> deleteBackward(String sessionId) async {
+  Future<int> deleteBackward(String sessionId) async {
     deletes.add(sessionId);
-    return acceptEdits;
+    return acceptEdits ? 1 : 0;
   }
 
   @override

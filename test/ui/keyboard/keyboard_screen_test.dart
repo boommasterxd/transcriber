@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
@@ -12,6 +13,7 @@ import 'package:transcriber/ui/widgets/waveforms.dart';
 
 void main() {
   _registerInteractionTests();
+  _registerDeletionTests();
   _registerBrandingTests();
   _registerAccessibilityAndRecoveryTests();
   _registerErrorTests();
@@ -54,7 +56,7 @@ void _registerInteractionTests() {
         levels: const [0.1, 0.5, 0.9],
       ),
       brightness: Brightness.dark,
-      size: const Size(360, 280),
+      size: const Size(360, 312),
       actions: _KeyboardActions(
         stop: () => stops++,
         cancel: () => cancels++,
@@ -68,7 +70,7 @@ void _registerInteractionTests() {
     expect(find.text('02:07'), findsOneWidget);
     final wave = tester.widget<RecordWave>(find.byType(RecordWave));
     expect(wave.barWidth, 5);
-    expect(tester.getSize(find.byType(RecordWave)).height, greaterThan(70));
+    expect(tester.getSize(find.byType(RecordWave)).height, greaterThan(100));
     expect(
       find.ancestor(
         of: find.byType(RecordWave),
@@ -104,6 +106,30 @@ void _registerInteractionTests() {
     expect(tester.widget<RecordWave>(find.byType(RecordWave)).paused, isTrue);
     await tester.tap(find.text('Fortsetzen'));
     expect(resumes, 1);
+  });
+}
+
+void _registerDeletionTests() {
+  testWidgets('holding backspace repeats until the pointer is released', (
+    tester,
+  ) async {
+    var deletes = 0;
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.ready),
+      actions: _KeyboardActions(deleteBackward: () => deletes++),
+    );
+    final backspace = find.byIcon(Icons.backspace_outlined);
+
+    final gesture = await tester.startGesture(tester.getCenter(backspace));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(deletes, greaterThan(3));
+    await gesture.up();
+    final deletesAfterRelease = deletes;
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(deletes, deletesAfterRelease);
   });
 }
 
@@ -272,7 +298,7 @@ Future<void> _pumpKeyboard(
   DictationState state, {
   Brightness brightness = Brightness.light,
   double textScale = 1,
-  Size size = const Size(900, 280),
+  Size size = const Size(900, 312),
   _KeyboardActions actions = const _KeyboardActions(),
 }) async {
   tester.view.physicalSize = size;

@@ -33,13 +33,14 @@ extension _DictationConnection on DictationController {
       case LiveTranscriptionPartial(:final text):
         _partial = text;
         _setState(_state.copyWith(phase: _streamingPhase(true), preview: text));
-        unawaited(_compose(sessionId, text));
+        _queueComposition(sessionId, _sessionTranscript);
       case LiveTranscriptionFinal(:final text):
+        _finalized = _joinTranscript(_finalized, text);
         _partial = '';
         _setState(
           _state.copyWith(phase: _streamingPhase(false), preview: text),
         );
-        unawaited(_commit(sessionId, text));
+        _queueComposition(sessionId, _finalized);
       case LiveTranscriptionDisconnected():
         unawaited(_reconnect(sessionId, generation));
       case LiveTranscriptionFailure(:final code):
@@ -47,18 +48,19 @@ extension _DictationConnection on DictationController {
     }
   }
 
-  Future<void> _compose(String sessionId, String text) async {
-    if (!await _platform.setComposingText(sessionId, text)) {
-      await cancel();
-    }
-  }
-
-  Future<void> _commit(String sessionId, String text) async {
-    if (!await _platform.commitText(sessionId, text)) {
-      await cancel();
-      return;
-    }
-    _setState(_state.copyWith(preview: ''));
+  void _queueComposition(String sessionId, String text) {
+    final generation = _textGeneration;
+    _editorWrites = _editorWrites.then((_) async {
+      if (generation != _textGeneration || !_isCurrent(sessionId)) return;
+      try {
+        if (!await _platform.setComposingText(sessionId, text) &&
+            generation == _textGeneration) {
+          unawaited(cancel());
+        }
+      } catch (_) {
+        if (generation == _textGeneration) unawaited(cancel());
+      }
+    });
   }
 
   Future<void> _reconnect(
