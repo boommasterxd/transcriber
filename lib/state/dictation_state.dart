@@ -6,6 +6,7 @@ enum DictationPhase {
   connecting,
   recording,
   correcting,
+  paused,
   reconnecting,
   stopping,
   unavailable,
@@ -54,6 +55,7 @@ class DictationState {
     DictationPhase.connecting ||
     DictationPhase.recording ||
     DictationPhase.correcting ||
+    DictationPhase.paused ||
     DictationPhase.reconnecting ||
     DictationPhase.stopping => true,
     _ => false,

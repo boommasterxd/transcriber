@@ -50,6 +50,7 @@ final class DictationController extends ChangeNotifier {
   KeyboardEditorState? _editor;
   Timer? _timer;
   DateTime? _startedAt;
+  Duration _elapsedBeforeSegment = Duration.zero;
   String _partial = '';
   int _connectionGeneration = 0;
   int _reconnectAttempt = 0;
@@ -102,7 +103,6 @@ final class DictationController extends ChangeNotifier {
       await _connect(editor.sessionId);
       if (!_isCurrent(editor.sessionId)) return;
       await _platform.startRecording(editor.sessionId, _config!.sampleRate);
-      _startedAt = DateTime.now();
       _startTimer();
       _setState(_state.copyWith(phase: DictationPhase.recording));
     } on LiveConnectionException catch (error) {
@@ -135,6 +135,27 @@ final class DictationController extends ChangeNotifier {
     if (_state.phase != DictationPhase.error) _setReadyState();
   }
 
+  Future<void> togglePause() async {
+    final editor = _editor;
+    if (editor == null || !_isCurrent(editor.sessionId)) return;
+    try {
+      if (_state.phase == DictationPhase.paused) {
+        await _platform.resumeRecording(editor.sessionId);
+        _startTimer();
+        _setState(_state.copyWith(phase: DictationPhase.recording));
+      } else if (_state.phase == DictationPhase.recording ||
+          _state.phase == DictationPhase.correcting) {
+        await _platform.pauseRecording(editor.sessionId);
+        _pauseTimer();
+        _setState(_state.copyWith(phase: DictationPhase.paused));
+      }
+    } on PlatformException catch (error) {
+      await _abortWithError(error.code);
+    } catch (_) {
+      await _abortWithError('audio_state_failed');
+    }
+  }
+
   Future<void> cancel() async {
     final sessionId = _editor?.sessionId;
     await _platform.stopRecording();
@@ -162,6 +183,7 @@ final class DictationController extends ChangeNotifier {
   }
 
   void _handleAudio(Uint8List pcm, double level) {
+    if (_state.phase == DictationPhase.paused) return;
     final levels = [..._state.levels, level];
     if (levels.length > maximumLevels) levels.removeAt(0);
     _setState(_state.copyWith(levels: levels));
@@ -213,20 +235,37 @@ final class DictationController extends ChangeNotifier {
 
   void _startTimer() {
     _timer?.cancel();
+    _elapsedBeforeSegment = _state.elapsed;
+    _startedAt = DateTime.now();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final startedAt = _startedAt;
       if (startedAt != null) {
         _setState(
-          _state.copyWith(elapsed: DateTime.now().difference(startedAt)),
+          _state.copyWith(
+            elapsed:
+                _elapsedBeforeSegment + DateTime.now().difference(startedAt),
+          ),
         );
       }
     });
+  }
+
+  void _pauseTimer() {
+    final startedAt = _startedAt;
+    if (startedAt != null) {
+      _elapsedBeforeSegment += DateTime.now().difference(startedAt);
+      _setState(_state.copyWith(elapsed: _elapsedBeforeSegment));
+    }
+    _timer?.cancel();
+    _timer = null;
+    _startedAt = null;
   }
 
   void _stopTimer() {
     _timer?.cancel();
     _timer = null;
     _startedAt = null;
+    _elapsedBeforeSegment = Duration.zero;
   }
 
   void _setReadyState() {
@@ -263,6 +302,8 @@ final class DictationController extends ChangeNotifier {
     _connectionGeneration++;
     _timer?.cancel();
     _timer = null;
+    _startedAt = null;
+    _elapsedBeforeSegment = Duration.zero;
     _config = null;
     _pendingAudio.clear();
     final platformSubscription = _platformSubscription;

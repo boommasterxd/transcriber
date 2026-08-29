@@ -50,7 +50,6 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        _Timer(elapsed: state.elapsed),
       ],
     );
   }
@@ -75,76 +74,35 @@ class _Controls extends StatelessWidget {
     final microphoneMissing =
         state.phase == DictationPhase.error &&
         state.errorCode == 'microphone_denied';
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: canStart
-            ? microphoneMissing
-                  ? actions.openAppSettings
-                  : actions.start
-            : null,
-        icon: const Icon(Icons.mic_rounded),
-        label: Text(
-          state.phase == DictationPhase.error
-              ? strings.keyboardRetry
-              : strings.keyboardReady,
-        ),
-      ),
+    return RecordStartControl(
+      compact: true,
+      onTap: canStart
+          ? microphoneMissing
+                ? actions.openAppSettings
+                : actions.start
+          : null,
+      label: state.phase == DictationPhase.error
+          ? strings.keyboardRetry
+          : strings.keyboardReady,
     );
   }
 
-  Widget _activeControls() => Row(
-    children: [
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: state.phase == DictationPhase.stopping
-              ? null
-              : actions.cancel,
-          icon: const Icon(Icons.close_rounded),
-          label: Text(strings.keyboardCancel),
-        ),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: FilledButton.icon(
-          onPressed: state.phase == DictationPhase.stopping
-              ? null
-              : actions.stop,
-          icon: const Icon(Icons.stop_rounded),
-          label: Text(strings.keyboardStop),
-        ),
-      ),
-    ],
+  Widget _activeControls() => RecordControls(
+    compact: true,
+    paused: state.phase == DictationPhase.paused,
+    strings: strings,
+    onCancel: actions.cancel,
+    onStop: actions.stop,
+    onTogglePause: actions.togglePause,
+    cancelEnabled: state.phase != DictationPhase.stopping,
+    stopEnabled:
+        state.phase != DictationPhase.connecting &&
+        state.phase != DictationPhase.stopping,
+    pauseEnabled:
+        state.phase == DictationPhase.recording ||
+        state.phase == DictationPhase.correcting ||
+        state.phase == DictationPhase.paused,
   );
-}
-
-class _LiveWave extends StatelessWidget {
-  const _LiveWave({required this.levels});
-  final List<double> levels;
-
-  @override
-  Widget build(BuildContext context) {
-    final values = levels.isEmpty ? const [0.08] : levels;
-    return SizedBox(
-      height: 28,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          for (final level in values)
-            Container(
-              width: 3,
-              height: 5 + level.clamp(0, 1) * 23,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: context.palette.accent,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _Timer extends StatelessWidget {
@@ -182,6 +140,7 @@ String _statusText(DictationState state, AppStrings strings) {
     DictationPhase.connecting => strings.keyboardConnect,
     DictationPhase.recording => strings.keyboardRecording,
     DictationPhase.correcting => strings.keyboardCorrecting,
+    DictationPhase.paused => strings.recPaused,
     DictationPhase.reconnecting => strings.keyboardReconnect,
     DictationPhase.stopping => strings.keyboardStopping,
     DictationPhase.unavailable => strings.keyboardSensitiveField,

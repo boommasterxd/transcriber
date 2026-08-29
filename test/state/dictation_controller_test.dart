@@ -69,6 +69,7 @@ void main() {
   });
 
   _registerStartupAndEditingTests();
+  _registerPauseTests();
   _registerProviderConfigurationTests();
   _registerSafetyTests();
   _registerRecoveryTests();
@@ -157,6 +158,35 @@ void _registerStartupAndEditingTests() {
     expect(platform.clears, ['editor-1']);
     expect(platform.commits, isEmpty);
     expect(controller.state.phase, DictationPhase.ready);
+  });
+}
+
+void _registerPauseTests() {
+  test('pauses capture and resumes the same live session', () async {
+    await controller.start();
+    platform.emitAudio([1, 2], level: 0.6);
+    await pumpEventQueue();
+
+    await controller.togglePause();
+    platform.emitAudio([3, 4], level: 0.9);
+    clients.single.controller.add(
+      const LiveTranscriptionPartial('Zwischenstand'),
+    );
+    await pumpEventQueue();
+
+    expect(controller.state.phase, DictationPhase.paused);
+    expect(controller.state.preview, 'Zwischenstand');
+    expect(platform.pauseCount, 1);
+    expect(clients.single.audio, [
+      [1, 2],
+    ]);
+    expect(clients.single.closed, isFalse);
+
+    await controller.togglePause();
+
+    expect(controller.state.phase, DictationPhase.recording);
+    expect(platform.resumeCount, 1);
+    expect(clients, hasLength(1));
   });
 }
 

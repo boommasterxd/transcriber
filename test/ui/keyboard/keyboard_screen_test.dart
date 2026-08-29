@@ -6,9 +6,12 @@ import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/dictation_state.dart';
 import 'package:transcriber/ui/keyboard/keyboard_screen.dart';
+import 'package:transcriber/ui/widgets/recording_controls.dart';
+import 'package:transcriber/ui/widgets/waveforms.dart';
 
 void main() {
   _registerInteractionTests();
+  _registerAccessibilityAndRecoveryTests();
   _registerErrorTests();
 }
 
@@ -35,6 +38,7 @@ void _registerInteractionTests() {
   ) async {
     var stops = 0;
     var cancels = 0;
+    var pauses = 0;
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.correcting).copyWith(
@@ -43,16 +47,63 @@ void _registerInteractionTests() {
         levels: const [0.1, 0.5, 0.9],
       ),
       brightness: Brightness.dark,
-      actions: _KeyboardActions(stop: () => stops++, cancel: () => cancels++),
+      size: const Size(360, 280),
+      actions: _KeyboardActions(
+        stop: () => stops++,
+        cancel: () => cancels++,
+        togglePause: () => pauses++,
+      ),
     );
 
     expect(find.text('Text wird live korrigiert'), findsOneWidget);
     expect(find.text('Guten Mor'), findsOneWidget);
     expect(find.text('02:07'), findsOneWidget);
     await tester.tap(find.text('Stoppen'));
-    await tester.tap(find.text('Abbrechen'));
+    expect(find.byType(RecordWave), findsOneWidget);
+    await tester.tap(find.text('Pause'));
+    await tester.tap(find.text('Verwerfen'));
     expect(stops, 1);
     expect(cancels, 1);
+    expect(pauses, 1);
+  });
+
+  testWidgets('shows paused waveform and resume action', (tester) async {
+    var resumes = 0;
+    await _pumpKeyboard(
+      tester,
+      _state(DictationPhase.paused).copyWith(
+        levels: const [0.2, 0.7, 0.4],
+        elapsed: const Duration(seconds: 12),
+      ),
+      actions: _KeyboardActions(togglePause: () => resumes++),
+    );
+
+    expect(find.text('Pausiert'), findsOneWidget);
+    expect(find.text('Fortsetzen'), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    expect(tester.widget<RecordWave>(find.byType(RecordWave)).paused, isTrue);
+    await tester.tap(find.text('Fortsetzen'));
+    expect(resumes, 1);
+  });
+}
+
+void _registerAccessibilityAndRecoveryTests() {
+  testWidgets('fits active controls on a small keyboard with large text', (
+    tester,
+  ) async {
+    await _pumpKeyboard(
+      tester,
+      _state(
+        DictationPhase.paused,
+      ).copyWith(levels: const [0.2, 0.7, 0.4], preview: 'Pausierter Text'),
+      textScale: 1.6,
+      size: const Size(360, 280),
+    );
+
+    expect(find.text('Verwerfen'), findsOneWidget);
+    expect(find.text('Stoppen'), findsOneWidget);
+    expect(find.text('Fortsetzen'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('blocks protected fields and exposes TalkBack semantics', (
@@ -67,7 +118,7 @@ void _registerInteractionTests() {
 
     expect(find.textContaining('geschützten Textfeld'), findsOneWidget);
     expect(
-      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      tester.widget<RecordStartControl>(find.byType(RecordStartControl)).onTap,
       isNull,
     );
     expect(find.bySemanticsLabel('Vorherige Tastatur'), findsOneWidget);
@@ -158,9 +209,10 @@ Future<void> _pumpKeyboard(
   DictationState state, {
   Brightness brightness = Brightness.light,
   double textScale = 1,
+  Size size = const Size(900, 280),
   _KeyboardActions actions = const _KeyboardActions(),
 }) async {
-  tester.view.physicalSize = const Size(900, 280);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -174,6 +226,7 @@ Future<void> _pumpKeyboard(
           strings: AppStrings.of(AppLanguage.de),
           start: actions.start ?? _noOp,
           stop: actions.stop ?? _noOp,
+          togglePause: actions.togglePause ?? _noOp,
           cancel: actions.cancel ?? _noOp,
           switchBack: _noOp,
           openAppSettings: actions.openAppSettings ?? _noOp,
@@ -190,11 +243,13 @@ class _KeyboardActions {
     this.start,
     this.stop,
     this.cancel,
+    this.togglePause,
     this.openAppSettings,
   });
 
   final VoidCallback? start;
   final VoidCallback? stop;
   final VoidCallback? cancel;
+  final VoidCallback? togglePause;
   final VoidCallback? openAppSettings;
 }

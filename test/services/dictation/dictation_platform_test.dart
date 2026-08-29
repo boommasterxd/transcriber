@@ -53,6 +53,8 @@ void _registerImeMethodTests() {
 
     final editor = await platform.editorState();
     await platform.startRecording('session', 24000);
+    await platform.pauseRecording('session');
+    await platform.resumeRecording('session');
     expect(await platform.setComposingText('session', 'partial'), isTrue);
     expect(await platform.commitText('session', 'final'), isTrue);
     expect(await platform.clearComposingText('session'), isTrue);
@@ -64,8 +66,10 @@ void _registerImeMethodTests() {
     expect(editor.supported, isTrue);
     expect(editor.microphoneGranted, isFalse);
     expect(calls[1].arguments, {'sessionId': 'session', 'sampleRate': 24000});
-    expect(calls[2].arguments, {'sessionId': 'session', 'text': 'partial'});
-    expect(calls[3].arguments, {'sessionId': 'session', 'text': 'final'});
+    expect(calls[2].arguments, {'sessionId': 'session'});
+    expect(calls[3].arguments, {'sessionId': 'session'});
+    expect(calls[4].arguments, {'sessionId': 'session', 'text': 'partial'});
+    expect(calls[5].arguments, {'sessionId': 'session', 'text': 'final'});
   });
 }
 

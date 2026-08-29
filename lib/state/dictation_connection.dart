@@ -32,14 +32,12 @@ extension _DictationConnection on DictationController {
         break;
       case LiveTranscriptionPartial(:final text):
         _partial = text;
-        _setState(
-          _state.copyWith(phase: DictationPhase.correcting, preview: text),
-        );
+        _setState(_state.copyWith(phase: _streamingPhase(true), preview: text));
         unawaited(_compose(sessionId, text));
       case LiveTranscriptionFinal(:final text):
         _partial = '';
         _setState(
-          _state.copyWith(phase: DictationPhase.recording, preview: text),
+          _state.copyWith(phase: _streamingPhase(false), preview: text),
         );
         unawaited(_commit(sessionId, text));
       case LiveTranscriptionDisconnected():
@@ -63,8 +61,13 @@ extension _DictationConnection on DictationController {
     _setState(_state.copyWith(preview: ''));
   }
 
-  Future<void> _reconnect(String sessionId, int generation) async {
+  Future<void> _reconnect(
+    String sessionId,
+    int generation, {
+    bool? resumePaused,
+  }) async {
     if (!_state.isActive || generation != _connectionGeneration) return;
+    final wasPaused = resumePaused ?? _state.phase == DictationPhase.paused;
     _connected = false;
     if (_reconnectAttempt >= _reconnectDelays.length) {
       await _abortWithError('reconnect_failed');
@@ -78,11 +81,26 @@ extension _DictationConnection on DictationController {
     if (!_state.isActive || !_isCurrent(sessionId)) return;
     try {
       await _connect(sessionId);
-      _setState(_state.copyWith(phase: DictationPhase.recording));
+      _setState(
+        _state.copyWith(
+          phase: wasPaused ? DictationPhase.paused : DictationPhase.recording,
+        ),
+      );
     } catch (_) {
-      await _reconnect(sessionId, _connectionGeneration);
+      await _reconnect(
+        sessionId,
+        _connectionGeneration,
+        resumePaused: wasPaused,
+      );
     }
   }
+
+  DictationPhase _streamingPhase(bool hasPartial) =>
+      _state.phase == DictationPhase.paused
+      ? DictationPhase.paused
+      : hasPartial
+      ? DictationPhase.correcting
+      : DictationPhase.recording;
 
   Future<void> _closeClient() async {
     _connected = false;

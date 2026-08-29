@@ -80,10 +80,12 @@ active supported editor
   -> selected live provider over WebSocket
   -> partial text via setComposingText
   -> final text via commitText
+  -> pause releases microphone capture while retaining the live provider session
+  -> resume restarts capture for the same editor and provider session
   -> stop, editor change, keyboard hide, or failure closes all session resources
 ```
 
-`EditorFieldPolicy` rejects password, PIN, non-text, and no-personalized-learning editors before recording can start. `EditorSessionGate` assigns a new identifier on every editor transition and rejects late platform calls and provider events from stale sessions. No surrounding editor text is requested. A bounded in-memory audio queue bridges short reconnects and is cleared when the session ends.
+`EditorFieldPolicy` rejects password, PIN, non-text, and no-personalized-learning editors before recording can start. `EditorSessionGate` assigns a new identifier on every editor transition and rejects late platform calls and provider events from stale sessions. No surrounding editor text is requested. A bounded in-memory audio queue bridges short reconnects and is cleared when the session ends. The compact keyboard reuses the application's recording controls and animated waveform, with a reduced-motion path and dedicated recording, paused, reconnecting, and stopping states.
 
 ## Persistence
 

@@ -59,6 +59,8 @@ abstract interface class DictationPlatform {
   Stream<DictationPlatformEvent> get events;
   Future<KeyboardEditorState> editorState();
   Future<void> startRecording(String sessionId, int sampleRate);
+  Future<void> pauseRecording(String sessionId);
+  Future<void> resumeRecording(String sessionId);
   Future<void> stopRecording();
   Future<bool> setComposingText(String sessionId, String text);
   Future<bool> commitText(String sessionId, String text);
@@ -93,6 +95,14 @@ final class MethodChannelDictationPlatform implements DictationPlatform {
         'sessionId': sessionId,
         'sampleRate': sampleRate,
       });
+
+  @override
+  Future<void> pauseRecording(String sessionId) =>
+      methods.invokeMethod<void>('pauseRecording', {'sessionId': sessionId});
+
+  @override
+  Future<void> resumeRecording(String sessionId) =>
+      methods.invokeMethod<void>('resumeRecording', {'sessionId': sessionId});
 
   @override
   Future<void> stopRecording() => methods.invokeMethod<void>('stopRecording');

@@ -22,6 +22,8 @@ final class FakeDictationPlatform implements DictationPlatform {
   final List<({String sessionId, String text})> commits = [];
   final List<String> clears = [];
   int stopCount = 0;
+  int pauseCount = 0;
+  int resumeCount = 0;
   int switchCount = 0;
   bool acceptEdits = true;
 
@@ -35,6 +37,12 @@ final class FakeDictationPlatform implements DictationPlatform {
   Future<void> startRecording(String sessionId, int sampleRate) async {
     starts.add((sessionId: sessionId, sampleRate: sampleRate));
   }
+
+  @override
+  Future<void> pauseRecording(String sessionId) async => pauseCount++;
+
+  @override
+  Future<void> resumeRecording(String sessionId) async => resumeCount++;
 
   @override
   Future<void> stopRecording() async => stopCount++;

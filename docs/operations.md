@@ -55,6 +55,7 @@ Use non-production speech without personal information. Verify the complete matr
 - use Samsung Keyboard and Gboard as the previous keyboard;
 - dictate in WhatsApp, a browser text field, and a multiline editor;
 - verify partial composing text is replaced without duplication and final text is committed once;
+- pause and resume dictation, confirming the timer and waveform freeze, no paused audio is sent, and the existing live session continues;
 - stop while a partial segment exists and verify the last segment is finalized;
 - change fields, switch applications, hide or replace the keyboard, and confirm recording stops immediately;
 - interrupt and restore the network, then confirm bounded reconnect behavior and no duplicated text;

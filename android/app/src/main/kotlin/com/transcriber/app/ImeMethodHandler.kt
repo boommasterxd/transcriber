@@ -23,6 +23,8 @@ class ImeMethodHandler(
         when (call.method) {
             "getEditorState" -> result.success(editor.state(recorder.hasPermission()))
             "startRecording" -> startRecording(call, result)
+            "pauseRecording" -> changeRecording(call, result, recorder::pause)
+            "resumeRecording" -> changeRecording(call, result, recorder::resume)
             "stopRecording" -> stopRecording(result)
             "setComposingText" -> editText(call, result, composing = true)
             "commitText" -> editText(call, result, composing = false)
@@ -48,6 +50,20 @@ class ImeMethodHandler(
     private fun stopRecording(result: MethodChannel.Result) {
         recorder.stop()
         result.success(true)
+    }
+
+    private fun changeRecording(
+        call: MethodCall,
+        result: MethodChannel.Result,
+        action: () -> Boolean,
+    ) {
+        val sessionId = call.argument<String>("sessionId")
+        when {
+            !editor.accepts(sessionId) ->
+                result.error("invalid_session", "The editor session is no longer active.", null)
+            action() -> result.success(true)
+            else -> result.error("audio_state_failed", "Unable to change microphone capture.", null)
+        }
     }
 
     private fun editText(call: MethodCall, result: MethodChannel.Result, composing: Boolean) {

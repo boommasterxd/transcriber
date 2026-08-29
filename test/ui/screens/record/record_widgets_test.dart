@@ -5,8 +5,8 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/ui/screens/record/widgets/record_body.dart';
-import 'package:transcriber/ui/screens/record/widgets/record_controls.dart';
 import 'package:transcriber/ui/screens/record/widgets/record_header.dart';
+import 'package:transcriber/ui/widgets/recording_controls.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.en);

@@ -185,10 +185,18 @@ class PlayerWave extends StatelessWidget {
 /// every bar between the previous and current amplitude snapshot, and an
 /// enclosing [RepaintBoundary] keeps the repaints off the rest of the screen.
 class RecordWave extends StatefulWidget {
-  const RecordWave({super.key, required this.levels, required this.paused});
+  const RecordWave({
+    super.key,
+    required this.levels,
+    required this.paused,
+    this.height = 96,
+    this.barWidth = 5,
+  });
 
   final List<double> levels;
   final bool paused;
+  final double height;
+  final double barWidth;
 
   @override
   State<RecordWave> createState() => _RecordWaveState();
@@ -203,6 +211,14 @@ class _RecordWaveState extends State<RecordWave>
 
   late List<double> _from = widget.levels;
   late List<double> _to = widget.levels;
+  bool _reduceMotion = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion) _c.value = 1;
+  }
 
   @override
   void didUpdateWidget(RecordWave oldWidget) {
@@ -211,7 +227,11 @@ class _RecordWaveState extends State<RecordWave>
     if (!identical(oldWidget.levels, widget.levels)) {
       _from = _to;
       _to = widget.levels;
-      _c.forward(from: 0);
+      if (_reduceMotion) {
+        _c.value = 1;
+      } else {
+        _c.forward(from: 0);
+      }
     }
   }
 
@@ -225,7 +245,7 @@ class _RecordWaveState extends State<RecordWave>
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
-      height: 96,
+      height: widget.height,
       child: RepaintBoundary(
         child: CustomPaint(
           size: Size.infinite,
@@ -234,6 +254,7 @@ class _RecordWaveState extends State<RecordWave>
             to: _to,
             progress: _c,
             color: widget.paused ? palette.waveOff : palette.accent,
+            barWidth: widget.barWidth,
           ),
         ),
       ),
@@ -247,12 +268,14 @@ class _RecordWavePainter extends CustomPainter {
     required this.to,
     required this.progress,
     required this.color,
+    required this.barWidth,
   }) : super(repaint: progress);
 
   final List<double> from;
   final List<double> to;
   final Animation<double> progress;
   final Color color;
+  final double barWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -261,7 +284,6 @@ class _RecordWavePainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    const barWidth = 5.0;
     final slot = size.width / n;
     final t = progress.value;
     final cy = size.height / 2;
@@ -287,6 +309,7 @@ class _RecordWavePainter extends CustomPainter {
   @override
   bool shouldRepaint(_RecordWavePainter old) =>
       old.color != color ||
+      old.barWidth != barWidth ||
       !identical(old.from, from) ||
       !identical(old.to, to);
 }
