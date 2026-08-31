@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_palette.dart';
 import '../../data/models/remote_provider.dart';
 
 /// Compact local brand mark for a supported cloud provider.
@@ -12,19 +11,12 @@ class ProviderLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     return ExcludeSemantics(
-      child: Container(
+      child: SizedBox(
         width: size,
         height: size,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(size * 0.29),
-          border: Border.all(color: palette.line2),
-        ),
         child: Image.asset(
-          _assetPath(provider),
+          _assetPath(provider, Theme.of(context).brightness),
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
         ),
@@ -32,9 +24,12 @@ class ProviderLogo extends StatelessWidget {
     );
   }
 
-  static String _assetPath(RemoteProviderId provider) {
-    return provider == RemoteProviderId.openai
-        ? 'assets/images/providers/openai.png'
-        : 'assets/images/providers/gemini.png';
+  static String _assetPath(RemoteProviderId provider, Brightness brightness) {
+    if (provider == RemoteProviderId.google) {
+      return 'assets/images/providers/gemini.png';
+    }
+    return brightness == Brightness.dark
+        ? 'assets/images/providers/openai_dark.png'
+        : 'assets/images/providers/openai.png';
   }
 }
