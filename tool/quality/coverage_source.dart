@@ -54,7 +54,7 @@ final class _SourceAnalysis {
       return false;
     }
     return declaration.body.members.every(
-      (member) => member is MethodDeclaration && member.isAbstract,
+      (member) => member is MethodDeclaration && !member.isComplete,
     );
   }
 }
