@@ -9,10 +9,11 @@ import android.view.inputmethod.InputMethodManager
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
-/** Exposes read-only IME status and explicit Android settings actions. */
+/** Exposes IME status, explicit Android actions, and IME window appearance. */
 class KeyboardSettingsChannel(
     private val context: Context,
     messenger: BinaryMessenger,
+    private val updateLightNavigationBar: ((Boolean) -> Boolean)? = null,
 ) {
     private val channel = MethodChannel(messenger, channelName)
 
@@ -23,6 +24,14 @@ class KeyboardSettingsChannel(
                 "openInputMethodSettings" -> result.success(openInputMethodSettings())
                 "showInputMethodPicker" -> result.success(showInputMethodPicker())
                 "openAppSettings" -> result.success(openAppSettings())
+                "setLightNavigationBar" -> {
+                    val lightBackground = call.argument<Boolean>("lightBackground")
+                    if (lightBackground == null) {
+                        result.error("invalid_argument", "lightBackground is required", null)
+                    } else {
+                        result.success(updateLightNavigationBar?.invoke(lightBackground) ?: false)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

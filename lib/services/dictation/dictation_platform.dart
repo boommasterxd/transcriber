@@ -190,4 +190,10 @@ final class KeyboardSettingsPlatform {
 
   Future<void> openAppSettings() =>
       channel.invokeMethod<void>('openAppSettings');
+
+  Future<bool> setLightNavigationBar(bool lightBackground) async =>
+      await channel.invokeMethod<bool>('setLightNavigationBar', {
+        'lightBackground': lightBackground,
+      }) ??
+      false;
 }
