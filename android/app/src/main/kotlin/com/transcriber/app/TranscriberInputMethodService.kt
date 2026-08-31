@@ -7,6 +7,8 @@ import android.view.inputmethod.EditorInfo
 /** Android lifecycle host for the Flutter-rendered dictation input method. */
 class TranscriberInputMethodService : NonFullscreenInputMethodService() {
     private lateinit var coordinator: ImeSessionCoordinator
+    private val navigationBarAppearance = ImeNavigationBarAppearance { window.window }
+    internal val requestLightNavigationBar = navigationBarAppearance::request
 
     override fun onCreate() {
         super.onCreate()
@@ -18,6 +20,7 @@ class TranscriberInputMethodService : NonFullscreenInputMethodService() {
 
     override fun onWindowShown() {
         super.onWindowShown()
+        navigationBarAppearance.apply()
         coordinator.windowShown()
     }
 

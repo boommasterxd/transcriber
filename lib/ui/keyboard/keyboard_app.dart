@@ -18,12 +18,14 @@ class KeyboardApp extends StatefulWidget {
     required this.settingsRepository,
     required this.initialSettings,
     this.platform,
+    this.settingsPlatform = const KeyboardSettingsPlatform(),
   });
 
   final AppDatabase database;
   final SettingsRepository settingsRepository;
   final AppSettings initialSettings;
   final DictationPlatform? platform;
+  final KeyboardSettingsPlatform settingsPlatform;
 
   @override
   State<KeyboardApp> createState() => _KeyboardAppState();
@@ -79,10 +81,59 @@ class _KeyboardAppState extends State<KeyboardApp> with WidgetsBindingObserver {
     theme: AppTheme.build(Brightness.light, _settings.accent),
     darkTheme: AppTheme.build(Brightness.dark, _settings.accent),
     themeMode: _settings.themeMode,
+    builder: (context, child) => _KeyboardAppearance(
+      platform: widget.settingsPlatform,
+      child: child ?? const SizedBox.shrink(),
+    ),
     home: KeyboardScreen(
       controller: _controller,
       strings: AppStrings.of(_settings.language),
-      openAppSettings: const KeyboardSettingsPlatform().openAppSettings,
+      openAppSettings: widget.settingsPlatform.openAppSettings,
     ),
   );
+}
+
+class _KeyboardAppearance extends StatefulWidget {
+  const _KeyboardAppearance({required this.platform, required this.child});
+
+  final KeyboardSettingsPlatform platform;
+  final Widget child;
+
+  @override
+  State<_KeyboardAppearance> createState() => _KeyboardAppearanceState();
+}
+
+class _KeyboardAppearanceState extends State<_KeyboardAppearance> {
+  Brightness? _lastBrightness;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _synchronize(Theme.of(context).brightness);
+  }
+
+  @override
+  void didUpdateWidget(covariant _KeyboardAppearance oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.platform == widget.platform) return;
+    _lastBrightness = null;
+    _synchronize(Theme.of(context).brightness);
+  }
+
+  void _synchronize(Brightness brightness) {
+    if (_lastBrightness == brightness) return;
+    _lastBrightness = brightness;
+    unawaited(_setLightNavigationBar(brightness == Brightness.light));
+  }
+
+  Future<void> _setLightNavigationBar(bool lightBackground) async {
+    try {
+      await widget.platform.setLightNavigationBar(lightBackground);
+    } on Exception {
+      // Keep the keyboard available if an older native host lacks this method.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

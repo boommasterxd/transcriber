@@ -31,7 +31,11 @@ class ImeSessionCoordinator(
         recorder = PcmAudioRecorder(service, events::emitAudioChunk, events::emitAudioFailure)
         ImeMethodHandler(service, engine.dartExecutor.binaryMessenger, editor, recorder).register()
         events.register(recorder)
-        KeyboardSettingsChannel(service, engine.dartExecutor.binaryMessenger).register()
+        KeyboardSettingsChannel(
+            service,
+            engine.dartExecutor.binaryMessenger,
+            service.requestLightNavigationBar,
+        ).register()
         startDartEntrypoint()
         flutterView = FlutterView(service, FlutterSurfaceView(service))
         inputView = FixedHeightInputView(
