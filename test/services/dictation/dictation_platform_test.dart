@@ -87,6 +87,7 @@ void _registerSettingsMethodTests() {
     await platform.openInputMethodSettings();
     await platform.showInputMethodPicker();
     await platform.openAppSettings();
+    expect(await platform.setLightNavigationBar(true), isTrue);
 
     expect(status.enabled, isTrue);
     expect(status.selected, isFalse);
@@ -95,7 +96,9 @@ void _registerSettingsMethodTests() {
       'openInputMethodSettings',
       'showInputMethodPicker',
       'openAppSettings',
+      'setLightNavigationBar',
     ]);
+    expect(calls.last.arguments, {'lightBackground': true});
   });
 }
 
