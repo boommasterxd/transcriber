@@ -44,7 +44,7 @@ dependencies:
   url_launcher: ^6.3.2
 
 dev_dependencies:
-  analyzer: ^13.3.0
+  analyzer: ^14.3.0
   build_runner: ^2.16.1
   dart_code_linter: ^4.3.0
   drift_dev: ^2.34.6
