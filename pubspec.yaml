@@ -22,13 +22,13 @@ dependencies:
 
   # Platform integration
   receive_sharing_intent: ^1.8.1
-  permission_handler: ^13.0.0
-  file_picker: ^12.2.0
+  permission_handler: ^13.0.2
+  file_picker: ^12.3.0
   path_provider: ^2.1.5
   path: ^1.9.1
 
   # Persistence
-  drift: ^2.34.4
+  drift: ^2.35.0
   drift_flutter: ^0.3.1
   # Legacy read-only migration. Remove after the documented migration window.
   shared_preferences: ^2.5.5
