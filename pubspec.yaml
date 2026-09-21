@@ -32,7 +32,7 @@ dependencies:
   drift_flutter: ^0.3.1
   # Legacy read-only migration. Remove after the documented migration window.
   shared_preferences: ^2.5.5
-  flutter_secure_storage: ^11.0.0
+  flutter_secure_storage: ^11.2.0
 
   # Networking (cloud providers)
   http: ^1.6.0
@@ -44,7 +44,7 @@ dependencies:
   url_launcher: ^6.3.2
 
 dev_dependencies:
-  analyzer: ^14.3.0
+  analyzer: ^14.4.0
   build_runner: ^2.16.1
   dart_code_linter: ^4.3.0
   drift_dev: ^2.34.6
