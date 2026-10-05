@@ -28,7 +28,7 @@ dependencies:
   path: ^1.9.1
 
   # Persistence
-  drift: ^2.35.0
+  drift: ^2.35.1
   drift_flutter: ^0.3.1
   # Legacy read-only migration. Remove after the documented migration window.
   shared_preferences: ^2.5.5
@@ -40,14 +40,14 @@ dependencies:
   # Misc
   uuid: ^4.5.3
   intl: ^0.20.2
-  share_plus: ^13.1.0
+  share_plus: ^13.3.1
   url_launcher: ^6.3.2
 
 dev_dependencies:
   analyzer: ^14.4.0
   build_runner: ^2.16.1
   dart_code_linter: ^4.4.0
-  drift_dev: ^2.34.6
+  drift_dev: ^2.35.1
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
