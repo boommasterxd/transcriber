@@ -2,6 +2,9 @@
 /// Names and descriptions are hints, not authoritative modality metadata.
 abstract final class ProviderModelCapabilities {
   static final _safeId = RegExp(r'^[a-z0-9]+(?:[._-][a-z0-9]+)*$');
+  static final _fineTunedId = RegExp(
+    r'^ft:([^:]+):[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]*:[a-zA-Z0-9_-]+$',
+  );
   static final _openAiText = RegExp(r'^(?:gpt-|chatgpt-|o\d+(?:[-.]|$))');
   static final _openAiAudio = RegExp(r'^(?:gpt-|whisper-)');
   static final _specialistId = _tokens(
@@ -31,13 +34,24 @@ abstract final class ProviderModelCapabilities {
   );
   static final _textOnly = _tokens('gemma|(?:text|code)[\\s_-]+only');
 
-  static bool isOpenAiSummaryModel(String modelId) =>
-      _isSafe(modelId) &&
-      _openAiText.hasMatch(modelId) &&
-      !_specialistId.hasMatch(modelId) &&
-      !_openAiNonChat.hasMatch(modelId) &&
-      !_audioRole.hasMatch(modelId) &&
-      !_transcriptionRole.hasMatch(modelId);
+  static bool isOpenAiSummaryModel(String modelId) {
+    final base = _openAiSummaryBase(modelId);
+    return base != null &&
+        _openAiText.hasMatch(base) &&
+        !_specialistId.hasMatch(base) &&
+        !_openAiNonChat.hasMatch(base) &&
+        !_audioRole.hasMatch(base) &&
+        !_transcriptionRole.hasMatch(base);
+  }
+
+  static String? _openAiSummaryBase(String id) {
+    if (_isSafe(id)) return id;
+    if (id.length > 200) return null;
+    final match = _fineTunedId.firstMatch(id);
+    if (match == null || match.end != id.length) return null;
+    final base = match.group(1)!;
+    return _isSafe(base) ? base : null;
+  }
 
   static bool isOpenAiTranscriptionModel(String modelId) =>
       usesOpenAiTranscriptionEndpoint(modelId) || usesOpenAiAudioChat(modelId);

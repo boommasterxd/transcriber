@@ -34,6 +34,8 @@ The purpose heuristics live in `ProviderModelCapabilities`. There are no positiv
 
 When updating these rules, check the official [Gemini model catalog](https://ai.google.dev/gemini-api/docs/models), [Gemini audio guide](https://ai.google.dev/gemini-api/docs/audio), [OpenAI endpoint support](https://developers.openai.com/api/docs/guides/your-data), [OpenAI audio chat guide](https://developers.openai.com/api/docs/guides/audio-chat-completions), and [OpenAI transcription reference](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create). Match the application's request format as well as the model's input and output modalities.
 
+Fine-tuned OpenAI summary models use the documented `ft:<base-model>:<organization>:<suffix>:<identifier>` form, including an empty optional suffix. The full ID is validated and passed unchanged to Chat Completions; purpose filtering examines only the base model, so user-assigned names do not accidentally trigger specialist exclusions. See the [supervised fine-tuning guide](https://developers.openai.com/api/docs/guides/supervised-fine-tuning#try-using-your-fine-tuned-model).
+
 ## Personal API Keys
 
 OpenAI and Gemini keys are independent. Open **Settings > Model selection > API keys** to add, validate, replace, retest, or remove each key. Each provider has one credential editor shared by transcription, summary, and keyboard dictation. Validation occurs before a replacement is persisted, so a failed replacement does not destroy a working key.
