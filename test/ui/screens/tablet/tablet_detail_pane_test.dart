@@ -15,12 +15,35 @@ import 'package:transcriber/ui/widgets/buttons.dart';
 import '../../../state/state_test_fakes.dart';
 import '../../../support/app_test_fakes.dart';
 import '../detail/detail_test_helpers.dart';
+import '../detail/widgets/summary_failure_test_support.dart';
 
 void main() {
   _registerUnknownSelectionTest();
   _registerNarrowLayoutTest();
   _registerWideLayoutTest();
   _registerHeaderActionsTest();
+  _registerSummaryFailureTest();
+}
+
+void _registerSummaryFailureTest() {
+  testWidgets('tablet shows summary failure with expandable transcript', (
+    tester,
+  ) async {
+    final note = _testNote().copyWith(summaryError: 'Summary unavailable');
+    await _pumpPane(
+      tester,
+      size: const Size(1000, 1000),
+      noteId: note.id,
+      note: note,
+    );
+    final strings = AppStrings.of(AppLanguage.en);
+    expectSummaryFailure(note, strings);
+    expect(find.text('Tablet transcript'), findsNothing);
+    await tester.tap(find.text(strings.shShow));
+    await tester.pump();
+    expect(find.text('Tablet transcript'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _registerUnknownSelectionTest() {
@@ -117,12 +140,13 @@ Future<FakeNotesRepository> _pumpPane(
   WidgetTester tester, {
   required Size size,
   required String noteId,
+  TranscriptNote? note,
 }) async {
   await useTestSurface(tester, size);
 
   final database = testDatabase();
   addTearDown(database.close);
-  final note = _testNote();
+  note ??= _testNote();
   final repository = FakeNotesRepository(database)..loaded = [note];
   await tester.pumpWidget(
     ProviderScope(

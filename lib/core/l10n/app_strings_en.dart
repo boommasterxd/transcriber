@@ -147,6 +147,9 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.summarizeTitle: 'Summarize',
   _StringKey.summarizeSub: 'Off = raw transcript only, no AI summary',
   _StringKey.summaryOff: 'No summary',
+  _StringKey.summaryFailedTitle: 'Summary failed',
+  _StringKey.summaryFailedBody:
+      'Your transcript was preserved. Expand it below to read it.',
   _StringKey.autoDelNote:
       'External originals remain untouched. Only the app-owned working copy is removed after successful processing.',
   _StringKey.keyHelpTitleTemplate: '{name} API key',

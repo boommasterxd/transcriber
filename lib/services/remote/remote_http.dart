@@ -103,16 +103,25 @@ String remoteErrorMessage(
     final message = error is Map
         ? error['message']?.toString()
         : (preferScalarError ? error?.toString() : null);
-    return _redact(message ?? 'The provider returned an error.', secret);
+    return sanitizeRemoteErrorMessage(
+      message ?? 'The provider returned an error.',
+      secrets: [?secret],
+    );
   } catch (_) {
     return 'The provider returned an invalid error response.';
   }
 }
 
-String _redact(String value, String? secret) {
+/// Bounds a diagnostic and removes credentials before display or persistence.
+String sanitizeRemoteErrorMessage(
+  String value, {
+  Iterable<String> secrets = const [],
+}) {
   var result = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (secret != null && secret.isNotEmpty) {
-    result = result.replaceAll(secret, '[REDACTED]');
+  for (final secret in secrets) {
+    if (secret.isNotEmpty) {
+      result = result.replaceAll(secret, '[REDACTED]');
+    }
   }
   result = result.replaceAll(
     RegExp(

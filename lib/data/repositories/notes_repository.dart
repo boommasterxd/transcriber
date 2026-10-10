@@ -88,6 +88,7 @@ class NotesRepository {
     llmName: row.llmName,
     llmSub: row.llmSub,
     gist: row.gist,
+    summaryError: row.summaryError,
     points: points,
     todos: todos,
     transcript: segments,
@@ -110,6 +111,7 @@ class NotesRepository {
         llmName: note.llmName,
         llmSub: note.llmSub,
         gist: note.gist,
+        summaryError: Value(note.summaryError),
         audioPath: note.audioPath == null
             ? const Value.absent()
             : Value(note.audioPath),

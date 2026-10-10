@@ -20,6 +20,8 @@ Live WebSocket handshakes authenticate through headers. The Dart controller rele
 
 Provider response bodies are bounded and error messages are normalized, whitespace-limited, truncated, and redacted. The application does not log request headers, credentials, transcript bodies, or raw provider responses.
 
+Failed summaries retain a diagnostic alongside the transcript in the note database. Before persistence, diagnostics remove both stages' API keys and credential-shaped fields, normalize whitespace, and limit detail to 512 characters plus a truncation marker. Only user-facing service messages are retained; unexpected exceptions use a generic message without exception contents. Diagnostics are rendered as selectable plain text and are removed with the note. Provider messages may still contain personal information and receive the same local protection as transcripts.
+
 ## Files and Cache
 
 External originals are never deleted. Destructive operations require explicit app ownership and a path inside a known app-private directory. Share filenames are sanitized, stream copies are limited to 250 MiB, symlinks are not followed during cleanup, and partial copies are removed after failures.

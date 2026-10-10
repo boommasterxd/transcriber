@@ -168,6 +168,8 @@ class AppStrings {
   String get summarizeTitle => _string(_StringKey.summarizeTitle);
   String get summarizeSub => _string(_StringKey.summarizeSub);
   String get summaryOff => _string(_StringKey.summaryOff);
+  String get summaryFailedTitle => _string(_StringKey.summaryFailedTitle);
+  String get summaryFailedBody => _string(_StringKey.summaryFailedBody);
   String get autoDelNote => _string(_StringKey.autoDelNote);
   String get keyHelpTitleTemplate => _string(_StringKey.keyHelpTitleTemplate);
   String get keyHelpNote => _string(_StringKey.keyHelpNote);

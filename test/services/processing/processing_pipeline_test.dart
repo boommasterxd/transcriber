@@ -82,6 +82,7 @@ void _registerProviderCombinationTest(
     expect(run.note.llmSub, _providerName(summary));
     expect(run.note.asrIsLocal, isFalse);
     expect(run.note.summaryIsLocal, isFalse);
+    expect(run.note.summaryError, isNull);
     expect(run.note.transcript.single.text, 'Transcript text');
     expect(run.note.audioOwnership, AudioOwnership.retained);
     expect(await File(run.note.audioPath!).exists(), isTrue);
@@ -136,6 +137,7 @@ void _registerSummaryDisabledTest(ProcessingFileFixture fixture) {
       expect(note.llmName, AppStrings.of(AppLanguage.en).summaryOff);
       expect(note.llmSub, isEmpty);
       expect(note.summaryIsLocal, isFalse);
+      expect(note.summaryError, isNull);
     },
   );
 }
@@ -169,26 +171,6 @@ void _registerValidationTests(ProcessingFileFixture fixture) {
       );
 
       expect(clients.clients[RemoteProviderId.openai]!.summaryCalls, 0);
-      await fixture.cacheManager.discard(audio);
-      expect(await File(audio.path).exists(), isFalse);
-    });
-
-    test('propagates summary failure after transcription', () async {
-      final audio = await fixture.createAudio(AudioOwnership.temporary);
-      final clients = RecordingClientFactory();
-      final failure = StateError('summary failed');
-      clients.clients[RemoteProviderId.openai] = RecordingProviderClient()
-        ..summaryError = failure;
-
-      await expectLater(
-        _pipeline(
-          fixture,
-          clients,
-        ).process(testProcessingRequest(audio: audio)),
-        throwsA(same(failure)),
-      );
-
-      expect(clients.clients[RemoteProviderId.openai]!.transcriptionCalls, 1);
       await fixture.cacheManager.discard(audio);
       expect(await File(audio.path).exists(), isFalse);
     });

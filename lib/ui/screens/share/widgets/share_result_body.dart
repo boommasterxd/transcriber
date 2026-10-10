@@ -9,8 +9,10 @@ import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import '../../../widgets/waveforms.dart';
 import '../../detail/widgets/detail_audio_player.dart';
+import '../../detail/widgets/detail_transcript_block.dart';
 import '../../detail/widgets/note_content_widgets.dart';
 import '../../detail/widgets/note_summary_metadata_widgets.dart';
+import '../../detail/widgets/summary_failure_notice.dart';
 
 class ShareResultBody extends ConsumerStatefulWidget {
   const ShareResultBody({
@@ -37,7 +39,7 @@ class _ShareResultBodyState extends ConsumerState<ShareResultBody> {
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
     final note = widget.note;
-    final hasSummary = note.gist.isNotEmpty;
+    final hasSummary = note.summaryError == null && note.gist.isNotEmpty;
 
     return Column(
       children: [
@@ -74,6 +76,10 @@ class _ShareResultBodyState extends ConsumerState<ShareResultBody> {
     bool hasSummary,
   ) {
     return [
+      if (note.summaryError != null) ...[
+        SummaryFailureNotice(error: note.summaryError!, strings: strings),
+        const SizedBox(height: 16),
+      ],
       if (note.audioPath != null)
         DetailAudioPlayer(
           audioPath: note.audioPath!,
@@ -85,19 +91,19 @@ class _ShareResultBodyState extends ConsumerState<ShareResultBody> {
         const SizedBox(height: 16),
       ],
       NoteMetadataChips(note: note, strings: strings),
-      if (note.points.isNotEmpty) ...[
+      if (note.summaryError == null && note.points.isNotEmpty) ...[
         const SizedBox(height: 22),
         NoteSectionLabel(strings.shPoints),
         const SizedBox(height: 12),
         NoteKeyPoints(points: note.points),
       ],
-      if (note.todos.isNotEmpty) ...[
+      if (note.summaryError == null && note.todos.isNotEmpty) ...[
         const SizedBox(height: 22),
         _TodosPreview(todos: note.todos, label: strings.shActions),
       ],
       const SizedBox(height: 22),
-      if (hasSummary) _transcriptToggle(strings),
-      if (!hasSummary || _transcriptOpen) ...[
+      if (hasSummary || note.summaryError != null) _transcriptToggle(strings),
+      if ((!hasSummary && note.summaryError == null) || _transcriptOpen) ...[
         const SizedBox(height: 14),
         _TranscriptPreview(note: note, label: strings.shTranscript),
       ],
@@ -105,14 +111,9 @@ class _ShareResultBodyState extends ConsumerState<ShareResultBody> {
   }
 
   Widget _transcriptToggle(AppStrings strings) {
-    return PillButton(
-      label: _transcriptOpen ? strings.shHide : strings.shShow,
-      icon: Icons.subject_rounded,
-      trailingIcon: _transcriptOpen
-          ? Icons.keyboard_arrow_up_rounded
-          : Icons.keyboard_arrow_down_rounded,
-      height: 50,
-      outlined: true,
+    return DetailTranscriptToggle.phone(
+      strings: strings,
+      isOpen: _transcriptOpen,
       onTap: () => setState(() => _transcriptOpen = !_transcriptOpen),
     );
   }
