@@ -30,6 +30,69 @@ void main() {
 void _registerRemoteModelListTests() {
   _registerRemoteModelStateTests();
   _registerRemoteModelSelectionTest();
+  _registerUnavailableModelTests();
+}
+
+void _registerUnavailableModelTests() {
+  final strings = AppStrings.of(AppLanguage.de);
+  testWidgets('connected provider with no compatible models explains absence', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        child: const RemoteModelList(
+          provider: RemoteProviderId.openai,
+          forTranscription: false,
+          selectedId: 'retired-model',
+          onSelect: _ignoreString,
+        ),
+        connections: const {RemoteProviderId.openai: true},
+        loadRemoteModels: (_) async => const [],
+      ),
+    );
+    await tester.pumpUntilSettled();
+    expect(find.textContaining(strings.noModels), findsOneWidget);
+    expect(find.textContaining(strings.modelUnavailable), findsOneWidget);
+    expect(find.text(strings.connectFirst), findsNothing);
+    expect(find.byType(SelectionIndicator), findsNothing);
+  });
+
+  for (final storedId in ['', 'retired-model']) {
+    testWidgets('unavailable selection "$storedId" requires explicit choice', (
+      tester,
+    ) async {
+      var selection = storedId;
+      await tester.pumpWidget(
+        _testApp(
+          child: RemoteModelList(
+            provider: RemoteProviderId.google,
+            forTranscription: true,
+            selectedId: storedId,
+            onSelect: (value) => selection = value,
+          ),
+          loadRemoteModels: (_) async => const [RemoteModelInfo(id: 'valid')],
+        ),
+      );
+      await tester.pumpUntilSettled();
+      expect(find.text(strings.chooseModel), findsOneWidget);
+      expect(find.byType(SelectionIndicator), findsNothing);
+      expect(selection, storedId);
+      if (storedId.isNotEmpty) {
+        expect(find.textContaining(strings.modelUnavailable), findsOneWidget);
+      }
+      await tester.tap(find.text(strings.showModels));
+      await tester.pumpAndSettle();
+      expect(find.text(strings.hideModels), findsOneWidget);
+      expect(
+        tester
+            .widget<SelectionIndicator>(find.byType(SelectionIndicator))
+            .selected,
+        isFalse,
+      );
+      await tester.tap(find.text('valid'));
+      expect(selection, 'valid');
+    });
+  }
 }
 
 void _registerRemoteModelStateTests() {
@@ -165,7 +228,7 @@ void _registerTranscriptionTests() {
 
     expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('Google Gemini'), findsOneWidget);
-    expect(find.text('gemini-3.5-transcribe'), findsOneWidget);
+    expect(find.textContaining('gemini-3.5-transcribe'), findsOneWidget);
     expect(
       queries,
       contains((provider: RemoteProviderId.google, forTranscription: true)),
@@ -174,7 +237,7 @@ void _registerTranscriptionTests() {
     await tester.tap(find.text('OpenAI'));
     await tester.pumpUntilSettled();
     expect(settingsController.state.asrProvider, RemoteProviderId.openai);
-    expect(find.text('gpt-transcribe'), findsOneWidget);
+    expect(find.textContaining('gpt-transcribe:'), findsOneWidget);
     expect(
       queries,
       contains((provider: RemoteProviderId.openai, forTranscription: true)),

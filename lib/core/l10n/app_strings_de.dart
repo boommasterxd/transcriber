@@ -25,6 +25,12 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.micPermissionBody:
       'Erlaube den Mikrofon-Zugriff, um Sprachnotizen aufzunehmen.',
   _StringKey.setTitle: 'Einstellungen',
+  _StringKey.setModels: 'Modellauswahl',
+  _StringKey.setGeneral: 'Allgemein',
+  _StringKey.appVersion: 'Version',
+  _StringKey.versionUnavailable: 'Version nicht verfügbar',
+  _StringKey.apiKeysDescription:
+      'OpenAI und Google Gemini verbinden und Schlüssel testen.',
   _StringKey.setAppear: 'Darstellung',
   _StringKey.setAsr: 'Transkriptions-Modell',
   _StringKey.setLlm: 'Zusammenfassungs-Modell',
@@ -62,10 +68,14 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.transcriptionGoogleDescription:
       'Empfohlen: Gemini 3.5 Transcribe, zusätzlich multimodale Audiomodelle',
   _StringKey.summaryOpenAiDescription:
-      'Aktuelle GPT-5-Modelle für strukturierte Zusammenfassungen',
+      'Textmodelle für strukturierte Zusammenfassungen',
   _StringKey.summaryGoogleDescription:
-      'Aktuelle Gemini-Flash-Modelle für schnelle Zusammenfassungen',
+      'Textmodelle für schnelle Zusammenfassungen',
   _StringKey.connectFirst: 'Verbinde einen Anbieter, um Modelle zu sehen.',
+  _StringKey.noModels: 'Keine passenden Modelle für diesen Anbieter verfügbar.',
+  _StringKey.modelUnavailable:
+      'Das gespeicherte Modell ist nicht verfügbar. Wähle ein anderes Modell.',
+  _StringKey.chooseModel: 'Modell auswählen',
   _StringKey.processedWith: 'Verarbeitet mit',
   _StringKey.autoDel: 'Audio nach Verarbeitung löschen',
   _StringKey.autoDelSub: 'Entfernt nur die app-eigene Arbeitskopie',
@@ -182,6 +192,15 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.keyboardTitle: 'Überall live diktieren',
   _StringKey.keyboardDescription:
       'Aktiviere Transcriber als Tastatur und füge Sprache direkt in das aktuelle Textfeld ein.',
+  _StringKey.keyboardGuideTitle: 'So funktioniert das Diktieren',
+  _StringKey.keyboardGuideBenefit:
+      'Schreibe Nachrichten, E-Mails und Notizen mit deiner Stimme, direkt in der jeweiligen App.',
+  _StringKey.keyboardGuideEnable:
+      'Richte die Transcriber-Tastatur über den Button oben ein und wähle sie als Tastatur aus.',
+  _StringKey.keyboardGuideDictate:
+      'Öffne ein Textfeld, starte das Mikrofon und sprich. Dein Diktat erscheint direkt als Text.',
+  _StringKey.keyboardGuideFinish:
+      'Stoppe das Diktat, prüfe den Text und bearbeite oder sende ihn in der geöffneten App.',
   _StringKey.keyboardEnabled: 'Aktiviert',
   _StringKey.keyboardDisabled: 'Nicht aktiviert',
   _StringKey.keyboardSelected: 'Aktuell ausgewählt',

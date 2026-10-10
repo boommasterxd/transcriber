@@ -93,7 +93,7 @@ Future<void> _expectGoogleFailure({
       );
 
       await expectLater(
-        client.transcribe(file.path, modelId: 'gemini-transcribe'),
+        client.transcribe(file.path, modelId: 'gemini-3.5-transcribe'),
         throwsA(
           isA<RemoteApiException>().having(
             (error) => error.message,
@@ -116,7 +116,7 @@ void _registerSizeLimitTest() {
       transcribe: (path, httpClient) => GoogleClient(
         apiKey: 'key',
         httpClient: httpClient,
-      ).transcribe(path, modelId: 'gemini-transcribe'),
+      ).transcribe(path, modelId: 'gemini-3.5-transcribe'),
     ),
   );
 }

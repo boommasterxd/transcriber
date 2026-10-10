@@ -4,12 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../services/remote/remote_api_client.dart';
+import '../../../../state/connections_controller.dart';
 import '../../../../state/remote_models_provider.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/model_tile.dart';
 import '../../../widgets/surfaces.dart';
 
-/// Compact live model picker with the active model always visible.
+/// Compact picker that only marks catalog models as selectable and selected.
 class RemoteModelList extends ConsumerStatefulWidget {
   const RemoteModelList({
     super.key,
@@ -44,6 +45,11 @@ class _RemoteModelListState extends ConsumerState<RemoteModelList> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final strings = ref.watch(stringsProvider);
+    final connected = ref.watch(
+      connectionsControllerProvider.select(
+        (connections) => connections[widget.provider] ?? false,
+      ),
+    );
     final async = ref.watch(
       remoteModelsProvider((
         provider: widget.provider,
@@ -76,7 +82,11 @@ class _RemoteModelListState extends ConsumerState<RemoteModelList> {
       data: (models) => models.isEmpty
           ? messageCard(
               Text(
-                strings.connectFirst,
+                connected
+                    ? '${strings.noModels}'
+                          '${widget.selectedId.isEmpty ? '' : '\n${widget.selectedId}: ${strings.modelUnavailable}'}'
+                    : strings.connectFirst,
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13.5, color: palette.muted),
               ),
             )
@@ -85,7 +95,6 @@ class _RemoteModelListState extends ConsumerState<RemoteModelList> {
               selectedId: widget.selectedId,
               forTranscription: widget.forTranscription,
               expanded: _expanded,
-              expandLabel: _expanded ? strings.hideModels : strings.showModels,
               onToggle: () => setState(() => _expanded = !_expanded),
               onSelect: (modelId) {
                 widget.onSelect(modelId);
@@ -96,13 +105,12 @@ class _RemoteModelListState extends ConsumerState<RemoteModelList> {
   }
 }
 
-class _ModelPickerCard extends StatelessWidget {
+class _ModelPickerCard extends ConsumerWidget {
   const _ModelPickerCard({
     required this.models,
     required this.selectedId,
     required this.forTranscription,
     required this.expanded,
-    required this.expandLabel,
     required this.onToggle,
     required this.onSelect,
   });
@@ -111,15 +119,15 @@ class _ModelPickerCard extends StatelessWidget {
   final String selectedId;
   final bool forTranscription;
   final bool expanded;
-  final String expandLabel;
   final VoidCallback onToggle;
   final ValueChanged<String> onSelect;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(stringsProvider);
     final active = _activeModel();
     final alternatives = models
-        .where((model) => model.id != active.id)
+        .where((model) => model.id != active?.id)
         .toList();
     final canExpand = alternatives.isNotEmpty;
     return SurfaceCard(
@@ -130,11 +138,18 @@ class _ModelPickerCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
+            if (active == null && selectedId.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: Text(
+                  '$selectedId: ${strings.modelUnavailable}',
+                  style: TextStyle(color: context.palette.coralInk),
+                ),
+              ),
             _ActiveModelTile(
               model: active,
               forTranscription: forTranscription,
               expanded: expanded,
-              expandLabel: expandLabel,
               onTap: canExpand ? onToggle : null,
             ),
             AnimatedSize(
@@ -164,38 +179,33 @@ class _ModelPickerCard extends StatelessWidget {
     );
   }
 
-  RemoteModelInfo _activeModel() {
+  RemoteModelInfo? _activeModel() {
     for (final model in models) {
       if (model.id == selectedId) return model;
     }
-    return RemoteModelInfo(
-      id: selectedId.isEmpty ? models.first.id : selectedId,
-    );
+    return null;
   }
 }
 
-class _ActiveModelTile extends StatelessWidget {
+class _ActiveModelTile extends ConsumerWidget {
   const _ActiveModelTile({
     required this.model,
     required this.forTranscription,
     required this.expanded,
-    required this.expandLabel,
     required this.onTap,
   });
 
-  final RemoteModelInfo model;
+  final RemoteModelInfo? model;
   final bool forTranscription;
   final bool expanded;
-  final String expandLabel;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final strings = ref.watch(stringsProvider);
     return Semantics(
-      button: onTap != null,
       expanded: expanded,
-      label: expandLabel,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -219,7 +229,7 @@ class _ActiveModelTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      model.display,
+                      model?.display ?? strings.chooseModel,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
@@ -227,17 +237,22 @@ class _ActiveModelTile extends StatelessWidget {
                         color: palette.ink,
                       ),
                     ),
-                    if (model.display != model.id)
+                    if (model != null && model!.display != model!.id)
                       Text(
-                        model.id,
+                        model!.id,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12.5, color: palette.muted),
+                      ),
+                    if (onTap != null)
+                      Text(
+                        expanded ? strings.hideModels : strings.showModels,
+                        style: TextStyle(fontSize: 12.5, color: palette.accent),
                       ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              const SelectionIndicator(selected: true),
+              if (model != null) const SelectionIndicator(selected: true),
               if (onTap != null) ...[
                 const SizedBox(width: 8),
                 AnimatedRotation(

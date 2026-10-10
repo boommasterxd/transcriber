@@ -54,6 +54,11 @@ class AppStrings {
   String get micPermissionTitle => _string(_StringKey.micPermissionTitle);
   String get micPermissionBody => _string(_StringKey.micPermissionBody);
   String get setTitle => _string(_StringKey.setTitle);
+  String get setModels => _string(_StringKey.setModels);
+  String get setGeneral => _string(_StringKey.setGeneral);
+  String get appVersion => _string(_StringKey.appVersion);
+  String get versionUnavailable => _string(_StringKey.versionUnavailable);
+  String get apiKeysDescription => _string(_StringKey.apiKeysDescription);
   String get setAppear => _string(_StringKey.setAppear);
   String get setAsr => _string(_StringKey.setAsr);
   String get setLlm => _string(_StringKey.setLlm);
@@ -94,6 +99,9 @@ class AppStrings {
   String get summaryGoogleDescription =>
       _string(_StringKey.summaryGoogleDescription);
   String get connectFirst => _string(_StringKey.connectFirst);
+  String get noModels => _string(_StringKey.noModels);
+  String get modelUnavailable => _string(_StringKey.modelUnavailable);
+  String get chooseModel => _string(_StringKey.chooseModel);
   String get processedWith => _string(_StringKey.processedWith);
   String get autoDel => _string(_StringKey.autoDel);
   String get autoDelSub => _string(_StringKey.autoDelSub);
@@ -187,6 +195,11 @@ class AppStrings {
   String get keyboardSection => _string(_StringKey.keyboardSection);
   String get keyboardTitle => _string(_StringKey.keyboardTitle);
   String get keyboardDescription => _string(_StringKey.keyboardDescription);
+  String get keyboardGuideTitle => _string(_StringKey.keyboardGuideTitle);
+  String get keyboardGuideBenefit => _string(_StringKey.keyboardGuideBenefit);
+  String get keyboardGuideEnable => _string(_StringKey.keyboardGuideEnable);
+  String get keyboardGuideDictate => _string(_StringKey.keyboardGuideDictate);
+  String get keyboardGuideFinish => _string(_StringKey.keyboardGuideFinish);
   String get keyboardEnabled => _string(_StringKey.keyboardEnabled);
   String get keyboardDisabled => _string(_StringKey.keyboardDisabled);
   String get keyboardSelected => _string(_StringKey.keyboardSelected);

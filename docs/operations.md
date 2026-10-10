@@ -16,9 +16,9 @@ flutter pub get --enforce-lockfile
 flutter run
 ```
 
-On first launch, select providers and models, add the required keys, review the cloud data notice, and grant microphone access for recording. A key is saved only after its provider accepts an authenticated model-list request.
+On first launch, select providers and models, add the required keys, review the cloud data notice, and grant microphone access for recording. A key is saved only after its provider accepts an authenticated model-list request. Later, open **Settings > Model selection > API keys** to manage credentials, then return to **Model selection** to choose transcription and summary models independently. **Settings > General** combines language and region, appearance, and privacy. The overview footer shows the installed app version and build number.
 
-To enable keyboard dictation, open Settings in Transcriber and select **Start setup** in the Transcriber keyboard card. The dedicated setup screen shows the effective live provider and guides the user through **Enable in Android** and **Select the keyboard**. It finishes only after Android reports Transcriber as the selected input method. Completed setup is shown as **Manage keyboard** instead of another setup prompt. Android controls the system keyboard switcher shown by Samsung Keyboard and Gboard.
+To enable keyboard dictation, open **Settings > Transcriber keyboard** and select **Start setup** in the keyboard card. The dedicated setup screen shows the effective live provider and guides the user through **Enable in Android** and **Select the keyboard**. It finishes only after Android reports Transcriber as the selected input method. Completed setup is shown as **Manage keyboard** instead of another setup prompt. Android controls the system keyboard switcher shown by Samsung Keyboard and Gboard.
 
 ## Validation
 
@@ -97,7 +97,7 @@ Force a summary failure after successful transcription and verify that the regul
 ## Troubleshooting
 
 - Key validation fails: verify the key, project, API billing, quota, and network connection.
-- A model is absent from the live list: the documented default remains available; confirm provider access before selecting another identifier.
+- A model is absent from the live list: the provider must return it for the connected key and its name, description, and available API methods must pass purpose filtering. New versions do not require an app update. Confirm provider access and choose an available replacement for an unavailable saved model. Provider metadata cannot prove endpoint compatibility; unusually named specialists may require a filtering-rule correction.
 - Import is rejected: verify file size and supported extension.
 - A shared file is rejected: confirm the source provides a supported filename and a readable audio stream.
 - Processing times out: retry on a stable network and inspect provider status without logging credentials or transcript content.
