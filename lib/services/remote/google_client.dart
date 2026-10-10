@@ -98,6 +98,15 @@ class GoogleClient implements RemoteProviderClient {
           'thinkingConfig': {'thinkingLevel': 'LOW'},
       },
     }, timeout: remoteChatTimeout);
+    final candidates = json['candidates'];
+    if (candidates is List &&
+        candidates.isNotEmpty &&
+        candidates.first is Map &&
+        (candidates.first as Map)['finishReason'] == 'MAX_TOKENS') {
+      throw const RemoteApiException(
+        'Gemini summary exceeded its response token limit.',
+      );
+    }
     return _candidateText(json);
   }
 

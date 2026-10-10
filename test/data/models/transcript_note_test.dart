@@ -131,6 +131,16 @@ void _testCopyWith() {
 
       expect(copied.todos, same(originalTodos));
     });
+
+    test('preserves and replaces a summary failure message', () {
+      final original = _note().copyWith(summaryError: 'Summary failed');
+
+      expect(original.copyWith().summaryError, 'Summary failed');
+      expect(
+        original.copyWith(summaryError: 'Try again').summaryError,
+        'Try again',
+      );
+    });
   });
 }
 
@@ -177,6 +187,7 @@ void _testJsonRoundTripAndDefaults() {
       expect(note.todos, isEmpty);
       expect(note.transcript, isEmpty);
       expect(note.audioPath, isNull);
+      expect(note.summaryError, isNull);
       // Missing ownership keeps the safe external default for old notes.
       expect(note.audioOwnership, AudioOwnership.external);
     });
@@ -191,6 +202,15 @@ void _testJsonRoundTripAndDefaults() {
 
       expect(note.durationSec, 12);
       expect(note.points, ['1', 'true', 'text']);
+    });
+
+    test('round-trips a summary failure without losing transcript content', () {
+      final original = _note().copyWith(summaryError: 'Summary failed');
+
+      final restored = TranscriptNote.fromJson(original.toJson());
+
+      expect(restored.summaryError, 'Summary failed');
+      expect(restored.fullTranscriptText, original.fullTranscriptText);
     });
   });
 }

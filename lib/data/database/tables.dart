@@ -38,6 +38,7 @@ class NotesTable extends Table {
   TextColumn get llmName => text()();
   TextColumn get llmSub => text()();
   TextColumn get gist => text()();
+  TextColumn get summaryError => text().nullable()();
   TextColumn get audioPath => text().nullable()();
   TextColumn get audioOwnership => text()();
 

@@ -40,8 +40,8 @@ class TodoItem {
   );
 }
 
-/// A fully processed audio note: the audio reference plus the transcription and
-/// the structured summary, and a record of which models produced it.
+/// A transcribed audio note with an optional structured summary or summary
+/// failure diagnostic, plus audio and model provenance.
 class TranscriptNote {
   TranscriptNote({
     required this.id,
@@ -60,6 +60,7 @@ class TranscriptNote {
     required this.points,
     required this.todos,
     required this.transcript,
+    this.summaryError,
     this.audioPath,
     this.audioOwnership = AudioOwnership.external,
   });
@@ -86,6 +87,9 @@ class TranscriptNote {
   final List<TodoItem> todos;
   final List<TranscriptLine> transcript;
 
+  /// Safe user-facing failure message when optional summarization failed.
+  final String? summaryError;
+
   /// Local path of the (optionally retained) source audio file.
   final String? audioPath;
   final AudioOwnership audioOwnership;
@@ -103,6 +107,7 @@ class TranscriptNote {
     List<TodoItem>? todos,
     String? audioPath,
     AudioOwnership? audioOwnership,
+    String? summaryError,
   }) => TranscriptNote(
     id: id,
     title: title,
@@ -120,6 +125,7 @@ class TranscriptNote {
     points: points,
     todos: todos ?? this.todos,
     transcript: transcript,
+    summaryError: summaryError ?? this.summaryError,
     audioPath: audioPath ?? this.audioPath,
     audioOwnership: audioOwnership ?? this.audioOwnership,
   );
@@ -141,6 +147,7 @@ class TranscriptNote {
     'points': points,
     'todos': todos.map((t) => t.toJson()).toList(),
     'transcript': transcript.map((t) => t.toJson()).toList(),
+    'summaryError': summaryError,
     'audioPath': audioPath,
     'audioOwnership': audioOwnership.id,
   };
@@ -174,6 +181,7 @@ class TranscriptNote {
             .toList() ??
         const [],
     audioPath: j['audioPath'] as String?,
+    summaryError: j['summaryError'] as String?,
     audioOwnership: AudioOwnership.fromId(j['audioOwnership'] as String?),
   );
 }

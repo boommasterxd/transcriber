@@ -72,6 +72,8 @@ record, import, or share
 
 `ProcessingPipeline` receives an immutable settings snapshot and separate credentials for both stages. This supports all four OpenAI/Gemini combinations without coupling the stages. New notes record both provider and model origins. Legacy local-origin fields remain readable so historical notes retain accurate provenance.
 
+After successful transcription, a summary failure produces a transcript-only note with empty summary fields and a nullable `summaryError` diagnostic. Transcription failures still abort processing. Empty summary responses and Gemini token-limit truncation count as summary failures. Detail views and the share preview display a localized warning and the stored diagnostic while preserving the expandable transcript. The regular flow saves the note; the share preview retains its existing explicit save/discard boundary. Audio retention and cleanup follow the same transaction rules as fully summarized notes.
+
 ## Keyboard Dictation Flow
 
 ```text
@@ -91,6 +93,8 @@ active supported editor
 ## Persistence
 
 Drift tables store singleton settings, notes, ordered key points, ordered to-dos, ordered transcript text segments, and migration markers. Timestamps are intentionally not part of the transcript domain or database schema. Repository writes are transactional. API keys remain exclusively in `FlutterSecureStorage`.
+
+Schema version 3 adds the nullable `notes.summary_error` column. Existing notes and legacy JSON default to no summary failure. The diagnostic survives note reloads and JSON round trips.
 
 The one-time legacy migration parses old settings and notes before entering a database transaction. The marker, settings, notes, points, to-dos, and transcript segments commit atomically. Successfully imported SharedPreferences values are removed only after the commit.
 

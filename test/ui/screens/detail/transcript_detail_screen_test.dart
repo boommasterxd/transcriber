@@ -6,6 +6,7 @@ import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/widgets/todo_tile.dart';
 
 import 'detail_test_helpers.dart';
+import 'widgets/summary_failure_test_support.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
@@ -13,7 +14,37 @@ void main() {
   _registerMissingNoteTest(strings);
   _registerSummaryTest(strings);
   _registerTranscriptOnlyTest(strings);
+  for (final gist in ['', 'Incomplete summary']) {
+    _registerSummaryFailureTest(strings, gist);
+  }
   _registerDeleteTest(strings);
+}
+
+void _registerSummaryFailureTest(AppStrings strings, String gist) {
+  testWidgets('preserves transcript after summary failure with gist "$gist"', (
+    tester,
+  ) async {
+    await useTestSurface(tester, const Size(600, 1000));
+    final note = detailTestNote(
+      gist: gist,
+    ).copyWith(summaryError: '<Error> unavailable');
+    await tester.pumpWidget(
+      detailTestApp(
+        notes: DetailTestNotesController([note]),
+        home: TranscriptDetailScreen(noteId: note.id),
+      ),
+    );
+
+    expectSummaryFailure(note, strings);
+    expect(find.byType(TodoTile), findsNothing);
+    expect(find.text(note.transcript.single.text), findsNothing);
+    await _reveal(tester, find.text(strings.shShow));
+    await tester.tap(find.text(strings.shShow));
+    await tester.pump();
+    await _reveal(tester, find.text(note.transcript.single.text));
+    expect(find.text(note.transcript.single.text), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _registerMissingNoteTest(AppStrings strings) {

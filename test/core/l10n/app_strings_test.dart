@@ -429,6 +429,8 @@ List<String> _catalogActionValues(AppStrings strings) => [
   strings.summarizeTitle,
   strings.summarizeSub,
   strings.summaryOff,
+  strings.summaryFailedTitle,
+  strings.summaryFailedBody,
   strings.autoDelNote,
   strings.keyHelpTitleTemplate,
   strings.keyHelpNote,

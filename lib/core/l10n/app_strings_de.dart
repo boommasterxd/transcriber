@@ -151,6 +151,9 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.summarizeSub:
       'Aus = nur das rohe Transkript, keine KI-Zusammenfassung',
   _StringKey.summaryOff: 'Keine Zusammenfassung',
+  _StringKey.summaryFailedTitle: 'Zusammenfassung fehlgeschlagen',
+  _StringKey.summaryFailedBody:
+      'Dein Transkript ist erhalten geblieben. Klappe es unten auf, um es zu lesen.',
   _StringKey.autoDelNote:
       'Externe Originaldateien bleiben erhalten. Nur die app-eigene Arbeitskopie wird nach erfolgreicher Verarbeitung entfernt.',
   _StringKey.keyHelpTitleTemplate: 'API-Schlüssel von {name}',

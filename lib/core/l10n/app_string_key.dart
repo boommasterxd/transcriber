@@ -133,6 +133,8 @@ enum _StringKey {
   summarizeTitle,
   summarizeSub,
   summaryOff,
+  summaryFailedTitle,
+  summaryFailedBody,
   autoDelNote,
   keyHelpTitleTemplate,
   keyHelpNote,
