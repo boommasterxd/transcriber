@@ -187,7 +187,7 @@ void _registerCredentialTests(RemoteProviderId provider, AppStrings strings) {
     await _pumpCard(tester, provider, controller);
 
     await tester.tap(find.text(strings.disconnect));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(controller.disconnectCalls, [provider]);
     expect(find.text(strings.keyCheckFailed), findsOneWidget);
     expect(find.text(strings.disconnect), findsOneWidget);
@@ -309,7 +309,7 @@ Future<void> _pumpCard(
   );
   if (expand) {
     await tester.tap(find.byType(ListTile));
-    await tester.pump();
+    await tester.pumpAndSettle();
   }
 }
 

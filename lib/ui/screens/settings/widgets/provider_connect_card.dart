@@ -174,24 +174,38 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _connectionRow(connected, expanded, strings),
-          if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: ProviderCredentialForm(
-                provider: widget.provider,
-                controller: _keyController,
-                busy: _busy,
-                connected: connected,
-                verified: _verified,
-                failed: _failed,
-                onConnect: _connect,
-                onShowHelp: _showKeyHelp,
-                onTest: connected ? _test : null,
-                onDisconnect: connected ? _disconnect : null,
-              ),
-            ),
+          // Keep a local scope when the editor disappears so an unrelated
+          // previously focused input cannot reopen its keyboard.
+          FocusScope(child: _credentialArea(connected, expanded)),
         ],
       ),
+    );
+  }
+
+  Widget _credentialArea(bool connected, bool expanded) {
+    final child = expanded
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: ProviderCredentialForm(
+              provider: widget.provider,
+              controller: _keyController,
+              busy: _busy,
+              connected: connected,
+              verified: _verified,
+              failed: _failed,
+              onConnect: _connect,
+              onShowHelp: _showKeyHelp,
+              onTest: connected ? _test : null,
+              onDisconnect: connected ? _disconnect : null,
+            ),
+          )
+        : const SizedBox(width: double.infinity);
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: child,
     );
   }
 
