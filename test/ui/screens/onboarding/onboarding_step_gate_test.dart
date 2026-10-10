@@ -2,81 +2,55 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/ui/screens/onboarding/onboarding_step_gate.dart';
 
 void main() {
-  test('allows steps without a readiness requirement', () {
-    for (final step in [0, 2, 4]) {
-      final gate = evaluateOnboardingStepGate(
-        step: step,
-        permissionsReady: false,
-        asrReady: false,
-        summaryEnabled: true,
-        summaryReady: false,
-      );
-
-      expect(gate.ready, isTrue);
-      expect(gate.hint, isNull);
+  test('welcome, appearance and completion need no readiness condition', () {
+    for (final step in [0, 3, 5]) {
+      expect(_gate(step: step).ready, isTrue);
+      expect(_gate(step: step).hint, isNull);
     }
   });
-
-  test('requires microphone permission on the permissions step', () {
-    final blocked = evaluateOnboardingStepGate(
-      step: 3,
-      permissionsReady: false,
-      asrReady: true,
-      summaryEnabled: true,
-      summaryReady: true,
-    );
+  test('connection screen requires any successfully connected provider', () {
+    expect(_gate(step: 1).hint, OnboardingGateHint.connectProvider);
+    expect(_gate(step: 1, connected: true).ready, isTrue);
+  });
+  test('model screen requires available transcription and enabled summary', () {
+    for (final readiness in [(false, true), (true, false), (false, false)]) {
+      final gate = _gate(
+        step: 2,
+        asrReady: readiness.$1,
+        summaryReady: readiness.$2,
+      );
+      expect(gate.ready, isFalse);
+      expect(gate.hint, OnboardingGateHint.selectModels);
+    }
+    expect(_gate(step: 2, asrReady: true, summaryReady: true).ready, isTrue);
+    expect(_gate(step: 2, asrReady: true, summaryEnabled: false).ready, isTrue);
+  });
+  test('permissions screen requires microphone permission', () {
+    expect(_gate(step: 4).hint, OnboardingGateHint.grantPermissions);
     final ready = evaluateOnboardingStepGate(
-      step: 3,
+      step: 4,
+      hasConnectedProvider: false,
       permissionsReady: true,
-      asrReady: true,
+      asrReady: false,
       summaryEnabled: true,
-      summaryReady: true,
+      summaryReady: false,
     );
-
-    expect(blocked.ready, isFalse);
-    expect(blocked.hint, OnboardingGateHint.grantPermissions);
     expect(ready.ready, isTrue);
     expect(ready.hint, isNull);
   });
-
-  test('requires connected providers for both enabled cloud stages', () {
-    for (final readiness in [(false, true), (true, false), (false, false)]) {
-      final gate = evaluateOnboardingStepGate(
-        step: 1,
-        permissionsReady: true,
-        asrReady: readiness.$1,
-        summaryEnabled: true,
-        summaryReady: readiness.$2,
-      );
-
-      expect(gate.ready, isFalse);
-      expect(gate.hint, OnboardingGateHint.connectProvider);
-    }
-  });
-
-  test('allows the cloud step when every enabled stage is connected', () {
-    final gate = evaluateOnboardingStepGate(
-      step: 1,
-      permissionsReady: true,
-      asrReady: true,
-      summaryEnabled: true,
-      summaryReady: true,
-    );
-
-    expect(gate.ready, isTrue);
-    expect(gate.hint, isNull);
-  });
-
-  test('ignores summary readiness when summaries are disabled', () {
-    final gate = evaluateOnboardingStepGate(
-      step: 1,
-      permissionsReady: true,
-      asrReady: true,
-      summaryEnabled: false,
-      summaryReady: false,
-    );
-
-    expect(gate.ready, isTrue);
-    expect(gate.hint, isNull);
-  });
 }
+
+OnboardingStepGate _gate({
+  required int step,
+  bool connected = false,
+  bool asrReady = false,
+  bool summaryEnabled = true,
+  bool summaryReady = false,
+}) => evaluateOnboardingStepGate(
+  step: step,
+  hasConnectedProvider: connected,
+  permissionsReady: false,
+  asrReady: asrReady,
+  summaryEnabled: summaryEnabled,
+  summaryReady: summaryReady,
+);

@@ -45,6 +45,38 @@ void _registerAppearanceTests(_SettingsFixture fixture) {
 }
 
 void _registerModelTests(_SettingsFixture fixture) {
+  test('applies transcription provider and model with one save', () async {
+    final before = fixture.settings;
+    await fixture.controller.setAsrSelection(
+      RemoteProviderId.openai,
+      'new-api-transcription',
+    );
+    final saved = fixture.repository.saved.single;
+    expect(saved.asrProvider, RemoteProviderId.openai);
+    expect(saved.asrModelId(RemoteProviderId.openai), 'new-api-transcription');
+    expect(saved.summaryProvider, before.summaryProvider);
+    expect(saved.chatModelByProvider, before.chatModelByProvider);
+    expect(
+      saved.asrModelId(RemoteProviderId.google),
+      before.asrModelId(RemoteProviderId.google),
+    );
+  });
+  test('applies summary provider and model with one save', () async {
+    final before = fixture.settings;
+    await fixture.controller.setSummarySelection(
+      RemoteProviderId.openai,
+      'new-api-summary',
+    );
+    final saved = fixture.repository.saved.single;
+    expect(saved.summaryProvider, RemoteProviderId.openai);
+    expect(saved.summaryModelId(RemoteProviderId.openai), 'new-api-summary');
+    expect(saved.asrProvider, before.asrProvider);
+    expect(saved.asrModelByProvider, before.asrModelByProvider);
+    expect(
+      saved.summaryModelId(RemoteProviderId.google),
+      before.summaryModelId(RemoteProviderId.google),
+    );
+  });
   test(
     'persists cloud provider and model selections for both stages',
     () async {

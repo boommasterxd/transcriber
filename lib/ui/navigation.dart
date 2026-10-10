@@ -56,8 +56,10 @@ Route<T> _fadeSlideRoute<T>(Widget page) {
 class AppNavigator {
   const AppNavigator._();
 
-  static Future<void> openSettings(BuildContext context) =>
-      Navigator.of(context).push(_fadeSlideRoute(const SettingsScreen()));
+  static Future<void> openSettings(BuildContext context) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    return Navigator.of(context).push(_fadeSlideRoute(const SettingsScreen()));
+  }
 
   static Future<void> openRecord(BuildContext context) =>
       Navigator.of(context).push(_fadeSlideRoute(const RecordScreen()));

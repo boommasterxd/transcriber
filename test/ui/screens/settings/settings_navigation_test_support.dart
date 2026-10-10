@@ -42,6 +42,9 @@ Future<ProviderContainer> pumpSettingsNavigation(
 
 Future<void> openSettingsDestination(WidgetTester tester, String title) async {
   final destination = find.text(title);
+  if (destination.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(destination, 250);
+  }
   await tester.ensureVisible(destination);
   await tester.pumpAndSettle();
   await tester.tap(destination);

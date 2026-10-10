@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/settings_controller.dart';
-import '../../../widgets/provider_logo.dart';
 
 class ProviderCredentialForm extends ConsumerWidget {
   const ProviderCredentialForm({
@@ -41,8 +39,6 @@ class ProviderCredentialForm extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ProviderCredentialHeader(provider: provider, connected: connected),
-        const SizedBox(height: 13),
         _ProviderApiKeyInput(
           provider: provider,
           controller: controller,
@@ -70,6 +66,7 @@ class ProviderCredentialForm extends ConsumerWidget {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: busy ? null : onShowHelp,
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
             icon: const Icon(Icons.help_outline_rounded, size: 16),
             label: Text(strings.keyHelp),
           ),
@@ -86,11 +83,7 @@ class ProviderCredentialForm extends ConsumerWidget {
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: Text(
-                      strings.testKey,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text(strings.testKey, textAlign: TextAlign.center),
                   ),
                 ),
               if (onTest != null && onDisconnect != null)
@@ -105,7 +98,6 @@ class ProviderCredentialForm extends ConsumerWidget {
                     ),
                     child: Text(
                       strings.disconnect,
-                      maxLines: 2,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: palette.coralInk),
                     ),
@@ -114,41 +106,6 @@ class ProviderCredentialForm extends ConsumerWidget {
             ],
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _ProviderCredentialHeader extends ConsumerWidget {
-  const _ProviderCredentialHeader({
-    required this.provider,
-    required this.connected,
-  });
-
-  final RemoteProviderId provider;
-  final bool connected;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
-    final strings = ref.watch(stringsProvider);
-    final providerName = RemoteCatalog.provider(provider).name;
-    return Row(
-      children: [
-        ProviderLogo(provider: provider, size: 34),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            '$providerName ${strings.apiKey}',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: palette.ink,
-            ),
-          ),
-        ),
-        if (connected)
-          Icon(Icons.check_circle_rounded, size: 18, color: palette.mint),
       ],
     );
   }
@@ -185,7 +142,8 @@ class _ProviderApiKeyInput extends ConsumerWidget {
           onSubmitted: onConnect,
           enabled: !busy,
         );
-        if (constraints.maxWidth < 390) {
+        if (constraints.maxWidth < 390 ||
+            MediaQuery.textScalerOf(context).scale(14) > 18) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [field, const SizedBox(height: 8), button],
@@ -223,8 +181,8 @@ class _ProviderApiKeyField extends ConsumerWidget {
     final placeholder = provider == RemoteProviderId.openai
         ? strings.openAiKeyPlaceholder
         : strings.googleKeyPlaceholder;
-    return SizedBox(
-      height: 46,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
       child: TextField(
         controller: controller,
         enabled: enabled,
@@ -266,8 +224,8 @@ class _ProviderConnectButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return SizedBox(
-      height: 46,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(

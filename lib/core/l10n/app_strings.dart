@@ -78,6 +78,11 @@ class AppStrings {
   String get apiKey => _string(_StringKey.apiKey);
   String get connect => _string(_StringKey.connect);
   String get connected => _string(_StringKey.connected);
+  String get providerChecking => _string(_StringKey.providerChecking);
+  String get providerConnectionFailed =>
+      _string(_StringKey.providerConnectionFailed);
+  String get providerConnectionsTitle =>
+      _string(_StringKey.providerConnectionsTitle);
   String get disconnect => _string(_StringKey.disconnect);
   String get testKey => _string(_StringKey.testKey);
   String get replaceKey => _string(_StringKey.replaceKey);
@@ -102,6 +107,20 @@ class AppStrings {
   String get noModels => _string(_StringKey.noModels);
   String get modelUnavailable => _string(_StringKey.modelUnavailable);
   String get chooseModel => _string(_StringKey.chooseModel);
+  String get transcriptionTaskTitle =>
+      _string(_StringKey.transcriptionTaskTitle);
+  String get transcriptionTaskDescription =>
+      _string(_StringKey.transcriptionTaskDescription);
+  String get summaryTaskDescription =>
+      _string(_StringKey.summaryTaskDescription);
+  String get transcriptionModelTitle =>
+      _string(_StringKey.transcriptionModelTitle);
+  String get summaryModelTitle => _string(_StringKey.summaryModelTitle);
+  String get alwaysActive => _string(_StringKey.alwaysActive);
+  String get optionalTask => _string(_StringKey.optionalTask);
+  String get modelLoadFailed => _string(_StringKey.modelLoadFailed);
+  String get modelsLoading => _string(_StringKey.modelsLoading);
+  String get refreshModels => _string(_StringKey.refreshModels);
   String get processedWith => _string(_StringKey.processedWith);
   String get autoDel => _string(_StringKey.autoDel);
   String get autoDelSub => _string(_StringKey.autoDelSub);
@@ -141,7 +160,11 @@ class AppStrings {
   String get cancel => _string(_StringKey.cancel);
   String get privacyStatement => _string(_StringKey.privacyStatement);
   String get obModelsT => _string(_StringKey.obModelsT);
-  String get obModelsS => _string(_StringKey.obModelsS);
+  String get obConnectStep => _string(_StringKey.obConnectStep);
+  String get obConnectDescription => _string(_StringKey.obConnectDescription);
+  String get obSelectModelsDescription =>
+      _string(_StringKey.obSelectModelsDescription);
+  String get obSelectModelsHint => _string(_StringKey.obSelectModelsHint);
   String get obNext => _string(_StringKey.obNext);
   String get obStart => _string(_StringKey.obStart);
   String get obWelcomeT => _string(_StringKey.obWelcomeT);

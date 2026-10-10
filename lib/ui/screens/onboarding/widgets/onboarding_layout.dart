@@ -23,7 +23,7 @@ class OnboardingLayout extends StatelessWidget {
     super.key,
   });
 
-  static const stepCount = 5;
+  static const stepCount = 6;
 
   final PageController controller;
   final int step;
@@ -186,6 +186,7 @@ class _OnboardingFooter extends StatelessWidget {
 
   String _hint() => switch (gate.hint) {
     OnboardingGateHint.connectProvider => strings.obConnectHint,
+    OnboardingGateHint.selectModels => strings.obSelectModelsHint,
     OnboardingGateHint.grantPermissions => strings.obPermLocked,
     null => '',
   };
@@ -203,8 +204,8 @@ class _OnboardingFooter extends StatelessWidget {
                 trailingIcon: Icons.arrow_forward_rounded,
                 onTap: onNext,
               )
-            : SizedBox(
-                height: 56,
+            : ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 56),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
