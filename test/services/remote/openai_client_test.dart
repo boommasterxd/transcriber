@@ -147,6 +147,14 @@ Future<void> _testSummary() async {
 void _registerTranscriptionTest() {
   test('sends gpt-transcribe as multipart', _testTranscription);
   test(
+    'requests automatic chunking for diarized transcription',
+    () => _testTranscription(modelId: 'gpt-4o-transcribe-diarize'),
+  );
+  test(
+    'routes future diarized ASR without a fixed model family',
+    () => _testTranscription(modelId: 'gpt-99-transcribe-diarize'),
+  );
+  test(
     'presents Opus as supported OGG without converting its bytes',
     () => _testTranscription(
       fileName: 'whatsapp-voice.opus',
@@ -160,6 +168,7 @@ Future<void> _testTranscription({
   String fileName = 'voice.wav',
   String? expectedUploadName,
   String? expectedContentType,
+  String modelId = 'gpt-transcribe',
 }) async {
   await withTemporaryAudio(
     prefix: 'openai-test-',
@@ -178,7 +187,7 @@ Future<void> _testTranscription({
 
       final result = await client.transcribe(
         file.path,
-        modelId: 'gpt-transcribe',
+        modelId: modelId,
         languageCode: 'de',
       );
       final captured = httpClient.requests.single as http.MultipartRequest;
@@ -188,8 +197,9 @@ Future<void> _testTranscription({
       );
       expect(captured.headers['Authorization'], 'Bearer secret-key');
       expect(captured.fields, {
-        'model': 'gpt-transcribe',
+        'model': modelId,
         'response_format': 'json',
+        if (modelId.contains('diarize')) 'chunking_strategy': 'auto',
         'language': 'de',
       });
       expect(captured.files.single.filename, expectedUploadName ?? fileName);

@@ -8,6 +8,8 @@ The supported versions are defined by `.fvmrc`, `pubspec.yaml`, `pubspec.lock`, 
 
 Transcription and summarization are independent settings.
 
+New installations default to Google Gemini for both stages. Existing provider and model choices are preserved.
+
 | Stage | OpenAI default | Google Gemini default |
 |---|---|---|
 | Transcription | `gpt-transcribe` | `gemini-3.5-transcribe` |
@@ -22,15 +24,21 @@ Live keyboard dictation has a separate, fixed compatibility mapping:
 
 The keyboard inherits the selected transcription provider, language, and that provider's existing API key. It does not reuse the batch model selector because batch and live endpoints have different compatibility requirements. OpenAI receives the application's `de` or `en` hint, while Gemini receives the required BCP-47 `de-DE` or `en-US` hint; automatic detection omits the hint. The settings card displays the effective live model explicitly.
 
-The provider model catalog is loaded after a stored key has been verified. The configured default remains selectable if a provider does not expose it in the catalog response. Transcription selection includes dedicated transcription models and compatible multimodal models that accept audio and return text.
+The provider model catalog is loaded after a stored key has been verified. Only compatible models returned by that provider are selectable; configured defaults are not added to the fetched catalog. A saved model that is absent from the filtered catalog is shown as unavailable rather than marked as a valid selection. Transcription selection includes dedicated transcription models and compatible multimodal models that accept audio and return text.
 
-OpenAI's model catalog exposes identifiers but no modality metadata. The application therefore recognizes the officially documented transcription and audio model families returned for the user's key. Dedicated transcription models use the Audio Transcriptions API. General audio models use Chat Completions with inline WAV or MP3 audio, which is limited to 20 MiB to bound Base64 memory overhead.
+The [OpenAI model-list API](https://developers.openai.com/api/reference/resources/models/methods/list) exposes identifiers but no task, modality, or endpoint capabilities. Purpose filtering therefore uses token-based naming rules rather than fixed model versions. Dedicated transcription models use the Audio Transcriptions API. General audio models use Chat Completions with inline WAV or MP3 audio, which is limited to 20 MiB to bound Base64 memory overhead. Summary selection excludes audio, image, live, embedding, moderation, and other specialized or incompatible roles.
 
-Gemini's catalog is loaded across all pages. Dedicated Transcribe models use `smart` transcription mode through the Files and Interactions APIs. This produces readable text without requesting timestamps or speaker diarization. General Gemini models that support `generateContent` use the same uploaded audio plus a text transcription instruction. Image, TTS, embedding, live, and other incompatible specialized families are excluded from the transcription selector.
+The [Gemini model-list API](https://ai.google.dev/api/models?hl=en) supplies names, descriptions, and supported generation methods, but no complete modality or purpose classification. Its catalog is loaded across all pages. Dedicated Transcribe models use `smart` transcription mode through the Files and Interactions APIs. This produces readable text without requesting timestamps or speaker diarization. General models must advertise `generateContent`; their identifiers, display names, and descriptions are checked for specialist roles. Image generation, TTS, embeddings, live audio, robotics, and other recognized incompatible roles are excluded from both selectors. Native transcription models are excluded from summary selection, and text-only models are excluded from transcription selection.
+
+The purpose heuristics live in `ProviderModelCapabilities`. There are no positive lists of model versions: new versions returned by the API are considered automatically. Names and descriptions are hints, not capability guarantees. An unusually named new specialist may be misclassified, and filtering does not prove endpoint compatibility, quota, billing, or successful inference access. No inference probes or external capability catalogs run during model selection. Clients reject unsafe identifiers and recognizable incompatible saved model roles before provider requests. OpenAI diarization transcription requests include `chunking_strategy=auto` to support audio longer than 30 seconds without requesting speaker metadata.
+
+When updating these rules, check the official [Gemini model catalog](https://ai.google.dev/gemini-api/docs/models), [Gemini audio guide](https://ai.google.dev/gemini-api/docs/audio), [OpenAI endpoint support](https://developers.openai.com/api/docs/guides/your-data), [OpenAI audio chat guide](https://developers.openai.com/api/docs/guides/audio-chat-completions), and [OpenAI transcription reference](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create). Match the application's request format as well as the model's input and output modalities.
+
+Fine-tuned OpenAI summary models use the documented `ft:<base-model>:<organization>:<suffix>:<identifier>` form, including an empty optional suffix. The full ID is validated and passed unchanged to Chat Completions; purpose filtering examines only the base model, so user-assigned names do not accidentally trigger specialist exclusions. See the [supervised fine-tuning guide](https://developers.openai.com/api/docs/guides/supervised-fine-tuning#try-using-your-fine-tuned-model).
 
 ## Personal API Keys
 
-OpenAI and Gemini keys are independent. The application supports adding, validating, replacing, retesting, and removing each key. Validation occurs before a replacement is persisted, so a failed replacement does not destroy a working key.
+OpenAI and Gemini keys are independent. Open **Settings > Model selection > API keys** to add, validate, replace, retest, or remove each key. Each provider has one credential editor shared by transcription, summary, and keyboard dictation. Validation occurs before a replacement is persisted, so a failed replacement does not destroy a working key.
 
 Keys use `FlutterSecureStorage` names `api_key_openai` and `api_key_google`. They must never be placed in source files, environment files committed to Git, Drift, SharedPreferences, screenshots, logs, tests, or issue reports.
 

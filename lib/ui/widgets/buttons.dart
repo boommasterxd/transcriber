@@ -157,7 +157,7 @@ class IconCircleButton extends StatelessWidget {
   }
 }
 
-/// Row of selectable accent color swatches.
+/// Selectable accent color swatches that wrap on narrow screens.
 class AccentSwatches extends StatelessWidget {
   const AccentSwatches({
     super.key,
@@ -173,30 +173,30 @@ class AccentSwatches extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Row(
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 14,
+      runSpacing: 14,
       children: [
         for (final accent in AppAccent.values)
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: GestureDetector(
-              onTap: () => onSelected(accent),
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  color: accent.color,
-                  shape: BoxShape.circle,
-                  boxShadow: accent == selected
-                      ? [
-                          BoxShadow(color: palette.surface, spreadRadius: 3),
-                          BoxShadow(color: accent.color, spreadRadius: 5),
-                        ]
-                      : [BoxShadow(color: palette.shadow, blurRadius: 8)],
-                ),
-                child: accent == selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 16)
-                    : null,
+          GestureDetector(
+            onTap: () => onSelected(accent),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: accent.color,
+                shape: BoxShape.circle,
+                boxShadow: accent == selected
+                    ? [
+                        BoxShadow(color: palette.surface, spreadRadius: 3),
+                        BoxShadow(color: accent.color, spreadRadius: 5),
+                      ]
+                    : [BoxShadow(color: palette.shadow, blurRadius: 8)],
               ),
+              child: accent == selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 16)
+                  : null,
             ),
           ),
       ],

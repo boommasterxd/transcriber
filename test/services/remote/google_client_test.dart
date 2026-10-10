@@ -81,7 +81,7 @@ void _registerCatalogPaginationTest() {
             'supportedGenerationMethods': ['generateContent'],
           },
           {
-            'name': 'models/gemini-3.7-pro',
+            'name': 'models/gemini-3.1-pro-preview',
             'supportedGenerationMethods': ['generateContent'],
           },
         ],
@@ -92,8 +92,8 @@ void _registerCatalogPaginationTest() {
     final models = await client.listModels(forTranscription: true);
 
     expect(models.map((model) => model.id), [
+      'gemini-3.1-pro-preview',
       'gemini-3.7-flash',
-      'gemini-3.7-pro',
     ]);
     expect(httpClient.requests, hasLength(2));
     expect(
@@ -181,6 +181,10 @@ void _registerTranscriptionTest() {
     _testTranscription,
   );
   test(
+    'routes future unary ASR models through native interactions',
+    () => _testTranscription(modelId: 'gemini-99-asr'),
+  );
+  test(
     'uploads WhatsApp Opus with native MIME metadata',
     () => _testTranscription(
       fileName: 'whatsapp-voice.opus',
@@ -192,6 +196,7 @@ void _registerTranscriptionTest() {
 Future<void> _testTranscription({
   String fileName = 'voice.wav',
   String expectedMimeType = 'audio/wav',
+  String modelId = 'gemini-3.5-transcribe',
 }) async {
   await withTemporaryAudio(
     prefix: 'gemini-test-',
@@ -228,7 +233,7 @@ Future<void> _testTranscription({
 
       final result = await client.transcribe(
         file.path,
-        modelId: 'gemini-3.5-transcribe',
+        modelId: modelId,
         languageCode: 'de',
       );
       expect(httpClient.requests, hasLength(4));
@@ -251,7 +256,7 @@ Future<void> _testTranscription({
       final interaction =
           jsonDecode((httpClient.requests[2] as http.Request).body)
               as Map<String, dynamic>;
-      expect(interaction['model'], 'gemini-3.5-transcribe');
+      expect(interaction['model'], modelId);
       expect((interaction['input'] as List).single['type'], 'audio');
       expect(
         (interaction['input'] as List).single['mime_type'],

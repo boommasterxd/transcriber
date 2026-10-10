@@ -95,7 +95,7 @@ Future<String> _summarize(Object body) {
   return client.summarize(
     systemPrompt: 'system',
     userPrompt: 'user',
-    modelId: 'summary-model',
+    modelId: 'gpt-4o-mini',
   );
 }
 

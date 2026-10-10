@@ -100,9 +100,9 @@ void _registerByokInputTest(AppStrings german, AppStrings english) {
 
   test('keeps provider descriptions specific to each processing stage', () {
     expect(german.transcriptionGoogleDescription, contains('Transcribe'));
-    expect(german.summaryGoogleDescription, contains('Flash'));
+    expect(german.summaryGoogleDescription, contains('Zusammenfassungen'));
     expect(german.summaryGoogleDescription, isNot(contains('Transcribe')));
-    expect(german.summaryOpenAiDescription, contains('GPT-5'));
+    expect(german.summaryOpenAiDescription, contains('Zusammenfassungen'));
     expect(english.transcriptionOpenAiDescription, contains('gpt-transcribe'));
     expect(english.summaryOpenAiDescription, isNot(contains('transcribe')));
   });
@@ -235,6 +235,11 @@ List<String> _catalogKeyboardValues(AppStrings strings) => [
   strings.keyboardSection,
   strings.keyboardTitle,
   strings.keyboardDescription,
+  strings.keyboardGuideTitle,
+  strings.keyboardGuideBenefit,
+  strings.keyboardGuideEnable,
+  strings.keyboardGuideDictate,
+  strings.keyboardGuideFinish,
   strings.keyboardEnabled,
   strings.keyboardDisabled,
   strings.keyboardSelected,
@@ -304,6 +309,11 @@ List<String> _catalogSettingsValues(AppStrings strings) => [
   strings.micPermissionTitle,
   strings.micPermissionBody,
   strings.setTitle,
+  strings.setModels,
+  strings.setGeneral,
+  strings.appVersion,
+  strings.versionUnavailable,
+  strings.apiKeysDescription,
   strings.setAppear,
   strings.setAsr,
   strings.setLlm,
@@ -343,6 +353,9 @@ List<String> _catalogProviderValues(AppStrings strings) => [
   strings.summaryOpenAiDescription,
   strings.summaryGoogleDescription,
   strings.connectFirst,
+  strings.noModels,
+  strings.modelUnavailable,
+  strings.chooseModel,
   strings.processedWith,
   strings.autoDel,
   strings.autoDelSub,

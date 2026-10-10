@@ -36,13 +36,14 @@ class OpenAiClient implements RemoteProviderClient {
     final ids =
         data
             .whereType<Map>()
-            .map((model) => model['id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty)
+            .map((model) => model['id'])
+            .whereType<String>()
             .where(
               (id) => forTranscription
                   ? ProviderModelCapabilities.isOpenAiTranscriptionModel(id)
-                  : _isSummaryModel(id),
+                  : ProviderModelCapabilities.isOpenAiSummaryModel(id),
             )
+            .toSet()
             .toList()
           ..sort();
     return ids.map((id) => RemoteModelInfo(id: id)).toList();
@@ -54,6 +55,11 @@ class OpenAiClient implements RemoteProviderClient {
     required String userPrompt,
     required String modelId,
   }) async {
+    if (!ProviderModelCapabilities.isOpenAiSummaryModel(modelId)) {
+      throw const RemoteApiException(
+        'The selected OpenAI model does not support text summaries.',
+      );
+    }
     final json = await _postJson('/chat/completions', {
       'model': modelId,
       'messages': [
@@ -106,6 +112,9 @@ class OpenAiClient implements RemoteProviderClient {
           ..headers['Authorization'] = 'Bearer $apiKey'
           ..fields['model'] = modelId
           ..fields['response_format'] = 'json';
+    if (RegExp(r'(?:^|[._-])diarize(?:$|[._-])').hasMatch(modelId)) {
+      request.fields['chunking_strategy'] = 'auto';
+    }
     if (languageCode != null &&
         languageCode.isNotEmpty &&
         languageCode != 'auto') {
@@ -211,22 +220,6 @@ class OpenAiClient implements RemoteProviderClient {
     if (lower.endsWith('.wav')) return 'wav';
     if (lower.endsWith('.mp3')) return 'mp3';
     return null;
-  }
-
-  bool _isSummaryModel(String id) {
-    final lower = id.toLowerCase();
-    const excluded = [
-      'embed',
-      'whisper',
-      'transcribe',
-      'tts',
-      'audio',
-      'realtime',
-      'image',
-      'moderation',
-      'dall',
-    ];
-    return !excluded.any(lower.contains);
   }
 
   Future<Map<String, dynamic>> _getJson(
