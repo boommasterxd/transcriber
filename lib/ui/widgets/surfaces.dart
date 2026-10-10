@@ -69,6 +69,7 @@ class SectionLabel extends StatelessWidget {
 ///
 /// The scrollable is created by [builder] using the provided [ScrollController]
 /// so the fades stay in sync with real scroll metrics.
+/// Enable [shrinkWrap] for a scrollable that determines its own viewport height.
 class FadeEdges extends StatefulWidget {
   const FadeEdges({
     super.key,
@@ -76,6 +77,7 @@ class FadeEdges extends StatefulWidget {
     this.topHeight = 18,
     this.bottomHeight = 30,
     this.color,
+    this.shrinkWrap = false,
   });
 
   final Widget Function(BuildContext context, ScrollController controller)
@@ -83,6 +85,7 @@ class FadeEdges extends StatefulWidget {
   final double topHeight;
   final double bottomHeight;
   final Color? color;
+  final bool shrinkWrap;
 
   @override
   State<FadeEdges> createState() => _FadeEdgesState();
@@ -108,7 +111,9 @@ class _FadeEdgesState extends State<FadeEdges> {
   }
 
   void _update() {
-    if (!_controller.hasClients || !_controller.position.hasContentDimensions) {
+    if (!mounted ||
+        !_controller.hasClients ||
+        !_controller.position.hasContentDimensions) {
       return;
     }
     final position = _controller.position;
@@ -132,7 +137,10 @@ class _FadeEdgesState extends State<FadeEdges> {
       },
       child: Stack(
         children: [
-          Positioned.fill(child: widget.builder(context, _controller)),
+          if (widget.shrinkWrap)
+            widget.builder(context, _controller)
+          else
+            Positioned.fill(child: widget.builder(context, _controller)),
           _Fade(
             visible: _showTop,
             height: widget.topHeight,

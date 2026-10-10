@@ -33,6 +33,19 @@ abstract final class ProviderModelCapabilities {
     'codex|pro|search|research|agent|agents|computer|oss',
   );
   static final _textOnly = _tokens('gemma|(?:text|code)[\\s_-]+only');
+  static final _geminiSpecialistRole = _tokens(
+    'antigravity|agents?|harness|deep[\\s._-]+research|'
+    '(?:computer|browser)[\\s._-]+use',
+  );
+  static final _geminiSpecialistPurpose = _tokens(
+    '(?:managed|autonomous|research|dedicated|specialized)[\\s._-]+agent|'
+    '(?:agentic[\\s._-]+)?harness|'
+    '(?:agent|deep[\\s._-]+research|computer[\\s._-]+use|'
+    'browser[\\s._-]+use)[\\s._-]+model|'
+    '(?:model|designed|specialized)[\\s._-]+for[\\s._-]+'
+    '(?:agents?|deep[\\s._-]+research|computer[\\s._-]+use|'
+    'browser[\\s._-]+use)',
+  );
 
   static bool isOpenAiSummaryModel(String modelId) {
     final base = _openAiSummaryBase(modelId);
@@ -83,8 +96,7 @@ abstract final class ProviderModelCapabilities {
     String? displayName,
     String? description,
   }) {
-    if (!_isSafe(modelId) ||
-        _specialistId.hasMatch(modelId) ||
+    if (!_isGeminiCandidate(modelId) ||
         _hasSpecialistMetadata(displayName, description)) {
       return false;
     }
@@ -96,14 +108,15 @@ abstract final class ProviderModelCapabilities {
   }
 
   static bool usesGeminiNativeTranscription(String modelId) =>
-      _isSafe(modelId) &&
-      !_specialistId.hasMatch(modelId) &&
-      _transcriptionRole.hasMatch(modelId);
+      _isGeminiCandidate(modelId) && _transcriptionRole.hasMatch(modelId);
 
   static bool _isGeminiGenerationModel(String id, Set<String> methods) =>
+      _isGeminiCandidate(id) && methods.contains('generateContent');
+
+  static bool _isGeminiCandidate(String id) =>
       _isSafe(id) &&
-      methods.contains('generateContent') &&
-      !_specialistId.hasMatch(id);
+      !_specialistId.hasMatch(id) &&
+      !_geminiSpecialistRole.hasMatch(id);
 
   static bool _isOpenAiAudioCandidate(String id) =>
       _isSafe(id) &&
@@ -113,6 +126,8 @@ abstract final class ProviderModelCapabilities {
 
   static bool _hasSpecialistMetadata(String? label, String? description) =>
       _specialistId.hasMatch(label?.toLowerCase() ?? '') ||
+      _geminiSpecialistRole.hasMatch(label?.toLowerCase() ?? '') ||
+      _geminiSpecialistPurpose.hasMatch(description?.toLowerCase() ?? '') ||
       _specialistDescription.hasMatch(
         '${label ?? ''} ${description ?? ''}'.toLowerCase(),
       );

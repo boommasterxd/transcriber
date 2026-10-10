@@ -11,6 +11,7 @@ import '../../../../services/remote/remote_api_client.dart';
 import '../../../../state/connections_controller.dart';
 import '../../../../state/remote_models_provider.dart';
 import '../../../../state/settings_controller.dart';
+import '../../../widgets/surfaces.dart';
 import 'model_sheet_frame.dart';
 import 'remote_model_options.dart';
 import 'remote_stage.dart';
@@ -131,7 +132,12 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
         child: RefreshIndicator(
           onRefresh: _refreshModels,
           semanticsLabel: strings.refreshModels,
-          child: _catalogScrollView(strings, providers, catalog),
+          child: FadeEdges(
+            shrinkWrap: true,
+            color: context.palette.surface,
+            builder: (_, controller) =>
+                _catalogScrollView(strings, providers, catalog, controller),
+          ),
         ),
       ),
     ),
@@ -141,7 +147,9 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
     AppStrings strings,
     List<RemoteProviderId> providers,
     AsyncValue<List<RemoteModelInfo>>? catalog,
+    ScrollController controller,
   ) => CustomScrollView(
+    controller: controller,
     shrinkWrap: true,
     physics: const AlwaysScrollableScrollPhysics(),
     slivers: [
