@@ -92,6 +92,8 @@ Use non-production audio without personal information. Test all selected combina
 
 Also test summary disabled, key replacement failure, provider throttling, network timeout, malformed provider responses, cancellation, and retry.
 
+Force a summary failure after successful transcription and verify that the regular screen saves a transcript-only note with a visible warning and expandable transcript. In the share popup, verify both explicit save and discard. Reopen a saved note and confirm that the warning and sanitized diagnostic remain, summary sections are hidden, and the full transcript is readable. Check phone and tablet layouts, keyboard operation, and TalkBack. Transcription failures must still show the processing error screen without creating a note.
+
 ## Troubleshooting
 
 - Key validation fails: verify the key, project, API billing, quota, and network connection.

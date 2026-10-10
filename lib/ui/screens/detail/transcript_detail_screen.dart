@@ -15,6 +15,7 @@ import 'widgets/note_content_widgets.dart';
 import 'widgets/note_detail_interactions.dart';
 import 'widgets/note_summary_metadata_widgets.dart';
 import 'widgets/processed_with_card.dart';
+import 'widgets/summary_failure_notice.dart';
 
 /// In-app screen showing a fully processed note: audio, summary, key points,
 /// to-dos, the models used, and the expandable transcript.
@@ -89,13 +90,13 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
   List<Widget> _noteSections(TranscriptNote note, AppStrings strings) {
     return [
       ..._leadingSections(note, strings),
-      if (note.points.isNotEmpty) ...[
+      if (note.summaryError == null && note.points.isNotEmpty) ...[
         NoteSectionLabel(strings.shPoints),
         const SizedBox(height: 12),
         NoteKeyPoints(points: note.points),
         const SizedBox(height: 22),
       ],
-      if (note.todos.isNotEmpty) ...[
+      if (note.summaryError == null && note.todos.isNotEmpty) ...[
         EditableNoteTodos.phone(
           todos: note.todos,
           strings: strings,
@@ -105,13 +106,14 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
         ),
         const SizedBox(height: 12),
       ],
-      if (note.gist.isNotEmpty)
+      if (note.gist.isNotEmpty || note.summaryError != null)
         DetailTranscriptToggle.phone(
           strings: strings,
           isOpen: transcriptOpen,
           onTap: toggleTranscript,
         ),
-      if (note.gist.isEmpty || transcriptOpen) ...[
+      if ((note.gist.isEmpty && note.summaryError == null) ||
+          transcriptOpen) ...[
         const SizedBox(height: 18),
         DetailTranscriptBlock(
           note: note,
@@ -128,6 +130,10 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
 
   List<Widget> _leadingSections(TranscriptNote note, AppStrings strings) {
     return [
+      if (note.summaryError != null) ...[
+        SummaryFailureNotice(error: note.summaryError!, strings: strings),
+        const SizedBox(height: 18),
+      ],
       if (note.audioPath != null)
         DetailAudioPlayer(
           audioPath: note.audioPath!,
@@ -136,7 +142,7 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
       else
         AudioDeletedNotice(strings: strings),
       const SizedBox(height: 18),
-      if (note.gist.isNotEmpty) ...[
+      if (note.summaryError == null && note.gist.isNotEmpty) ...[
         NoteSummaryCard(gist: note.gist, label: strings.shSummary),
         const SizedBox(height: 16),
       ],

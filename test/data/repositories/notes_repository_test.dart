@@ -27,6 +27,7 @@ void main() {
     expect(loaded.first.points, ['Point new']);
     expect(loaded.first.todos.single.done, isTrue);
     expect(loaded.first.transcript.single.text, 'Transcript new');
+    expect(loaded.first.summaryError, isNull);
   });
 
   test('saveAll replaces the complete note snapshot atomically', () async {
@@ -51,6 +52,22 @@ void main() {
     );
 
     expect((await repository.load()).single.id, 'stable');
+  });
+
+  test('persists summary errors while retaining transcript data', () async {
+    final note = _note(
+      'failed-summary',
+      DateTime.utc(2025, 1, 1),
+    ).copyWith(summaryError: 'Summary failed');
+    await repository.saveAll([note]);
+
+    final restored = (await NotesRepository(database).load()).single;
+
+    expect(restored.summaryError, 'Summary failed');
+    expect(restored.createdAt.isAtSameMomentAs(note.createdAt), isTrue);
+    final restoredFields = restored.toJson()..remove('createdAt');
+    final originalFields = note.toJson()..remove('createdAt');
+    expect(restoredFields, originalFields);
   });
 }
 

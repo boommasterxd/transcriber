@@ -1,4 +1,5 @@
 import '../remote/remote_api_client.dart';
+import '../service_exceptions.dart';
 import 'summarization_service.dart';
 import 'summary_prompt.dart';
 import 'summary_result.dart';
@@ -25,6 +26,9 @@ class RemoteSummarizationService implements SummarizationService {
       userPrompt: SummaryPrompt.user(transcript, german: german),
       modelId: apiModelId,
     );
+    if (raw.trim().isEmpty) {
+      throw const RemoteApiException('The provider returned an empty summary.');
+    }
     return SummaryPrompt.parse(raw, fallbackTitle: fallbackTitle);
   }
 }

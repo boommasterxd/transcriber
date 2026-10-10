@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/transcript_note.dart';
-import '../../../widgets/buttons.dart';
 import 'note_content_widgets.dart';
 import 'note_summary_metadata_widgets.dart';
 
@@ -104,17 +104,37 @@ class DetailTranscriptToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PillButton(
-      label: isOpen ? strings.shHide : strings.shShow,
-      icon: Icons.subject_rounded,
-      trailingIcon: showChevron
-          ? (isOpen
-                ? Icons.keyboard_arrow_up_rounded
-                : Icons.keyboard_arrow_down_rounded)
-          : null,
-      height: height,
-      outlined: true,
-      onTap: onTap,
+    final palette = context.palette;
+    return Semantics(
+      expanded: isOpen,
+      child: SizedBox(
+        width: double.infinity,
+        height: height,
+        child: OutlinedButton.icon(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: palette.accent,
+            side: BorderSide(color: palette.line2, width: 1.5),
+            shape: const StadiumBorder(),
+          ),
+          icon: const Icon(Icons.subject_rounded, size: 19),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(isOpen ? strings.shHide : strings.shShow)),
+              if (showChevron) ...[
+                const SizedBox(width: 9),
+                Icon(
+                  isOpen
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 19,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -2,10 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/ui/screens/share/widgets/share_result_body.dart';
 import 'share_test_support.dart';
+import '../detail/widgets/summary_failure_test_support.dart';
 
 void main() {
   _registerSummaryToggleTest();
   _registerTranscriptOnlyTest();
+  for (final gist in ['', 'Incomplete summary']) {
+    _registerSummaryFailureTest(gist);
+  }
+}
+
+void _registerSummaryFailureTest(String gist) {
+  testWidgets('failed summary preview keeps accordion with gist "$gist"', (
+    tester,
+  ) async {
+    final note = shareTestNote(
+      gist: gist,
+    ).copyWith(summaryError: '<Error> unavailable');
+    await tester.pumpWidget(
+      shareTestChildApp(
+        child: ShareResultBody(
+          note: note,
+          saving: false,
+          onClose: () {},
+          onSave: () {},
+        ),
+      ),
+    );
+
+    expectSummaryFailure(note, shareTestStrings);
+    expect(find.text('Transcript line'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text(shareTestStrings.shShow),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text(shareTestStrings.shShow));
+    await tester.pump();
+    expect(find.text('Transcript line'), findsOneWidget);
+    expect(find.text(shareTestStrings.shSave), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _registerSummaryToggleTest() {

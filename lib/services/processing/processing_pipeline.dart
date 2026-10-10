@@ -7,6 +7,7 @@ import '../../data/models/transcription_result.dart';
 import '../audio/audio_metadata.dart';
 import '../remote/remote_api_client.dart';
 import '../remote/remote_client_factory.dart';
+import '../remote/remote_http.dart';
 import '../service_exceptions.dart';
 import '../storage/audio_cache_manager.dart';
 import '../storage/managed_audio_file.dart';
@@ -91,13 +92,44 @@ final class ProcessingPipeline {
     final fallbackTitle = _fallbackTitle(request);
     callbacks.onStep?.call(ProcessingStep.transcribing);
     final transcription = await _transcribe(request);
-    final summary = await _summarizeIfEnabled(
+    late SummaryResult summary;
+    String? summaryError;
+    try {
+      summary = await _summarizeIfEnabled(
+        request,
+        transcription.text,
+        fallbackTitle,
+        callbacks,
+      );
+    } catch (error) {
+      summary = SummaryResult(
+        title: fallbackTitle,
+        gist: '',
+        points: const [],
+        todos: const [],
+      );
+      summaryError = _summaryError(error, request);
+    }
+    final note = await _assembleNote(
       request,
-      transcription.text,
+      transcription,
+      summary,
       fallbackTitle,
-      callbacks,
     );
-    return _assembleNote(request, transcription, summary, fallbackTitle);
+    return note.copyWith(summaryError: summaryError);
+  }
+
+  String _summaryError(Object error, ProcessingRequest request) {
+    final message = error is ServiceException
+        ? error.message
+        : 'The summary could not be generated.';
+    return sanitizeRemoteErrorMessage(
+      message,
+      secrets: [
+        request.credentials.summaryApiKey,
+        request.credentials.asrApiKey,
+      ],
+    );
   }
 
   Future<TranscriptionResult> _transcribe(ProcessingRequest request) {

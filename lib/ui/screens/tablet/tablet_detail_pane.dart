@@ -17,6 +17,7 @@ import '../detail/widgets/note_content_widgets.dart';
 import '../detail/widgets/note_detail_interactions.dart';
 import '../detail/widgets/note_summary_metadata_widgets.dart';
 import '../detail/widgets/processed_with_card.dart';
+import '../detail/widgets/summary_failure_notice.dart';
 
 /// The right-hand detail pane of the tablet split view: a two-column layout for
 /// the selected note (no navigation). Mirrors the phone detail content.
@@ -56,6 +57,10 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
               controller: controller,
               padding: const EdgeInsets.fromLTRB(28, 22, 28, 30),
               children: [
+                if (note.summaryError != null) ...[
+                  SummaryFailureNotice(error: note.summaryError!, strings: t),
+                  const SizedBox(height: 20),
+                ],
                 _responsiveColumns(note, t),
                 const SizedBox(height: 20),
                 DetailTranscriptToggle.tablet(
@@ -223,7 +228,7 @@ class _LeftColumn extends StatelessWidget {
           )
         else
           AudioDeletedNotice(strings: strings),
-        if (note.gist.isNotEmpty) ...[
+        if (note.summaryError == null && note.gist.isNotEmpty) ...[
           const SizedBox(height: 16),
           NoteSummaryCard(
             gist: note.gist,
@@ -255,13 +260,13 @@ class _RightColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (note.points.isNotEmpty) ...[
+        if (note.summaryError == null && note.points.isNotEmpty) ...[
           NoteSectionLabel(strings.shPoints),
           const SizedBox(height: 12),
           NoteKeyPoints(points: note.points, bottomPadding: 13, fontSize: 14),
           const SizedBox(height: 8),
         ],
-        if (note.todos.isNotEmpty) ...[
+        if (note.summaryError == null && note.todos.isNotEmpty) ...[
           EditableNoteTodos.tablet(
             todos: note.todos,
             strings: strings,

@@ -9,6 +9,7 @@ import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/models/transcription_result.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
+import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/managed_audio_file.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
@@ -22,6 +23,34 @@ void main() {
   _registerCommitTests();
   _registerDiscardTests();
   _registerRetryTests();
+  _registerSummaryFailureTests();
+}
+
+void _registerSummaryFailureTests() {
+  for (final save in [true, false]) {
+    test('summary failure keeps the transcript with save=$save', () async {
+      final harness = await _Harness.create();
+      addTearDown(harness.dispose);
+      harness.clientFactory.summaryError = const RemoteApiException(
+        'Gemini error (400): Thinking is not enabled for this model.',
+      );
+
+      await harness.run(save: save);
+
+      expect(harness.state.hasError, isFalse);
+      expect(harness.state.result!.fullTranscriptText, 'Transcript');
+      expect(harness.state.result!.summaryError, contains('Thinking'));
+      expect(harness.state.result!.gist, isEmpty);
+      expect(harness.clientFactory.calls, hasLength(2));
+      expect(await harness.staging.exists(), !save);
+      if (!save) await harness.controller.commit();
+      final saved = harness.notesRepository.loaded.single;
+      expect(saved.fullTranscriptText, 'Transcript');
+      expect(saved.summaryError, harness.state.result!.summaryError);
+      expect(await harness.staging.exists(), isFalse);
+      expect(await File(saved.audioPath!).exists(), isTrue);
+    });
+  }
 }
 
 void _registerCredentialTests() {
@@ -260,17 +289,19 @@ final class _ObservingNotesRepository extends FakeNotesRepository {
 final class _ClientFactory {
   final List<(RemoteProviderId, String)> calls = [];
   Object? error;
+  Object? summaryError;
 
   RemoteProviderClient create(RemoteProviderId provider, String apiKey) {
     calls.add((provider, apiKey));
-    return _RemoteClient(() => error);
+    return _RemoteClient(() => error, () => summaryError);
   }
 }
 
 final class _RemoteClient implements RemoteProviderClient {
-  const _RemoteClient(this.error);
+  const _RemoteClient(this.error, this.summaryError);
 
   final Object? Function() error;
+  final Object? Function() summaryError;
 
   @override
   Future<TranscriptionResult> transcribe(
@@ -280,7 +311,10 @@ final class _RemoteClient implements RemoteProviderClient {
   }) async {
     final failure = error();
     if (failure != null) throw failure;
-    return const TranscriptionResult(text: 'Transcript', segments: []);
+    return const TranscriptionResult(
+      text: 'Transcript',
+      segments: [TranscriptLine(text: 'Transcript')],
+    );
   }
 
   @override
@@ -288,7 +322,11 @@ final class _RemoteClient implements RemoteProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
-  }) async => '{"title":"Summary","gist":"Gist","points":[],"todos":[]}';
+  }) async {
+    final failure = summaryError();
+    if (failure != null) throw failure;
+    return '{"title":"Summary","gist":"Gist","points":[],"todos":[]}';
+  }
 
   @override
   Future<List<RemoteModelInfo>> listModels({
