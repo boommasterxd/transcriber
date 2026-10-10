@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
+import 'gemini_model_catalog.dart';
 import 'mime_utils.dart';
 import 'provider_model_capabilities.dart';
 import 'remote_api_client.dart';
@@ -47,24 +48,8 @@ class GoogleClient implements RemoteProviderClient {
     final models = await _listModelCatalog();
     final result = <String, RemoteModelInfo>{};
     for (final raw in models) {
-      final id = (raw['name']?.toString() ?? '').replaceFirst('models/', '');
-      if (!id.toLowerCase().startsWith('gemini-')) continue;
-      final methods =
-          (raw['supportedGenerationMethods'] as List?)
-              ?.map((method) => method.toString())
-              .toSet() ??
-          const <String>{};
-      final transcriptionModel =
-          ProviderModelCapabilities.isGeminiTranscriptionModel(id, methods);
-      if (forTranscription
-          ? !transcriptionModel
-          : !methods.contains('generateContent')) {
-        continue;
-      }
-      result.putIfAbsent(
-        id,
-        () => RemoteModelInfo(id: id, label: raw['displayName']?.toString()),
-      );
+      final model = geminiCatalogModel(raw, forTranscription: forTranscription);
+      if (model != null) result.putIfAbsent(model.id, () => model);
     }
     final sorted = result.values.toList()
       ..sort((left, right) => left.id.compareTo(right.id));
@@ -77,6 +62,13 @@ class GoogleClient implements RemoteProviderClient {
     required String userPrompt,
     required String modelId,
   }) async {
+    if (!ProviderModelCapabilities.isGeminiSummaryModel(modelId, const {
+      'generateContent',
+    })) {
+      throw const RemoteApiException(
+        'The selected Gemini model does not support text summaries.',
+      );
+    }
     final json = await _postJson('/models/$modelId:generateContent', {
       'systemInstruction': {
         'parts': [
@@ -118,6 +110,13 @@ class GoogleClient implements RemoteProviderClient {
   }) async {
     final file = File(audioPath);
     final length = await validateRemoteAudioFile(file);
+    if (!ProviderModelCapabilities.isGeminiTranscriptionModel(modelId, const {
+      'generateContent',
+    })) {
+      throw const RemoteApiException(
+        'The selected Gemini model does not support audio transcription.',
+      );
+    }
 
     final uploaded = await _uploadFile(file, length);
     try {
@@ -168,9 +167,9 @@ class GoogleClient implements RemoteProviderClient {
       final pageModels = json['models'];
       if (pageModels is List) models.addAll(pageModels.whereType<Map>());
 
-      final next = json['nextPageToken']?.toString();
-      if (next == null || next.isEmpty) return models;
-      if (next.length > 2048 || !seenTokens.add(next)) {
+      final next = json['nextPageToken'];
+      if (next == null || next == '') return models;
+      if (next is! String || next.length > 2048 || !seenTokens.add(next)) {
         throw const RemoteApiException(
           'Gemini returned invalid model pagination.',
         );

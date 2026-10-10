@@ -58,17 +58,14 @@ void _registerKeyAndSuccessTests() {
     _repository.keys[RemoteProviderId.openai] = 'test-key';
     _httpOverrides.enqueue(
       200,
-      '{"data":[{"id":"z-chat"},{"id":"whisper-1"},{"id":"a-chat"}]}',
+      '{"data":[{"id":"gpt-5.6-luna"},{"id":"whisper-1"},'
+      '{"id":"gpt-4o"}]}',
     );
     const query = (provider: RemoteProviderId.openai, forTranscription: false);
 
     final models = await _container.read(remoteModelsProvider(query).future);
 
-    expect(models.map((model) => model.id), [
-      'gpt-5.6-luna',
-      'a-chat',
-      'z-chat',
-    ]);
+    expect(models.map((model) => model.id), ['gpt-4o', 'gpt-5.6-luna']);
     expect(_httpOverrides.requests.single.uri.path, '/v1/models');
     expect(
       _httpOverrides.requests.single.headers.value('authorization'),
@@ -89,15 +86,24 @@ void _registerCapabilityTests() {
 
     final models = await _container.read(remoteModelsProvider(query).future);
 
-    expect(models.map((model) => model.id), [
-      'gpt-transcribe',
-      'gpt-4o-transcribe',
-      'whisper-1',
-    ]);
+    expect(models.map((model) => model.id), ['gpt-4o-transcribe', 'whisper-1']);
   });
 }
 
 void _registerErrorAndInvalidationTests() {
+  test('does not inject a default into an incompatible live catalog', () async {
+    _repository.keys[RemoteProviderId.google] = 'test-key';
+    _httpOverrides.enqueue(
+      200,
+      '{"models":[{"name":"models/gemini-omni-1.1-flash",'
+      '"supportedGenerationMethods":["generateContent"]}]}',
+    );
+    const query = (provider: RemoteProviderId.google, forTranscription: false);
+
+    expect(await _container.read(remoteModelsProvider(query).future), isEmpty);
+    expect(_httpOverrides.requests, hasLength(1));
+  });
+
   test('surfaces provider errors through the future state', () async {
     _repository.keys[RemoteProviderId.openai] = 'test-key';
     _httpOverrides.enqueue(200, '{invalid-json');
@@ -118,14 +124,14 @@ void _registerErrorAndInvalidationTests() {
   test('connection changes invalidate and refetch the same query', () async {
     const query = (provider: RemoteProviderId.openai, forTranscription: false);
     expect(await _container.read(remoteModelsProvider(query).future), isEmpty);
-    _httpOverrides.enqueue(200, '{"data":[{"id":"new-model"}]}');
+    _httpOverrides.enqueue(200, '{"data":[{"id":"gpt-4.1-mini"}]}');
 
     await _container
         .read(connectionsControllerProvider.notifier)
         .connect(RemoteProviderId.openai, 'new-key');
     final models = await _container.read(remoteModelsProvider(query).future);
 
-    expect(models.map((model) => model.id), ['gpt-5.6-luna', 'new-model']);
+    expect(models.map((model) => model.id), ['gpt-4.1-mini']);
     expect(_httpOverrides.requests, hasLength(1));
   });
 }

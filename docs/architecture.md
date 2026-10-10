@@ -48,6 +48,8 @@ Keyboard activation remains optional. The settings card opens a dedicated Flutte
 
 ## Provider Boundaries
 
+Settings use a navigation overview with keyboard, model selection, and general pages. General settings combine language and region, appearance, and privacy. The keyboard page explains dictation beneath its setup card. The model selection page configures transcription and optional summaries independently. Its nested API keys page manages each provider's credentials once, shared across processing stages and keyboard dictation. The overview reads the installed version and build number locally through `AppVersionService`; Riverpod caches the result for the application lifetime.
+
 Provider behavior is split into small contracts:
 
 - `TranscriptionProviderClient` uploads audio and returns a transcription.

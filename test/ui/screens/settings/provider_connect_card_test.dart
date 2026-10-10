@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
-import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/connections_controller.dart';
@@ -11,6 +9,8 @@ import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.dart';
 import 'package:transcriber/ui/widgets/provider_logo.dart';
 import 'package:transcriber/ui/widgets/surfaces.dart';
+
+import 'settings_test_app.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
@@ -201,12 +201,8 @@ Future<void> _pumpCard(
       settingsControllerProvider.overrideWith(_FakeSettingsController.new),
       connectionsControllerProvider.overrideWith(() => connections),
     ],
-    child: MaterialApp(
-      theme: AppTheme.build(Brightness.light, AppAccent.blue),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-        child: child!,
-      ),
+    child: settingsTestApp(
+      textScaler: textScaler,
       home: Scaffold(
         body: SingleChildScrollView(
           child: ProviderConnectCard(provider: provider),

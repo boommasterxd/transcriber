@@ -47,4 +47,49 @@ void main() {
     expect(align.alignment, Alignment.center);
     expect(find.text('Only'), findsOneWidget);
   });
+
+  for (final withIcons in [false, true]) {
+    testWidgets('large labels fit narrow controls with icons=$withIcons', (
+      tester,
+    ) async {
+      int? selected;
+      await tester.pumpWidget(
+        themed(
+          MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Center(
+              child: SizedBox(
+                width: 240,
+                child: AnimatedSegmentedControl(
+                  options: [
+                    SegmentOption(
+                      'Deutsch',
+                      icon: withIcons ? Icons.language : null,
+                    ),
+                    SegmentOption(
+                      'English',
+                      icon: withIcons ? Icons.translate : null,
+                    ),
+                    SegmentOption(
+                      'Automatic',
+                      icon: withIcons ? Icons.settings : null,
+                    ),
+                  ],
+                  selectedIndex: 0,
+                  onChanged: (index) => selected = index,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      final control = find.byType(AnimatedSegmentedControl);
+      expect(tester.getSize(control).height, greaterThan(44));
+      expect(tester.getSize(control).width, 240);
+      await tester.tap(find.text('Automatic'));
+      expect(selected, 2);
+    });
+  }
 }

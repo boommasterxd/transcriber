@@ -33,7 +33,7 @@ class AnimatedSegmentedControl extends StatelessWidget {
     final alignX = n <= 1 ? 0.0 : -1 + 2 * (selectedIndex / (n - 1));
 
     return Container(
-      height: height,
+      constraints: BoxConstraints(minHeight: height),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: palette.chip,
@@ -42,24 +42,26 @@ class AnimatedSegmentedControl extends StatelessWidget {
       child: Stack(
         children: [
           // Sliding thumb.
-          AnimatedAlign(
-            alignment: Alignment(alignX, 0),
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            child: FractionallySizedBox(
-              widthFactor: 1 / n,
-              heightFactor: 1,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: palette.surface,
-                  borderRadius: BorderRadius.circular(9999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: palette.shadow,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+          Positioned.fill(
+            child: AnimatedAlign(
+              alignment: Alignment(alignX, 0),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              child: FractionallySizedBox(
+                widthFactor: 1 / n,
+                heightFactor: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    borderRadius: BorderRadius.circular(9999),
+                    boxShadow: [
+                      BoxShadow(
+                        color: palette.shadow,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -95,22 +97,26 @@ class _Segment extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final color = selected ? palette.accent : palette.muted;
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (option.icon != null) ...[
             Icon(option.icon, size: 15, color: color),
             const SizedBox(width: 6),
           ],
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: color,
+          Flexible(
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+              child: Text(option.label, textAlign: TextAlign.center),
             ),
-            child: Text(option.label),
           ),
         ],
       ),

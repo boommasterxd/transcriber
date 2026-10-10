@@ -137,4 +137,32 @@ void _registerSwatchTest() {
     await tester.tap(find.byType(GestureDetector).at(1));
     expect(selected, AppAccent.values[1]);
   });
+
+  testWidgets('accent swatches wrap and remain selectable on narrow screens', (
+    tester,
+  ) async {
+    AppAccent? selected;
+    await tester.pumpWidget(
+      themed(
+        Center(
+          child: SizedBox(
+            width: 240,
+            child: AccentSwatches(
+              selected: AppAccent.blue,
+              onSelected: (accent) => selected = accent,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    final swatches = find.byType(GestureDetector);
+    expect(
+      tester.getTopLeft(swatches.last).dy,
+      greaterThan(tester.getTopLeft(swatches.first).dy),
+    );
+    await tester.tap(swatches.last);
+    expect(selected, AppAccent.values.last);
+  });
 }

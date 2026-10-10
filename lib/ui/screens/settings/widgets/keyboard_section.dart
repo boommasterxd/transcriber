@@ -96,8 +96,7 @@ class _ModelLine extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '$provider · $model',
-            overflow: TextOverflow.ellipsis,
+            '$provider\n$model',
             style: TextStyle(
               color: context.palette.ink,
               fontWeight: FontWeight.w700,
@@ -134,15 +133,17 @@ class _StatusActions extends StatelessWidget {
               color: enabled ? context.palette.mint : context.palette.coral,
             ),
             const SizedBox(width: 7),
-            Text(
-              selected
-                  ? strings.keyboardSelected
-                  : enabled
-                  ? strings.keyboardEnabled
-                  : strings.keyboardDisabled,
-              style: TextStyle(
-                color: context.palette.body,
-                fontWeight: FontWeight.w700,
+            Expanded(
+              child: Text(
+                selected
+                    ? strings.keyboardSelected
+                    : enabled
+                    ? strings.keyboardEnabled
+                    : strings.keyboardDisabled,
+                style: TextStyle(
+                  color: context.palette.body,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

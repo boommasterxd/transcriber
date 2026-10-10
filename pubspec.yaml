@@ -26,6 +26,7 @@ dependencies:
   file_picker: ^13.1.0
   path_provider: ^2.1.5
   path: ^1.9.1
+  package_info_plus: ^10.2.2
 
   # Persistence
   drift: ^2.35.1

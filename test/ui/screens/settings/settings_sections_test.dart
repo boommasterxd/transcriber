@@ -5,6 +5,7 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/remote_models_provider.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/privacy_section.dart';
@@ -65,6 +66,7 @@ Widget _settingsApp({
   required _TestSettingsController controller,
 }) => ProviderScope(
   overrides: [
+    initialConnectionsProvider.overrideWithValue(const {}),
     settingsControllerProvider.overrideWith(() => controller),
     remoteModelsProvider.overrideWith((ref, query) async => const []),
   ],
