@@ -39,6 +39,26 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setSummaryProvider(RemoteProviderId provider) =>
       _persist(state.copyWith(summaryProvider: provider));
 
+  /// Saves a confirmed provider and model together without an intermediate choice.
+  Future<void> setAsrSelection(RemoteProviderId provider, String modelId) =>
+      _persist(
+        state.copyWith(
+          asrProvider: provider,
+          asrModelByProvider: {...state.asrModelByProvider, provider: modelId},
+        ),
+      );
+
+  Future<void> setSummarySelection(RemoteProviderId provider, String modelId) =>
+      _persist(
+        state.copyWith(
+          summaryProvider: provider,
+          chatModelByProvider: {
+            ...state.chatModelByProvider,
+            provider: modelId,
+          },
+        ),
+      );
+
   Future<void> setSummaryModel(RemoteProviderId provider, String modelId) {
     final map = Map<RemoteProviderId, String>.of(state.chatModelByProvider)
       ..[provider] = modelId;

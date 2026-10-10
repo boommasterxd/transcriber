@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../state/settings_controller.dart';
-import '../../widgets/surfaces.dart';
 import 'api_keys_screen.dart';
 import 'widgets/settings_navigation_tile.dart';
 import 'widgets/settings_page.dart';
@@ -19,16 +18,16 @@ class ModelSettingsScreen extends ConsumerWidget {
     return SettingsPage(
       title: strings.setModels,
       children: [
+        const TranscriptionSection(),
+        const SizedBox(height: 16),
+        const SummarySection(),
+        const SizedBox(height: 24),
         SettingsNavigationTile(
-          title: strings.apiKey,
+          title: strings.providerConnectionsTitle,
           subtitle: strings.apiKeysDescription,
           icon: Icons.key_rounded,
           page: const ApiKeysScreen(),
         ),
-        SectionLabel(strings.setAsr),
-        const TranscriptionSection(),
-        SectionLabel(strings.setLlm),
-        const SummarySection(),
       ],
     );
   }

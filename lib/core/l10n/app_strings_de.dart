@@ -32,8 +32,8 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.apiKeysDescription:
       'OpenAI und Google Gemini verbinden und Schlüssel testen.',
   _StringKey.setAppear: 'Darstellung',
-  _StringKey.setAsr: 'Transkriptions-Modell',
-  _StringKey.setLlm: 'Zusammenfassungs-Modell',
+  _StringKey.setAsr: 'Transkription',
+  _StringKey.setLlm: 'Zusammenfassung',
   _StringKey.setLang: 'Sprache & Region',
   _StringKey.setPriv: 'Datenschutz',
   _StringKey.uiLang: 'App-Sprache',
@@ -50,6 +50,9 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.apiKey: 'API-Schlüssel',
   _StringKey.connect: 'Verbinden',
   _StringKey.connected: 'Verbunden',
+  _StringKey.providerChecking: 'Prüfe Verbindung …',
+  _StringKey.providerConnectionFailed: 'Verbindung fehlgeschlagen',
+  _StringKey.providerConnectionsTitle: 'Anbieter & API-Schlüssel',
   _StringKey.disconnect: 'Trennen',
   _StringKey.testKey: 'Testen',
   _StringKey.replaceKey: 'Ersetzen',
@@ -64,9 +67,9 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.showModels: 'Modelle anzeigen',
   _StringKey.hideModels: 'Modelle ausblenden',
   _StringKey.transcriptionOpenAiDescription:
-      'Empfohlen: gpt-transcribe, zusätzlich multimodale Audiomodelle',
+      'Audio in Text umwandeln mit OpenAI',
   _StringKey.transcriptionGoogleDescription:
-      'Empfohlen: Gemini 3.5 Transcribe, zusätzlich multimodale Audiomodelle',
+      'Audio in Text umwandeln mit Google Gemini',
   _StringKey.summaryOpenAiDescription:
       'Textmodelle für strukturierte Zusammenfassungen',
   _StringKey.summaryGoogleDescription:
@@ -76,6 +79,19 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.modelUnavailable:
       'Das gespeicherte Modell ist nicht verfügbar. Wähle ein anderes Modell.',
   _StringKey.chooseModel: 'Modell auswählen',
+  _StringKey.transcriptionTaskTitle: 'Sprache zu Text',
+  _StringKey.transcriptionTaskDescription:
+      'Das Gesprochene als vollständigen Text speichern.',
+  _StringKey.summaryTaskDescription:
+      'Die wichtigsten Punkte als kurze Übersicht ergänzen.',
+  _StringKey.transcriptionModelTitle: 'Modell für Sprache zu Text',
+  _StringKey.summaryModelTitle: 'Modell für Zusammenfassung',
+  _StringKey.alwaysActive: 'Transkription · immer aktiv',
+  _StringKey.optionalTask: 'Optional',
+  _StringKey.modelLoadFailed:
+      'Modelle konnten nicht geladen werden. Prüfe Verbindung und API-Schlüssel.',
+  _StringKey.modelsLoading: 'Modelle werden geladen …',
+  _StringKey.refreshModels: 'Modelle aktualisieren',
   _StringKey.processedWith: 'Verarbeitet mit',
   _StringKey.autoDel: 'Audio nach Verarbeitung löschen',
   _StringKey.autoDelSub: 'Entfernt nur die app-eigene Arbeitskopie',
@@ -116,9 +132,14 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.cancel: 'Abbrechen',
   _StringKey.privacyStatement:
       'Keine Telemetrie und kein Tracking. Audio wird zur Transkription, Transkripttext optional zur Zusammenfassung an den jeweils gewählten Anbieter gesendet. API-Schlüssel bleiben im sicheren Gerätespeicher.',
-  _StringKey.obModelsT: 'Cloud-Anbieter einrichten',
-  _StringKey.obModelsS:
-      'Wähle Transkription und Zusammenfassung unabhängig und hinterlege die benötigten persönlichen API-Schlüssel.',
+  _StringKey.obModelsT: 'Was wird aus deinem Audio?',
+  _StringKey.obConnectStep: 'Anbieter verbinden',
+  _StringKey.obConnectDescription:
+      'Ein Anbieter reicht für Transkription und Zusammenfassung. Du kannst auch beide verbinden.',
+  _StringKey.obSelectModelsDescription:
+      'Wähle für jede Aufgabe ein Modell. Die Anbieter dürfen unterschiedlich sein.',
+  _StringKey.obSelectModelsHint:
+      'Wähle für jede aktivierte Aufgabe ein verfügbares Modell.',
   _StringKey.obNext: 'Weiter',
   _StringKey.obStart: "Los geht's",
   _StringKey.obWelcomeT: 'Willkommen bei Transcriber',
@@ -182,7 +203,8 @@ const Map<_StringKey, Object> _deStrings = {
   ],
   _StringKey.openPage: 'Seite öffnen',
   _StringKey.keyHelp: 'Wie bekomme ich einen Schlüssel?',
-  _StringKey.obConnectHint: 'Verbinde einen Anbieter, um fortzufahren.',
+  _StringKey.obConnectHint:
+      'Verbinde mindestens einen Anbieter, um fortzufahren.',
   _StringKey.ownRecording: 'Eigene Aufnahme',
   _StringKey.minutesAgoTemplate: 'vor {n} Min',
   _StringKey.hoursAgoTemplate: 'vor {n} Std',

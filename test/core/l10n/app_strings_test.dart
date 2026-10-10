@@ -99,11 +99,17 @@ void _registerByokInputTest(AppStrings german, AppStrings english) {
   });
 
   test('keeps provider descriptions specific to each processing stage', () {
-    expect(german.transcriptionGoogleDescription, contains('Transcribe'));
+    expect(
+      german.transcriptionGoogleDescription,
+      allOf(contains('Audio in Text'), contains('Google Gemini')),
+    );
     expect(german.summaryGoogleDescription, contains('Zusammenfassungen'));
     expect(german.summaryGoogleDescription, isNot(contains('Transcribe')));
     expect(german.summaryOpenAiDescription, contains('Zusammenfassungen'));
-    expect(english.transcriptionOpenAiDescription, contains('gpt-transcribe'));
+    expect(
+      english.transcriptionOpenAiDescription,
+      allOf(contains('audio into text'), contains('OpenAI')),
+    );
     expect(english.summaryOpenAiDescription, isNot(contains('transcribe')));
   });
 }
@@ -404,7 +410,10 @@ List<String> _catalogNoteValues(AppStrings strings) => [
 
 List<String> _catalogOnboardingValues(AppStrings strings) => [
   strings.obModelsT,
-  strings.obModelsS,
+  strings.obConnectStep,
+  strings.obConnectDescription,
+  strings.obSelectModelsDescription,
+  strings.obSelectModelsHint,
   strings.obNext,
   strings.obStart,
   strings.obWelcomeT,

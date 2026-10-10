@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,7 @@ import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.dart';
+import 'package:transcriber/ui/screens/onboarding/widgets/onboarding_cloud_step.dart';
 import 'package:transcriber/ui/widgets/provider_logo.dart';
 import 'package:transcriber/ui/widgets/surfaces.dart';
 
@@ -19,9 +22,98 @@ void main() {
     group(provider.name, () {
       _registerConnectionTests(provider, strings);
       _registerCredentialTests(provider, strings);
+      _registerExpansionTests(provider, strings);
     });
   }
   _registerResponsiveTest();
+  _registerAccordionTest();
+}
+
+void _registerExpansionTests(RemoteProviderId provider, AppStrings strings) {
+  testWidgets('starts compact and preserves masked input when collapsed', (
+    tester,
+  ) async {
+    await _pumpCard(
+      tester,
+      provider,
+      _FakeConnectionsController(),
+      expand: false,
+    );
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(strings.keyMissing), findsOneWidget);
+    expect(find.byType(ProviderLogo), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(ListTile)).height,
+      greaterThanOrEqualTo(48),
+    );
+
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'draft-value');
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, 'draft-value');
+    expect(field.obscureText, isTrue);
+  });
+
+  testWidgets('reports checking until the connection succeeds', (tester) async {
+    final pending = Completer<void>();
+    final controller = _FakeConnectionsController()..pendingConnect = pending;
+    await _pumpCard(tester, provider, controller);
+    await tester.enterText(find.byType(TextField), 'candidate-value');
+    await tester.tap(find.text(strings.connect));
+    await tester.pump();
+    expect(find.text(strings.providerChecking), findsOneWidget);
+    expect(find.text(strings.connected), findsNothing);
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    expect(find.byType(TextField), findsNothing);
+    pending.complete();
+    await tester.pump();
+    expect(find.text(strings.connected), findsOneWidget);
+    expect(controller.connectCalls, hasLength(1));
+  });
+}
+
+void _registerAccordionTest() {
+  testWidgets('onboarding only expands one provider at a time', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsControllerProvider.overrideWith(_FakeSettingsController.new),
+          connectionsControllerProvider.overrideWith(
+            _FakeConnectionsController.new,
+          ),
+        ],
+        child: settingsTestApp(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: OnboardingCloudStep()),
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'first-provider-draft');
+    await tester.tap(find.byType(ListTile).last);
+    await tester.pump();
+    expect(find.byType(TextField), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '',
+    );
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'first-provider-draft',
+    );
+  });
 }
 
 void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
@@ -37,6 +129,7 @@ void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
 
     expect(controller.connectCalls, [(provider, '  test-key  ')]);
     expect(find.text(strings.keyCheckFailed), findsOneWidget);
+    expect(find.text(strings.providerConnectionFailed), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
 
     controller.failConnect = false;
@@ -65,6 +158,7 @@ void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
     await tester.pump();
     expect(controller.testCalls, [provider, provider]);
     expect(find.text(strings.keyCheckFailed), findsOneWidget);
+    expect(find.text(strings.providerConnectionFailed), findsOneWidget);
   });
 }
 
@@ -145,7 +239,7 @@ void _registerResponsiveTest() {
       tester,
       RemoteProviderId.openai,
       _FakeConnectionsController(),
-      textScaler: const TextScaler.linear(1.3),
+      textScaler: const TextScaler.linear(2),
     );
 
     final fieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
@@ -163,7 +257,7 @@ void _registerResponsiveTest() {
       tester,
       RemoteProviderId.openai,
       _FakeConnectionsController(initial: {RemoteProviderId.openai: true}),
-      textScaler: const TextScaler.linear(1.6),
+      textScaler: const TextScaler.linear(2),
     );
 
     final strings = AppStrings.of(AppLanguage.de);
@@ -195,22 +289,29 @@ Future<void> _pumpCard(
   RemoteProviderId provider,
   _FakeConnectionsController connections, {
   TextScaler textScaler = TextScaler.noScaling,
-}) => tester.pumpWidget(
-  ProviderScope(
-    overrides: [
-      settingsControllerProvider.overrideWith(_FakeSettingsController.new),
-      connectionsControllerProvider.overrideWith(() => connections),
-    ],
-    child: settingsTestApp(
-      textScaler: textScaler,
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: ProviderConnectCard(provider: provider),
+  bool expand = true,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        settingsControllerProvider.overrideWith(_FakeSettingsController.new),
+        connectionsControllerProvider.overrideWith(() => connections),
+      ],
+      child: settingsTestApp(
+        textScaler: textScaler,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ProviderConnectCard(provider: provider),
+          ),
         ),
       ),
     ),
-  ),
-);
+  );
+  if (expand) {
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+  }
+}
 
 class _FakeSettingsController extends SettingsController {
   @override
@@ -231,6 +332,7 @@ class _FakeConnectionsController extends ConnectionsController {
   bool failConnect = false;
   bool failTest = false;
   bool failDisconnect = false;
+  Completer<void>? pendingConnect;
 
   @override
   Map<RemoteProviderId, bool> build() => Map.of(initial);
@@ -239,6 +341,7 @@ class _FakeConnectionsController extends ConnectionsController {
   Future<void> connect(RemoteProviderId provider, String key) async {
     connectCalls.add((provider, key));
     if (failConnect) throw StateError('connection failed');
+    await pendingConnect?.future;
     state = {...state, provider: true};
   }
 
