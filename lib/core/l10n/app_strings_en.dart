@@ -32,8 +32,8 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.apiKeysDescription:
       'Connect OpenAI and Google Gemini and test your keys.',
   _StringKey.setAppear: 'Appearance',
-  _StringKey.setAsr: 'Transcription model',
-  _StringKey.setLlm: 'Summary model',
+  _StringKey.setAsr: 'Transcription',
+  _StringKey.setLlm: 'Summary',
   _StringKey.setLang: 'Language & region',
   _StringKey.setPriv: 'Privacy',
   _StringKey.uiLang: 'App language',
@@ -50,6 +50,9 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.apiKey: 'API key',
   _StringKey.connect: 'Connect',
   _StringKey.connected: 'Connected',
+  _StringKey.providerChecking: 'Checking connection …',
+  _StringKey.providerConnectionFailed: 'Connection failed',
+  _StringKey.providerConnectionsTitle: 'Providers & API keys',
   _StringKey.disconnect: 'Disconnect',
   _StringKey.testKey: 'Test',
   _StringKey.replaceKey: 'Replace',
@@ -63,10 +66,9 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.remoteModel: 'Model',
   _StringKey.showModels: 'Show models',
   _StringKey.hideModels: 'Hide models',
-  _StringKey.transcriptionOpenAiDescription:
-      'Recommended: gpt-transcribe, plus multimodal audio models',
+  _StringKey.transcriptionOpenAiDescription: 'Turn audio into text with OpenAI',
   _StringKey.transcriptionGoogleDescription:
-      'Recommended: Gemini 3.5 Transcribe, plus multimodal audio models',
+      'Turn audio into text with Google Gemini',
   _StringKey.summaryOpenAiDescription: 'Text models for structured summaries',
   _StringKey.summaryGoogleDescription: 'Text models for fast summaries',
   _StringKey.connectFirst: 'Connect a provider to see models.',
@@ -74,6 +76,19 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.modelUnavailable:
       'The saved model is unavailable. Choose another model.',
   _StringKey.chooseModel: 'Choose a model',
+  _StringKey.transcriptionTaskTitle: 'Speech to text',
+  _StringKey.transcriptionTaskDescription:
+      'Save everything that was said as a full transcript.',
+  _StringKey.summaryTaskDescription:
+      'Add a short overview of the most important points.',
+  _StringKey.transcriptionModelTitle: 'Model for speech to text',
+  _StringKey.summaryModelTitle: 'Model for summarization',
+  _StringKey.alwaysActive: 'Transcription · always on',
+  _StringKey.optionalTask: 'Optional',
+  _StringKey.modelLoadFailed:
+      'Could not load models. Check your connection and API key.',
+  _StringKey.modelsLoading: 'Loading models …',
+  _StringKey.refreshModels: 'Refresh models',
   _StringKey.processedWith: 'Processed with',
   _StringKey.autoDel: 'Delete audio after processing',
   _StringKey.autoDelSub: 'Removes only the app-owned working copy',
@@ -114,9 +129,14 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.cancel: 'Cancel',
   _StringKey.privacyStatement:
       'No telemetry or tracking. Audio is sent to the selected transcription provider, and transcript text is optionally sent to the selected summary provider. API keys remain in secure device storage.',
-  _StringKey.obModelsT: 'Set up cloud providers',
-  _StringKey.obModelsS:
-      'Choose transcription and summary independently, then add the required personal API keys.',
+  _StringKey.obModelsT: 'What comes from your audio?',
+  _StringKey.obConnectStep: 'Connect a provider',
+  _StringKey.obConnectDescription:
+      'One provider covers transcription and summaries. You can also connect both.',
+  _StringKey.obSelectModelsDescription:
+      'Choose a model for each task. You can use a different provider for each.',
+  _StringKey.obSelectModelsHint:
+      'Choose an available model for each enabled task.',
   _StringKey.obNext: 'Next',
   _StringKey.obStart: 'Get started',
   _StringKey.obWelcomeT: 'Welcome to Transcriber',
@@ -176,7 +196,7 @@ const Map<_StringKey, Object> _enStrings = {
   ],
   _StringKey.openPage: 'Open page',
   _StringKey.keyHelp: 'How do I get a key?',
-  _StringKey.obConnectHint: 'Connect a provider to continue.',
+  _StringKey.obConnectHint: 'Connect at least one provider to continue.',
   _StringKey.ownRecording: 'Your recording',
   _StringKey.minutesAgoTemplate: '{n} min ago',
   _StringKey.hoursAgoTemplate: '{n}h ago',

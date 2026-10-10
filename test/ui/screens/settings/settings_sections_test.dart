@@ -45,19 +45,17 @@ void main() {
       _settingsApp(child: const SummarySection(), controller: controller),
     );
 
-    expect(find.text(strings.remoteModel.toUpperCase()), findsNothing);
+    expect(find.text(strings.chooseModel), findsNothing);
     await tester.tap(find.byType(Switch));
     await tester.pump();
 
     expect(controller.state.summarizeEnabled, isTrue);
-    expect(find.text(strings.remoteModel.toUpperCase()), findsOneWidget);
-    expect(find.text('OpenAI'), findsOneWidget);
-    expect(find.text('Google Gemini'), findsOneWidget);
+    expect(find.text(strings.connectFirst), findsOneWidget);
 
     await tester.tap(find.byType(Switch));
     await tester.pump();
     expect(controller.state.summarizeEnabled, isFalse);
-    expect(find.text(strings.remoteModel.toUpperCase()), findsNothing);
+    expect(find.text(strings.connectFirst), findsNothing);
   });
 }
 

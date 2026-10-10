@@ -126,14 +126,13 @@ void _registerModelNavigationTests() {
     expect(find.byType(SummarySection), findsOneWidget);
     expect(find.byType(ProviderConnectCard), findsNothing);
 
-    await tester.scrollUntilVisible(find.text(strings.apiKey), -250);
-    await openSettingsDestination(tester, strings.apiKey);
+    await openSettingsDestination(tester, strings.providerConnectionsTitle);
     await tester.ensureVisible(find.byType(ProviderConnectCard).last);
     final cards = tester.widgetList<ProviderConnectCard>(
       find.byType(ProviderConnectCard),
     );
     expect(cards.map((card) => card.provider), RemoteProviderId.values);
-    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.byType(TextField), findsNothing);
     expect(find.byType(TranscriptionSection), findsNothing);
     await goBackInSettings(tester);
     expect(find.text(strings.setModels), findsOneWidget);
@@ -156,7 +155,7 @@ void _registerResponsiveNavigationTest() {
     expect(tester.takeException(), isNull);
     await openSettingsDestination(tester, strings.setModels);
     expect(tester.takeException(), isNull);
-    await openSettingsDestination(tester, strings.apiKey);
+    await openSettingsDestination(tester, strings.providerConnectionsTitle);
     expect(tester.takeException(), isNull);
     await goBackInSettings(tester);
     await goBackInSettings(tester);

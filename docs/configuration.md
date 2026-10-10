@@ -38,7 +38,7 @@ Fine-tuned OpenAI summary models use the documented `ft:<base-model>:<organizati
 
 ## Personal API Keys
 
-OpenAI and Gemini keys are independent. Open **Settings > Model selection > API keys** to add, validate, replace, retest, or remove each key. Each provider has one credential editor shared by transcription, summary, and keyboard dictation. Validation occurs before a replacement is persisted, so a failed replacement does not destroy a working key.
+OpenAI and Gemini keys are independent. Open **Settings > Model selection > Providers & API keys**, then expand a provider row to add, validate, replace, retest, or remove its key. Each provider has one credential editor shared by transcription, summary, and keyboard dictation. Validation occurs before a replacement is persisted, so a failed replacement does not destroy a working key.
 
 Keys use `FlutterSecureStorage` names `api_key_openai` and `api_key_google`. They must never be placed in source files, environment files committed to Git, Drift, SharedPreferences, screenshots, logs, tests, or issue reports.
 

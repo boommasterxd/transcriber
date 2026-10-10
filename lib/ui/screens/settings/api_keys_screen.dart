@@ -12,7 +12,7 @@ class ApiKeysScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SettingsPage(
-    title: ref.watch(stringsProvider).apiKey,
+    title: ref.watch(stringsProvider).providerConnectionsTitle,
     children: [
       for (final provider in RemoteProviderId.values)
         Padding(
