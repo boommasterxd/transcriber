@@ -5,34 +5,34 @@ packages:
     dependency: transitive
     description:
       name: _fe_analyzer_shared
-      sha256: fdcd9f70f9eb80df3bc5ed0fa67280df2595fd481948df8a9ab082e6a40ad04b
+      sha256: "48e48f73a431eb269eec66d243a63a07ed90ef9417a74047a3b98d52338626ad"
       url: "https://pub.dev"
     source: hosted
-    version: "108.0.0"
+    version: "109.0.0"
   analysis_server_plugin:
     dependency: transitive
     description:
       name: analysis_server_plugin
-      sha256: "3460f040e1f77647fcd82db9bd3bb117de04d04a3d67c39ad361794331147a4e"
+      sha256: "9f293f95cf41cb513a9a4f322354e2fa5483125e0f18bbeca254543ac9c3dda6"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.23"
+    version: "0.3.24"
   analyzer:
     dependency: "direct dev"
     description:
       name: analyzer
-      sha256: a51c769bff3b6dfbe9d60199b8606d808290702a296bef0c26a4ca391d414e46
+      sha256: "6d377901d198536b648172974d9d4f277910502cad92193466869cac0ff34990"
       url: "https://pub.dev"
     source: hosted
-    version: "14.4.0"
+    version: "14.5.0"
   analyzer_plugin:
     dependency: transitive
     description:
       name: analyzer_plugin
-      sha256: "9a3518eb84e8e26665874d9867534961d855493e9c5eb0eb55cbd46edd995529"
+      sha256: "2c59e6fba4971dc9ece97acd55b4f95b67a98e6ae0a55bff6f9dfc2bb59e8b1a"
       url: "https://pub.dev"
     source: hosted
-    version: "0.14.17"
+    version: "0.14.18"
   android_file_picker:
     dependency: transitive
     description:
@@ -109,10 +109,10 @@ packages:
     dependency: "direct dev"
     description:
       name: build_runner
-      sha256: "894c243f6bc32015fec466ce30a6925bd537a77a426ee5bf481120477eb3de67"
+      sha256: "6feadd32d90a68253c1f7b4fcff76adb4b41ad32a53f8bad835dc65f01ac9dc5"
       url: "https://pub.dev"
     source: hosted
-    version: "2.16.1"
+    version: "2.16.2"
   built_collection:
     dependency: transitive
     description:
@@ -221,10 +221,10 @@ packages:
     dependency: "direct dev"
     description:
       name: dart_code_linter
-      sha256: "030d52e4d73b2429ec50671725899f29fc3de34f6c365c1fe8a8c1a36052af46"
+      sha256: "56b42311d0e83a09521d2273eae34f87ebe12afc1390e2998de39b63d8d03b7b"
       url: "https://pub.dev"
     source: hosted
-    version: "4.4.0"
+    version: "4.4.2"
   dart_style:
     dependency: transitive
     description:
@@ -245,10 +245,10 @@ packages:
     dependency: "direct main"
     description:
       name: drift
-      sha256: a21a6a7a9e6a0bcabdf47a9af4247c556d38dc9bfe9f05c4fdf72a488bb57eab
+      sha256: ef9598e1785c18db37209e8554fc79aff94632209d384ec98984b9e3184af0f7
       url: "https://pub.dev"
     source: hosted
-    version: "2.35.1"
+    version: "2.35.2"
   drift_dev:
     dependency: "direct dev"
     description:
@@ -865,10 +865,10 @@ packages:
     dependency: "direct main"
     description:
       name: record
-      sha256: "82539d1372e23cf51375fdfcba084f39912bcbf9a953b75d56596691f8f11c0f"
+      sha256: "7c4467dec63435c9206db183f8a4672cf8a62f5e5579e45803ceada8330756e7"
       url: "https://pub.dev"
     source: hosted
-    version: "7.1.1"
+    version: "7.1.2"
   record_android:
     dependency: transitive
     description:
@@ -969,10 +969,10 @@ packages:
     dependency: "direct main"
     description:
       name: shared_preferences
-      sha256: c3025c5534b01739267eb7d76959bbc25a6d10f6988e1c2a3036940133dd10bf
+      sha256: "1e85e0dccf5b4a016077fea7dfbb4a7cb39c759ac1596fcf60c06deadb7da91f"
       url: "https://pub.dev"
     source: hosted
-    version: "2.5.5"
+    version: "2.5.6"
   shared_preferences_android:
     dependency: transitive
     description:
@@ -1166,10 +1166,10 @@ packages:
     dependency: "direct main"
     description:
       name: url_launcher
-      sha256: f6a7e5c4835bb4e3026a04793a4199ca2d14c739ec378fdfe23fc8075d0439f8
+      sha256: e8cc955c97e06df9879140a1fe301f3d493f01b7c62dec7f46834be31d7e9fda
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.2"
+    version: "6.3.3"
   url_launcher_android:
     dependency: transitive
     description:
