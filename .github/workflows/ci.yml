@@ -1,11 +1,10 @@
 name: CI
 
-# Required quality gates for pull requests and the default branch. The signed
+# Required quality gates for pull requests. The signed
 # release APK remains in the dedicated build and release workflows.
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -16,12 +15,48 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Classify the complete pull request
+        id: scope
+        env:
+          CHANGE_EVENT: ${{ github.event_name }}
+          CHANGE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHANGE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tool/ci/detect-change-scope.cjs >> "$GITHUB_OUTPUT"
+
   workflow-lint:
     name: Workflow lint
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Test CI classification and final gate
+        run: >-
+          node --test --experimental-test-coverage
+          --test-coverage-include='tool/ci/*.cjs'
+          --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80
+          test/tool/ci/*.test.cjs
       - name: Install workflow linters
         env:
           ACTIONLINT_VERSION: 1.7.12
@@ -48,8 +83,10 @@ jobs:
         run: |
           "$RUNNER_TEMP/shellcheck" tool/package/*.sh tool/quality/*.sh
 
-  CI:
+  analyze:
     name: Analyze and test
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -73,6 +110,8 @@ jobs:
 
   metrics:
     name: Size and complexity
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -99,6 +138,8 @@ jobs:
 
   dead-code:
     name: Dead code
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -120,6 +161,8 @@ jobs:
 
   kotlin-quality:
     name: Kotlin quality and tests
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -145,6 +188,8 @@ jobs:
 
   duplication:
     name: Duplication
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -167,6 +212,8 @@ jobs:
 
   build:
     name: Build bundle
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -183,3 +230,31 @@ jobs:
         run: flutter build bundle --debug
       - name: Verify bundle
         run: test -d build/flutter_assets
+
+  dependency-audit:
+    name: Dependency audit
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/dependency-audit.yml
+
+  CI:
+    name: CI
+    if: always()
+    needs: [changes, workflow-lint, analyze, metrics, dead-code, kotlin-quality, duplication, build, dependency-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Require every applicable CI job to succeed
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node tool/ci/require-ci-success.cjs

@@ -108,7 +108,23 @@ test -d build/flutter_assets
 - `Duplication` rejects every Dart clone of at least 50 tokens.
 - `Build bundle` proves that Flutter can assemble the application asset bundle.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. `.github/workflows/gitleaks.yml` remains the separate secret-scanning gate.
+`.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. CI calls it for full checks; the independent weekly and manual scans remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
+
+## Protected Pull Requests
+
+Automatic quality checks and secret scanning run on pull requests targeting `main`, using GitHub's simulated merge checkout. They do not run again on the resulting `main` push. The final `CI` check requires all seven quality/build jobs and the dependency audit to succeed. Failed, cancelled, missing or unexpectedly skipped jobs block the final check.
+
+Only a nonempty, complete change set entirely below the root `docs/` directory takes the short path. `tool/ci/detect-change-scope.cjs` compares the merge base with the PR head, includes both sides of renames, and defaults to full CI on uncertainty. Documentation-only changes intentionally skip all expensive jobs and still receive a real successful `CI` result. Root Markdown, workflows, tooling and mixed changes run full CI. Secret scanning and PR-title validation remain required.
+
+The active GitHub ruleset requires exactly `CI`, `gitleaks` and `Validate PR Title`, with an up-to-date branch. Only repository administrators retain an `always` bypass; that capability does not authorize its use. Actions must be pinned to complete commit SHAs. Dependabot's metadata-only automation has separate read and write jobs, verifies actor, author and repository identity, and only enables auto-merge for npm minor/patch updates. This Flutter repository has no npm dependency ecosystem, so Pub, Gradle and Actions updates remain manual.
+
+Run the dependency-free CI helper regressions with Node.js 24.x:
+
+```bash
+node --test test/tool/ci/*.test.cjs
+```
+
+Full CI runs these tests in the workflow-lint job. They cover complete change ranges, rename boundaries, incomplete history and failure handling in the final gate. Manual CI runs take the full path; manual secret scans cover all available history.
 
 ## Fixing Failures
 
