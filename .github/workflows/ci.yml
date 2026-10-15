@@ -92,11 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Check formatting
@@ -117,11 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Collect Dart metrics
@@ -145,11 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Check unused code
@@ -173,11 +161,7 @@ jobs:
           distribution: temurin
           java-version: "17"
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Check Kotlin quality
@@ -219,11 +203,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Build Flutter asset bundle

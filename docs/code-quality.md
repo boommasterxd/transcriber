@@ -98,6 +98,8 @@ test -d build/flutter_assets
 
 ## CI Jobs
 
+All Flutter jobs, including manual APK validation and releases, use `.github/actions/setup-flutter` to read the exact version from `.fvmrc`. It calls the MIT-licensed `flutter-actions/setup-flutter` at commit `6e2468fd827c4a7337cd4b835a6049b78bc0bd1f`, which pins both cache dependencies to full SHAs and verifies downloaded SDK archives against the official Flutter release checksum. SDK and lockfile-keyed package caches remain enabled. This replaces `subosito/flutter-action`, whose internally tagged cache dependency is incompatible with enforced SHA pinning.
+
 `.github/workflows/ci.yml` separates independent checks so one known failure does not hide unrelated categories:
 
 - `Workflow lint` verifies every GitHub Actions workflow with a pinned, checksum-verified `actionlint` binary.
