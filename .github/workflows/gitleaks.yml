@@ -1,12 +1,11 @@
 name: Secret scan
 
-# Scans the working tree for committed secrets using the free gitleaks CLI.
+# Scans the working tree and every introduced commit using the free gitleaks CLI.
 # Version + SHA256 live in .gitleaks-version (so the monthly update workflow can
 # bump them without touching a workflow file). The binary is verified against
 # the pinned checksum before it runs.
 on:
   pull_request:
-  push:
     branches: [main]
   workflow_dispatch:
 
@@ -21,13 +20,30 @@ jobs:
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - name: Run gitleaks
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          ver=$(jq -r '.version' .gitleaks-version)
-          sum=$(jq -r '.sha256' .gitleaks-version)
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" -o gitleaks.tar.gz
-          echo "${sum}  gitleaks.tar.gz" | sha256sum -c -
-          tar -xzf gitleaks.tar.gz gitleaks
-          ./gitleaks dir --no-banner --redact --exit-code 1 --verbose .
+          ver=$(jq -er '.version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' .gitleaks-version)
+          sum=$(jq -er '.sha256 | select(test("^[a-f0-9]{64}$"))' .gitleaks-version)
+          scanner_dir=$(mktemp -d "$RUNNER_TEMP/gitleaks.XXXXXX")
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" -o "$scanner_dir/gitleaks.tar.gz"
+          printf '%s  %s\n' "$sum" "$scanner_dir/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$scanner_dir/gitleaks.tar.gz" -C "$scanner_dir" gitleaks
+          "$scanner_dir/gitleaks" dir --no-banner --redact --exit-code 1 .
+
+          log_options=""
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            for sha in "$PR_BASE_SHA" "$PR_HEAD_SHA"; do
+              [[ "$sha" =~ ^[a-fA-F0-9]{40}$ && ! "$sha" =~ ^0+$ ]] || exit 1
+              git cat-file -e "${sha}^{commit}"
+            done
+            log_options="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          fi
+          "$scanner_dir/gitleaks" git --no-banner --redact --exit-code 1 --log-opts="$log_options" .

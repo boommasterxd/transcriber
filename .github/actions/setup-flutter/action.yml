@@ -1,0 +1,19 @@
+name: Set up project Flutter
+description: Install the FVM-pinned SDK with SHA-pinned SDK and package caches.
+runs:
+  using: composite
+  steps:
+    - name: Read project Flutter version
+      id: version
+      shell: bash
+      run: |
+        version=$(jq -er '.flutter | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' .fvmrc)
+        printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+    - name: Install and cache Flutter
+      uses: flutter-actions/setup-flutter@6e2468fd827c4a7337cd4b835a6049b78bc0bd1f # v4.3 + SDK checksum verification
+      with:
+        version: ${{ steps.version.outputs.version }}
+        channel: stable
+        cache: true
+        cache-sdk: true
+        cache-key: pub-${{ hashFiles('pubspec.lock') }}
