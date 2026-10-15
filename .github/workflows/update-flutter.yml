@@ -2,7 +2,7 @@ name: Update Flutter version
 
 # Weekly check for a new Flutter stable release. Since Dependabot has no Flutter
 # SDK ecosystem, this acts as its replacement: it bumps .fvmrc (the single source
-# of truth read by both local FVM and CI via flutter-version-file) and opens a PR.
+# of truth read by both local FVM and the shared CI setup action) and opens a PR.
 on:
   schedule:
     - cron: "0 6 * * 1"

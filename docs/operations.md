@@ -31,6 +31,8 @@ flutter test --coverage --branch-coverage
 flutter build bundle --debug
 ```
 
+For CI automation changes, also run `node --test test/tool/ci/*.test.cjs` with Node.js 24.x and validate workflows with the pinned actionlint/ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge; no duplicate quality or secret scan is expected on the resulting `main` commit. See [protected pull requests](code-quality.md#protected-pull-requests) for the documentation-only path and final-gate behavior.
+
 Run Android quality checks separately:
 
 ```bash
