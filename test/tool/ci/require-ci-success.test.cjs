@@ -48,6 +48,8 @@ test('scoped plans require only their exact jobs, and every other job must be sk
     const needs = prerequisites('true');
     needs.changes.outputs.docs_only = 'false';
     for (const flag of selected) needs.changes.outputs[flag] = 'true';
+    needs.changes.outputs.dependency_audit = 'true';
+    needs['dependency-audit'].result = 'success';
     for (const job of required) needs[job].result = 'success';
     assert.doesNotThrow(() => requireCiSuccess(needs));
     for (const job of jobs) {
@@ -60,6 +62,13 @@ test('scoped plans require only their exact jobs, and every other job must be sk
       needs[job].result = expected;
     }
   }
+});
+
+test('a non-documentation plan cannot intentionally skip fresh dependency advisories', () => {
+  const needs = prerequisites();
+  needs.changes.outputs.dependency_audit = 'false';
+  needs['dependency-audit'].result = 'skipped';
+  assert.throws(() => requireCiSuccess(needs), /fresh dependency audit/);
 });
 
 test('invalid, contradictory, additional and incomplete plans cannot pass', () => {

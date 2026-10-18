@@ -6,6 +6,8 @@ The required `CI` workflow runs on pull requests to `main`. It compares the comp
 
 The final gate validates the change plan and every expected job result. Failures, cancellations, missing outputs, malformed plans, and unexpected skips fail the gate. Existing `gitleaks`, PR-title requirements, branch freshness, and squash-only merge protection remain independent and unchanged. There is no additional full test run before merge or on the resulting `main` push.
 
+Dependency vulnerability scanning remains mandatory on every non-documentation PR: advisory databases can change even when the dependency files do not. The final gate rejects a plan that omits this security check.
+
 ## Flutter dependency graph
 
 The selector parses maintained Dart sources with the existing analyzer dependency. It includes imports, exports, conditional directives, and library parts in both merge-base and head snapshots. Reverse reachability over their union finds direct and transitive consumers, including consumers of deleted or renamed files. Existing changed tests select themselves; changed shared test helpers select their consumers. An unknown dependency or unexpectedly empty selection falls back to the full suite.

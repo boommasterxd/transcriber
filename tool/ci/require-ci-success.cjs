@@ -14,6 +14,9 @@ function jobPlan(outputs) {
   if (flags.docs_only !== !FLAGS.slice(1).some((flag) => flags[flag])) {
     throw new Error('Documentation-only classification contradicts the job plan.');
   }
+  if (!flags.docs_only && !flags.dependency_audit) {
+    throw new Error('Non-documentation changes require a fresh dependency audit.');
+  }
   return {
     'workflow-lint': flags.workflow,
     'dart-quality': flags.dart || flags.native || flags.build,

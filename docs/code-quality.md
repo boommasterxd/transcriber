@@ -108,7 +108,7 @@ All Flutter jobs, including manual APK validation and releases, use `.github/act
 - Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
 - The asset-bundle build runs for application/build inputs and uncertainty, and is skipped for recognized test-only changes.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. CI calls it for dependency/SDK changes, relevant audit configuration, or uncertainty; the independent weekly and manual scans remain available for newly disclosed vulnerabilities in unchanged packages. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
+`.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this inexpensive gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
 
 ## Protected Pull Requests
 

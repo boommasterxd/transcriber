@@ -11,8 +11,16 @@ const { detectDocsOnly, detectChangeScope, classifyPaths } = require('../../../t
 function scope(...checks) {
   return { docs_only: checks.length === 0,
     ...Object.fromEntries(['workflow', 'dart', 'native', 'build', 'dependency_audit']
-      .map((name) => [name, checks.includes(name)])) };
+      .map((name) => [name, checks.includes(name)
+        || (name === 'dependency_audit' && checks.length > 0)])) };
 }
+
+test('fresh advisories remain a required gate even when dependency files are unchanged', () => {
+  for (const file of ['lib/app.dart', 'test/example_test.dart', '.github/workflows/release.yml']) {
+    assert.equal(classifyPaths([file]).dependency_audit, true);
+  }
+  assert.equal(classifyPaths(['docs/guide.md']).dependency_audit, false);
+});
 
 test('known paths request precisely their relevant checks', () => {
   const cases = [

@@ -39,6 +39,8 @@ function checksForPath(path) {
 function classifyPaths(paths) {
   if (paths.length === 0 || paths.some((path) => !path)) return fullScope();
   const required = new Set(paths.flatMap(checksForPath));
+  // Advisory databases change independently of the lockfile and import graph.
+  if (required.size !== 0) required.add('dependency_audit');
   return { docs_only: required.size === 0,
     ...Object.fromEntries(CHECKS.map((name) => [name, required.has(name)])) };
 }
