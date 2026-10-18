@@ -30,6 +30,9 @@ function checksForPath(path) {
   if (path.startsWith('android/')) return ['dart', 'native'];
   if (path === 'tool/quality/check_kotlin_quality.sh') return ['workflow', 'native'];
   if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
+  // Native entrypoint names and channel payloads are runtime contracts.
+  if (['lib/main.dart', 'lib/share_entrypoint.dart',
+    'lib/services/dictation/dictation_platform.dart'].includes(path)) return ['dart', 'native', 'build'];
   if (/^lib\/.*\.dart$/.test(path)) return ['dart', 'build'];
   if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
   if (path.startsWith('assets/')) return ['dart', 'build'];

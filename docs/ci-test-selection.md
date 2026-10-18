@@ -37,6 +37,7 @@ The conservative mappings intentionally include broader suites when a reliable n
 | Other Flutter assets and asset declarations | Full Flutter tests and asset-bundle build; unknown runtime paths cannot safely narrow the scope. |
 | Package dependencies, SDK selectors, global analysis/test configuration | Full affected language checks and tests. |
 | Native Android channels, resources, manifests, and Gradle inputs | Native quality/JVM tests and instrumented-test compilation plus Flutter checks for cross-language contracts. Native test-only changes run native checks. There is no reliable Kotlin impact graph, so relevant native changes run the complete small native suite. |
+| Dart entrypoint/channel contracts | `lib/main.dart`, `lib/share_entrypoint.dart`, and `lib/services/dictation/dictation_platform.dart` also select native checks. Maintain this mapping when adding or relocating native bridges. |
 | Filesystem, HTTP, and platform contracts | Import consumers include mocked boundary tests; unknown fixtures or contract files require the full suite. |
 | Shared test support and setup | Transitive test consumers; global setup requires full tests. |
 | CI/quality tooling | Tool regressions and applicable quality checks; unknown tooling requires full checks. |
