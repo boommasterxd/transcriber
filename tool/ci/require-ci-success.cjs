@@ -1,28 +1,45 @@
 'use strict';
 
 const REQUIRED_JOBS = [
-  'workflow-lint', 'analyze', 'metrics', 'dead-code',
-  'kotlin-quality', 'duplication', 'build', 'dependency-audit',
+  'workflow-lint', 'dart-quality', 'kotlin-quality', 'dependency-audit',
 ];
+const FLAGS = ['docs_only', 'workflow', 'dart', 'native', 'build', 'dependency_audit'];
+
+function jobPlan(outputs) {
+  if (!outputs || Object.keys(outputs).length !== FLAGS.length
+    || FLAGS.some((flag) => !['true', 'false'].includes(outputs[flag]))) {
+    throw new Error('Change classification must produce a complete boolean plan.');
+  }
+  const flags = Object.fromEntries(FLAGS.map((flag) => [flag, outputs[flag] === 'true']));
+  if (flags.docs_only !== !FLAGS.slice(1).some((flag) => flags[flag])) {
+    throw new Error('Documentation-only classification contradicts the job plan.');
+  }
+  return {
+    'workflow-lint': flags.workflow,
+    'dart-quality': flags.dart || flags.native || flags.build,
+    'kotlin-quality': flags.native,
+    'dependency-audit': flags.dependency_audit,
+  };
+}
 
 /** Validate each prerequisite, including intentional documentation-only skips. */
 function requireCiSuccess(needs) {
   if (needs?.changes?.result !== 'success') {
     throw new Error('Change classification must succeed.');
   }
-  const docsOnly = needs.changes.outputs?.docs_only;
-  if (docsOnly !== 'true' && docsOnly !== 'false') {
-    throw new Error('Change classification must produce true or false.');
+  if (Object.keys(needs).length !== REQUIRED_JOBS.length + 1) {
+    throw new Error('CI prerequisites must match the complete expected job set.');
   }
-  const expected = docsOnly === 'true' ? 'skipped' : 'success';
+  const plan = jobPlan(needs.changes.outputs);
   for (const job of REQUIRED_JOBS) {
+    const expected = plan[job] ? 'success' : 'skipped';
     if (needs[job]?.result !== expected) {
       throw new Error(`Required job ${job} must be ${expected}.`);
     }
   }
 }
 
-module.exports = { requireCiSuccess };
+module.exports = { requireCiSuccess, jobPlan };
 
 if (require.main === module) {
   try {

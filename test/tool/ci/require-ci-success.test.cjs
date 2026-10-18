@@ -7,13 +7,14 @@ const test = require('node:test');
 const { requireCiSuccess } = require('../../../tool/ci/require-ci-success.cjs');
 
 const jobs = [
-  'workflow-lint', 'analyze', 'metrics', 'dead-code',
-  'kotlin-quality', 'duplication', 'build', 'dependency-audit',
+  'workflow-lint', 'dart-quality', 'kotlin-quality', 'dependency-audit',
 ];
+const flags = ['workflow', 'dart', 'native', 'build', 'dependency_audit'];
 
 function prerequisites(docsOnly = 'false') {
   return {
-    changes: { result: 'success', outputs: { docs_only: docsOnly } },
+    changes: { result: 'success', outputs: { docs_only: docsOnly,
+      ...Object.fromEntries(flags.map((flag) => [flag, docsOnly === 'true' ? 'false' : 'true'])) } },
     ...Object.fromEntries(jobs.map((job) => [job, {
       result: docsOnly === 'true' ? 'skipped' : 'success',
     }])),
@@ -30,8 +31,60 @@ test('full CI requires all quality, build and security jobs', () => {
     }
     const needs = prerequisites();
     delete needs[job];
-    assert.throws(() => requireCiSuccess(needs), new RegExp(job));
+    assert.throws(() => requireCiSuccess(needs));
   }
+});
+
+test('scoped plans require only their exact jobs, and every other job must be skipped', () => {
+  const cases = [
+    [['workflow'], ['workflow-lint']],
+    [['dart'], ['dart-quality']],
+    [['native'], ['dart-quality', 'kotlin-quality']],
+    [['build'], ['dart-quality']],
+    [['dependency_audit'], ['dependency-audit']],
+    [['workflow', 'dart', 'build'], ['workflow-lint', 'dart-quality']],
+  ];
+  for (const [selected, required] of cases) {
+    const needs = prerequisites('true');
+    needs.changes.outputs.docs_only = 'false';
+    for (const flag of selected) needs.changes.outputs[flag] = 'true';
+    for (const job of required) needs[job].result = 'success';
+    assert.doesNotThrow(() => requireCiSuccess(needs));
+    for (const job of jobs) {
+      const expected = needs[job].result;
+      for (const wrong of ['failure', 'cancelled', 'pending', undefined,
+        expected === 'success' ? 'skipped' : 'success']) {
+        needs[job].result = wrong;
+        assert.throws(() => requireCiSuccess(needs), new RegExp(job));
+      }
+      needs[job].result = expected;
+    }
+  }
+});
+
+test('invalid, contradictory, additional and incomplete plans cannot pass', () => {
+  for (const flag of ['docs_only', ...flags]) {
+    for (const value of [undefined, '', true, false, 'TRUE', 'false\n']) {
+      const needs = prerequisites();
+      needs.changes.outputs[flag] = value;
+      assert.throws(() => requireCiSuccess(needs));
+    }
+    const needs = prerequisites();
+    delete needs.changes.outputs[flag];
+    assert.throws(() => requireCiSuccess(needs));
+  }
+  const contradiction = prerequisites('true');
+  contradiction.changes.outputs.dart = 'true';
+  assert.throws(() => requireCiSuccess(contradiction));
+  const empty = prerequisites('true');
+  empty.changes.outputs.docs_only = 'false';
+  assert.throws(() => requireCiSuccess(empty));
+  const extraOutput = prerequisites();
+  extraOutput.changes.outputs.unknown = 'true';
+  assert.throws(() => requireCiSuccess(extraOutput));
+  const extraJob = prerequisites();
+  extraJob.unknown = { result: 'success' };
+  assert.throws(() => requireCiSuccess(extraJob));
 });
 
 test('documentation-only CI requires deliberate skips for every expensive job', () => {

@@ -108,6 +108,7 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Describes application layers, entry points, processing flows, and integration boundaries. |
 | [`docs/cache-lifecycle.md`](docs/cache-lifecycle.md) | Defines audio ownership, managed directories, cleanup, TTL, and quota behavior. |
+| [`docs/ci-test-selection.md`](docs/ci-test-selection.md) | Explains impacted-test selection, conservative fallbacks, runner reuse, and measured CI timings. |
 | [`docs/code-quality.md`](docs/code-quality.md) | Defines strict quality gates, commands, Flutter coverage mappings, and CI behavior. |
 | [`docs/configuration.md`](docs/configuration.md) | Documents supported toolchains, runtime settings, external services, and secret handling. |
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |

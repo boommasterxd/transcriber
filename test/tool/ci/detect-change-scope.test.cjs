@@ -6,7 +6,53 @@ const os = require('node:os');
 const path = require('node:path');
 const childProcess = require('node:child_process');
 const test = require('node:test');
-const { detectDocsOnly } = require('../../../tool/ci/detect-change-scope.cjs');
+const { detectDocsOnly, detectChangeScope, classifyPaths } = require('../../../tool/ci/detect-change-scope.cjs');
+
+function scope(...checks) {
+  return { docs_only: checks.length === 0,
+    ...Object.fromEntries(['workflow', 'dart', 'native', 'build', 'dependency_audit']
+      .map((name) => [name, checks.includes(name)])) };
+}
+
+test('known paths request precisely their relevant checks', () => {
+  const cases = [
+    ['docs/nested/guide.md', []],
+    ['.github/workflows/release.yml', ['workflow']],
+    ['.github/dependabot.yml', ['workflow']],
+    ['tool/ci/detect-change-scope.cjs', ['workflow']],
+    ['test/tool/ci/detect-change-scope.test.cjs', ['workflow']],
+    ['android/app/src/main/kotlin/Example.kt', ['dart', 'native']],
+    ['android/app/src/main/AndroidManifest.xml', ['dart', 'native']],
+    ['android/app/src/main/res/values/strings.xml', ['dart', 'native']],
+    ['android/app/build.gradle.kts', ['dart', 'native']],
+    ['android/app/src/test/kotlin/ExampleTest.kt', ['native']],
+    ['android/app/src/androidTest/kotlin/ExampleTest.kt', ['native']],
+    ['config/detekt.yml', ['native']],
+    ['tool/quality/check_kotlin_quality.sh', ['workflow', 'native']],
+    ['tool/package/version.sh', ['workflow', 'dart', 'build']],
+    ['lib/services/example.dart', ['dart', 'build']],
+    ['test/services/example_test.dart', ['dart']],
+    ['tool/ci/select_tests.dart', ['dart']],
+    ['assets/images/example.png', ['dart', 'build']],
+  ];
+  for (const [name, checks] of cases) {
+    assert.deepEqual(classifyPaths([name]), scope(...checks), name);
+  }
+});
+
+test('shared foundations, unknown paths and incomplete inputs require every check', () => {
+  const full = scope('workflow', 'dart', 'native', 'build', 'dependency_audit');
+  for (const name of ['pubspec.yaml', 'pubspec.lock', '.fvmrc', 'analysis_options.yaml',
+    'test/flutter_test_config.dart', 'test/nested/flutter_test_config.dart', '.github/workflows/ci.yml',
+    '.github/workflows/gitleaks.yml', '.github/workflows/update-gitleaks.yml',
+    '.github/workflows/dependency-audit.yml', '.gitleaks.toml',
+    '.github/actions/setup-flutter/action.yml', '.github/actions/new/action.yml',
+    '.github/new-config.toml', 'README.md', 'new/config.toml', '']) {
+    assert.deepEqual(classifyPaths([name]), full, name);
+  }
+  assert.deepEqual(classifyPaths([]), full);
+  assert.deepEqual(classifyPaths(['docs/a.md', 'test/a_test.dart', 'android/a.kt']), scope('dart', 'native'));
+});
 
 /** @param {string} cwd @param {string[]} args */
 function git(cwd, args) {
@@ -153,16 +199,30 @@ test('a real documentation diff exceeding the output bound runs full CI', (conte
   assert.equal(detectDocsOnly('push', base, commit(cwd), cwd), false);
 });
 
-test('CLI emits a single GitHub output assignment and exits successfully on uncertainty', (context) => {
+test('CLI emits the complete GitHub output plan and exits successfully on uncertainty', (context) => {
   const { cwd, base } = fixture(context);
   write(cwd, 'docs/guide.md', 'Updated\n');
   const head = commit(cwd);
   const script = path.join(__dirname, '../../../tool/ci/detect-change-scope.cjs');
-  for (const [event, expected] of [['push', 'true'], ['pull_request', 'true'], ['', 'false']]) {
+  for (const event of ['push', 'pull_request', '']) {
     const output = childProcess.execFileSync(process.execPath, [script], {
       cwd, encoding: 'utf8', timeout: 5000,
       env: { ...process.env, CHANGE_EVENT: event, CHANGE_BASE_SHA: base, CHANGE_HEAD_SHA: head },
     });
-    assert.equal(output, `docs_only=${expected}\n`);
+    const expected = detectChangeScope(event, base, head, cwd);
+    assert.equal(output, Object.entries(expected).map(([name, value]) => `${name}=${value}\n`).join(''));
   }
+});
+
+test('real deletions and cross-category renames include both affected check sets', (context) => {
+  const { cwd, base } = fixture(context);
+  write(cwd, 'lib/example.dart', 'void main() {}\n');
+  const source = commit(cwd);
+  fs.mkdirSync(path.join(cwd, 'test'), { recursive: true });
+  fs.renameSync(path.join(cwd, 'lib/example.dart'), path.join(cwd, 'test/example_test.dart'));
+  const moved = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', source, moved, cwd), scope('dart', 'build'));
+  fs.rmSync(path.join(cwd, 'test/example_test.dart'));
+  assert.deepEqual(detectChangeScope('pull_request', moved, commit(cwd), cwd), scope('dart'));
+  assert.equal(detectChangeScope('push', base, moved, cwd).docs_only, false);
 });

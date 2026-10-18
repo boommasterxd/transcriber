@@ -19,7 +19,7 @@ Review thresholds guide refactoring before CI limits are reached. CI limits are 
 | Function coverage | below 85% | 85% | LCOV `FNDA`, or analyzer-derived function spans mapped to line hits |
 | Branch coverage | below 80% | 80% | Flutter LCOV `BRDA` records |
 
-Flutter coverage is line-oriented and currently omits native `FNDA` records. The repository therefore uses executable lines as the statement proxy and maps analyzer-derived Dart function spans to LCOV line hits as the function proxy. The checker enumerates every tracked `lib/**/*.dart` source and fails closed if Flutter omits any source from LCOV. It also fails when a required metric denominator is empty. These mappings must remain documented until Flutter emits independent statement and function coverage.
+Flutter coverage is line-oriented and currently omits native `FNDA` records. The repository therefore uses executable lines as the statement proxy and maps analyzer-derived Dart function spans to LCOV line hits as the function proxy. The full checker enumerates every tracked `lib/**/*.dart` source and fails closed if Flutter omits any source from LCOV. Selected-test coverage uses an explicitly validated, restricted source inventory and is reported as partial coverage. Thresholds remain identical, and missing required sources or empty metric denominators fail. These mappings must remain documented until Flutter emits independent statement and function coverage. See [CI test selection](ci-test-selection.md) for scope and fallback rules.
 
 `analysis_options.yaml` explicitly excludes generated build output and platform roots from Dart analysis. These are language and tool-scope boundaries, not a quality baseline: CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Maintained Kotlin under `android/app/src/main/kotlin/` is checked separately with Detekt and its formatting rules.
 
@@ -100,23 +100,21 @@ test -d build/flutter_assets
 
 All Flutter jobs, including manual APK validation and releases, use `.github/actions/setup-flutter` to read the exact version from `.fvmrc`. It calls the MIT-licensed `flutter-actions/setup-flutter` at commit `6e2468fd827c4a7337cd4b835a6049b78bc0bd1f`, which pins both cache dependencies to full SHAs and verifies downloaded SDK archives against the official Flutter release checksum. SDK and lockfile-keyed package caches remain enabled. This replaces `subosito/flutter-action`, whose internally tagged cache dependency is incompatible with enforced SHA pinning.
 
-`.github/workflows/ci.yml` separates independent checks so one known failure does not hide unrelated categories:
+`.github/workflows/ci.yml` starts only jobs required by the complete change scope:
 
 - `Workflow lint` verifies every GitHub Actions workflow with a pinned, checksum-verified `actionlint` binary.
-- `Analyze and test` checks the lockfile, formatting, analysis, tests, and coverage.
-- `Size and complexity` enforces all source-size and complexity limits.
-- `Dead code` checks unused declarations and files.
+- `Dart quality, tests and bundle` shares one Flutter installation and locked dependency resolution across formatting, analysis, selected tests/coverage, size/complexity, unused-code/file detection, duplication, and the optional bundle build. Applicable independent checks still run after another check fails; the job remains failed.
 - `Kotlin quality and tests` enforces the same function, complexity, parameter, nesting, formatting, and unused-private-code boundaries for maintained Kotlin, runs JVM unit tests, and compiles instrumented Android tests.
-- `Duplication` rejects every Dart clone of at least 50 tokens.
-- `Build bundle` proves that Flutter can assemble the application asset bundle.
+- Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
+- The asset-bundle build runs for application/build inputs and uncertainty, and is skipped for recognized test-only changes.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. CI calls it for full checks; the independent weekly and manual scans remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
+`.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. CI calls it for dependency/SDK changes, relevant audit configuration, or uncertainty; the independent weekly and manual scans remain available for newly disclosed vulnerabilities in unchanged packages. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
 
 ## Protected Pull Requests
 
-Automatic quality checks and secret scanning run on pull requests targeting `main`, using GitHub's simulated merge checkout. They do not run again on the resulting `main` push. The final `CI` check requires all seven quality/build jobs and the dependency audit to succeed. Failed, cancelled, missing or unexpectedly skipped jobs block the final check.
+Automatic quality checks and secret scanning run on pull requests targeting `main`, using GitHub's simulated merge checkout. They do not run again on the resulting `main` push. The final `CI` check validates all planned job results. Failed, cancelled, missing or unexpectedly skipped jobs block the final check.
 
-Only a nonempty, complete change set entirely below the root `docs/` directory takes the short path. `tool/ci/detect-change-scope.cjs` compares the merge base with the PR head, includes both sides of renames, and defaults to full CI on uncertainty. Documentation-only changes intentionally skip all expensive jobs and still receive a real successful `CI` result. Root Markdown, workflows, tooling and mixed changes run full CI. Secret scanning and PR-title validation remain required.
+Only a nonempty, complete change set entirely below the root `docs/` directory takes the documentation short path. `tool/ci/detect-change-scope.cjs` compares the merge base with the PR head, includes both sides of renames, and defaults to full CI on uncertainty. Other recognized changes select relevant jobs, and Flutter tests use the analyzer dependency graph. Documentation-only changes intentionally skip all expensive jobs and still receive a real successful `CI` result. Root Markdown and other unknown inputs run full CI. Secret scanning and PR-title validation remain required. [CI test selection](ci-test-selection.md) documents mappings, limitations, local selection commands, and measured starting durations.
 
 The active GitHub ruleset requires exactly `CI`, `gitleaks` and `Validate PR Title`, with an up-to-date branch. Only repository administrators retain an `always` bypass; that capability does not authorize its use. Actions must be pinned to complete commit SHAs. Dependabot's metadata-only automation has separate read and write jobs, verifies actor, author and repository identity, and only enables auto-merge for npm minor/patch updates. This Flutter repository has no npm dependency ecosystem, so Pub, Gradle and Actions updates remain manual.
 
@@ -126,7 +124,7 @@ Run the dependency-free CI helper regressions with Node.js 24.x:
 node --test test/tool/ci/*.test.cjs
 ```
 
-Full CI runs these tests in the workflow-lint job. They cover complete change ranges, rename boundaries, incomplete history and failure handling in the final gate. Manual CI runs take the full path; manual secret scans cover all available history.
+Applicable workflow changes run these tests in the workflow-lint job. They cover complete change ranges, rename boundaries, incomplete history, job selection, and failure handling in the final gate. Dart selector and coverage regressions live alongside them under `test/tool/`. Manual CI runs take the full path; manual secret scans cover all available history.
 
 ## Fixing Failures
 
