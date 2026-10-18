@@ -179,11 +179,11 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            ~/.gradle/caches
+            ~/.gradle/caches/modules-2
             ~/.gradle/wrapper
-          key: ci-gradle-${{ runner.os }}-${{ hashFiles('.fvmrc', 'pubspec.lock', 'android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: ci-gradle-deps-v2-${{ runner.os }}-${{ hashFiles('.fvmrc', 'pubspec.lock', 'android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            ci-gradle-${{ runner.os }}-
+            ci-gradle-deps-v2-${{ runner.os }}-
       - name: Set up Flutter
         uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
@@ -194,6 +194,14 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+      - name: Release build scratch space before saving caches
+        run: |
+          df -h .
+          android/gradlew -p android --stop
+          rm -rf build .dart_tool/flutter_build android/.gradle
+          find "$HOME/.gradle/caches" -mindepth 1 -maxdepth 1 \
+            ! -name modules-2 -exec rm -rf -- {} +
+          df -h .
 
   dependency-audit:
     name: Dependency audit

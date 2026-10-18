@@ -44,7 +44,7 @@ This Android application has Flutter unit/widget tests and Android JVM/instrumen
 
 ## Runner work and caches
 
-Formatting, analysis, size/complexity, dead-code detection, duplication, selected Flutter tests, and the optional asset-bundle build share a runner and one locked dependency resolution. Dart static checks retain their complete source scope. Native jobs run only for relevant changes and keep a separate Gradle environment. SDK and lockfile-keyed Pub caches remain enabled. The native job caches Gradle dependencies/wrapper with OS, SDK selector, lockfile, and Gradle-configuration keys; test-result and coverage caches are not reused across revisions.
+Formatting, analysis, size/complexity, dead-code detection, duplication, selected Flutter tests, and the optional asset-bundle build share a runner and one locked dependency resolution. Dart static checks retain their complete source scope. Native jobs run only for relevant changes and keep a separate Gradle environment. SDK and lockfile-keyed Pub caches remain enabled. The native job caches only Gradle `modules-2` dependencies and the wrapper with OS, SDK selector, lockfile, and Gradle-configuration keys. After successful native checks it stops Gradle, releases build outputs and uncached Gradle scratch/transform caches, and reports free disk space before post-job cache archiving. This avoids the observed disk exhaustion when archiving the SDK and complete Gradle cache together. Test-result and coverage caches are not reused across revisions.
 
 Signed APK builds and releases retain their explicit workflows and signing/protection requirements. This optimization does not publish artifacts or deployments.
 
