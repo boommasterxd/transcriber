@@ -8,15 +8,26 @@ import 'git_fixture.dart';
 void main() {
   late GitFixture fixture;
   late String dartExecutable;
+  late Directory compiledRunner;
   final runnerPath = '${Directory.current.path}/tool/ci/run_test_plan.dart';
-  setUp(() async {
-    fixture = await GitFixture.create();
+  setUpAll(() async {
     final config =
         jsonDecode(await File('.dart_tool/package_config.json').readAsString())
             as Map<String, dynamic>;
     final flutterRoot = Uri.parse(config['flutterRoot'] as String).toFilePath();
     dartExecutable = '$flutterRoot/bin/cache/dart-sdk/bin/dart';
+    compiledRunner = await Directory.systemTemp.createTemp('ci-runner-kernel-');
+    addTearDown(() => compiledRunner.delete(recursive: true));
+    final compilation = await Process.run(dartExecutable, [
+      'compile',
+      'kernel',
+      runnerPath,
+      '--output',
+      '${compiledRunner.path}/runner.dill',
+    ]);
+    expect(compilation.exitCode, 0, reason: '${compilation.stderr}');
   });
+  setUp(() async => fixture = await GitFixture.create());
   tearDown(() => fixture.dispose());
 
   for (final scenario in [
@@ -43,7 +54,7 @@ void main() {
       expect(permissions.exitCode, 0);
       final result = await Process.run(
         dartExecutable,
-        [runnerPath, 'plan.json'],
+        ['${compiledRunner.path}/runner.dill', 'plan.json'],
         workingDirectory: fixture.directory.path,
         environment: {
           'PATH':
