@@ -27,13 +27,16 @@ function checksForPath(path) {
   if (/^(tool|test\/tool)\/ci\/[^/]+\.cjs$/.test(path)) return ['workflow'];
   if (/^android\/app\/src\/(test|androidTest)\//.test(path)
     || path === 'config/detekt.yml') return ['native'];
+  if (/^android\/app\/src\/main\/kotlin\/com\/transcriber\/app\/(EditorFieldPolicy|EditorSessionGate|ImeNavigationBarAppearance|PcmLevelMeter|ShareFileNamePolicy)\.kt$/.test(path)) {
+    return ['native'];
+  }
   if (path.startsWith('android/')) return ['dart', 'native'];
   if (path === 'tool/quality/check_kotlin_quality.sh') return ['workflow', 'native'];
   if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
   // Native entrypoint names and channel payloads are runtime contracts.
-  if (['lib/main.dart', 'lib/share_entrypoint.dart',
+  if (['lib/main.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
     'lib/services/dictation/dictation_platform.dart'].includes(path)) return ['dart', 'native', 'build'];
-  if (/^lib\/.*\.dart$/.test(path)) return ['dart', 'build'];
+  if (/^lib\/.*\.dart$/.test(path)) return ['dart'];
   if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
   if (path.startsWith('assets/')) return ['dart', 'build'];
   return CHECKS;

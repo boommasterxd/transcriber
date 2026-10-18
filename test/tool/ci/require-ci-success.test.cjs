@@ -39,8 +39,9 @@ test('scoped plans require only their exact jobs, and every other job must be sk
   const cases = [
     [['workflow'], ['workflow-lint']],
     [['dart'], ['dart-quality']],
-    [['native'], ['dart-quality', 'kotlin-quality']],
+    [['native'], ['kotlin-quality']],
     [['build'], ['dart-quality']],
+    [['build', 'native'], ['kotlin-quality']],
     [['dependency_audit'], ['dependency-audit']],
     [['workflow', 'dart', 'build'], ['workflow-lint', 'dart-quality']],
   ];

@@ -19,7 +19,7 @@ function jobPlan(outputs) {
   }
   return {
     'workflow-lint': flags.workflow,
-    'dart-quality': flags.dart || flags.native || flags.build,
+    'dart-quality': flags.dart || (flags.build && !flags.native),
     'kotlin-quality': flags.native,
     'dependency-audit': flags.dependency_audit,
   };

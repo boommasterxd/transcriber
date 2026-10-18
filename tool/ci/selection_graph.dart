@@ -16,7 +16,8 @@ Future<ImportGraph> snapshotGraph(
   if (files.length > 3000) {
     throw const FormatException('Source graph exceeds its resource limit.');
   }
-  final pubspec = await git.read(['show', '$revision:pubspec.yaml']);
+  final contents = await git.readFiles(revision, ['pubspec.yaml', ...files]);
+  final pubspec = contents['pubspec.yaml']!;
   final package = RegExp(
     r'^name:\s*([a-z][a-z0-9_]*)\s*$',
     multiLine: true,
@@ -25,7 +26,7 @@ Future<ImportGraph> snapshotGraph(
   final graph = <String, Set<String>>{};
   var totalSize = 0;
   for (final file in files) {
-    final source = await git.read(['show', '$revision:$file']);
+    final source = contents[file]!;
     totalSize += source.length;
     if (source.length > 2 * 1024 * 1024 || totalSize > 32 * 1024 * 1024) {
       throw const FormatException('Source graph exceeds its size limit.');

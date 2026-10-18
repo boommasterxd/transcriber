@@ -91,7 +91,7 @@ jobs:
   dart-quality:
     name: Dart quality, tests and bundle
     needs: changes
-    if: needs.changes.outputs.dart == 'true' || needs.changes.outputs.native == 'true' || needs.changes.outputs.build == 'true'
+    if: needs.changes.outputs.dart == 'true' || (needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -122,7 +122,7 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' && steps.tests.outcome == 'success' }}
         run: dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json
       - name: Collect Dart metrics
-        if: ${{ !cancelled() && (needs.changes.outputs.dart == 'true' || needs.changes.outputs.native == 'true') }}
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: |
           mkdir -p "$RUNNER_TEMP/code-quality"
           dart run dart_code_linter:metrics analyze lib test tool \
@@ -130,7 +130,7 @@ jobs:
             --json-path="$RUNNER_TEMP/code-quality/metrics.json" \
             --no-fatal-warnings >/dev/null
       - name: Enforce size and complexity thresholds
-        if: ${{ !cancelled() && (needs.changes.outputs.dart == 'true' || needs.changes.outputs.native == 'true') }}
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: >-
           dart run tool/quality/check_code_quality.dart
           --metrics "$RUNNER_TEMP/code-quality/metrics.json"
@@ -156,10 +156,10 @@ jobs:
           --min-tokens 50 --threshold 0 --reporters console
           --format dart --ignore "**/*.g.dart" lib test tool
       - name: Build Flutter asset bundle
-        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
+        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
         run: flutter build bundle --debug --no-pub
       - name: Verify bundle
-        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
+        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
         run: test -d build/flutter_assets
 
   kotlin-quality:
@@ -170,6 +170,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          check-latest: true
+          package-manager-cache: false
       - name: Set up Java
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -194,11 +200,26 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+      - name: Enforce native and shell file length
+        if: ${{ !cancelled() }}
+        run: node tool/ci/check-native-file-length.cjs
+      - name: Verify Flutter bundle assembled by native tests
+        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
+        run: |
+          for bundle in build/app/intermediates/flutter/debug/flutter_assets \
+            android/app/build/intermediates/flutter/debug/flutter_assets; do
+            if test -s "$bundle/kernel_blob.bin" && test -s "$bundle/AssetManifest.bin"; then
+              printf 'Verified Flutter bundle: %s\n' "$bundle"
+              exit 0
+            fi
+          done
+          echo 'No complete native Flutter debug bundle was found.' >&2
+          exit 1
       - name: Release build scratch space before saving caches
         run: |
           df -h .
           android/gradlew -p android --stop
-          rm -rf build .dart_tool/flutter_build android/.gradle
+          rm -rf build android/app/build .dart_tool/flutter_build android/.gradle
           find "$HOME/.gradle/caches" -mindepth 1 -maxdepth 1 \
             ! -name modules-2 -exec rm -rf -- {} +
           df -h .

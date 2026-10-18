@@ -9,7 +9,7 @@ Review thresholds guide refactoring before CI limits are reached. CI limits are 
 | Metric | Review threshold | CI limit | Implementation |
 |---|---:|---:|---|
 | Function length | over 50 lines | 100 lines | Dart Code Linter `lines-of-code`; Detekt `LongMethod` |
-| File length | over 300 lines | 500 lines | `tool/quality/check_code_quality.dart` for Dart and Kotlin |
+| File length | over 300 lines | 500 lines | `tool/quality/check_code_quality.dart`; equivalent `tool/ci/check-native-file-length.cjs` for native-only CI |
 | Cyclomatic complexity | over 15 | 20 | Dart Code Linter `cyclomatic-complexity`; Detekt `CyclomaticComplexMethod` |
 | Cognitive complexity | over 15 | 25 | Dart analyzer AST traversal; Detekt `CognitiveComplexMethod` |
 | Parameters | over 4 | 6 | Dart Code Linter `number-of-parameters`; Detekt `LongParameterList` |
@@ -64,6 +64,7 @@ Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and format
 
 ```bash
 bash tool/quality/check_kotlin_quality.sh
+node tool/ci/check-native-file-length.cjs
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
 ```
@@ -104,9 +105,9 @@ All Flutter jobs, including manual APK validation and releases, use `.github/act
 
 - `Workflow lint` verifies every GitHub Actions workflow with a pinned, checksum-verified `actionlint` binary.
 - `Dart quality, tests and bundle` shares one Flutter installation and locked dependency resolution across formatting, analysis, selected tests/coverage, size/complexity, unused-code/file detection, duplication, and the optional bundle build. Applicable independent checks still run after another check fails; the job remains failed.
-- `Kotlin quality and tests` enforces the same function, complexity, parameter, nesting, formatting, and unused-private-code boundaries for maintained Kotlin, runs JVM unit tests, and compiles instrumented Android tests.
+- `Kotlin quality and tests` enforces the same function, complexity, parameter, nesting, formatting, and unused-private-code boundaries for maintained Kotlin, runs JVM unit tests, and compiles instrumented Android tests. Its Node file-length gate preserves the complete Kotlin/Gradle/shell limit without starting a Dart quality job for native-only changes.
 - Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
-- The asset-bundle build runs for application/build inputs and uncertainty, and is skipped for recognized test-only changes.
+- Bundle verification runs for entrypoints, channel bridges, assets, dependencies, packaging/global configuration, and uncertainty. Ordinary Dart changes use analysis and selected test compilation. When Gradle already assembles the debug bundle, the native job verifies its kernel and asset manifest without a second bundle build on the Dart runner.
 
 `.github/workflows/dependency-audit.yml` scans `pubspec.lock` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this inexpensive gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
 

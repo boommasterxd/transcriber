@@ -35,13 +35,22 @@ test('known paths request precisely their relevant checks', () => {
     ['android/app/build.gradle.kts', ['dart', 'native']],
     ['android/app/src/test/kotlin/ExampleTest.kt', ['native']],
     ['android/app/src/androidTest/kotlin/ExampleTest.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorFieldPolicy.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ImeNavigationBarAppearance.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmAudioRecorder.kt', ['dart', 'native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ImeMethodHandler.kt', ['dart', 'native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareActivity.kt', ['dart', 'native']],
     ['config/detekt.yml', ['native']],
     ['tool/quality/check_kotlin_quality.sh', ['workflow', 'native']],
     ['tool/package/version.sh', ['workflow', 'dart', 'build']],
     ['lib/main.dart', ['dart', 'native', 'build']],
     ['lib/share_entrypoint.dart', ['dart', 'native', 'build']],
+    ['lib/keyboard_entrypoint.dart', ['dart', 'native', 'build']],
     ['lib/services/dictation/dictation_platform.dart', ['dart', 'native', 'build']],
-    ['lib/services/example.dart', ['dart', 'build']],
+    ['lib/services/example.dart', ['dart']],
     ['test/services/example_test.dart', ['dart']],
     ['tool/ci/select_tests.dart', ['dart']],
     ['assets/images/example.png', ['dart', 'build']],
@@ -49,6 +58,22 @@ test('known paths request precisely their relevant checks', () => {
   for (const [name, checks] of cases) {
     assert.deepEqual(classifyPaths([name]), scope(...checks), name);
   }
+});
+
+test('ordinary Dart edits never select Java, native tests, or packaging', () => {
+  for (const file of ['lib/core/l10n/app_strings_de.dart', 'lib/ui/widgets/provider_logo.dart',
+    'lib/services/storage/audio_cache_manager.dart', 'test/services/example_test.dart']) {
+    const plan = classifyPaths([file]);
+    assert.deepEqual(plan, scope('dart'), file);
+    assert.equal(plan.native, false);
+    assert.equal(plan.build, false);
+  }
+  assert.deepEqual(classifyPaths([
+    'lib/services/example.dart', 'android/app/src/test/kotlin/ExampleTest.kt',
+  ]), scope('dart', 'native'));
+  assert.deepEqual(classifyPaths([
+    'lib/services/example.dart', 'lib/share_entrypoint.dart',
+  ]), scope('dart', 'native', 'build'));
 });
 
 test('shared foundations, unknown paths and incomplete inputs require every check', () => {
@@ -232,7 +257,7 @@ test('real deletions and cross-category renames include both affected check sets
   fs.mkdirSync(path.join(cwd, 'test'), { recursive: true });
   fs.renameSync(path.join(cwd, 'lib/example.dart'), path.join(cwd, 'test/example_test.dart'));
   const moved = commit(cwd);
-  assert.deepEqual(detectChangeScope('pull_request', source, moved, cwd), scope('dart', 'build'));
+  assert.deepEqual(detectChangeScope('pull_request', source, moved, cwd), scope('dart'));
   fs.rmSync(path.join(cwd, 'test/example_test.dart'));
   assert.deepEqual(detectChangeScope('pull_request', moved, commit(cwd), cwd), scope('dart'));
   assert.equal(detectChangeScope('push', base, moved, cwd).docs_only, false);
