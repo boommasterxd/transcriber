@@ -40,7 +40,7 @@ void _registerLifecycleTests(RemoteProviderId provider) {
         final transport = RecordingHttpClient(
           (_) async => jsonResponse({}, statusCode: failure ? 401 : 200),
         );
-        final client = provider == RemoteProviderId.openai
+        final RemoteProviderClient client = provider == RemoteProviderId.openai
             ? OpenAiClient(apiKey: 'test-key', httpClient: transport)
             : GoogleClient(apiKey: 'test-key', httpClient: transport);
         await _exerciseClient(client, failure: failure);

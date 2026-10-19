@@ -8,13 +8,14 @@ import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
 import 'mime_utils.dart';
+import 'model_catalog_listing.dart';
 import 'provider_model_capabilities.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
 import 'transcription_prompt.dart';
 
 /// Direct REST client for Gemini generation, files, and interactions APIs.
-class GoogleClient implements RemoteProviderClient {
+class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
   GoogleClient({
     required this.apiKey,
     http.Client? httpClient,
@@ -49,12 +50,6 @@ class GoogleClient implements RemoteProviderClient {
   Future<void> testConnection() async {
     await _getJson('/models?pageSize=1', timeout: remoteListTimeout);
   }
-
-  @override
-  Future<List<RemoteModelInfo>> listModels({
-    required bool forTranscription,
-  }) async =>
-      (await loadModelCatalog()).modelsFor(forTranscription: forTranscription);
 
   @override
   Future<ProviderModelCatalog> loadModelCatalog() async =>
