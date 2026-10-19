@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
+import 'model_catalog_listing.dart';
 import 'provider_model_capabilities.dart';
 import 'remote_audio_limits.dart';
 import 'remote_api_client.dart';
@@ -13,7 +14,7 @@ import 'remote_http.dart';
 import 'transcription_prompt.dart';
 
 /// Direct REST client for OpenAI's chat and transcription endpoints.
-class OpenAiClient implements RemoteProviderClient {
+class OpenAiClient with ModelCatalogListing implements RemoteProviderClient {
   OpenAiClient({required this.apiKey, http.Client? httpClient})
     : _http = httpClient ?? http.Client(),
       _ownsHttp = httpClient == null;
@@ -35,12 +36,6 @@ class OpenAiClient implements RemoteProviderClient {
   Future<void> testConnection() async {
     await _getJson('/models', timeout: remoteListTimeout);
   }
-
-  @override
-  Future<List<RemoteModelInfo>> listModels({
-    required bool forTranscription,
-  }) async =>
-      (await loadModelCatalog()).modelsFor(forTranscription: forTranscription);
 
   @override
   Future<ProviderModelCatalog> loadModelCatalog() async {

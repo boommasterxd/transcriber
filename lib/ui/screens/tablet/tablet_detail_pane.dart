@@ -34,10 +34,6 @@ class TabletDetailPane extends ConsumerStatefulWidget {
 
 class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
     with NoteDetailInteractionState<TabletDetailPane> {
-  Future<void> _delete(TranscriptNote note) async {
-    await confirmAndDeleteNote(note, ref.read(stringsProvider));
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
@@ -58,7 +54,7 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
           note: note,
           t: t,
           onShare: () => shareNote(note),
-          onDelete: () => _delete(note),
+          onDelete: () => confirmAndDeleteNote(note, t),
         ),
         Expanded(
           child: FadeEdges(

@@ -30,6 +30,14 @@ On 2026-10-19, the project owner confirmed that the historical Google keys detec
 
 The checksum-verified Gitleaks 8.30.1 history and current-tree scans pass with these exceptions. Scanner regressions verify that an exact historical fingerprint can be ignored while the same synthetic credential in a later commit still fails. See [code quality](code-quality.md#ci-jobs) for scanner commands and coverage.
 
+### Repository Security Controls
+
+GitHub repository secret scanning and push protection are enabled. Public fork workflows require maintainer approval for all external contributors; approval does not grant secrets or write permissions to untrusted code. The required Gitleaks workflow remains a separate tree/history control.
+
+External pull requests are accepted. Before approving an external workflow run and before merging, maintainers must review changes to workflows, classifiers, scanner download manifests/checksums, detector configuration and exclusions. The scanner reads those controls from the PR checkout: a matching archive checksum or green check alone does not establish that the supplied scanning policy is trusted. Keep this targeted control review separate from the zero-required-reviews ruleset.
+
+The repository-owned CodeQL workflow prepares the pinned Flutter/Android environment and explicitly compiles Kotlin for analysis, alongside JavaScript and GitHub Actions. It replaces default setup, whose Kotlin autobuild could not create the required `android/local.properties`. Keep one active configuration. The PR's matching analysis results establish hosted extraction; local compilation alone does not. See [the setup report](reports/project-setup-report.md) for activation and scan evidence.
+
 ## Files and Cache
 
 External originals are never deleted. Destructive operations require explicit app ownership and a path inside a known app-private directory. Share filenames are sanitized, stream copies are limited to 250 MiB, symlinks are not followed during cleanup, and partial copies are removed after failures.

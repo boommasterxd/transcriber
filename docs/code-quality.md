@@ -164,6 +164,16 @@ The only historical exceptions are three commit/path/rule/line fingerprints in [
 
 Lightweight classification, final gates, scanning, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. Substantive quality/build jobs and container-based OSV scanning retain regular runners. Actual hosted Slim execution remains separate from local workflow validation; no savings are inferred from runner selection alone.
 
+### Native GitHub Scanning
+
+Repository secret scanning and push protection are enabled, independently of required Gitleaks. Fork workflow approval is configured as `all_external_contributors`.
+
+`.github/workflows/codeql.yml` defines one advanced configuration for Actions, JavaScript and manually compiled Kotlin, using the pinned Flutter SDK and JDK 17. It replaces default setup, whose automatic Kotlin build failed and excluded that language. Its substantive analysis jobs use regular runners with bounded timeouts. Kotlin compilation disables build-cache and up-to-date reuse so the extractor sees maintained sources. Local YAML validation and compilation do not establish hosted Kotlin extraction; inspect matching PR analysis results. CodeQL scans are distinct from application `CI` and do not add another required check or repeat its tests.
+
+The current [CodeQL language support table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) lists Kotlin through 2.4.20; the project uses 2.4.21. The first hosted traced build and analysis succeeded with CodeQL 2.27.2, as qualified in the [setup report](reports/project-setup-report.md#published-verification-snapshot). Reverify the actual hosted bundle when changing this toolchain. Do not downgrade the project or exclude Kotlin merely to make the scan green.
+
+APK-build workflows explicitly default to `contents: read`. Only the separate release-publication job overrides that default with the content/artifact write access it needs; compilation itself receives no repository write permission.
+
 ## Protected Pull Requests
 
 Automatic quality checks and secret scanning run on pull requests targeting `main`, using GitHub's simulated merge checkout. They do not run again on the resulting `main` push. The final `CI` check validates all planned job results. Failed, cancelled, missing or unexpectedly skipped jobs block the final check.
