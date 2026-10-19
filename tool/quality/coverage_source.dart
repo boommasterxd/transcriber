@@ -22,15 +22,8 @@ final class _SourceAnalysis {
     if (parsed.errors.isNotEmpty) {
       throw FormatException('Unable to analyze maintained source $path.');
     }
-    if (parsed.unit.directives.any(
-      (directive) => directive is PartOfDirective,
-    )) {
-      return const _SourceAnalysis.nonInstrumentable('part fragment');
-    }
-    if (_containsOnlyContracts(parsed.unit)) {
-      return const _SourceAnalysis.nonInstrumentable(
-        'abstract interfaces and typedefs only',
-      );
+    if (nonInstrumentableSourceReason(parsed.unit) case final reason?) {
+      return _SourceAnalysis.nonInstrumentable(reason);
     }
     final functions = _FunctionSpanCollector(parsed.lineInfo);
     final branches = _BranchSpanCollector(parsed.lineInfo);
@@ -39,22 +32,6 @@ final class _SourceAnalysis {
     return _SourceAnalysis(
       functionSpans: functions.spans,
       branchSpans: branches.spans,
-    );
-  }
-
-  static bool _containsOnlyContracts(CompilationUnit unit) =>
-      unit.declarations.isNotEmpty && unit.declarations.every(_isContract);
-
-  static bool _isContract(CompilationUnitMember declaration) {
-    if (declaration is GenericTypeAlias || declaration is FunctionTypeAlias) {
-      return true;
-    }
-    if (declaration is! ClassDeclaration ||
-        declaration.abstractKeyword == null) {
-      return false;
-    }
-    return declaration.body.members.every(
-      (member) => member is MethodDeclaration && !member.isComplete,
     );
   }
 }

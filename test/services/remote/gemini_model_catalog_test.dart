@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/gemini_model_catalog.dart';
 
 void main() {

@@ -90,3 +90,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+extra["requiredTestSourceRoot"] = file("src/test/kotlin")
+extra["requiredTestSourceFiles"] = fileTree("src/test/kotlin") {
+    include("**/*Test.kt")
+}.files
+apply(from = rootProject.file("../tool/ci/jvm/require_executed_tests.gradle.kts"))

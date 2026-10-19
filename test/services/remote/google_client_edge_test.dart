@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/google_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 

@@ -6,7 +6,104 @@ const os = require('node:os');
 const path = require('node:path');
 const childProcess = require('node:child_process');
 const test = require('node:test');
-const { detectDocsOnly } = require('../../../tool/ci/detect-change-scope.cjs');
+const { detectDocsOnly, detectChangeScope, classifyPaths, parseJvmClasses } = require('../../../tool/ci/detect-change-scope.cjs');
+
+function scope(...checks) {
+  return { docs_only: checks.length === 0,
+    ...Object.fromEntries(['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit']
+      .map((name) => [name, checks.includes(name)
+        || (name === 'jvm' && checks.includes('native'))
+        || (name === 'dependency_audit' && checks.length > 0)])) };
+}
+
+test('fresh advisories remain a required gate even when dependency files are unchanged', () => {
+  for (const file of ['lib/app.dart', 'test/example_test.dart', '.github/workflows/release.yml']) {
+    assert.equal(classifyPaths([file]).dependency_audit, true);
+  }
+  assert.equal(classifyPaths(['docs/guide.md']).dependency_audit, false);
+});
+
+test('JVM mappings accept only a nonempty manifest of unique qualified classes', () => {
+  assert.deepEqual(parseJvmClasses('com.transcriber.app.EditorSessionGate\r\n'), ['com.transcriber.app.EditorSessionGate']);
+  for (const text of ['', '\n', 'android.foo.Class', '../outside',
+    'com.transcriber.app.Bad_Class', 'com.transcriber.app.PcmLevelMeter\ncom.transcriber.app.PcmLevelMeter']) {
+    assert.throws(() => parseJvmClasses(text));
+  }
+});
+
+test('known paths request precisely their relevant checks', () => {
+  const cases = [
+    ['docs/nested/guide.md', []],
+    ['.github/workflows/release.yml', ['workflow']],
+    ['.github/dependabot.yml', ['workflow']],
+    ['tool/ci/detect-change-scope.cjs', ['workflow']],
+    ['test/tool/ci/detect-change-scope.test.cjs', ['workflow']],
+    ['test/tool/ci/jvm-test-failure.integration.cjs', ['workflow', 'jvm']],
+    ['android/app/src/main/kotlin/Example.kt', ['dart', 'native']],
+    ['android/app/src/main/AndroidManifest.xml', ['dart', 'native']],
+    ['android/app/src/main/res/values/strings.xml', ['dart', 'native']],
+    ['android/app/build.gradle.kts', ['dart', 'native']],
+    ['android/app/src/test/kotlin/ExampleTest.kt', ['native']],
+    ['android/app/src/androidTest/kotlin/ExampleTest.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorFieldPolicy.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['jvm', 'native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ImeNavigationBarAppearance.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['jvm', 'native']],
+    ['android/app/src/test/kotlin/com/transcriber/app/EditorSessionGateTest.kt', ['jvm']],
+    ['android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt', ['jvm']],
+    ['android/app/src/test/kotlin/com/transcriber/app/NavigationBarAppearanceTest.kt', ['native']],
+    ['android/app/src/test/kotlin/com/transcriber/app/EditorFieldPolicyTest.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmAudioRecorder.kt', ['dart', 'native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ImeMethodHandler.kt', ['dart', 'native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareActivity.kt', ['dart', 'native']],
+    ['config/detekt.yml', ['native']],
+    ['tool/quality/check_kotlin_quality.sh', ['workflow', 'native']],
+    ['tool/package/version.sh', ['workflow', 'dart', 'build']],
+    ['lib/main.dart', ['dart', 'native', 'build']],
+    ['lib/share_entrypoint.dart', ['dart', 'native', 'build']],
+    ['lib/keyboard_entrypoint.dart', ['dart', 'native', 'build']],
+    ['lib/services/dictation/dictation_platform.dart', ['dart', 'native', 'build']],
+    ['lib/services/example.dart', ['dart']],
+    ['test/services/example_test.dart', ['dart']],
+    ['tool/ci/select_tests.dart', ['dart']],
+    ['assets/images/example.png', ['dart', 'build']],
+  ];
+  for (const [name, checks] of cases) {
+    assert.deepEqual(classifyPaths([name]), scope(...checks), name);
+  }
+});
+
+test('ordinary Dart edits never select Java, native tests, or packaging', () => {
+  for (const file of ['lib/core/l10n/app_strings_de.dart', 'lib/ui/widgets/provider_logo.dart',
+    'lib/services/storage/audio_cache_manager.dart', 'test/services/example_test.dart']) {
+    const plan = classifyPaths([file]);
+    assert.deepEqual(plan, scope('dart'), file);
+    assert.equal(plan.native, false);
+    assert.equal(plan.build, false);
+  }
+  assert.deepEqual(classifyPaths([
+    'lib/services/example.dart', 'android/app/src/test/kotlin/ExampleTest.kt',
+  ]), scope('dart', 'native'));
+  assert.deepEqual(classifyPaths([
+    'lib/services/example.dart', 'lib/share_entrypoint.dart',
+  ]), scope('dart', 'native', 'build'));
+});
+
+test('shared foundations, unknown paths and incomplete inputs require every check', () => {
+  const full = scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit');
+  for (const name of ['pubspec.yaml', 'pubspec.lock', '.fvmrc', 'analysis_options.yaml',
+    'test/flutter_test_config.dart', 'test/nested/flutter_test_config.dart', '.github/workflows/ci.yml',
+    '.github/workflows/gitleaks.yml', '.github/workflows/update-gitleaks.yml',
+    '.github/workflows/dependency-audit.yml', '.gitleaks.toml',
+    '.github/actions/setup-flutter/action.yml', '.github/actions/new/action.yml',
+    '.github/new-config.toml', 'tool/ci/jvm/build.gradle.kts', 'tool/ci/jvm/sources.txt',
+    'README.md', 'new/config.toml', '']) {
+    assert.deepEqual(classifyPaths([name]), full, name);
+  }
+  assert.deepEqual(classifyPaths([]), full);
+  assert.deepEqual(classifyPaths(['docs/a.md', 'test/a_test.dart', 'android/a.kt']), scope('dart', 'native'));
+});
 
 /** @param {string} cwd @param {string[]} args */
 function git(cwd, args) {
@@ -38,6 +135,24 @@ function fixture(context) {
   write(cwd, 'src/index.js', 'module.exports = 1;\n');
   return { cwd, base: commit(cwd) };
 }
+
+test('the complete Git range distinguishes pure JVM tests from production consumers', (context) => {
+  const { cwd, base } = fixture(context);
+  const source = 'android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt';
+  const target = 'android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt';
+  write(cwd, target, '// Updated pure test\n');
+  const testHead = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', base, testHead, cwd), scope('jvm'));
+  write(cwd, source, '// Updated helper API\n');
+  const head = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native'));
+  write(cwd, 'docs/dirty-local.md', 'An uncommitted file cannot hide the PR changes.\n');
+  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native'));
+  for (const candidate of ['', 'f'.repeat(40), head]) {
+    assert.deepEqual(detectChangeScope('pull_request', candidate, head, cwd),
+      scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'));
+  }
+});
 
 test('documentation additions, modifications and deletions skip full CI', (context) => {
   const { cwd, base } = fixture(context);
@@ -153,16 +268,30 @@ test('a real documentation diff exceeding the output bound runs full CI', (conte
   assert.equal(detectDocsOnly('push', base, commit(cwd), cwd), false);
 });
 
-test('CLI emits a single GitHub output assignment and exits successfully on uncertainty', (context) => {
+test('CLI emits the complete GitHub output plan and exits successfully on uncertainty', (context) => {
   const { cwd, base } = fixture(context);
   write(cwd, 'docs/guide.md', 'Updated\n');
   const head = commit(cwd);
   const script = path.join(__dirname, '../../../tool/ci/detect-change-scope.cjs');
-  for (const [event, expected] of [['push', 'true'], ['pull_request', 'true'], ['', 'false']]) {
+  for (const event of ['push', 'pull_request', '']) {
     const output = childProcess.execFileSync(process.execPath, [script], {
       cwd, encoding: 'utf8', timeout: 5000,
       env: { ...process.env, CHANGE_EVENT: event, CHANGE_BASE_SHA: base, CHANGE_HEAD_SHA: head },
     });
-    assert.equal(output, `docs_only=${expected}\n`);
+    const expected = detectChangeScope(event, base, head, cwd);
+    assert.equal(output, Object.entries(expected).map(([name, value]) => `${name}=${value}\n`).join(''));
   }
+});
+
+test('real deletions and cross-category renames include both affected check sets', (context) => {
+  const { cwd, base } = fixture(context);
+  write(cwd, 'lib/example.dart', 'void main() {}\n');
+  const source = commit(cwd);
+  fs.mkdirSync(path.join(cwd, 'test'), { recursive: true });
+  fs.renameSync(path.join(cwd, 'lib/example.dart'), path.join(cwd, 'test/example_test.dart'));
+  const moved = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', source, moved, cwd), scope('dart'));
+  fs.rmSync(path.join(cwd, 'test/example_test.dart'));
+  assert.deepEqual(detectChangeScope('pull_request', moved, commit(cwd), cwd), scope('dart'));
+  assert.equal(detectChangeScope('push', base, moved, cwd).docs_only, false);
 });

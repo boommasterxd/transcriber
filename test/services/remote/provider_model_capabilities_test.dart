@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/provider_model_capabilities.dart';
 
 void main() {

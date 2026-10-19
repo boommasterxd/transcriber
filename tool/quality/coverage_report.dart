@@ -15,6 +15,7 @@ final class CoverageReport {
     required this.totalSources,
     required this.missingSources,
     required this.nonInstrumentableSources,
+    this.isPartial = false,
   });
 
   final int coveredLines, totalLines;
@@ -23,6 +24,7 @@ final class CoverageReport {
   final int coveredSources, totalSources;
   final List<String> missingSources;
   final Map<String, String> nonInstrumentableSources;
+  final bool isPartial;
 
   int get maintainedSources => totalSources + nonInstrumentableSources.length;
   double get lineRate => _percentage(coveredLines, totalLines);
@@ -33,13 +35,16 @@ final class CoverageReport {
   factory CoverageReport.parse(
     List<String> lines, {
     Map<String, String>? sources,
+    bool isPartial = false,
   }) => _CoverageBuilder(
     _LcovParser(lines).parse(),
     sources ?? discoverMaintainedSources(),
+    isPartial,
   ).build();
 
   List<String> thresholdFailures() {
     final failures = <String>[];
+    if (isPartial && maintainedSources == 0) return failures;
     if (missingSources.isNotEmpty) {
       final preview = missingSources.take(10).join(', ');
       final remainder = missingSources.length > 10
@@ -70,13 +75,18 @@ final class CoverageReport {
   }
 
   String summary() {
+    if (isPartial && maintainedSources == 0) {
+      return 'Partial coverage: the plan has no affected application sources. '
+          'No application coverage was measured; full coverage was not checked.';
+    }
     final classification = nonInstrumentableSources.entries
         .map((entry) => '${entry.key} (${entry.value})')
         .join(', ');
     final suffix = classification.isEmpty
         ? ''
         : ' Non-instrumentable sources: $classification.';
-    return 'Coverage: sources $coveredSources/$totalSources executable '
+    final label = isPartial ? 'Partial coverage (selected scope)' : 'Coverage';
+    return '$label: sources $coveredSources/$totalSources executable '
         '($maintainedSources maintained), lines ${lineRate.toStringAsFixed(2)}%, '
         'statements ${statementRate.toStringAsFixed(2)}%, '
         'functions ${functionRate.toStringAsFixed(2)}%, '
@@ -128,10 +138,11 @@ Map<String, String> discoverMaintainedSources({Directory? root}) {
 }
 
 final class _CoverageBuilder {
-  _CoverageBuilder(this.reported, this.maintained);
+  _CoverageBuilder(this.reported, this.maintained, this.isPartial);
 
   final Map<String, _SourceCoverage> reported;
   final Map<String, String> maintained;
+  final bool isPartial;
 
   CoverageReport build() {
     final executable = <String, _SourceAnalysis>{};
@@ -175,6 +186,7 @@ final class _CoverageBuilder {
       totalSources: executable.length,
       missingSources: missing,
       nonInstrumentableSources: sortedNonInstrumentable,
+      isPartial: isPartial,
     );
   }
 }

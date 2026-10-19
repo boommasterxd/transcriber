@@ -31,7 +31,9 @@ flutter test --coverage --branch-coverage
 flutter build bundle --debug
 ```
 
-For CI automation changes, also run `node --test test/tool/ci/*.test.cjs` with Node.js 24.x and validate workflows with the pinned actionlint/ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge; no duplicate quality or secret scan is expected on the resulting `main` commit. See [protected pull requests](code-quality.md#protected-pull-requests) for the documentation-only path and final-gate behavior.
+For CI automation changes, also run `node --test test/tool/ci/*.test.cjs` with Node.js 24.x, the Dart regressions under `test/tool/ci/` and `test/tool/quality/`, and validate workflows with the pinned actionlint/ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge; no duplicate quality or secret scan is expected on the resulting `main` commit. See [CI test selection](ci-test-selection.md) for impacted-test selection, local selection commands, coverage boundaries, and the documentation-only path.
+
+The CI plan runner selects Dart VM or Flutter per suite and merges application coverage before checking the unchanged limits. The complete local Flutter command above still runs all Dart and widget suites. Individual runtime and merge commands are documented in [code quality](code-quality.md#local-commands).
 
 Run Android quality checks separately:
 
@@ -39,6 +41,12 @@ Run Android quality checks separately:
 bash tool/quality/check_kotlin_quality.sh
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+```
+
+For only the manifest-listed pure Kotlin tests, Flutter and an Android SDK are unnecessary:
+
+```bash
+JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test
 ```
 
 Run instrumented Android tests on an attached device or emulator:

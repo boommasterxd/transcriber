@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/services/summarization/remote_summarization_service.dart';

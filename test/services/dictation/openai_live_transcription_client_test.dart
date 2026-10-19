@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/dictation/live_transcription.dart';
 import 'package:transcriber/services/dictation/openai_live_transcription_client.dart';
