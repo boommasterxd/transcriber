@@ -2,7 +2,7 @@
 
 ## Assessment
 
-**Partial conformance: F2 remains, with hosted Kotlin CodeQL verification pending.** Repository secret scanning and push protection are enabled; fork approvals use the public-profile policy. External pull requests are now accepted, matching README guidance. The two source duplicates are corrected. Some workflow changes still select insufficient CI; the owner requested an explanation rather than a change for that point.
+**Partial conformance: F2 remains.** Repository secret scanning and push protection are enabled; fork approvals use the public-profile policy. External pull requests are accepted, matching README guidance. The two source duplicates are corrected. The first published revision passed required PR checks and all three CodeQL analyses, including Kotlin. Some workflow changes still select insufficient CI; the owner requested an explanation rather than a change for that point. Device and other evidence gaps below still prevent full conformance.
 
 After the source correction, fresh local verification passed 1,235 Flutter tests and full coverage, formatting, analysis, size/complexity/parameter enforcement, unused-code checks and jscpd with zero clones. The earlier native Gradle, dependency-audit and full-history scan results below remain qualified evidence for unchanged inputs. Local success does not establish current hosted application CI, device behavior or complete setup conformance.
 
@@ -13,10 +13,11 @@ After the source correction, fresh local verification passed 1,235 Flutter tests
 | Repository secret scanning / push protection | Both disabled | Both enabled through the repository API and independently read back. No visibility, paid feature or credential change. |
 | Fork workflow approval | `first_time_contributors` | `all_external_contributors`, changed through the Actions API and read back. |
 | Pull-request admission | `collaborators_only` | `all`, explicitly authorized, changed through the repository API and read back. Repository interaction-limit response is empty; account-wide interaction readback lacks `read:user` permission. |
-| CodeQL | Not configured | Default setup enabled; successful hosted JavaScript and Actions analyses. Initial Kotlin autobuild failed and GitHub excluded Kotlin. A single advanced configuration is prepared locally to replace default setup when published; hosted Kotlin analysis remains pending. |
+| CodeQL | Not configured | Default setup disabled and replaced by one repository-owned advanced workflow in open PR #111. Hosted Actions, JavaScript and manually built Kotlin analyses succeeded on its first revision. Default-branch triggers require the workflow to merge; no merge is authorized. |
 | Duplication | Two clones at the zero threshold | Shared `ModelCatalogListing` reuses the existing catalog filter, and tablet deletion calls the existing shared confirmation directly. Unchanged jscpd gate passes with zero clones. The lifecycle fixture explicitly types its common provider interface. |
+| Explicit build-job permissions | Two native CodeQL alerts on `main` | The owner additionally requested correction. APK-build and release workflows explicitly default to `contents: read`; only the separate publication job retains required `contents: write` and `actions: write`. No release job was dispatched. |
 
-The [initial CodeQL validation run](https://github.com/boommasterxd/transcriber/actions/runs/39256383026) completed after adjusting the configuration to exclude the failed Kotlin language. Its green overall result does not prove Kotlin coverage. The successful JavaScript analysis reports no alerts; Actions analysis reports two `actions/missing-workflow-permissions` alerts for the existing APK-build and release-build jobs. Those newly surfaced warnings are outside the requested source corrections and remain open. Native secret scanning also reports one historical Google-key alert matching an already documented unusable-key fingerprint; validity remains `unknown`, and the alert was not dismissed.
+Native secret scanning reports one historical Google-key alert matching an already documented unusable-key fingerprint; validity remains `unknown`, and the alert was not dismissed. CodeQL's default-branch missing-permissions alerts remain separate from PR results until the correction reaches `main`; they were not manually dismissed. The explicit permission fix is included in this PR and must pass its new-head analysis. A PR scan without a finding alone does not demonstrate that a default-branch alert is fixed, because PR-diff filtering excludes unchanged findings.
 
 ## Target and applicability
 
@@ -46,17 +47,6 @@ The prior setup, quality and performance reports were read in full and reconcile
 - **Impact:** changes to packaging/release controls can receive a successful final gate while application/native/build checks are intentionally excluded. The final gate correctly validates the supplied flags but cannot correct an insufficient classification.
 - **Correction:** include global workflow changes in full classification and regression expectations; retain narrower scope only for concretely justified, documented exceptions. The earlier central-classifier/final-gate mapping is now correct and is not a current defect.
 
-### F6. Kotlin CodeQL still requires activation of the prepared build workflow
-
-- **Expected:** successful CodeQL analysis for supported maintained Kotlin as well as JavaScript and Actions.
-- **Current:** default setup successfully analyzes JavaScript and Actions, but Kotlin autobuild fails at `android/settings.gradle.kts` because `android/local.properties` is absent. GitHub's adjustment removed Kotlin from the active language list. Repository secret scanning and push protection are enabled and are no longer departures.
-- **Impact:** maintained Kotlin has no successful active CodeQL analysis; a green adjusted default-setup run must not be represented as complete language coverage.
-- **Correction under verification:** [the advanced workflow](../../.github/workflows/codeql.yml) installs the pinned Flutter SDK/JDK, generates native configuration and manually recompiles Kotlin under CodeQL. Publication and replacement of default setup are authorized; successful hosted extraction and analysis remain to be checked on the PR. A source file alone does not establish active language coverage.
-
-The exact configuration generation and forced Android compile passed locally, with all 135 tasks executed. This does not prove CodeQL extraction. The current [official support table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) lists Kotlin through 2.4.20, whereas the project uses 2.4.21; that patch-version compatibility also remains unverified. No toolchain downgrade or source exclusion was introduced.
-
-GitHub documents [public secret-scanning availability](https://docs.github.com/en/code-security/how-tos/secure-your-secrets/detect-secret-leaks/enable-secret-scanning) and [CodeQL analysis for Java/Kotlin](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-for-compiled-languages). The repository is already public; this review neither requests nor performs a visibility transition.
-
 ## Control coverage
 
 `verified` applies only to the evidence stated. Source, effective provider configuration, hosted execution and Android device behavior are separate layers.
@@ -69,7 +59,7 @@ GitHub documents [public secret-scanning availability](https://docs.github.com/e
 | Framework-independent model/catalog values | verified | Current import inventory contains no Flutter/UI/state/presentation imports; Flutter appearance mappings remain in `core/theme`. No general automated architecture guard is claimed. |
 | Flutter pin / locked dependency resolution | verified | `.fvmrc` 3.47.7; exact SDK resolution passed without lockfile changes. Default PATH still selects Flutter 3.44.8, so checks explicitly used the installed pinned SDK. |
 | Node policy across jobs | verified | Seven project-Node jobs, six CI plus Gitleaks, select `24.x` and `check-latest: true`; no conflicting matrix/container/caller override found. Local version 24.22.0. |
-| Resolved Node on current hosted workflows | unverified | Earlier successful run resolved 24.22.0 in five executed CI jobs; JVM was intentionally excluded. New Gitleaks setup and current revisions lack matching successful execution. |
+| Resolved Node on published PR workflows | verified | First PR revision's executed CI/Gitleaks setup resolved 24.22.0, including successful Slim scanner/classifier/final-gate jobs. JVM/native jobs remain excluded by the current plan. |
 | Node application/hosting engines | not-applicable | Node is tooling only, without an npm application or hosted runtime. |
 | Formatting / fatal analyzer | verified | 366 files, no format changes; repository-wide `flutter analyze --fatal-infos --no-pub` passed after the lifecycle fixture's explicit interface type. |
 | Size, complexity, nesting and parameters | verified | Fresh DCL/AST enforcement passed; complete formal-parameter traversal and malformed/missing metric regressions passed. Strict limits retained. |
@@ -92,19 +82,19 @@ GitHub documents [public secret-scanning availability](https://docs.github.com/e
 | Exact historical scanner exceptions | accepted-exception | Three immutable fingerprints for historical keys confirmed unusable by the owner; no general path/rule exemption. See decisions below. |
 | Required names / freshness / merge rules | verified | Active [ruleset 6440831](https://github.com/boommasterxd/transcriber/rules/6440831): exactly `CI`, `gitleaks`, `Validate PR Title`; strict freshness, enforce on creation, squash-only and blocked deletion/non-fast-forward. Workflow/final job both named `CI`. |
 | Review / bypass configuration | verified | Zero required reviews, extra unattributed approval enabled; sole bypass repository-admin role 5, `always`; no additional ordinary-user/bot bypass. |
-| Current source hosted-check acceptance | unverified | Latest two integrations lack successful matching required checks; latest rollup contains only skipped Dependabot metadata jobs. Local tests do not substitute hosted acceptance. |
+| Published PR hosted-check acceptance | verified | First published revision passed `CI`, `gitleaks`, title validation and three CodeQL categories on the simulated merge. The final permission/documentation follow-up requires its own matching checks; no merge or bypass used. |
 | Latest merge authority evidence | unverified | Latest merge description asserts a cost-based owner override; this review lacks independent trusted confirmation for that separate merge. Earlier confirmed one-time authority is scoped below. |
 | PR-only CI / Gitleaks, no automatic post-merge duplication | verified | Application CI and Gitleaks remain PR-to-main/manual only. Prepared CodeQL push/schedule triggers are distinct supported-language analysis, not repeated application tests. Historical main-push CI predates the PR-only configuration. |
 | Cancellation / caching / conditional work | verified | PR-scoped cancellation, runtime/lock/config-keyed dependencies, separate JVM cache and no reused coverage; Android fulfills JVM/bundle work without a duplicate runner. No browser/service install for native Flutter selections. |
 | Runner selection / timeouts | verified | Nine lightweight jobs use Slim with 5/10-minute bounds; substantive quality/build on regular runners. Container-based OSV is a documented compatible-runner exception. |
-| Actual Slim compatibility | unverified | Available successful executions predate the Slim source changes; skipped metadata jobs do not prove compatibility. |
+| Actual Slim compatibility | verified | PR #111 successfully executed change classification, final `CI`, title validation and Gitleaks on `ubuntu-slim`. Other lightweight automation roles lack matching execution evidence. |
 | Action pins / upstream provenance | verified | Full-SHA enforcement active. Upstream tag/commit readbacks matched pins or inspected checksum/fail-closed fixes ahead of tags; all workflow roles present. |
 | Five core workflow roles / additional automation | verified | CI, title, guarded Dependabot auto-merge, required Gitleaks and scanner updater; Flutter updater, independent audit and signed Android build/release adaptations also inspected. |
 | Downloaded scanners / linters | verified | Gitleaks 8.30.1 and actionlint 1.7.12 archives matched committed hashes; ShellCheck 0.11.0 and Detekt used as pinned. No weakened checksum controls. |
 | Dependabot schedule / auto-merge boundary | verified | Pub/Gradle/Actions weekly Monday 08:00 Europe/Berlin, ten PRs, minor/patch groups. Metadata-only actor/author/same-repo/no-fork guards, separate write job. npm-only auto-merge leaves actual ecosystems manual as documented. |
 | Public profile / owner plan | unverified | Actual public visibility and personal ownership verified; account plan omitted by available readbacks. Public-profile availability does not depend on inferring a private plan. |
 | Repository secret scanning / push protection | verified | Enabled and read back after the authorized change; one known historical unusable-key alert remains open, not silently dismissed. |
-| Supported-language CodeQL | drift | F6: active JavaScript/Actions analyses succeeded; Kotlin was excluded after failed autobuild. Advanced manual-build configuration is prepared but unpublished. |
+| Supported-language CodeQL | verified | All three advanced PR categories succeeded with no results; Kotlin used traced compilation and CodeQL 2.27.2. PR-mode per-file extraction coverage is unavailable, and default-branch triggers await merge. |
 | Fork approvals | verified | API readback is `all_external_contributors`. Code-bearing PR jobs default to read-only permissions without signing secrets; private-only fork-settings endpoint inapplicable. |
 | Outside-contributor PR admission | verified | Repository policy `all` and empty repository interaction limits. Account-wide limits cannot be read with the current token. |
 | Hosted external-fork checks | unverified | No outside-contributor run created or approved to test admission/execution. Current source preserves read-only untrusted execution and metadata-only privileged jobs. |
@@ -145,8 +135,8 @@ Commands used the existing pinned Flutter SDK explicitly; the older default PATH
 | Node helper regressions with 85/85/80 coverage gates | Independent reviewer: 34 passed, lines/functions 100%, branches 99.22%. |
 | Focused Dart selector/runtime/metrics regressions | Independent reviewer: 155 passed; overlap complete suite and are not additional unique application tests. |
 | actionlint 1.7.12 / ShellCheck 0.11.0 | All workflows, embedded shell and maintained shell scripts passed. |
-| Prepared advanced CodeQL build | Native Flutter config generation and exact forced Kotlin compile passed; 135/135 tasks executed. Upstream CodeQL action v4.39.0 resolves to the pinned SHA. Workflow lint passed; hosted extraction remains unverified. |
-| Provider security readbacks | Secret scanning/push protection enabled; fork approval `all_external_contributors`; default CodeQL active for JavaScript/Actions after Kotlin validation failure. |
+| Advanced CodeQL build | Local configuration/forced compilation passed with 135/135 tasks executed. First hosted Kotlin job passed traced compilation, database finalization and 76 rules; 134 tasks executed, one up to date. Upstream action v4.39.0 matches the pinned SHA. No complete per-file extraction claim. |
+| Provider security readbacks | Secret scanning/push protection enabled; fork approval `all_external_contributors`; admission `all`; default CodeQL `not-configured` while the advanced workflow runs in the PR. |
 | Gitleaks 8.30.1 | Three synthetic regressions, current-directory scan and full 178-commit history passed; exact historical exceptions retained. |
 | OSV 2.7.0 online source scan | Passed four explicit Pub/Gradle/verification inventories; no known vulnerabilities reported. |
 | Documentation index / report links / whitespace | Validated after integration; existing index rows already cover all affected documents. |
@@ -154,6 +144,14 @@ Commands used the existing pinned Flutter SDK explicitly; the older default PATH
 Dart statement/function coverage and native instruction/method metrics are the documented proxies in [code quality](../code-quality.md). Device suites were compiled, not executed. The separate native defect/skip/coverage mutation integrations were inspected and have prior qualified evidence in the quality report; they were not rerun by this review.
 
 Two bounded Sol reviewers independently assessed GitHub provider/workflow evidence and CI selection/coverage. The main reviewer rechecked live rules, profile settings, current classification counterexamples, source imports, migrations and local results, then integrated this report. This was a setup assessment, not a Codex Security scan, legal assessment or comprehensive architecture audit.
+
+## Published verification snapshot
+
+The first published revision, `854865b8b78fe3ed57a6a6ec3c460d9d0d2c12a2`, is [PR #111](https://github.com/boommasterxd/transcriber/pull/111). Its [successful CI run](https://github.com/boommasterxd/transcriber/actions/runs/39260565013) tested synthetic merge `5494849331a04fa364f5aa675d498544491fc2d1` against base `a17ff8c713e89bd945195f9dec2aa836bee0c018`. Dart tests used full mode and measured 169/169 executable sources: 94.86% lines/statements, 92.87% functions and 88.29% branches. Gitleaks, title, workflow lint, dependency audit and final `CI` passed. JVM/native checks were intentionally excluded by the current classifier; the earlier qualified local native results are not fresh hosted native evidence.
+
+The [advanced CodeQL run](https://github.com/boommasterxd/transcriber/actions/runs/39260564354) passed Actions, JavaScript and Kotlin analysis of that same merge, all with zero results. Kotlin used CodeQL 2.27.2, performed actual maintained-source compilation, finalized the database and uploaded analysis without errors or warnings. The [published language table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) lists Kotlin through 2.4.20 while the project declares 2.4.21; the hosted project build/analysis succeeded without an unsupported-version diagnostic. This is evidence for the tested toolchain, not a general compatibility guarantee. PR analysis omits file-coverage telemetry, so no independent per-file extraction completeness claim is made.
+
+This snapshot precedes the explicit workflow-permission correction and its final documentation commit. Matching checks on the latest PR head remain authoritative. The workflow has not merged, so native advanced scans on future default-branch pushes and weekly scheduling are not yet established. No merge is authorized.
 
 ## Decisions, provenance and remaining evidence
 
@@ -165,4 +163,4 @@ The [earlier successful CI run](https://github.com/boommasterxd/transcriber/acti
 
 [Standard hosted runner execution is free for public repositories](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job); storage, larger runners and other products need separate attribution. Slim still follows the setup resource policy and its [15-minute job limit](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Account invoices, included capacity, storage usage and shared budgets were not inspected. No monetary saving is claimed.
 
-Remaining verification needs authorized publication/replacement of default CodeQL and successful Kotlin extraction, matching successful current PR checks, representative docs-only/Slim hosted execution, admitted collaborator-fork behavior and review of PR-modifiable scanner/workflow controls, actual Android device/manual accessibility checks, signed release installation, and separately scoped device performance measurements. No test PR, manual dispatch, deployment or source publication was created. Full setup conformance is not established.
+Remaining verification needs matching successful checks on the permission-fix head, a separately authorized protected merge for default-branch CodeQL triggers, representative docs-only execution and remaining Slim automation roles, hosted outside-contributor/fork behavior, actual Android device/manual accessibility checks, signed release installation and separately scoped device performance measurements. No test PR, manual dispatch, deployment or merge was created; the requested implementation PR and branch were published. Full setup conformance is not established.

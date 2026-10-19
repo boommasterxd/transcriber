@@ -20,6 +20,9 @@ on:
         type: string
         required: true
 
+permissions:
+  contents: read
+
 # Lets version.sh pick up the manual dispatch version; empty on tag pushes.
 env:
   RELEASE_VERSION: ${{ inputs.version }}
