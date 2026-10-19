@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 import '../../../tool/quality/check_coverage.dart';
 import '../ci/git_fixture.dart';

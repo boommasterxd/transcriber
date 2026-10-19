@@ -1,0 +1,2 @@
+com.transcriber.app.EditorSessionGate
+com.transcriber.app.PcmLevelMeter

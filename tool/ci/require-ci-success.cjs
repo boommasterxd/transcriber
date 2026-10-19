@@ -1,9 +1,9 @@
 'use strict';
 
 const REQUIRED_JOBS = [
-  'workflow-lint', 'dart-quality', 'kotlin-quality', 'dependency-audit',
+  'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
 ];
-const FLAGS = ['docs_only', 'workflow', 'dart', 'native', 'build', 'dependency_audit'];
+const FLAGS = ['docs_only', 'workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'];
 
 function jobPlan(outputs) {
   if (!outputs || Object.keys(outputs).length !== FLAGS.length
@@ -17,9 +17,13 @@ function jobPlan(outputs) {
   if (!flags.docs_only && !flags.dependency_audit) {
     throw new Error('Non-documentation changes require a fresh dependency audit.');
   }
+  if (flags.native && !flags.jvm) {
+    throw new Error('Android checks must include the JVM test scope.');
+  }
   return {
     'workflow-lint': flags.workflow,
     'dart-quality': flags.dart || (flags.build && !flags.native),
+    'jvm-quality': flags.jvm && !flags.native,
     'kotlin-quality': flags.native,
     'dependency-audit': flags.dependency_audit,
   };

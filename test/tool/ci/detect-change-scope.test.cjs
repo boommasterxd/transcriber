@@ -6,12 +6,13 @@ const os = require('node:os');
 const path = require('node:path');
 const childProcess = require('node:child_process');
 const test = require('node:test');
-const { detectDocsOnly, detectChangeScope, classifyPaths } = require('../../../tool/ci/detect-change-scope.cjs');
+const { detectDocsOnly, detectChangeScope, classifyPaths, parseJvmClasses } = require('../../../tool/ci/detect-change-scope.cjs');
 
 function scope(...checks) {
   return { docs_only: checks.length === 0,
-    ...Object.fromEntries(['workflow', 'dart', 'native', 'build', 'dependency_audit']
+    ...Object.fromEntries(['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit']
       .map((name) => [name, checks.includes(name)
+        || (name === 'jvm' && checks.includes('native'))
         || (name === 'dependency_audit' && checks.length > 0)])) };
 }
 
@@ -22,6 +23,14 @@ test('fresh advisories remain a required gate even when dependency files are unc
   assert.equal(classifyPaths(['docs/guide.md']).dependency_audit, false);
 });
 
+test('JVM mappings accept only a nonempty manifest of unique qualified classes', () => {
+  assert.deepEqual(parseJvmClasses('com.transcriber.app.EditorSessionGate\r\n'), ['com.transcriber.app.EditorSessionGate']);
+  for (const text of ['', '\n', 'android.foo.Class', '../outside',
+    'com.transcriber.app.Bad_Class', 'com.transcriber.app.PcmLevelMeter\ncom.transcriber.app.PcmLevelMeter']) {
+    assert.throws(() => parseJvmClasses(text));
+  }
+});
+
 test('known paths request precisely their relevant checks', () => {
   const cases = [
     ['docs/nested/guide.md', []],
@@ -29,6 +38,7 @@ test('known paths request precisely their relevant checks', () => {
     ['.github/dependabot.yml', ['workflow']],
     ['tool/ci/detect-change-scope.cjs', ['workflow']],
     ['test/tool/ci/detect-change-scope.test.cjs', ['workflow']],
+    ['test/tool/ci/jvm-test-failure.integration.cjs', ['workflow', 'jvm']],
     ['android/app/src/main/kotlin/Example.kt', ['dart', 'native']],
     ['android/app/src/main/AndroidManifest.xml', ['dart', 'native']],
     ['android/app/src/main/res/values/strings.xml', ['dart', 'native']],
@@ -36,9 +46,13 @@ test('known paths request precisely their relevant checks', () => {
     ['android/app/src/test/kotlin/ExampleTest.kt', ['native']],
     ['android/app/src/androidTest/kotlin/ExampleTest.kt', ['native']],
     ['android/app/src/main/kotlin/com/transcriber/app/EditorFieldPolicy.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['jvm', 'native']],
     ['android/app/src/main/kotlin/com/transcriber/app/ImeNavigationBarAppearance.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['jvm', 'native']],
+    ['android/app/src/test/kotlin/com/transcriber/app/EditorSessionGateTest.kt', ['jvm']],
+    ['android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt', ['jvm']],
+    ['android/app/src/test/kotlin/com/transcriber/app/NavigationBarAppearanceTest.kt', ['native']],
+    ['android/app/src/test/kotlin/com/transcriber/app/EditorFieldPolicyTest.kt', ['native']],
     ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['native']],
     ['android/app/src/main/kotlin/com/transcriber/app/PcmAudioRecorder.kt', ['dart', 'native']],
     ['android/app/src/main/kotlin/com/transcriber/app/ImeMethodHandler.kt', ['dart', 'native']],
@@ -77,13 +91,14 @@ test('ordinary Dart edits never select Java, native tests, or packaging', () => 
 });
 
 test('shared foundations, unknown paths and incomplete inputs require every check', () => {
-  const full = scope('workflow', 'dart', 'native', 'build', 'dependency_audit');
+  const full = scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit');
   for (const name of ['pubspec.yaml', 'pubspec.lock', '.fvmrc', 'analysis_options.yaml',
     'test/flutter_test_config.dart', 'test/nested/flutter_test_config.dart', '.github/workflows/ci.yml',
     '.github/workflows/gitleaks.yml', '.github/workflows/update-gitleaks.yml',
     '.github/workflows/dependency-audit.yml', '.gitleaks.toml',
     '.github/actions/setup-flutter/action.yml', '.github/actions/new/action.yml',
-    '.github/new-config.toml', 'README.md', 'new/config.toml', '']) {
+    '.github/new-config.toml', 'tool/ci/jvm/build.gradle.kts', 'tool/ci/jvm/sources.txt',
+    'README.md', 'new/config.toml', '']) {
     assert.deepEqual(classifyPaths([name]), full, name);
   }
   assert.deepEqual(classifyPaths([]), full);
@@ -120,6 +135,24 @@ function fixture(context) {
   write(cwd, 'src/index.js', 'module.exports = 1;\n');
   return { cwd, base: commit(cwd) };
 }
+
+test('the complete Git range distinguishes pure JVM tests from production consumers', (context) => {
+  const { cwd, base } = fixture(context);
+  const source = 'android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt';
+  const target = 'android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt';
+  write(cwd, target, '// Updated pure test\n');
+  const testHead = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', base, testHead, cwd), scope('jvm'));
+  write(cwd, source, '// Updated helper API\n');
+  const head = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native'));
+  write(cwd, 'docs/dirty-local.md', 'An uncommitted file cannot hide the PR changes.\n');
+  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native'));
+  for (const candidate of ['', 'f'.repeat(40), head]) {
+    assert.deepEqual(detectChangeScope('pull_request', candidate, head, cwd),
+      scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'));
+  }
+});
 
 test('documentation additions, modifications and deletions skip full CI', (context) => {
   const { cwd, base } = fixture(context);

@@ -23,6 +23,7 @@ jobs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
       workflow: ${{ steps.scope.outputs.workflow }}
       dart: ${{ steps.scope.outputs.dart }}
+      jvm: ${{ steps.scope.outputs.jvm }}
       native: ${{ steps.scope.outputs.native }}
       build: ${{ steps.scope.outputs.build }}
       dependency_audit: ${{ steps.scope.outputs.dependency_audit }}
@@ -162,8 +163,50 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
         run: test -d build/flutter_assets
 
+  jvm-quality:
+    name: JVM quality and tests
+    needs: changes
+    if: needs.changes.outputs.jvm == 'true' && needs.changes.outputs.native != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Isolate JVM dependency cache
+        run: printf 'GRADLE_USER_HOME=%s/ci-jvm-gradle\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Cache JVM dependencies and wrapper
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/ci-jvm-gradle/caches/modules-2
+            ${{ runner.temp }}/ci-jvm-gradle/wrapper
+          key: ci-jvm-deps-v1-${{ runner.os }}-${{ hashFiles('tool/ci/jvm/**', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ci-jvm-deps-v1-${{ runner.os }}-
+      - name: Check Kotlin quality
+        run: bash tool/quality/check_kotlin_quality.sh
+      - name: Enforce native and shell file length
+        if: ${{ !cancelled() }}
+        run: node tool/ci/check-native-file-length.cjs
+      - name: Run pure JVM unit tests
+        if: ${{ !cancelled() }}
+        run: android/gradlew -p tool/ci/jvm test --no-daemon
+      - name: Prove JVM tests reject a production defect
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: node --test test/tool/ci/jvm-test-failure.integration.cjs
+
   kotlin-quality:
-    name: Kotlin quality and tests
+    name: Android quality and tests
     needs: changes
     if: needs.changes.outputs.native == 'true'
     runs-on: ubuntu-latest
@@ -177,7 +220,7 @@ jobs:
           check-latest: true
           package-manager-cache: false
       - name: Set up Java
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "17"
@@ -187,7 +230,7 @@ jobs:
           path: |
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper
-          key: ci-gradle-deps-v2-${{ runner.os }}-${{ hashFiles('.fvmrc', 'pubspec.lock', 'android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: ci-gradle-deps-v2-${{ runner.os }}-${{ hashFiles('.fvmrc', 'pubspec.lock', 'android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'tool/ci/jvm/**') }}
           restore-keys: |
             ci-gradle-deps-v2-${{ runner.os }}-
       - name: Set up Flutter
@@ -196,13 +239,19 @@ jobs:
         run: flutter pub get --enforce-lockfile
       - name: Check Kotlin quality
         run: bash tool/quality/check_kotlin_quality.sh
+      - name: Enforce native and shell file length
+        if: ${{ !cancelled() }}
+        run: node tool/ci/check-native-file-length.cjs
       - name: Run native unit tests and compile device tests
         if: ${{ !cancelled() }}
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
-      - name: Enforce native and shell file length
-        if: ${{ !cancelled() }}
-        run: node tool/ci/check-native-file-length.cjs
+      - name: Verify standalone JVM harness
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: android/gradlew -p tool/ci/jvm test --no-daemon
+      - name: Prove JVM tests reject failures and skipped suites
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: node --test test/tool/ci/jvm-test-failure.integration.cjs
       - name: Verify Flutter bundle assembled by native tests
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
         run: |
@@ -237,7 +286,7 @@ jobs:
   CI:
     name: CI
     if: always()
-    needs: [changes, workflow-lint, dart-quality, kotlin-quality, dependency-audit]
+    needs: [changes, workflow-lint, dart-quality, jvm-quality, kotlin-quality, dependency-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

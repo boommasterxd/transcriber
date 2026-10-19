@@ -1,15 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
+import 'package:path/path.dart' as paths;
 
 import '../ci/test_selection.dart';
 
 part 'coverage_lcov.dart';
+part 'coverage_merge.dart';
 part 'coverage_report.dart';
 part 'coverage_scope.dart';
 part 'coverage_source.dart';

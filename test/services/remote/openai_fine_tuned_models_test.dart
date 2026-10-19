@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
 import 'package:transcriber/services/remote/openai_client.dart';
 import 'package:transcriber/services/remote/provider_model_capabilities.dart';

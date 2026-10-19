@@ -7,16 +7,16 @@ const test = require('node:test');
 const { requireCiSuccess } = require('../../../tool/ci/require-ci-success.cjs');
 
 const jobs = [
-  'workflow-lint', 'dart-quality', 'kotlin-quality', 'dependency-audit',
+  'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
 ];
-const flags = ['workflow', 'dart', 'native', 'build', 'dependency_audit'];
+const flags = ['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'];
 
 function prerequisites(docsOnly = 'false') {
   return {
     changes: { result: 'success', outputs: { docs_only: docsOnly,
       ...Object.fromEntries(flags.map((flag) => [flag, docsOnly === 'true' ? 'false' : 'true'])) } },
     ...Object.fromEntries(jobs.map((job) => [job, {
-      result: docsOnly === 'true' ? 'skipped' : 'success',
+      result: docsOnly === 'true' || job === 'jvm-quality' ? 'skipped' : 'success',
     }])),
   };
 }
@@ -24,7 +24,9 @@ function prerequisites(docsOnly = 'false') {
 test('full CI requires all quality, build and security jobs', () => {
   assert.doesNotThrow(() => requireCiSuccess(prerequisites()));
   for (const job of jobs) {
-    for (const result of ['failure', 'cancelled', 'skipped', 'pending', undefined]) {
+    const expected = prerequisites()[job].result;
+    for (const result of ['failure', 'cancelled', 'skipped', 'success', 'pending', undefined]
+      .filter((result) => result !== expected)) {
       const needs = prerequisites();
       needs[job].result = result;
       assert.throws(() => requireCiSuccess(needs), new RegExp(job));
@@ -39,9 +41,10 @@ test('scoped plans require only their exact jobs, and every other job must be sk
   const cases = [
     [['workflow'], ['workflow-lint']],
     [['dart'], ['dart-quality']],
-    [['native'], ['kotlin-quality']],
+    [['jvm'], ['jvm-quality']],
+    [['jvm', 'native'], ['kotlin-quality']],
     [['build'], ['dart-quality']],
-    [['build', 'native'], ['kotlin-quality']],
+    [['build', 'jvm', 'native'], ['kotlin-quality']],
     [['dependency_audit'], ['dependency-audit']],
     [['workflow', 'dart', 'build'], ['workflow-lint', 'dart-quality']],
   ];
@@ -63,6 +66,14 @@ test('scoped plans require only their exact jobs, and every other job must be sk
       needs[job].result = expected;
     }
   }
+});
+
+test('Android owns the JVM scope when both are selected', () => {
+  const needs = prerequisites();
+  assert.equal(needs['jvm-quality'].result, 'skipped');
+  assert.doesNotThrow(() => requireCiSuccess(needs));
+  needs.changes.outputs.jvm = 'false';
+  assert.throws(() => requireCiSuccess(needs), /JVM test scope/);
 });
 
 test('a non-documentation plan cannot intentionally skip fresh dependency advisories', () => {

@@ -1,6 +1,8 @@
 'use strict';
 
 const childProcess = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /** @param {string | undefined} value */
 function isCommitSha(value) {
@@ -8,7 +10,18 @@ function isCommitSha(value) {
     && !/^0+$/.test(value);
 }
 
-const CHECKS = ['workflow', 'dart', 'native', 'build', 'dependency_audit'];
+const CHECKS = ['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'];
+
+function parseJvmClasses(source) {
+  const names = source.split(/\r?\n/).filter((name) => name.length > 0);
+  if (!names.length || new Set(names).size !== names.length
+    || names.some((name) => !/^com\.transcriber\.app\.[A-Z][A-Za-z0-9]*$/.test(name))) {
+    throw new Error('The JVM source manifest must contain distinct qualified class names.');
+  }
+  return names;
+}
+
+const JVM_CLASSES = parseJvmClasses(fs.readFileSync(path.join(__dirname, 'jvm/sources.txt'), 'utf8'));
 
 function fullScope() {
   return { docs_only: false, ...Object.fromEntries(CHECKS.map((name) => [name, true])) };
@@ -24,10 +37,16 @@ function checksForPath(path) {
     '.github/actions/setup-flutter/action.yml'].includes(path)) return CHECKS;
   if (/^\.github\/workflows\/[^/]+\.ya?ml$/.test(path)
     || ['.github/dependabot.yml', '.github/release.yml'].includes(path)) return ['workflow'];
+  if (path === 'test/tool/ci/jvm-test-failure.integration.cjs') return ['workflow', 'jvm'];
   if (/^(tool|test\/tool)\/ci\/[^/]+\.cjs$/.test(path)) return ['workflow'];
+  for (const name of JVM_CLASSES) {
+    const classPath = name.replaceAll('.', '/');
+    if (path === `android/app/src/test/kotlin/${classPath}Test.kt`) return ['jvm'];
+    if (path === `android/app/src/main/kotlin/${classPath}.kt`) return ['jvm', 'native'];
+  }
   if (/^android\/app\/src\/(test|androidTest)\//.test(path)
     || path === 'config/detekt.yml') return ['native'];
-  if (/^android\/app\/src\/main\/kotlin\/com\/transcriber\/app\/(EditorFieldPolicy|EditorSessionGate|ImeNavigationBarAppearance|PcmLevelMeter|ShareFileNamePolicy)\.kt$/.test(path)) {
+  if (/^android\/app\/src\/main\/kotlin\/com\/transcriber\/app\/(EditorFieldPolicy|ImeNavigationBarAppearance|ShareFileNamePolicy)\.kt$/.test(path)) {
     return ['native'];
   }
   if (path.startsWith('android/')) return ['dart', 'native'];
@@ -47,6 +66,8 @@ function classifyPaths(paths) {
   const required = new Set(paths.flatMap(checksForPath));
   // Advisory databases change independently of the lockfile and import graph.
   if (required.size !== 0) required.add('dependency_audit');
+  // The complete Android test task also fulfills the pure JVM test scope.
+  if (required.has('native')) required.add('jvm');
   return { docs_only: required.size === 0,
     ...Object.fromEntries(CHECKS.map((name) => [name, required.has(name)])) };
 }
@@ -73,7 +94,7 @@ function detectDocsOnly(...arguments_) {
   return detectChangeScope(...arguments_).docs_only;
 }
 
-module.exports = { detectChangeScope, detectDocsOnly, classifyPaths };
+module.exports = { detectChangeScope, detectDocsOnly, classifyPaths, parseJvmClasses };
 
 if (require.main === module) {
   const { CHANGE_EVENT, CHANGE_BASE_SHA, CHANGE_HEAD_SHA } = process.env;
