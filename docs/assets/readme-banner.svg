@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="title description">
+  <title id="title">Transcriber</title>
+  <desc id="description">Your voice, organized. A violet waveform flows into a note. Record, import, share, and dictate.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#17142d"/>
+      <stop offset="1" stop-color="#29204c"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#b6aaff"/>
+      <stop offset="1" stop-color="#6c5ce7"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="340" rx="28" fill="url(#background)"/>
+  <circle cx="1100" cy="30" r="230" fill="#6c5ce7" opacity="0.08"/>
+  <circle cx="1100" cy="30" r="170" fill="none" stroke="#b6aaff" opacity="0.1"/>
+  <circle cx="1100" cy="30" r="110" fill="none" stroke="#b6aaff" opacity="0.1"/>
+  <g font-family="Verdana, Arial, sans-serif">
+    <text x="64" y="125" fill="#faf9ff" font-size="64" font-weight="700" letter-spacing="-2">Transcriber</text>
+    <text x="68" y="178" fill="#d6cef5" font-size="28">Your voice, organized.</text>
+    <rect x="68" y="221" width="40" height="3" rx="1.5" fill="#b6aaff"/>
+    <text x="68" y="266" fill="#b6aaff" font-size="15" font-weight="700" letter-spacing="2">RECORD / IMPORT / SHARE / DICTATE</text>
+  </g>
+  <rect x="717" y="90" width="160" height="160" rx="48" fill="url(#accent)"/>
+  <path d="M757 164v12m20-24v36m20-52v68m20-54v40m20-26v12" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+  <path d="M899 170h30m-9-9 10 9-10 9" fill="none" stroke="#b6aaff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="956" y="74" width="171" height="192" rx="22" fill="#201b39" stroke="#514573" stroke-width="2"/>
+  <rect x="979" y="102" width="70" height="8" rx="4" fill="#b6aaff"/>
+  <g fill="#74658f">
+    <rect x="979" y="129" width="124" height="5" rx="2.5"/>
+    <rect x="979" y="144" width="104" height="5" rx="2.5"/>
+    <rect x="979" y="159" width="116" height="5" rx="2.5"/>
+    <rect x="999" y="195" width="93" height="5" rx="2.5"/>
+    <rect x="999" y="220" width="75" height="5" rx="2.5"/>
+  </g>
+  <path d="m980 195 4 4 7-8m-11 29 4 4 7-8" fill="none" stroke="#b6aaff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
