@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../data/models/transcript_note.dart';
+import '../../../../data/models/note_history.dart';
 import '../../../widgets/waveforms.dart';
 import '../note_presentation.dart';
 import 'note_badges.dart';
@@ -17,7 +17,7 @@ class NoteListItem extends StatelessWidget {
     required this.isLast,
   });
 
-  final TranscriptNote note;
+  final NoteHistoryEntry note;
   final AppStrings strings;
   final VoidCallback onTap;
   final bool isLast;
@@ -27,8 +27,7 @@ class NoteListItem extends StatelessWidget {
     final palette = context.palette;
     return Column(
       children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        InkWell(
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -48,7 +47,7 @@ class NoteListItem extends StatelessWidget {
                   child: _NoteText(note: note, strings: strings),
                 ),
                 const SizedBox(width: 8),
-                TodoCountBadge(count: note.todos.length, strings: strings),
+                TodoCountBadge(count: note.todoCount, strings: strings),
                 const SizedBox(width: 6),
                 Icon(
                   Icons.chevron_right_rounded,
@@ -72,7 +71,7 @@ class NoteListItem extends StatelessWidget {
 class _NoteText extends StatelessWidget {
   const _NoteText({required this.note, required this.strings});
 
-  final TranscriptNote note;
+  final NoteHistoryEntry note;
   final AppStrings strings;
 
   @override

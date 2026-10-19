@@ -21,6 +21,8 @@ class RecordScreen extends ConsumerStatefulWidget {
 }
 
 class _RecordScreenState extends ConsumerState<RecordScreen> {
+  bool _busy = false;
+
   @override
   void initState() {
     super.initState();
@@ -28,8 +30,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _begin() async {
-    final ok = await ref.read(recordingControllerProvider.notifier).start();
-    if (!ok && mounted) _showPermissionError();
+    try {
+      final ok = await ref.read(recordingControllerProvider.notifier).start();
+      if (!ok && mounted) _showPermissionError();
+    } catch (_) {
+      if (mounted) _showRecordingError();
+    }
+  }
+
+  void _showRecordingError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ref.read(stringsProvider).recFailure)),
+    );
   }
 
   void _showPermissionError() {
@@ -43,6 +55,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _stop() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _finishRecording();
+    } catch (_) {
+      if (mounted) _showRecordingError();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _finishRecording() async {
     final result = await ref.read(recordingControllerProvider.notifier).stop();
     if (!mounted) return;
     if (result == null) {
@@ -65,8 +89,21 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _cancel() async {
-    await ref.read(recordingControllerProvider.notifier).cancel();
-    if (mounted) Navigator.of(context).pop();
+    if (_busy) return;
+    try {
+      await ref.read(recordingControllerProvider.notifier).cancel();
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) _showRecordingError();
+    }
+  }
+
+  Future<void> _togglePause() async {
+    try {
+      await ref.read(recordingControllerProvider.notifier).togglePause();
+    } catch (_) {
+      if (mounted) _showRecordingError();
+    }
   }
 
   @override
@@ -76,9 +113,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     final paused = ref.watch(
       recordingControllerProvider.select((state) => state.paused),
     );
-    final togglePause = ref
-        .read(recordingControllerProvider.notifier)
-        .togglePause;
+    final active = ref.watch(
+      recordingControllerProvider.select((state) => state.active),
+    );
 
     return PopScope(
       canPop: false,
@@ -97,9 +134,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               RecordControls(
                 paused: paused,
                 strings: strings,
-                onCancel: _cancel,
-                onStop: _stop,
-                onTogglePause: togglePause,
+                actions: RecordingActions(
+                  cancel: _busy ? null : _cancel,
+                  stop: _busy ? null : _stop,
+                  togglePause: active && !_busy ? _togglePause : null,
+                ),
               ),
             ],
           ),

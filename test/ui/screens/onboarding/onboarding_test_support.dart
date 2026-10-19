@@ -27,18 +27,24 @@ class OnboardingTestSettingsController extends SettingsController {
   }
 
   @override
-  Future<void> setAsrProvider(RemoteProviderId provider) =>
-      _replace(state.copyWith(asrProvider: provider));
+  Future<void> setAsrProvider(RemoteProviderId provider) => _replace(
+    state.copyWith(
+      transcription: state.transcription.copyWith(provider: provider),
+    ),
+  );
 
   @override
-  Future<void> setSummaryProvider(RemoteProviderId provider) =>
-      _replace(state.copyWith(summaryProvider: provider));
+  Future<void> setSummaryProvider(RemoteProviderId provider) => _replace(
+    state.copyWith(summary: state.summary.copyWith(provider: provider)),
+  );
 
   @override
   Future<void> setAsrModel(RemoteProviderId provider, String modelId) =>
       _replace(
         state.copyWith(
-          asrModelByProvider: {...state.asrModelByProvider, provider: modelId},
+          transcription: state.transcription.copyWith(
+            models: {...state.asrModelByProvider, provider: modelId},
+          ),
         ),
       );
 
@@ -46,10 +52,9 @@ class OnboardingTestSettingsController extends SettingsController {
   Future<void> setSummaryModel(RemoteProviderId provider, String modelId) =>
       _replace(
         state.copyWith(
-          chatModelByProvider: {
-            ...state.chatModelByProvider,
-            provider: modelId,
-          },
+          summary: state.summary.copyWith(
+            models: {...state.chatModelByProvider, provider: modelId},
+          ),
         ),
       );
 
@@ -57,8 +62,10 @@ class OnboardingTestSettingsController extends SettingsController {
   Future<void> setAsrSelection(RemoteProviderId provider, String modelId) =>
       _replace(
         state.copyWith(
-          asrProvider: provider,
-          asrModelByProvider: {...state.asrModelByProvider, provider: modelId},
+          transcription: state.transcription.copyWith(
+            provider: provider,
+            models: {...state.asrModelByProvider, provider: modelId},
+          ),
         ),
       );
 
@@ -66,17 +73,16 @@ class OnboardingTestSettingsController extends SettingsController {
   Future<void> setSummarySelection(RemoteProviderId provider, String modelId) =>
       _replace(
         state.copyWith(
-          summaryProvider: provider,
-          chatModelByProvider: {
-            ...state.chatModelByProvider,
-            provider: modelId,
-          },
+          summary: state.summary.copyWith(
+            provider: provider,
+            models: {...state.chatModelByProvider, provider: modelId},
+          ),
         ),
       );
 
   @override
   Future<void> setSummarizeEnabled(bool value) =>
-      _replace(state.copyWith(summarizeEnabled: value));
+      _replace(state.copyWith(summary: state.summary.copyWith(enabled: value)));
 
   @override
   Future<void> completeOnboarding() =>
@@ -171,9 +177,10 @@ class OnboardingTestConfig {
     this.settings,
     this.connections = const {},
     this.keys = const {},
-    this.settingsController,
-    this.surfaceSize = const Size(800, 1100),
-    this.textScale = 0.7,
+    this.viewport = const MediaQueryData(
+      size: Size(800, 1100),
+      textScaler: TextScaler.linear(0.7),
+    ),
     this.modelCatalog = defaultOnboardingModels,
     this.failedConnections = const {},
   });
@@ -181,9 +188,7 @@ class OnboardingTestConfig {
   final AppSettings? settings;
   final Map<RemoteProviderId, bool> connections;
   final Map<RemoteProviderId, String> keys;
-  final OnboardingTestSettingsController? settingsController;
-  final Size surfaceSize;
-  final double textScale;
+  final MediaQueryData viewport;
   final Future<List<RemoteModelInfo>> Function(RemoteModelsQuery) modelCatalog;
   final Set<RemoteProviderId> failedConnections;
 }
@@ -205,15 +210,13 @@ Future<ProviderContainer> pumpOnboardingTestApp(
   required Widget child,
   OnboardingTestConfig config = const OnboardingTestConfig(),
 }) async {
-  await tester.binding.setSurfaceSize(config.surfaceSize);
+  await tester.binding.setSurfaceSize(config.viewport.size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final initial = config.settings ?? AppSettings.initial();
   final container = ProviderContainer(
     overrides: [
       settingsControllerProvider.overrideWith(
-        () =>
-            config.settingsController ??
-            OnboardingTestSettingsController(initial),
+        () => OnboardingTestSettingsController(initial),
       ),
       connectionsControllerProvider.overrideWith(
         () => OnboardingTestConnectionsController(config),
@@ -232,8 +235,8 @@ Future<ProviderContainer> pumpOnboardingTestApp(
         theme: AppTheme.build(Brightness.light, AppAccent.blue),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            size: config.surfaceSize,
-            textScaler: TextScaler.linear(config.textScale),
+            size: config.viewport.size,
+            textScaler: config.viewport.textScaler,
           ),
           child: child!,
         ),

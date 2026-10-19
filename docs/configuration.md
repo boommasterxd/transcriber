@@ -26,7 +26,7 @@ Live keyboard dictation has a separate, fixed compatibility mapping:
 
 The keyboard inherits the selected transcription provider, language, and that provider's existing API key. It does not reuse the batch model selector because batch and live endpoints have different compatibility requirements. OpenAI receives the application's `de` or `en` hint, while Gemini receives the required BCP-47 `de-DE` or `en-US` hint; automatic detection omits the hint. The settings card displays the effective live model explicitly.
 
-The provider model catalog is loaded after a stored key has been verified. Only compatible models returned by that provider are selectable; configured defaults are not added to the fetched catalog. A saved model that is absent from the filtered catalog is shown as unavailable rather than marked as a valid selection. Transcription selection includes dedicated transcription models and compatible multimodal models that accept audio and return text.
+The provider model catalog is loaded after a stored key has been verified. A shared raw listing per provider and connection revision supplies both task filters; one cold OpenAI request or Gemini page traversal serves transcription and summary together. Rebuilds reuse it. Explicit refresh/retry invalidates both views, and credential replacement, disconnect, or reconnect invalidates the affected provider without exposing credentials in cache identities. Only compatible returned models are selectable; configured defaults are not added. A saved model absent from the filtered catalog is shown as unavailable. Transcription includes dedicated transcription models and compatible multimodal models that accept audio and return text.
 
 The [OpenAI model-list API](https://developers.openai.com/api/reference/resources/models/methods/list) exposes identifiers but no task, modality, or endpoint capabilities. Purpose filtering therefore uses token-based naming rules rather than fixed model versions. Dedicated transcription models use the Audio Transcriptions API. General audio models use Chat Completions with inline WAV or MP3 audio, which is limited to 20 MiB to bound Base64 memory overhead. Summary selection excludes audio, image, live, embedding, moderation, and other specialized or incompatible roles.
 
@@ -64,7 +64,9 @@ Transcript segments preserve text and ordering only. Provider timestamps are nei
 
 ## Audio Formats and Limits
 
-In-app recording uses mono 16 kHz WAV. Imported and shared files accept FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG/Opus, WAV, and WebM. WhatsApp Opus files keep their original bytes and extension. Gemini receives `audio/opus`; OpenAI's transcription endpoint receives the same bytes with the supported OGG filename and MIME metadata. No FFmpeg conversion is performed.
+In-app recording uses mono 16 kHz PCM16 WAV. Native capture checks the selected batch model's configured upload budget before each write, independent of Flutter timers. It reserves the 44-byte WAV header and stops on complete-second boundaries: at most 3,276 seconds for the 100 MiB client cap, or 655 seconds for OpenAI's 20 MiB inline-audio cap. The UI shows the limit and retains the finished file for explicit processing or discard. Paused time adds no audio. These are application-side bounds, not guarantees of provider access or acceptance.
+
+Imported and shared files accept FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG/Opus, WAV, and WebM. WhatsApp Opus files keep their original bytes and extension. Gemini receives `audio/opus`; OpenAI's transcription endpoint receives the same bytes with the supported OGG filename and MIME metadata. No FFmpeg conversion is performed.
 
 Application boundaries reject empty files and files larger than 250 MiB. Provider clients apply their own stricter request limits before network access where required.
 

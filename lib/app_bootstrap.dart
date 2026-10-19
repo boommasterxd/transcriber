@@ -8,7 +8,6 @@ import 'data/database/legacy_preferences_migrator.dart';
 import 'data/models/app_settings.dart';
 import 'data/models/remote_provider.dart';
 import 'data/models/transcript_note.dart';
-import 'data/repositories/notes_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'services/storage/audio_cache_manager.dart';
 import 'state/providers.dart';
@@ -72,7 +71,6 @@ Future<AppBootstrapData> loadAppBootstrap({
     resolvedDatabase,
     secureStorage: secureStorage,
   );
-  final notesRepository = NotesRepository(resolvedDatabase);
   final resolvedCacheManager = cacheManager ?? AudioCacheManager();
   await resolvedCacheManager.cleanup();
 
@@ -80,7 +78,7 @@ Future<AppBootstrapData> loadAppBootstrap({
     database: resolvedDatabase,
     settings: await settingsRepository.load(),
     connections: await settingsRepository.connectedProviders(),
-    notes: await notesRepository.load(),
+    notes: const [],
     cacheManager: resolvedCacheManager,
   );
 }

@@ -18,11 +18,15 @@ void _registerModelTileTests() {
     await tester.pumpWidget(
       themed(
         ModelTile(
-          title: 'gpt-transcribe',
-          subtitle: 'OpenAI',
-          leading: const Icon(Icons.mic),
-          leadingColor: Colors.red,
-          badge: const Text('Recommended'),
+          content: const ModelTileContent(
+            title: 'gpt-transcribe',
+            subtitle: 'OpenAI',
+            badge: Text('Recommended'),
+          ),
+          leading: const ModelTileLeading(
+            color: Colors.red,
+            child: Icon(Icons.mic),
+          ),
           trailing: const Icon(Icons.check),
           onTap: () => tapped = true,
         ),
@@ -43,8 +47,7 @@ void _registerSelectionTest() {
     await tester.pumpWidget(
       themed(
         const ModelTile(
-          title: 'Model',
-          subtitle: 'Google Gemini',
+          content: ModelTileContent(title: 'Model', subtitle: 'Google Gemini'),
           isLast: true,
           trailing: SizedBox.shrink(),
         ),

@@ -14,6 +14,7 @@ import 'package:transcriber/ui/widgets/buttons.dart';
 
 import '../../../state/state_test_fakes.dart';
 import '../../../support/app_test_fakes.dart';
+import '../../../support/note_test_fixtures.dart';
 import '../detail/detail_test_helpers.dart';
 import '../detail/widgets/summary_failure_test_support.dart';
 
@@ -153,7 +154,9 @@ Future<FakeNotesRepository> _pumpPane(
       overrides: [
         databaseProvider.overrideWithValue(database),
         initialSettingsProvider.overrideWithValue(
-          AppSettings.initial().copyWith(language: AppLanguage.en),
+          AppSettings.initial().copyWith(
+            appearance: const AppearanceSettings(language: AppLanguage.en),
+          ),
         ),
         initialConnectionsProvider.overrideWithValue(const {}),
         initialNotesProvider.overrideWithValue([note]),
@@ -175,20 +178,19 @@ Future<FakeNotesRepository> _pumpPane(
 }
 
 TranscriptNote _testNote() => TranscriptNote(
-  id: 'tablet-note',
-  title: 'Tablet test note',
-  speaker: 'Tablet speaker',
-  source: NoteSource.recording,
-  durationSec: 65,
-  createdAt: DateTime(2026, 8, 27),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'gpt-transcribe',
-  asrSub: 'OpenAI',
-  llmName: 'gemini-3.7-flash',
-  llmSub: 'Google Gemini',
-  gist: 'Tablet summary',
-  points: const ['Tablet key point'],
-  todos: [TodoItem(text: 'Tablet todo')],
-  transcript: const [TranscriptLine(text: 'Tablet transcript')],
+  metadata: NoteMetadata(
+    id: 'tablet-note',
+    title: 'Tablet test note',
+    speaker: 'Tablet speaker',
+    source: NoteSource.recording,
+    durationSec: 65,
+    createdAt: DateTime(2026, 8, 27),
+  ),
+  origins: cloudNoteOrigins,
+  content: NoteContent(
+    gist: 'Tablet summary',
+    points: const ['Tablet key point'],
+    todos: [TodoItem(text: 'Tablet todo')],
+    transcript: const [TranscriptLine(text: 'Tablet transcript')],
+  ),
 );

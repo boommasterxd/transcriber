@@ -1,51 +1,59 @@
 package com.transcriber.app
 
-import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.BadParcelableException
 import android.os.Bundle
-import android.provider.OpenableColumns
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import java.io.File
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
 import java.util.Locale
-import java.util.UUID
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
-/** Translucent share target that copies shared audio into the application cache. */
+/** Translucent share target with a bounded background import and deferred handoff. */
 class ShareActivity : FlutterActivity() {
-    private val channelName = "app/share"
-    private var sharedPath: String? = null
-    private val audioCache by lazy {
-        ShareAudioCache(cacheDir, contentResolver, ::logShareFailure)
-    }
+    private lateinit var importCoordinator: ShareImportCoordinator
+    private var channel: MethodChannel? = null
 
-    // shareMain is a top-level @pragma('vm:entry-point') function in the main
-    // library (lib/main.dart), so the default entrypoint-library resolution
-    // finds it in AOT/release builds.
+    // shareMain lives in lib/main.dart so the default resolution works in AOT.
     override fun getDartEntrypointFunctionName(): String = "shareMain"
 
-    // Transparent window is required so the source app shows through.
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Cache the share synchronously before Flutter can request it through
-        // the method channel. Otherwise a fast Dart startup can observe null
-        // and close the translucent activity before the copy finishes.
-        sharedPath = extractSharedAudio(intent)
+        val handler = Handler(Looper.getMainLooper())
+        val control = ShareImportControl(cleanupWorker)
+        importCoordinator = ShareImportCoordinator(
+            importWorker,
+            { handler.post(it) },
+            { expire ->
+                val deadline = Runnable(expire)
+                handler.postDelayed(deadline, importDeadlineMillis)
+                val cancel: () -> Unit = { handler.removeCallbacks(deadline) }
+                cancel
+            },
+            control,
+        )
+        // Initialize the coordinator before Flutter can call the channel. Its
+        // pending reply preserves the startup race fix without blocking startup.
         super.onCreate(savedInstanceState)
+        val uri = extractSharedUri(intent)
+        val mimeType = intent?.type
+        val context = applicationContext
+        val cache = ShareAudioCache(context.cacheDir, context.contentResolver, ::logShareFailure)
+        importCoordinator.start { uri?.let { cache.copy(it, mimeType, control) } }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        // The generic sharing plugin is registered with every Flutter engine.
-        // Hide this already-consumed intent while plugins attach so it cannot
-        // duplicate the file outside the bounded, managed share cache.
+        // Hide the dedicated share intent while generic plugins attach, avoiding
+        // a second unbounded copy by receive_sharing_intent.
         val sharedIntent = intent
         setIntent(Intent())
         try {
@@ -53,11 +61,16 @@ class ShareActivity : FlutterActivity() {
         } finally {
             setIntent(sharedIntent)
         }
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-            .setMethodCallHandler { call, result ->
+        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app/share").also {
+            it.setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "getInitialSharedPath" -> result.success(sharedPath)
+                    "getInitialSharedPath" -> {
+                        if (!importCoordinator.awaitPath(result::success)) {
+                            result.error("share_request_pending", "Share import is pending", null)
+                        }
+                    }
                     "finish" -> {
+                        importCoordinator.cancel()
                         result.success(true)
                         finish()
                         overridePendingTransition(0, 0)
@@ -65,20 +78,23 @@ class ShareActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        }
     }
 
-    private fun extractSharedAudio(intent: Intent?): String? {
-        val shareIntent = intent?.takeIf(::isSupportedShareIntent)
-        val uri = shareIntent?.let {
-            try {
-                extractSharedUri(it)
-            } catch (e: BadParcelableException) {
-                logShareFailure(e)
-                null
-            }
-        }
-        return uri?.takeIf(::isSupportedUri)?.let {
-            audioCache.copy(it, shareIntent.type)
+    override fun onDestroy() {
+        importCoordinator.cancel()
+        channel?.setMethodCallHandler(null)
+        channel = null
+        super.onDestroy()
+    }
+
+    private fun extractSharedUri(intent: Intent?): Uri? {
+        if (intent == null || !isSupportedShareIntent(intent)) return null
+        return try {
+            readSharedUri(intent)?.takeIf(::isSupportedUri)
+        } catch (error: BadParcelableException) {
+            logShareFailure(error)
+            null
         }
     }
 
@@ -89,7 +105,7 @@ class ShareActivity : FlutterActivity() {
         return actionSupported && type?.startsWith("audio/") == true
     }
 
-    private fun extractSharedUri(intent: Intent): Uri? {
+    private fun readSharedUri(intent: Intent): Uri? {
         val stream = intent.extras?.get(Intent.EXTRA_STREAM)
         val extraUri = when (intent.action) {
             Intent.ACTION_SEND -> stream as? Uri
@@ -109,145 +125,29 @@ class ShareActivity : FlutterActivity() {
         }
     }
 
-    private fun logShareFailure(error: Throwable) {
-        val errorType = error::class.java.simpleName.ifEmpty { "UnknownError" }
-        Log.w(logTag, "Unable to import shared audio ($errorType)")
-    }
-
     private companion object {
-        const val logTag = "ShareActivity"
-    }
-}
+        const val importDeadlineMillis = 60_000L
 
-/** Copies one validated external audio URI into an app-private cache directory. */
-private class ShareAudioCache(
-    private val cacheDirectory: File,
-    private val contentResolver: ContentResolver,
-    private val onFailure: (Throwable) -> Unit,
-) {
-    fun copy(uri: Uri, intentMimeType: String? = null): String? {
-        var outputFile: File? = null
-        var result: String? = null
-        try {
-            val directory = createSharedDirectory()
-            val mimeType = contentResolver.getType(uri) ?: intentMimeType
-            val name = canonicalAudioName(
-                ShareFileNamePolicy.sanitize(displayName(uri)),
-                mimeType,
-            ) ?: return null
-            val candidate = directory?.let { createOutputFile(it, name) }
-            outputFile = candidate
-            if (candidate != null && copyStream(uri, candidate)) {
-                result = candidate.canonicalPath
-            }
-        } catch (error: IOException) {
-            onFailure(error)
-        } catch (error: SecurityException) {
-            onFailure(error)
-        } catch (error: IllegalArgumentException) {
-            onFailure(error)
-        }
-        if (result == null) outputFile?.delete()
-        return result
-    }
-
-    private fun copyStream(uri: Uri, outputFile: File): Boolean {
-        val input = contentResolver.openInputStream(uri) ?: return false
-        return input.use { inputStream ->
-            outputFile.outputStream().use { output ->
-                copyStreamWithinLimit(inputStream, output) &&
-                    outputFile.length() in 1..maximumAudioBytes
-            }
-        }
-    }
-
-    private fun copyStreamWithinLimit(input: InputStream, output: OutputStream): Boolean {
-        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-        var total = 0L
-        var count = input.read(buffer)
-        while (count >= 0 && total <= maximumAudioBytes) {
-            total += count
-            if (total <= maximumAudioBytes) output.write(buffer, 0, count)
-            count = if (total <= maximumAudioBytes) input.read(buffer) else -1
-        }
-        return total in 1..maximumAudioBytes
-    }
-
-    private fun createSharedDirectory(): File? {
-        val directory = File(cacheDirectory, "shared")
-        if (!directory.exists() && !directory.mkdirs()) return null
-        return directory.takeIf { it.isDirectory }
-    }
-
-    private fun createOutputFile(directory: File, name: String): File? {
-        val cacheRoot = cacheDirectory.canonicalFile
-        val directoryRoot = directory.canonicalFile
-        if (!isWithin(cacheRoot, directoryRoot)) return null
-
-        val output = File(directory, "${System.currentTimeMillis()}_${UUID.randomUUID()}_$name")
-        val outputPath = output.canonicalFile
-        return output.takeIf {
-            isWithin(directoryRoot, outputPath) && it.createNewFile()
-        }
-    }
-
-    private fun isWithin(root: File, candidate: File): Boolean {
-        val rootPath = root.path.trimEnd(File.separatorChar) + File.separator
-        return candidate.path.startsWith(rootPath)
-    }
-
-    private fun displayName(uri: Uri): String? {
-        val providerName = if (uri.scheme.equals("file", ignoreCase = true)) {
-            null
-        } else {
-            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
-            }
-        }
-        return providerName.takeUnless { it.isNullOrEmpty() } ?: uri.lastPathSegment
-    }
-
-    private fun canonicalAudioName(name: String, mimeType: String?): String? {
-        val extension = name.substringAfterLast('.', missingDelimiterValue = "")
-            .lowercase(Locale.ROOT)
-        return if (extension.isNotEmpty()) {
-            canonicalNameForExtension(name, extension)
-        } else {
-            supportedMimeExtension(mimeType)?.let { "$name.$it" }
-        }
-    }
-
-    private fun canonicalNameForExtension(name: String, extension: String): String? {
-        return name.takeIf { extension in supportedExtensions }
-    }
-
-    private fun supportedMimeExtension(mimeType: String?): String? {
-        val normalizedMimeType = mimeType
-            ?.substringBefore(';')
-            ?.trim()
-            ?.lowercase(Locale.ROOT)
-        return supportedMimeExtensions[normalizedMimeType]
-    }
-
-    private companion object {
-        const val maximumAudioBytes = 250L * 1024L * 1024L
-        val supportedExtensions = setOf(
-            "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm",
+        // One import for the entire process; a provider ignoring cancellation
+        // occupies this slot instead of accumulating threads on repeated shares.
+        val importWorker = ThreadPoolExecutor(
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            SynchronousQueue(),
         )
-        val supportedMimeExtensions = mapOf(
-            "audio/flac" to "flac",
-            "audio/m4a" to "m4a",
-            "audio/mp3" to "mp3",
-            "audio/mp4" to "mp4",
-            "audio/mpeg" to "mp3",
-            "audio/mpga" to "mpga",
-            "audio/ogg" to "ogg",
-            "audio/opus" to "opus",
-            "audio/wav" to "wav",
-            "audio/webm" to "webm",
-            "audio/x-m4a" to "m4a",
-            "audio/x-wav" to "wav",
+        val cleanupWorker = ThreadPoolExecutor(
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            ArrayBlockingQueue(1),
         )
+
+        fun logShareFailure(error: Throwable) {
+            val errorType = error::class.java.simpleName.ifEmpty { "UnknownError" }
+            Log.w("ShareActivity", "Unable to import shared audio ($errorType)")
+        }
     }
 }

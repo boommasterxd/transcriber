@@ -4,23 +4,13 @@
 /// Strings are a direct port of the DE/EN dictionaries from the original design.
 library;
 
+import '../../data/models/app_language.dart';
+
+export '../../data/models/app_language.dart';
+
 part 'app_string_key.dart';
 part 'app_strings_de.dart';
 part 'app_strings_en.dart';
-
-enum AppLanguage {
-  de('de'),
-  en('en');
-
-  const AppLanguage(this.code);
-
-  final String code;
-
-  static AppLanguage fromCode(String? code) => AppLanguage.values.firstWhere(
-    (language) => language.code == code,
-    orElse: () => AppLanguage.de,
-  );
-}
 
 class AppStrings {
   const AppStrings._(this.language, this._values);
@@ -47,6 +37,14 @@ class AppStrings {
   String get recording => _string(_StringKey.recording);
   String get recPaused => _string(_StringKey.recPaused);
   String get recHint => _string(_StringKey.recHint);
+  String get previousPage => _string(_StringKey.previousPage);
+  String get nextPage => _string(_StringKey.nextPage);
+  String recLimit(String duration) =>
+      _string(_StringKey.recLimit).replaceAll('{duration}', duration);
+  String recLimitWarning(String duration) =>
+      _string(_StringKey.recLimitWarning).replaceAll('{duration}', duration);
+  String get recLimitReached => _string(_StringKey.recLimitReached);
+  String get recFailure => _string(_StringKey.recFailure);
   String get recResume => _string(_StringKey.recResume);
   String get recPause => _string(_StringKey.recPause);
   String get recStopShort => _string(_StringKey.recStopShort);

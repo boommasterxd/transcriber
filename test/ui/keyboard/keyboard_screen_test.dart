@@ -51,9 +51,11 @@ void _registerInteractionTests() {
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.correcting).copyWith(
-        preview: 'Guten Mor',
-        elapsed: const Duration(minutes: 2, seconds: 7),
-        levels: const [0.1, 0.5, 0.9],
+        progress: const DictationProgress(
+          preview: 'Guten Mor',
+          elapsed: Duration(minutes: 2, seconds: 7),
+          levels: [0.1, 0.5, 0.9],
+        ),
       ),
       brightness: Brightness.dark,
       size: const Size(360, 312),
@@ -94,8 +96,10 @@ void _registerInteractionTests() {
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.paused).copyWith(
-        levels: const [0.2, 0.7, 0.4],
-        elapsed: const Duration(seconds: 12),
+        progress: const DictationProgress(
+          levels: [0.2, 0.7, 0.4],
+          elapsed: Duration(seconds: 12),
+        ),
       ),
       actions: _KeyboardActions(togglePause: () => resumes++),
     );
@@ -139,7 +143,12 @@ void _registerBrandingTests() {
   ) async {
     await _pumpKeyboard(
       tester,
-      _state(DictationPhase.ready).copyWith(provider: RemoteProviderId.google),
+      _state(DictationPhase.ready).copyWith(
+        selection: const DictationModelSelection(
+          provider: RemoteProviderId.google,
+          modelId: 'gpt-live-transcribe',
+        ),
+      ),
     );
 
     expect(
@@ -178,9 +187,12 @@ void _registerAccessibilityAndRecoveryTests() {
   ) async {
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.paused,
-      ).copyWith(levels: const [0.2, 0.7, 0.4], preview: 'Pausierter Text'),
+      _state(DictationPhase.paused).copyWith(
+        progress: const DictationProgress(
+          levels: [0.2, 0.7, 0.4],
+          preview: 'Pausierter Text',
+        ),
+      ),
       textScale: 1.6,
       size: const Size(360, 280),
     );
@@ -197,7 +209,13 @@ void _registerAccessibilityAndRecoveryTests() {
     final semantics = tester.ensureSemantics();
     await _pumpKeyboard(
       tester,
-      _state(DictationPhase.unavailable).copyWith(editorSupported: false),
+      _state(DictationPhase.unavailable).copyWith(
+        editor: const DictationEditorStatus(
+          visible: true,
+          supported: false,
+          microphoneGranted: true,
+        ),
+      ),
       textScale: 1.6,
     );
 
@@ -217,9 +235,14 @@ void _registerAccessibilityAndRecoveryTests() {
     var settingsOpened = 0;
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.error,
-      ).copyWith(microphoneGranted: false, errorCode: 'microphone_denied'),
+      _state(DictationPhase.error).copyWith(
+        editor: const DictationEditorStatus(
+          visible: true,
+          supported: true,
+          microphoneGranted: false,
+        ),
+        errorCode: 'microphone_denied',
+      ),
       actions: _KeyboardActions(openAppSettings: () => settingsOpened++),
     );
 
@@ -285,11 +308,15 @@ void _registerErrorTests() {
 DictationState _state(DictationPhase phase) =>
     DictationState.initial().copyWith(
       phase: phase,
-      visible: true,
-      editorSupported: true,
-      microphoneGranted: true,
-      provider: RemoteProviderId.openai,
-      modelId: 'gpt-live-transcribe',
+      editor: const DictationEditorStatus(
+        visible: true,
+        supported: true,
+        microphoneGranted: true,
+      ),
+      selection: const DictationModelSelection(
+        provider: RemoteProviderId.openai,
+        modelId: 'gpt-live-transcribe',
+      ),
       clearError: true,
     );
 
@@ -313,13 +340,17 @@ Future<void> _pumpKeyboard(
         home: KeyboardView(
           state: state,
           strings: AppStrings.of(AppLanguage.de),
-          start: actions.start ?? _noOp,
-          stop: actions.stop ?? _noOp,
-          togglePause: actions.togglePause ?? _noOp,
-          cancel: actions.cancel ?? _noOp,
-          deleteBackward: actions.deleteBackward ?? _noOp,
-          switchBack: _noOp,
-          openAppSettings: actions.openAppSettings ?? _noOp,
+          actions: KeyboardActions(
+            start: actions.start ?? _noOp,
+            recording: RecordingActions(
+              stop: actions.stop ?? _noOp,
+              togglePause: actions.togglePause ?? _noOp,
+              cancel: actions.cancel ?? _noOp,
+            ),
+            deleteBackward: actions.deleteBackward ?? _noOp,
+            switchBack: _noOp,
+            openAppSettings: actions.openAppSettings ?? _noOp,
+          ),
         ),
       ),
     ),

@@ -7,6 +7,7 @@ import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
 import 'provider_model_capabilities.dart';
+import 'remote_audio_limits.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
 import 'transcription_prompt.dart';
@@ -14,13 +15,22 @@ import 'transcription_prompt.dart';
 /// Direct REST client for OpenAI's chat and transcription endpoints.
 class OpenAiClient implements RemoteProviderClient {
   OpenAiClient({required this.apiKey, http.Client? httpClient})
-    : _http = httpClient ?? http.Client();
+    : _http = httpClient ?? http.Client(),
+      _ownsHttp = httpClient == null;
 
   final String apiKey;
   final http.Client _http;
+  final bool _ownsHttp;
+  bool _closed = false;
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    if (_ownsHttp) _http.close();
+  }
 
   static const _baseUrl = 'https://api.openai.com/v1';
-  static const _maxInlineAudioBytes = 20 * 1024 * 1024;
   @override
   Future<void> testConnection() async {
     await _getJson('/models', timeout: remoteListTimeout);
@@ -29,24 +39,16 @@ class OpenAiClient implements RemoteProviderClient {
   @override
   Future<List<RemoteModelInfo>> listModels({
     required bool forTranscription,
-  }) async {
+  }) async =>
+      (await loadModelCatalog()).modelsFor(forTranscription: forTranscription);
+
+  @override
+  Future<ProviderModelCatalog> loadModelCatalog() async {
     final json = await _getJson('/models', timeout: remoteListTimeout);
     final data = json['data'];
-    if (data is! List) return const [];
-    final ids =
-        data
-            .whereType<Map>()
-            .map((model) => model['id'])
-            .whereType<String>()
-            .where(
-              (id) => forTranscription
-                  ? ProviderModelCapabilities.isOpenAiTranscriptionModel(id)
-                  : ProviderModelCapabilities.isOpenAiSummaryModel(id),
-            )
-            .toSet()
-            .toList()
-          ..sort();
-    return ids.map((id) => RemoteModelInfo(id: id)).toList();
+    return ProviderModelCatalog.openAi(
+      data is List ? data.whereType<Map>() : const [],
+    );
   }
 
   @override
@@ -173,7 +175,7 @@ class OpenAiClient implements RemoteProviderClient {
         'This OpenAI multimodal model requires WAV or MP3 audio.',
       );
     }
-    if (length > _maxInlineAudioBytes) {
+    if (length > maxInlineAudioBytes) {
       throw const RemoteApiException(
         'This OpenAI multimodal model requires audio up to 20 MiB.',
       );

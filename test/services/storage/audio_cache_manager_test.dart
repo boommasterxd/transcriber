@@ -29,7 +29,6 @@ void main() {
 final class _AudioCacheTestHarness {
   _AudioCacheTestHarness({
     required this.root,
-    required this.supportRoot,
     required this.cacheRoot,
     required this.externalRoot,
     required this.paths,
@@ -38,7 +37,6 @@ final class _AudioCacheTestHarness {
   });
 
   final Directory root;
-  final Directory supportRoot;
   final Directory cacheRoot;
   final Directory externalRoot;
   final StoragePaths paths;
@@ -68,7 +66,6 @@ final class _AudioCacheTestHarness {
     );
     return _AudioCacheTestHarness(
       root: root,
-      supportRoot: supportRoot,
       cacheRoot: cacheRoot,
       externalRoot: externalRoot,
       paths: paths,

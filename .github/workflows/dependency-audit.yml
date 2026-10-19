@@ -17,6 +17,7 @@ jobs:
     with:
       scan-args: |-
         --lockfile=pubspec.lock
+        --lockfile=android/app/gradle.lockfile
         --lockfile=tool/ci/jvm/gradle.lockfile
         --lockfile=tool/ci/jvm/gradle/verification-metadata.xml
       upload-sarif: false

@@ -1,23 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' show Color;
 
-/// The five selectable accent colors from the design system.
-enum AppAccent {
-  violet('violet', Color(0xFF6C5CE7)),
-  blue('blue', Color(0xFF2F7BF6)),
-  emerald('emerald', Color(0xFF12A36B)),
-  amber('amber', Color(0xFFE8883A)),
-  magenta('magenta', Color(0xFFC13D9E));
+import '../../data/models/app_accent.dart';
 
-  const AppAccent(this.id, this.color);
+export '../../data/models/app_accent.dart';
 
-  /// Stable identifier used for persistence.
-  final String id;
-
-  /// Base accent color.
-  final Color color;
-
-  static AppAccent fromId(String? id) => AppAccent.values.firstWhere(
-    (a) => a.id == id,
-    orElse: () => AppAccent.blue,
-  );
+/// Design-system colors for framework-independent persisted accent choices.
+extension AppAccentPresentation on AppAccent {
+  Color get color => switch (this) {
+    AppAccent.violet => const Color(0xFF6C5CE7),
+    AppAccent.blue => const Color(0xFF2F7BF6),
+    AppAccent.emerald => const Color(0xFF12A36B),
+    AppAccent.amber => const Color(0xFFE8883A),
+    AppAccent.magenta => const Color(0xFFC13D9E),
+  };
 }

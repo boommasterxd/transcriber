@@ -55,8 +55,16 @@ class PillButton extends StatelessWidget {
     this.icon,
     this.trailingIcon,
     this.height = 58,
-    this.outlined = false,
-  });
+  }) : outlined = false;
+
+  const PillButton.outlined({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.trailingIcon,
+    this.height = 58,
+  }) : outlined = true;
 
   final String label;
   final VoidCallback onTap;

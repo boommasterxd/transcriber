@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
-import 'gemini_model_catalog.dart';
 import 'mime_utils.dart';
 import 'provider_model_capabilities.dart';
 import 'remote_api_client.dart';
@@ -23,13 +22,23 @@ class GoogleClient implements RemoteProviderClient {
     this.pollTimeout = const Duration(seconds: 30),
     Future<void> Function(Duration)? delay,
   }) : _http = httpClient ?? http.Client(),
+       _ownsHttp = httpClient == null,
        _delay = delay ?? Future<void>.delayed;
 
   final String apiKey;
   final http.Client _http;
+  final bool _ownsHttp;
+  bool _closed = false;
   final Duration pollInterval;
   final Duration pollTimeout;
   final Future<void> Function(Duration) _delay;
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    if (_ownsHttp) _http.close();
+  }
 
   static const _baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
   static const _uploadUrl =
@@ -44,17 +53,12 @@ class GoogleClient implements RemoteProviderClient {
   @override
   Future<List<RemoteModelInfo>> listModels({
     required bool forTranscription,
-  }) async {
-    final models = await _listModelCatalog();
-    final result = <String, RemoteModelInfo>{};
-    for (final raw in models) {
-      final model = geminiCatalogModel(raw, forTranscription: forTranscription);
-      if (model != null) result.putIfAbsent(model.id, () => model);
-    }
-    final sorted = result.values.toList()
-      ..sort((left, right) => left.id.compareTo(right.id));
-    return sorted;
-  }
+  }) async =>
+      (await loadModelCatalog()).modelsFor(forTranscription: forTranscription);
+
+  @override
+  Future<ProviderModelCatalog> loadModelCatalog() async =>
+      ProviderModelCatalog.google(await _listModelCatalog());
 
   @override
   Future<String> summarize({
@@ -204,7 +208,7 @@ class GoogleClient implements RemoteProviderClient {
       throw const RemoteApiException('Gemini did not return an upload URL.');
     }
 
-    final upload = http.StreamedRequest('POST', Uri.parse(uploadUri))
+    final upload = _AudioUploadRequest(Uri.parse(uploadUri), file)
       ..headers.addAll({
         'x-goog-api-key': apiKey,
         'X-Goog-Upload-Offset': '0',
@@ -212,10 +216,7 @@ class GoogleClient implements RemoteProviderClient {
         'Content-Type': audioMimeType(file.path),
       })
       ..contentLength = length;
-    final responseFuture = _send(upload, timeout: remoteTranscribeTimeout);
-    await upload.sink.addStream(file.openRead());
-    await upload.sink.close();
-    final response = await responseFuture;
+    final response = await _send(upload, timeout: remoteTranscribeTimeout);
     validateRemoteResponse(
       statusCode: response.statusCode,
       body: response.body,
@@ -403,6 +404,19 @@ class GoogleClient implements RemoteProviderClient {
     final match = RegExp(r'^gemini-(\d+)').firstMatch(modelId.toLowerCase());
     final major = match == null ? null : int.tryParse(match.group(1)!);
     return major != null && major >= 3;
+  }
+}
+
+/// Finalizes directly from disk so transport abort also cancels the file read.
+final class _AudioUploadRequest extends http.BaseRequest {
+  _AudioUploadRequest(Uri uri, this.file) : super('POST', uri);
+
+  final File file;
+
+  @override
+  http.ByteStream finalize() {
+    super.finalize();
+    return http.ByteStream(file.openRead());
   }
 }
 

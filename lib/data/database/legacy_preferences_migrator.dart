@@ -1,11 +1,10 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/l10n/app_strings.dart';
-import '../../core/theme/app_accent.dart';
+import '../models/app_accent.dart';
+import '../models/app_language.dart';
 import '../models/app_settings.dart';
 import '../models/remote_provider.dart';
 import '../models/transcript_note.dart';
@@ -93,24 +92,24 @@ class LegacyPreferencesMigrator {
         RemoteProviderId.google,
       );
       return AppSettings(
-        themeMode: _themeMode(json),
-        accent: AppAccent.fromId(json['accent'] as String?),
-        language: AppLanguage.fromCode(json['language'] as String?),
-        transcriptionLanguage: TranscriptionLanguage.fromCode(
-          json['transcriptionLanguage'] as String?,
+        appearance: AppearanceSettings(
+          themeMode: _themeMode(json),
+          accent: AppAccent.fromId(json['accent'] as String?),
+          language: AppLanguage.fromCode(json['language'] as String?),
         ),
-        asrProvider: asrProvider,
-        summaryProvider: summaryProvider,
-        asrModelByProvider: _selectedModel(
-          json['asrModelByProvider'],
-          asrProvider,
+        transcription: TranscriptionSettings(
+          language: TranscriptionLanguage.fromCode(
+            json['transcriptionLanguage'] as String?,
+          ),
+          provider: asrProvider,
+          models: _selectedModel(json['asrModelByProvider'], asrProvider),
         ),
-        chatModelByProvider: _selectedModel(
-          json['chatModelByProvider'],
-          summaryProvider,
+        summary: SummarySettings(
+          provider: summaryProvider,
+          models: _selectedModel(json['chatModelByProvider'], summaryProvider),
+          enabled: json['summarizeEnabled'] as bool? ?? true,
         ),
         autoDeleteAudio: json['autoDeleteAudio'] as bool? ?? false,
-        summarizeEnabled: json['summarizeEnabled'] as bool? ?? true,
         onboarded: json['onboarded'] as bool? ?? false,
       );
     } catch (_) {
@@ -180,18 +179,18 @@ class LegacyPreferencesMigrator {
       ? RemoteProviderId.google
       : fallback;
 
-  ThemeMode _themeMode(Map<String, dynamic> json) {
+  AppThemeMode _themeMode(Map<String, dynamic> json) {
     final value = json['themeMode'];
     if (value is String) {
-      return ThemeMode.values.firstWhere(
+      return AppThemeMode.values.firstWhere(
         (mode) => mode.name == value,
-        orElse: () => ThemeMode.system,
+        orElse: () => AppThemeMode.system,
       );
     }
     return switch (json['brightness']) {
-      'dark' => ThemeMode.dark,
-      'light' => ThemeMode.light,
-      _ => ThemeMode.system,
+      'dark' => AppThemeMode.dark,
+      'light' => AppThemeMode.light,
+      _ => AppThemeMode.system,
     };
   }
 }

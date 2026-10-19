@@ -20,6 +20,72 @@ void main() {
   _registerMutationTests(fixture);
   _registerTodoTests(fixture);
   _registerErrorTests(fixture);
+  _registerCacheTests(fixture);
+}
+
+void _registerCacheTests(_NotesFixture fixture) {
+  test(
+    'seed and recently changed detail cache remain bounded to eight',
+    () async {
+      fixture.initialNotes = [
+        for (var index = 0; index < 12; index++)
+          _note('seed-$index', DateTime.utc(2025)),
+      ];
+      fixture.recreateContainer();
+      expect(fixture.container.read(notesControllerProvider), hasLength(8));
+      final controller = fixture.container.read(
+        notesControllerProvider.notifier,
+      );
+      for (var index = 0; index < 12; index++) {
+        await controller.add(_note('added-$index', DateTime.utc(2026)));
+      }
+      final cache = fixture.container.read(notesControllerProvider);
+      expect(cache.map((note) => note.id), [
+        for (var index = 11; index >= 4; index--) 'added-$index',
+      ]);
+      expect(fixture.repository.loaded, hasLength(24));
+      await controller.toggleTodo('added-5', 0);
+      expect(fixture.container.read(notesControllerProvider), hasLength(8));
+      expect(
+        fixture.container.read(notesControllerProvider).first.id,
+        'added-5',
+      );
+    },
+  );
+
+  test(
+    'refresh invalidates listeners even when the cache is already empty',
+    () async {
+      var notifications = 0;
+      final subscription = fixture.container.listen(notesControllerProvider, (
+        _,
+        _,
+      ) {
+        notifications++;
+      });
+      addTearDown(subscription.close);
+      final controller = fixture.container.read(
+        notesControllerProvider.notifier,
+      );
+      final initial = fixture.container.read(notesControllerProvider);
+      await controller.refresh();
+      final refreshed = fixture.container.read(notesControllerProvider);
+      await controller.refresh();
+      expect(refreshed, isEmpty);
+      expect(identical(initial, refreshed), isFalse);
+      expect(notifications, 2);
+    },
+  );
+
+  test('missing persisted todo target removes stale cached details', () async {
+    fixture.initialNotes = [_note('removed', DateTime.utc(2025))];
+    fixture.recreateContainer();
+    fixture.repository.loaded.clear();
+    await fixture.container
+        .read(notesControllerProvider.notifier)
+        .toggleTodo('removed', 0);
+    expect(fixture.container.read(notesControllerProvider), isEmpty);
+  });
 }
 
 void _registerReadTests(_NotesFixture fixture) {
@@ -34,24 +100,24 @@ void _registerReadTests(_NotesFixture fixture) {
     expect(controller.byId('missing'), isNull);
   });
 
-  test('refresh replaces stale state with the persisted snapshot', () async {
-    final initial = _note('initial', DateTime.utc(2025, 1, 1));
-    final shared = _note('shared', DateTime.utc(2025, 2, 1));
-    fixture.initialNotes = [initial];
-    fixture.repository.loaded = [shared, initial];
-    fixture.recreateContainer();
+  test(
+    'refresh invalidates stale details without loading a snapshot',
+    () async {
+      final initial = _note('initial', DateTime.utc(2025, 1, 1));
+      final shared = _note('shared', DateTime.utc(2025, 2, 1));
+      fixture.initialNotes = [initial];
+      fixture.repository.loaded = [shared, initial];
+      fixture.recreateContainer();
 
-    await fixture.container.read(notesControllerProvider.notifier).refresh();
+      await fixture.container.read(notesControllerProvider.notifier).refresh();
 
-    expect(fixture.container.read(notesControllerProvider).map((n) => n.id), [
-      'shared',
-      'initial',
-    ]);
-  });
+      expect(fixture.container.read(notesControllerProvider), isEmpty);
+    },
+  );
 }
 
 void _registerMutationTests(_NotesFixture fixture) {
-  test('adds notes newest first and persists the complete snapshot', () async {
+  test('adds a note and publishes the committed repository snapshot', () async {
     final old = _note('old', DateTime.utc(2025, 1, 1));
     final newest = _note('newest', DateTime.utc(2025, 3, 1));
     fixture.initialNotes = [old];
@@ -204,7 +270,7 @@ void _registerTodoTests(_NotesFixture fixture) {
 
 void _registerErrorTests(_NotesFixture fixture) {
   test(
-    'exposes persistence errors while retaining the updated state',
+    'exposes persistence errors without publishing an uncommitted note',
     () async {
       fixture.repository.failOnSave = true;
       final controller = fixture.container.read(
@@ -214,20 +280,24 @@ void _registerErrorTests(_NotesFixture fixture) {
 
       await expectLater(controller.add(note), throwsStateError);
 
+      expect(fixture.container.read(notesControllerProvider), isEmpty);
+      expect(fixture.repository.loaded, isEmpty);
+      fixture.repository.failOnSave = false;
+      await controller.add(note);
       expect(fixture.container.read(notesControllerProvider), [note]);
     },
   );
 
-  test('refresh failure preserves the current in-memory snapshot', () async {
+  test('refresh does not read a failing repository', () async {
     final stable = _note('stable', DateTime.utc(2025, 1, 1));
     fixture.initialNotes = [stable];
     fixture.repository.failOnLoad = true;
     fixture.recreateContainer();
     final controller = fixture.container.read(notesControllerProvider.notifier);
 
-    await expectLater(controller.refresh(), throwsStateError);
+    await controller.refresh();
 
-    expect(fixture.container.read(notesControllerProvider), [stable]);
+    expect(fixture.container.read(notesControllerProvider), isEmpty);
   });
 }
 
@@ -256,6 +326,7 @@ class _NotesFixture {
 
   void recreateContainer() {
     if (_containerInitialized) container.dispose();
+    if (repository.loaded.isEmpty) repository.loaded = List.of(initialNotes);
     container = ProviderContainer(
       overrides: [
         initialNotesProvider.overrideWithValue(initialNotes),
@@ -281,22 +352,28 @@ TranscriptNote _note(
   String? audioPath,
   AudioOwnership audioOwnership = AudioOwnership.external,
 }) => TranscriptNote(
-  id: id,
-  title: 'Title $id',
-  speaker: 'Speaker',
-  source: NoteSource.recording,
-  durationSec: 10,
-  createdAt: createdAt,
-  asrIsLocal: true,
-  summaryIsLocal: true,
-  asrName: 'ASR',
-  asrSub: 'Local',
-  llmName: 'LLM',
-  llmSub: 'Local',
-  gist: 'Gist',
-  points: const ['Point'],
-  todos: todos ?? [TodoItem(text: 'Action')],
-  transcript: const [TranscriptLine(text: 'Text')],
+  metadata: NoteMetadata(
+    id: id,
+    title: 'Title $id',
+    speaker: 'Speaker',
+    source: NoteSource.recording,
+    durationSec: 10,
+    createdAt: createdAt,
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: true,
+    summaryIsLocal: true,
+    asrName: 'ASR',
+    asrSub: 'Local',
+    llmName: 'LLM',
+    llmSub: 'Local',
+  ),
+  content: NoteContent(
+    gist: 'Gist',
+    points: const ['Point'],
+    todos: todos ?? [TodoItem(text: 'Action')],
+    transcript: const [TranscriptLine(text: 'Text')],
+  ),
   audioPath: audioPath ?? '/recordings/$id.wav',
   audioOwnership: audioOwnership,
 );

@@ -54,7 +54,9 @@ void _registerUnavailableCatalogs(AppStrings strings) {
       tester,
       config: OnboardingTestConfig(
         connections: const {RemoteProviderId.google: true},
-        settings: AppSettings.initial().copyWith(summarizeEnabled: false),
+        settings: AppSettings.initial().copyWith(
+          summary: const SummarySettings(enabled: false),
+        ),
         modelCatalog: (_) => pending.future,
       ),
     );
@@ -115,7 +117,9 @@ void _registerOptionalSummary(AppStrings strings) {
       1,
       config: OnboardingTestConfig(
         connections: const {RemoteProviderId.google: true},
-        settings: AppSettings.initial().copyWith(summarizeEnabled: false),
+        settings: AppSettings.initial().copyWith(
+          summary: const SummarySettings(enabled: false),
+        ),
         modelCatalog: (query) {
           queries.add(query);
           return defaultOnboardingModels(query);

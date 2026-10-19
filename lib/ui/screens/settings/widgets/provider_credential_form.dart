@@ -11,26 +11,14 @@ class ProviderCredentialForm extends ConsumerWidget {
     super.key,
     required this.provider,
     required this.controller,
-    required this.busy,
-    required this.connected,
-    required this.verified,
-    required this.failed,
-    required this.onConnect,
-    required this.onShowHelp,
-    this.onTest,
-    this.onDisconnect,
+    required this.status,
+    required this.actions,
   });
 
   final RemoteProviderId provider;
   final TextEditingController controller;
-  final bool busy;
-  final bool connected;
-  final bool verified;
-  final bool failed;
-  final VoidCallback onConnect;
-  final VoidCallback onShowHelp;
-  final VoidCallback? onTest;
-  final VoidCallback? onDisconnect;
+  final CredentialFormStatus status;
+  final CredentialFormActions actions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,17 +30,17 @@ class ProviderCredentialForm extends ConsumerWidget {
         _ProviderApiKeyInput(
           provider: provider,
           controller: controller,
-          onConnect: onConnect,
-          busy: busy,
-          connected: connected,
+          onConnect: actions.connect,
+          busy: status.busy,
+          connected: status.connected,
         ),
-        if (verified || failed) ...[
+        if (status.verified || status.failed) ...[
           const SizedBox(height: 8),
           Text(
-            verified ? strings.keyVerified : strings.keyCheckFailed,
+            status.verified ? strings.keyVerified : strings.keyCheckFailed,
             style: TextStyle(
               fontSize: 12,
-              color: verified ? palette.mint : palette.coralInk,
+              color: status.verified ? palette.mint : palette.coralInk,
             ),
           ),
         ],
@@ -65,20 +53,20 @@ class ProviderCredentialForm extends ConsumerWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: busy ? null : onShowHelp,
+            onPressed: status.busy ? null : actions.showHelp,
             style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
             icon: const Icon(Icons.help_outline_rounded, size: 16),
             label: Text(strings.keyHelp),
           ),
         ),
-        if (onTest != null || onDisconnect != null) ...[
+        if (actions.test != null || actions.disconnect != null) ...[
           const SizedBox(height: 4),
           Row(
             children: [
-              if (onTest != null)
+              if (actions.test != null)
                 Expanded(
                   child: TextButton(
-                    onPressed: busy ? null : onTest,
+                    onPressed: status.busy ? null : actions.test,
                     style: TextButton.styleFrom(
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -86,12 +74,12 @@ class ProviderCredentialForm extends ConsumerWidget {
                     child: Text(strings.testKey, textAlign: TextAlign.center),
                   ),
                 ),
-              if (onTest != null && onDisconnect != null)
+              if (actions.test != null && actions.disconnect != null)
                 const SizedBox(width: 8),
-              if (onDisconnect != null)
+              if (actions.disconnect != null)
                 Expanded(
                   child: TextButton(
-                    onPressed: busy ? null : onDisconnect,
+                    onPressed: status.busy ? null : actions.disconnect,
                     style: TextButton.styleFrom(
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -109,6 +97,36 @@ class ProviderCredentialForm extends ConsumerWidget {
       ],
     );
   }
+}
+
+@immutable
+class CredentialFormStatus {
+  const CredentialFormStatus({
+    required this.busy,
+    required this.connected,
+    required this.verified,
+    required this.failed,
+  });
+
+  final bool busy;
+  final bool connected;
+  final bool verified;
+  final bool failed;
+}
+
+@immutable
+class CredentialFormActions {
+  const CredentialFormActions({
+    required this.connect,
+    required this.showHelp,
+    this.test,
+    this.disconnect,
+  });
+
+  final VoidCallback connect;
+  final VoidCallback showHelp;
+  final VoidCallback? test;
+  final VoidCallback? disconnect;
 }
 
 class _ProviderApiKeyInput extends ConsumerWidget {

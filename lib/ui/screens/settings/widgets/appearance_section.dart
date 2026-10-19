@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
+import '../../../../data/models/appearance_settings.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/segmented_control.dart';
@@ -35,14 +36,14 @@ class AppearanceSection extends ConsumerWidget {
               SegmentOption(t.dark, icon: Icons.dark_mode_outlined),
             ],
             selectedIndex: switch (appearance.themeMode) {
-              ThemeMode.system => 0,
-              ThemeMode.light => 1,
-              ThemeMode.dark => 2,
+              AppThemeMode.system => 0,
+              AppThemeMode.light => 1,
+              AppThemeMode.dark => 2,
             },
             onChanged: (i) => ctrl.setThemeMode(switch (i) {
-              1 => ThemeMode.light,
-              2 => ThemeMode.dark,
-              _ => ThemeMode.system,
+              1 => AppThemeMode.light,
+              2 => AppThemeMode.dark,
+              _ => AppThemeMode.system,
             }),
           ),
           Divider(height: 28, color: palette.line),

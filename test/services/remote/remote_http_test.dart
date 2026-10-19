@@ -60,27 +60,6 @@ void _registerAudioValidationTests() {
 }
 
 void _registerTimeoutTests() {
-  group('guardTimeout', () {
-    test('returns a value completed before the deadline', () async {
-      expect(await guardTimeout(Future.value('done'), Duration.zero), 'done');
-    });
-
-    test('converts a timeout to the stable remote API exception', () async {
-      final pending = Completer<String>();
-
-      await expectLater(
-        guardTimeout(pending.future, Duration.zero),
-        throwsA(
-          isA<RemoteApiException>().having(
-            (error) => error.message,
-            'message',
-            contains('Request timed out'),
-          ),
-        ),
-      );
-    });
-  });
-
   test('sendRemoteRequest times out while a response body stalls', () async {
     final stalledBody = StreamController<List<int>>();
     addTearDown(stalledBody.close);

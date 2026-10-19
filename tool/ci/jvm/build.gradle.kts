@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.4.21"
+    jacoco
 }
 
 repositories {
@@ -44,6 +45,10 @@ dependencyLocking {
     lockAllConfigurations()
 }
 
+configurations.matching { it.name in setOf("jacocoAgent", "jacocoAnt") }.configureEach {
+    resolutionStrategy.activateDependencyLocking()
+}
+
 tasks.test {
     useJUnit()
     filter {
@@ -57,3 +62,11 @@ extra["requiredTestSourceFiles"] = testPaths.map {
     repositoryRoot.file("android/app/src/test/kotlin/$it").asFile
 }
 apply(from = "require_executed_tests.gradle.kts")
+
+extra["coverageSources"] = sourcePaths.map {
+    repositoryRoot.file("android/app/src/main/kotlin/$it").asFile
+}
+extra["coverageSourceRoot"] = repositoryRoot.dir("android/app/src/main/kotlin").asFile
+extra["coverageClassDirectories"] = files(layout.buildDirectory.dir("classes/kotlin/main"))
+extra["coverageTestTask"] = "test"
+apply(from = "native_coverage.gradle.kts")

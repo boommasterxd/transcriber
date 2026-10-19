@@ -99,11 +99,11 @@ final class DictationController extends ChangeNotifier {
       _setState(
         _state.copyWith(
           phase: DictationPhase.connecting,
-          provider: settings.asrProvider,
-          modelId: _config!.modelId,
-          preview: '',
-          elapsed: Duration.zero,
-          levels: const [],
+          selection: DictationModelSelection(
+            provider: settings.asrProvider,
+            modelId: _config!.modelId,
+          ),
+          progress: const DictationProgress(),
           clearError: true,
         ),
       );
@@ -114,7 +114,9 @@ final class DictationController extends ChangeNotifier {
       _setState(
         _state.copyWith(
           phase: DictationPhase.recording,
-          levels: List.filled(maximumLevels, initialWaveformLevel),
+          progress: _state.progress.copyWith(
+            levels: List.filled(maximumLevels, initialWaveformLevel),
+          ),
         ),
       );
     } on LiveConnectionException catch (error) {
@@ -213,7 +215,9 @@ final class DictationController extends ChangeNotifier {
     if (_state.phase == DictationPhase.paused) return;
     final levels = [..._state.levels, level];
     if (levels.length > maximumLevels) levels.removeAt(0);
-    _setState(_state.copyWith(levels: levels));
+    _setState(
+      _state.copyWith(progress: _state.progress.copyWith(levels: levels)),
+    );
     if (_connected) {
       _client?.addAudio(pcm);
     } else {
@@ -233,9 +237,11 @@ final class DictationController extends ChangeNotifier {
     _setState(
       _state.copyWith(
         phase: available ? DictationPhase.ready : DictationPhase.unavailable,
-        visible: editor.visible,
-        editorSupported: editor.supported,
-        microphoneGranted: editor.microphoneGranted,
+        editor: DictationEditorStatus(
+          visible: editor.visible,
+          supported: editor.supported,
+          microphoneGranted: editor.microphoneGranted,
+        ),
         clearError: true,
       ),
     );
@@ -245,8 +251,10 @@ final class DictationController extends ChangeNotifier {
     final settings = await _settingsRepository.load();
     _setState(
       _state.copyWith(
-        provider: settings.asrProvider,
-        modelId: LiveDictationModelCatalog.modelFor(settings.asrProvider),
+        selection: DictationModelSelection(
+          provider: settings.asrProvider,
+          modelId: LiveDictationModelCatalog.modelFor(settings.asrProvider),
+        ),
       ),
     );
   }
@@ -284,8 +292,10 @@ final class DictationController extends ChangeNotifier {
       if (startedAt != null) {
         _setState(
           _state.copyWith(
-            elapsed:
-                _elapsedBeforeSegment + DateTime.now().difference(startedAt),
+            progress: _state.progress.copyWith(
+              elapsed:
+                  _elapsedBeforeSegment + DateTime.now().difference(startedAt),
+            ),
           ),
         );
       }
@@ -296,7 +306,11 @@ final class DictationController extends ChangeNotifier {
     final startedAt = _startedAt;
     if (startedAt != null) {
       _elapsedBeforeSegment += DateTime.now().difference(startedAt);
-      _setState(_state.copyWith(elapsed: _elapsedBeforeSegment));
+      _setState(
+        _state.copyWith(
+          progress: _state.progress.copyWith(elapsed: _elapsedBeforeSegment),
+        ),
+      );
     }
     _timer?.cancel();
     _timer = null;
@@ -316,9 +330,7 @@ final class DictationController extends ChangeNotifier {
     _setState(
       _state.copyWith(
         phase: available ? DictationPhase.ready : DictationPhase.unavailable,
-        preview: '',
-        levels: const [],
-        elapsed: Duration.zero,
+        progress: const DictationProgress(),
         clearError: true,
       ),
     );

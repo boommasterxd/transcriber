@@ -122,8 +122,8 @@ Future<void> _pumpScreen(
   final database = testDatabase();
   addTearDown(database.close);
   final settings = AppSettings.initial().copyWith(
-    language: AppLanguage.en,
-    summarizeEnabled: true,
+    appearance: const AppearanceSettings(language: AppLanguage.en),
+    summary: const SummarySettings(enabled: true),
   );
   await tester.pumpWidget(
     appScope(
@@ -154,22 +154,28 @@ Future<void> _pumpScreen(
 }
 
 TranscriptNote _note(String id) => TranscriptNote(
-  id: id,
-  title: 'Meeting',
-  speaker: 'Speaker',
-  source: NoteSource.file,
-  durationSec: 10,
-  createdAt: DateTime(2024, 1, 1),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'gpt-transcribe',
-  asrSub: 'OpenAI',
-  llmName: 'gpt-5.6-luna',
-  llmSub: 'OpenAI',
-  gist: 'Summary',
-  points: const [],
-  todos: const [],
-  transcript: const [],
+  metadata: NoteMetadata(
+    id: id,
+    title: 'Meeting',
+    speaker: 'Speaker',
+    source: NoteSource.file,
+    durationSec: 10,
+    createdAt: DateTime(2024, 1, 1),
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: false,
+    summaryIsLocal: false,
+    asrName: 'gpt-transcribe',
+    asrSub: 'OpenAI',
+    llmName: 'gpt-5.6-luna',
+    llmSub: 'OpenAI',
+  ),
+  content: const NoteContent(
+    gist: 'Summary',
+    points: [],
+    todos: [],
+    transcript: [],
+  ),
 );
 
 final class _FakeProcessingController extends ProcessingController {

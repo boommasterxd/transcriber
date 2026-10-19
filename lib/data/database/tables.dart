@@ -21,12 +21,16 @@ class AppSettingsTable extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@TableIndex.sql(
+  'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
+)
 class NotesTable extends Table {
   @override
   String get tableName => 'notes';
 
   TextColumn get id => text()();
   TextColumn get title => text()();
+  TextColumn get titleSearch => text().withDefault(const Constant(''))();
   TextColumn get speaker => text()();
   TextColumn get source => text()();
   IntColumn get durationSec => integer()();

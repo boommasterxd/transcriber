@@ -12,7 +12,7 @@ Review thresholds guide refactoring before CI limits are reached. CI limits are 
 | File length | over 300 lines | 500 lines | `tool/quality/check_code_quality.dart`; equivalent `tool/ci/check-native-file-length.cjs` for native-only CI |
 | Cyclomatic complexity | over 15 | 20 | Dart Code Linter `cyclomatic-complexity`; Detekt `CyclomaticComplexMethod` |
 | Cognitive complexity | over 15 | 25 | Dart analyzer AST traversal; Detekt `CognitiveComplexMethod` |
-| Parameters | over 4 | 6 | Dart Code Linter `number-of-parameters`; Detekt `LongParameterList` |
+| Parameters | over 4 | 6 | Complete analyzer AST parameter counts; Detekt `LongParameterList` |
 | Nesting depth | over 3 | 4 | Dart Code Linter `maximum-nesting-level`; Detekt `NestedBlockDepth` |
 | Line coverage | below 85% | 85% | Flutter LCOV `DA` records |
 | Statement coverage | below 85% | 85% | Executable-line proxy from Flutter LCOV `DA` records |
@@ -20,6 +20,10 @@ Review thresholds guide refactoring before CI limits are reached. CI limits are 
 | Branch coverage | below 80% | 80% | Flutter LCOV `BRDA` records |
 
 Flutter coverage is line-oriented and currently omits native `FNDA` records. The repository therefore uses executable lines as the statement proxy and maps analyzer-derived Dart function spans to LCOV line hits as the function proxy. The full checker enumerates every tracked `lib/**/*.dart` source and fails closed if Flutter omits any source from LCOV. Selected-test coverage uses an explicitly validated, restricted source inventory and is reported as partial coverage. Thresholds remain identical, and missing required sources or empty metric denominators fail. These mappings must remain documented until Flutter emits independent statement and function coverage. See [CI test selection](ci-test-selection.md) for scope and fallback rules.
+
+Executable maintained Dart parts are separate measured sources, including `dictation_connection.dart` and `keyboard_components.dart`. Missing part records fail; changing either a library or one of its parts includes the enclosing library and sibling parts in selected coverage. Only generated `.g.dart` units with the generated-code header, pure abstract interfaces/typedefs, directive-only units, and constant-only data/memberless enums lack independent executable metrics. These are syntax-checked tool limitations, not blanket part exclusions.
+
+The parameter gate walks every analyzer `FormalParameterList`, including constructors, factories, `copyWith`, functions, closures, callbacks, and function types. DCL omits some of those declarations, so its parameter metric is not authoritative. Remaining DCL size/cyclomatic/nesting measurements must be present exactly once and contain valid numeric values for each reported function; malformed or incomplete reports fail.
 
 `analysis_options.yaml` explicitly excludes generated build output and platform roots from Dart analysis. These are language and tool-scope boundaries, not a quality baseline: CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Maintained Kotlin under `android/app/src/main/kotlin/` is checked separately with Detekt and its formatting rules.
 
@@ -68,7 +72,7 @@ Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and format
 bash tool/quality/check_kotlin_quality.sh
 node tool/ci/check-native-file-length.cjs
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
-  :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+  :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
 ```
 
 Run `:app:connectedDebugAndroidTest` separately on an attached Android device or emulator. CI compiles the maintained instrumented test sources, while device-specific input-method behavior remains part of release verification.
@@ -76,10 +80,28 @@ Run `:app:connectedDebugAndroidTest` separately on an attached Android device or
 Run the manifest-listed pure Kotlin tests without Flutter or an Android SDK:
 
 ```bash
-JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test
+JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test verifyNativeCoverage
 ```
 
 The independent build uses the existing Gradle wrapper, JDK 17, Kotlin 2.4.21, and JUnit 4.13.2, with committed dependency locks and SHA-256 verification metadata. Its sources reference the maintained files under `android/app/src/`. Refresh these locks and verification metadata deliberately when updating dependencies, and review the changed artifact hashes. The regular Android command above still runs every JVM test; it needs no exclusion property. Both builds share a JUnit-report guard requiring actual execution in every configured test class, including Android's complete maintained unit-test inventory.
+
+### Native coverage
+
+Both builds use JaCoCo 0.8.14 and `tool/ci/jvm/native_coverage.gradle.kts`. The standalone report must exactly match `sources.txt`; Android must measure every maintained production Kotlin source without source exclusions. Missing or empty execution data, bytecode, reports, source records, or applicable metric denominators fail. The four blocking limits are LINE 85%, INSTRUCTION 85%, METHOD 85%, and BRANCH 80%. Bytecode instructions are the statement proxy and methods include constructors/getters; neither is an independent source-statement or source-function measurement.
+
+Android unit tests use Robolectric 4.17 and Mockito 5.21.0 at explicit platform boundaries. Their SDK sandbox artifacts resolve through Gradle, are included in `android/app/gradle.lockfile`, and are supplied offline to Robolectric. The OSV workflow scans that Android graph alongside Pub and the standalone JVM graph. JaCoCo is EPL-2.0; Robolectric and Mockito are MIT-licensed. See the official [JaCoCo documentation](https://www.jacoco.org/jacoco/trunk/doc/), [Gradle coverage guide](https://docs.gradle.org/current/userguide/jacoco_plugin.html), and [Robolectric compatibility table](https://robolectric.org/compatibility_table/).
+
+The Android test runtime explicitly declares `kotlin-stdlib-common` at the toolchain version so Gradle's runtime graph and committed locks agree. Verify an ordinary locked test/coverage invocation after refreshing locks; a successful `--write-locks` invocation alone does not prove that verification path.
+
+Regression fixtures verify actual failed Gradle tasks for missing native sources, zeroed counters, missing XML, and deleted execution data:
+
+```bash
+JAVA_HOME=/path/to/jdk17 node --test test/tool/ci/native-coverage.integration.cjs
+```
+
+Robolectric coverage does not establish device microphone, editor, content-provider, or Flutter-engine behavior. The separate device test command above remains required for release verification.
+
+### Dart coverage
 
 Generate and enforce test coverage:
 
@@ -136,7 +158,11 @@ All Flutter jobs, including manual APK validation and releases, use `.github/act
 - Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
 - Bundle verification runs for entrypoints, channel bridges, assets, dependencies, packaging/global configuration, and uncertainty. Ordinary Dart changes use analysis and selected test compilation. When Gradle already assembles the debug bundle, the native job verifies its kernel and asset manifest without a second bundle build on the Dart runner.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, the independent JVM `gradle.lockfile`, and its dependency verification metadata with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree.
+`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile`, and its dependency verification metadata with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree. Its default detectors cover every path without test or Firebase-file allowlists. Before scanning, the checksum-verified binary must pass synthetic regressions for those paths and for a credential deleted from the final tree but retained in introduced history.
+
+The only historical exceptions are three commit/path/rule/line fingerprints in [`.gitleaksignore`](../.gitleaksignore), covering Google keys the project owner confirmed are no longer usable. Their rationale and limits are recorded in [security](security.md#historical-scanner-exceptions). Scanner regressions also prove that the same synthetic credential in a later commit remains blocked.
+
+Lightweight classification, final gates, scanning, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. Substantive quality/build jobs and container-based OSV scanning retain regular runners. Actual hosted Slim execution remains separate from local workflow validation; no savings are inferred from runner selection alone.
 
 ## Protected Pull Requests
 
@@ -152,7 +178,16 @@ Run the dependency-free CI helper regressions with Node.js 24.x:
 node --test test/tool/ci/*.test.cjs
 ```
 
-Applicable workflow changes run these tests in the workflow-lint job. They cover complete change ranges, rename boundaries, incomplete history, job selection, and failure handling in the final gate. Dart selector and coverage regressions live alongside them under `test/tool/`. Manual CI runs take the full path; manual secret scans cover all available history.
+Run the scanner regressions with the pinned binary after verifying its archive against `.gitleaks-version`:
+
+```bash
+GITLEAKS_EXECUTABLE=/path/to/checksum-verified/gitleaks \
+  node --test test/tool/ci/gitleaks.integration.cjs
+```
+
+These tests create only isolated synthetic credentials and Git history, suppress scanner output, and remove their temporary fixtures. A missing scanner fails instead of silently skipping verification.
+
+Applicable workflow changes run the Node helper regressions in the workflow-lint job. They cover complete change ranges, rename boundaries, incomplete history, job selection, and failure handling in the final gate. The scanner integration tests run in the Gitleaks workflow. Dart selector and coverage regressions live alongside them under `test/tool/`. Manual CI runs take the full path; manual secret scans cover all available history.
 
 ## Fixing Failures
 

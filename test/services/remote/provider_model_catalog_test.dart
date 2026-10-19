@@ -31,14 +31,12 @@ void _registerEmptyCatalogTests(bool google) {
 
 Future<void> _testCatalog(bool google) async {
   final response = {google ? 'models' : 'data': _catalogEntries(google)};
-  final httpClient = scriptedHttpClient([
-    jsonResponse(response),
-    jsonResponse(response),
-  ]);
+  final httpClient = scriptedHttpClient([jsonResponse(response)]);
   final client = _client(google, httpClient);
 
-  final transcription = await client.listModels(forTranscription: true);
-  final summary = await client.listModels(forTranscription: false);
+  final catalog = await client.loadModelCatalog();
+  final transcription = catalog.modelsFor(forTranscription: true);
+  final summary = catalog.modelsFor(forTranscription: false);
 
   expect(
     transcription.map((model) => model.id),
@@ -62,7 +60,7 @@ Future<void> _testCatalog(bool google) async {
         ? ['gemini-3.8-flash', 'gemini-99-nova', 'gemini-flash-lite-latest']
         : ['gpt-4.1-mini-2025-04-14', 'gpt-6-sol', 'gpt-99-nova'],
   );
-  expect(httpClient.requests, hasLength(2));
+  expect(httpClient.requests, hasLength(1));
 }
 
 List<Object?> _catalogEntries(bool google) {

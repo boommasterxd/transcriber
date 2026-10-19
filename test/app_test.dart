@@ -31,9 +31,11 @@ void main() {
     final database = testDatabase();
     addTearDown(database.close);
     final settings = AppSettings.initial().copyWith(
-      accent: AppAccent.amber,
-      language: AppLanguage.en,
-      themeMode: ThemeMode.dark,
+      appearance: const AppearanceSettings(
+        accent: AppAccent.amber,
+        language: AppLanguage.en,
+        themeMode: AppThemeMode.dark,
+      ),
     );
     await tester.pumpWidget(
       appScope(
@@ -108,6 +110,40 @@ void main() {
   });
 
   _registerResumeRefreshTest();
+  _registerResponsiveSearchTest();
+}
+
+void _registerResponsiveSearchTest() {
+  testWidgets('search text and results survive phone and tablet transitions', (
+    tester,
+  ) async {
+    final database = testDatabase();
+    await NotesRepository(database).saveAll([_sharedNote()]);
+    await _pumpApp(
+      tester,
+      AppSettings.initial().copyWith(onboarded: true),
+      database: database,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'absent');
+    await tester.pumpAndSettle();
+    expect(find.text('Shared WhatsApp audio'), findsNothing);
+    await tester.binding.setSurfaceSize(const Size(900, 900));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'absent',
+    );
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'absent',
+    );
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(find.text('Shared WhatsApp audio'), findsOneWidget);
+  });
 }
 
 void _registerResumeRefreshTest() {
@@ -162,21 +198,27 @@ Future<void> _pumpApp(
 }
 
 TranscriptNote _sharedNote() => TranscriptNote(
-  id: 'shared-note',
-  title: 'Shared WhatsApp audio',
-  speaker: 'Unknown',
-  source: NoteSource.shared,
-  durationSec: 2,
-  createdAt: DateTime.utc(2026, 8, 28),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'Gemini 3.5 Transcribe',
-  asrSub: 'Google Gemini',
-  llmName: 'Gemini 3.7 Flash',
-  llmSub: 'Google Gemini',
-  gist: 'Shared note',
-  points: const [],
-  todos: const [],
-  transcript: const [TranscriptLine(text: 'Shared transcript')],
+  metadata: NoteMetadata(
+    id: 'shared-note',
+    title: 'Shared WhatsApp audio',
+    speaker: 'Unknown',
+    source: NoteSource.shared,
+    durationSec: 2,
+    createdAt: DateTime.utc(2026, 8, 28),
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: false,
+    summaryIsLocal: false,
+    asrName: 'Gemini 3.5 Transcribe',
+    asrSub: 'Google Gemini',
+    llmName: 'Gemini 3.7 Flash',
+    llmSub: 'Google Gemini',
+  ),
+  content: const NoteContent(
+    gist: 'Shared note',
+    points: [],
+    todos: [],
+    transcript: [TranscriptLine(text: 'Shared transcript')],
+  ),
   audioOwnership: AudioOwnership.external,
 );

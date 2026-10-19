@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart' show ThemeMode;
-
-import '../../core/l10n/app_strings.dart';
-import '../../core/theme/app_accent.dart';
 import '../catalog/remote_catalog.dart';
+import 'app_accent.dart';
+import 'app_language.dart';
+import 'appearance_settings.dart';
+import 'processing_settings.dart';
 import 'remote_provider.dart';
 import 'transcription_language.dart';
+
+export 'appearance_settings.dart';
+export 'processing_settings.dart';
 
 /// Immutable snapshot of all user preferences.
 ///
@@ -12,36 +15,33 @@ import 'transcription_language.dart';
 /// stored separately in secure storage and never serialized with settings.
 class AppSettings {
   const AppSettings({
-    required this.themeMode,
-    required this.accent,
-    required this.language,
-    required this.transcriptionLanguage,
-    required this.asrProvider,
-    required this.summaryProvider,
-    required this.chatModelByProvider,
-    required this.asrModelByProvider,
-    required this.autoDeleteAudio,
-    required this.summarizeEnabled,
-    required this.onboarded,
+    this.appearance = const AppearanceSettings(),
+    this.transcription = const TranscriptionSettings(),
+    this.summary = const SummarySettings(),
+    this.autoDeleteAudio = false,
+    this.onboarded = false,
   });
 
-  /// System / Light / Dark. `system` follows the OS setting.
-  final ThemeMode themeMode;
-  final AppAccent accent;
-  final AppLanguage language;
-  final TranscriptionLanguage transcriptionLanguage;
+  final AppearanceSettings appearance;
+  final TranscriptionSettings transcription;
+  final SummarySettings summary;
 
-  final RemoteProviderId asrProvider;
-  final RemoteProviderId summaryProvider;
+  /// System / Light / Dark. `system` follows the OS setting.
+  AppThemeMode get themeMode => appearance.themeMode;
+  AppAccent get accent => appearance.accent;
+  AppLanguage get language => appearance.language;
+  TranscriptionLanguage get transcriptionLanguage => transcription.language;
+  RemoteProviderId get asrProvider => transcription.provider;
+  RemoteProviderId get summaryProvider => summary.provider;
 
   /// Selected cloud model id per provider (chat/summary and ASR respectively).
-  final Map<RemoteProviderId, String> chatModelByProvider;
-  final Map<RemoteProviderId, String> asrModelByProvider;
+  Map<RemoteProviderId, String> get chatModelByProvider => summary.models;
+  Map<RemoteProviderId, String> get asrModelByProvider => transcription.models;
 
   final bool autoDeleteAudio;
 
   /// When false, processing stops after transcription, without an AI summary.
-  final bool summarizeEnabled;
+  bool get summarizeEnabled => summary.enabled;
   final bool onboarded;
 
   String summaryModelId(RemoteProviderId p) =>
@@ -50,43 +50,19 @@ class AppSettings {
   String asrModelId(RemoteProviderId p) =>
       asrModelByProvider[p] ?? RemoteCatalog.asrDefault(p);
 
-  factory AppSettings.initial() => const AppSettings(
-    themeMode: ThemeMode.system,
-    accent: AppAccent.blue,
-    language: AppLanguage.de,
-    transcriptionLanguage: TranscriptionLanguage.auto,
-    asrProvider: RemoteProviderId.google,
-    summaryProvider: RemoteProviderId.google,
-    chatModelByProvider: {},
-    asrModelByProvider: {},
-    autoDeleteAudio: false,
-    summarizeEnabled: true,
-    onboarded: false,
-  );
+  factory AppSettings.initial() => const AppSettings();
 
   AppSettings copyWith({
-    ThemeMode? themeMode,
-    AppAccent? accent,
-    AppLanguage? language,
-    TranscriptionLanguage? transcriptionLanguage,
-    RemoteProviderId? asrProvider,
-    RemoteProviderId? summaryProvider,
-    Map<RemoteProviderId, String>? chatModelByProvider,
-    Map<RemoteProviderId, String>? asrModelByProvider,
+    AppearanceSettings? appearance,
+    TranscriptionSettings? transcription,
+    SummarySettings? summary,
     bool? autoDeleteAudio,
-    bool? summarizeEnabled,
     bool? onboarded,
   }) => AppSettings(
-    themeMode: themeMode ?? this.themeMode,
-    accent: accent ?? this.accent,
-    language: language ?? this.language,
-    transcriptionLanguage: transcriptionLanguage ?? this.transcriptionLanguage,
-    asrProvider: asrProvider ?? this.asrProvider,
-    summaryProvider: summaryProvider ?? this.summaryProvider,
-    chatModelByProvider: chatModelByProvider ?? this.chatModelByProvider,
-    asrModelByProvider: asrModelByProvider ?? this.asrModelByProvider,
+    appearance: appearance ?? this.appearance,
+    transcription: transcription ?? this.transcription,
+    summary: summary ?? this.summary,
     autoDeleteAudio: autoDeleteAudio ?? this.autoDeleteAudio,
-    summarizeEnabled: summarizeEnabled ?? this.summarizeEnabled,
     onboarded: onboarded ?? this.onboarded,
   );
 
@@ -114,35 +90,41 @@ class AppSettings {
     }
 
     return AppSettings(
-      themeMode: _themeModeFrom(j),
-      accent: AppAccent.fromId(j['accent'] as String?),
-      language: AppLanguage.fromCode(j['language'] as String?),
-      transcriptionLanguage: TranscriptionLanguage.fromCode(
-        j['transcriptionLanguage'] as String?,
+      appearance: AppearanceSettings(
+        themeMode: _themeModeFrom(j),
+        accent: AppAccent.fromId(j['accent'] as String?),
+        language: AppLanguage.fromCode(j['language'] as String?),
       ),
-      asrProvider: _asrProviderFromId(j['asrProvider'] as String?),
-      summaryProvider: _summaryProviderFromId(j['summaryProvider'] as String?),
-      chatModelByProvider: parseMap('chatModelByProvider'),
-      asrModelByProvider: parseMap('asrModelByProvider'),
+      transcription: TranscriptionSettings(
+        language: TranscriptionLanguage.fromCode(
+          j['transcriptionLanguage'] as String?,
+        ),
+        provider: _asrProviderFromId(j['asrProvider'] as String?),
+        models: parseMap('asrModelByProvider'),
+      ),
+      summary: SummarySettings(
+        provider: RemoteProviderId.fromId(j['summaryProvider'] as String?),
+        models: parseMap('chatModelByProvider'),
+        enabled: j['summarizeEnabled'] as bool? ?? true,
+      ),
       autoDeleteAudio: j['autoDeleteAudio'] as bool? ?? false,
-      summarizeEnabled: j['summarizeEnabled'] as bool? ?? true,
       onboarded: j['onboarded'] as bool? ?? false,
     );
   }
 
-  static ThemeMode _themeModeFrom(Map<String, dynamic> j) {
+  static AppThemeMode _themeModeFrom(Map<String, dynamic> j) {
     final raw = j['themeMode'] as String?;
     if (raw != null) {
-      return ThemeMode.values.firstWhere(
+      return AppThemeMode.values.firstWhere(
         (m) => m.name == raw,
-        orElse: () => ThemeMode.system,
+        orElse: () => AppThemeMode.system,
       );
     }
     // Back-compat: older builds stored a light/dark brightness.
     return switch (j['brightness']) {
-      'dark' => ThemeMode.dark,
-      'light' => ThemeMode.light,
-      _ => ThemeMode.system,
+      'dark' => AppThemeMode.dark,
+      'light' => AppThemeMode.light,
+      _ => AppThemeMode.system,
     };
   }
 
@@ -150,7 +132,4 @@ class AppSettings {
     final p = RemoteProviderId.fromId(id);
     return RemoteCatalog.asrProviders.contains(p) ? p : RemoteProviderId.google;
   }
-
-  static RemoteProviderId _summaryProviderFromId(String? id) =>
-      RemoteProviderId.fromId(id);
 }

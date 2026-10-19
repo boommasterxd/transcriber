@@ -5,7 +5,7 @@ import 'package:transcriber/data/repositories/notes_repository.dart';
 
 void main() {
   test(
-    'v1 to v3 removes segment timestamps without losing note content',
+    'v1 to v4 removes segment timestamps without losing note content',
     () async {
       final database = AppDatabase(
         NativeDatabase.memory(
@@ -27,7 +27,7 @@ void main() {
           .customSelect('PRAGMA table_info(transcript_segments)')
           .get();
 
-      expect(database.schemaVersion, 3);
+      expect(database.schemaVersion, 4);
       expect(note.read<String>('id'), 'note-1');
       expect(note.read<String>('title'), 'Preserved note');
       expect(
@@ -49,7 +49,7 @@ void main() {
   );
 
   test(
-    'v2 to v3 preserves notes and defaults summary errors to null',
+    'v2 to v4 preserves notes and defaults summary errors to null',
     () async {
       final database = AppDatabase(
         NativeDatabase.memory(
@@ -60,7 +60,7 @@ void main() {
 
       final note = (await NotesRepository(database).load()).single;
 
-      expect(database.schemaVersion, 3);
+      expect(database.schemaVersion, 4);
       expect(note.id, 'note-1');
       expect(note.title, 'Preserved note');
       expect(note.summaryError, isNull);
@@ -77,6 +77,76 @@ void main() {
       final restored = (await NotesRepository(database).load()).single;
       expect(restored.summaryError, 'Summary failed');
       expect(restored.fullTranscriptText, note.fullTranscriptText);
+    },
+  );
+
+  _registerHistoryMigrationTests();
+}
+
+void _registerHistoryMigrationTests() {
+  test(
+    'v3 migration adds a usable history index and preserves child data',
+    () async {
+      final database = AppDatabase(
+        NativeDatabase.memory(
+          setup: (sqlite) {
+            _seedV2Schema(sqlite.execute);
+            sqlite.execute('ALTER TABLE notes ADD COLUMN summary_error TEXT');
+            sqlite.execute('PRAGMA user_version = 3');
+          },
+        ),
+      );
+      addTearDown(database.close);
+      final page = await NotesRepository(database).loadHistoryPage();
+      expect(page.entries.single.id, 'note-1');
+      expect(page.entries.single.todoCount, 1);
+      expect(
+        (await NotesRepository(
+          database,
+        ).loadHistoryPage(query: 'PRESERVED')).entries.single.id,
+        'note-1',
+      );
+      final plan = await database
+          .customSelect(
+            'EXPLAIN QUERY PLAN SELECT id FROM notes ORDER BY created_at DESC, id DESC LIMIT 51',
+          )
+          .get();
+      expect(
+        plan.map((row) => row.read<String>('detail')).join(),
+        contains('notes_history_order'),
+      );
+      final note = await NotesRepository(database).findById('note-1');
+      expect(note!.points, ['Original point']);
+      expect(note.fullTranscriptText, 'Original transcript');
+    },
+  );
+
+  test(
+    'title migration uses bounded batches and preserves Unicode search',
+    () async {
+      final database = AppDatabase(
+        NativeDatabase.memory(
+          setup: (sqlite) {
+            _seedV2Schema(sqlite.execute);
+            sqlite.execute('ALTER TABLE notes ADD COLUMN summary_error TEXT');
+            for (var index = 0; index < 130; index++) {
+              sqlite.execute(
+                "INSERT INTO notes SELECT 'bulk-$index', 'ÄPFEL', speaker, source, "
+                'duration_sec, created_at, asr_is_local, summary_is_local, asr_name, '
+                'asr_sub, llm_name, llm_sub, gist, audio_path, audio_ownership, '
+                "summary_error FROM notes WHERE id = 'note-1'",
+              );
+            }
+            sqlite.execute('PRAGMA user_version = 3');
+          },
+        ),
+      );
+      addTearDown(database.close);
+      final page = await NotesRepository(
+        database,
+      ).loadHistoryPage(query: 'äpfel');
+      expect(page.totalCount, 130);
+      expect(page.entries, hasLength(50));
     },
   );
 }
@@ -119,7 +189,7 @@ void _seedV1Schema(void Function(String) execute) {
   execute(
     'CREATE TABLE notes ('
     'id TEXT NOT NULL PRIMARY KEY, '
-    'title TEXT NOT NULL'
+    'title TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT 0'
     ')',
   );
   execute(

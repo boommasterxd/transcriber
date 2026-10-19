@@ -34,8 +34,10 @@ void main() {
     repository = SettingsRepository(database);
     await repository.save(
       AppSettings.initial().copyWith(
-        asrProvider: RemoteProviderId.openai,
-        transcriptionLanguage: TranscriptionLanguage.de,
+        transcription: const TranscriptionSettings(
+          provider: RemoteProviderId.openai,
+          language: TranscriptionLanguage.de,
+        ),
       ),
     );
     platform = FakeDictationPlatform();
@@ -199,8 +201,10 @@ void _registerProviderConfigurationTests() {
   test('normalizes Gemini language and sample-rate configuration', () async {
     await repository.save(
       AppSettings.initial().copyWith(
-        asrProvider: RemoteProviderId.google,
-        transcriptionLanguage: TranscriptionLanguage.de,
+        transcription: const TranscriptionSettings(
+          provider: RemoteProviderId.google,
+          language: TranscriptionLanguage.de,
+        ),
       ),
     );
     FlutterSecureStorage.setMockInitialValues({'api_key_google': 'test-key'});

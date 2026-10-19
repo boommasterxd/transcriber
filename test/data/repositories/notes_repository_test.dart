@@ -72,21 +72,27 @@ void main() {
 }
 
 TranscriptNote _note(String id, DateTime createdAt) => TranscriptNote(
-  id: id,
-  title: 'Title $id',
-  speaker: 'Speaker $id',
-  source: NoteSource.recording,
-  durationSec: 42,
-  createdAt: createdAt,
-  asrIsLocal: true,
-  summaryIsLocal: false,
-  asrName: 'ASR',
-  asrSub: 'Local',
-  llmName: 'LLM',
-  llmSub: 'Cloud',
-  gist: 'Gist $id',
-  points: ['Point $id'],
-  todos: [TodoItem(text: 'Todo $id', done: true)],
-  transcript: [TranscriptLine(text: 'Transcript $id')],
+  metadata: NoteMetadata(
+    id: id,
+    title: 'Title $id',
+    speaker: 'Speaker $id',
+    source: NoteSource.recording,
+    durationSec: 42,
+    createdAt: createdAt,
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: true,
+    summaryIsLocal: false,
+    asrName: 'ASR',
+    asrSub: 'Local',
+    llmName: 'LLM',
+    llmSub: 'Cloud',
+  ),
+  content: NoteContent(
+    gist: 'Gist $id',
+    points: ['Point $id'],
+    todos: [TodoItem(text: 'Todo $id', done: true)],
+    transcript: [TranscriptLine(text: 'Transcript $id')],
+  ),
   audioPath: '/external/$id.m4a',
 );

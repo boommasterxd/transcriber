@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../data/models/transcript_note.dart';
+import '../../../../data/models/note_history.dart';
 
 class NoteModelBadge extends StatelessWidget {
   const NoteModelBadge({super.key, required this.note});
 
-  final TranscriptNote note;
+  final NoteHistoryEntry note;
 
   @override
   Widget build(BuildContext context) {

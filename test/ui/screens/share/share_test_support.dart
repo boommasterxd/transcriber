@@ -19,27 +19,34 @@ TranscriptNote shareTestNote({
   List<String> points = const ['First point'],
   List<TodoItem>? todos,
 }) => TranscriptNote(
-  id: 'share-note',
-  title: 'Shared meeting',
-  speaker: 'Speaker',
-  source: NoteSource.shared,
-  durationSec: 42,
-  createdAt: DateTime.utc(2026),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'gpt-transcribe',
-  asrSub: 'OpenAI',
-  llmName: 'gpt-5.6-luna',
-  llmSub: 'OpenAI',
-  gist: gist,
-  points: points,
-  todos: todos ?? [TodoItem(text: 'Follow up')],
-  transcript: const [TranscriptLine(text: 'Transcript line')],
+  metadata: NoteMetadata(
+    id: 'share-note',
+    title: 'Shared meeting',
+    speaker: 'Speaker',
+    source: NoteSource.shared,
+    durationSec: 42,
+    createdAt: DateTime.utc(2026),
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: false,
+    summaryIsLocal: false,
+    asrName: 'gpt-transcribe',
+    asrSub: 'OpenAI',
+    llmName: 'gpt-5.6-luna',
+    llmSub: 'OpenAI',
+  ),
+  content: NoteContent(
+    gist: gist,
+    points: points,
+    todos: todos ?? [TodoItem(text: 'Follow up')],
+    transcript: const [TranscriptLine(text: 'Transcript line')],
+  ),
   audioPath: null,
 );
 
-AppSettings shareTestSettings() =>
-    AppSettings.initial().copyWith(language: AppLanguage.en);
+AppSettings shareTestSettings() => AppSettings.initial().copyWith(
+  appearance: const AppearanceSettings(language: AppLanguage.en),
+);
 
 Widget shareTestChildApp({required Widget child}) {
   final database = testDatabase();

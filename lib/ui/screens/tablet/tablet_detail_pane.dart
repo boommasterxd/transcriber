@@ -6,6 +6,7 @@ import '../../../core/theme/app_palette.dart';
 import '../../../core/utils/formatting.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../state/notes_controller.dart';
+import '../../../state/note_detail_provider.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/surfaces.dart';
@@ -18,6 +19,7 @@ import '../detail/widgets/note_detail_interactions.dart';
 import '../detail/widgets/note_summary_metadata_widgets.dart';
 import '../detail/widgets/processed_with_card.dart';
 import '../detail/widgets/summary_failure_notice.dart';
+import '../detail/widgets/note_detail_status.dart';
 
 /// The right-hand detail pane of the tablet split view: a two-column layout for
 /// the selected note (no navigation). Mirrors the phone detail content.
@@ -39,6 +41,14 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
+    final detail = ref.watch(noteDetailProvider(widget.noteId));
+    if (detail.isLoading || detail.hasError) {
+      return NoteDetailStatus(
+        loading: detail.isLoading,
+        strings: t,
+        retry: () => ref.invalidate(noteDetailProvider(widget.noteId)),
+      );
+    }
     final note = watchNote(widget.noteId);
     if (note == null) return const SizedBox.shrink();
 

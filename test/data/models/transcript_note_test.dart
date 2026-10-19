@@ -9,6 +9,7 @@ void main() {
   _testDerivedValues();
   _testCopyWith();
   _testJsonRoundTripAndDefaults();
+  _testPersistedJsonContract();
   _testLegacyJson();
   _testInvalidJson();
 }
@@ -215,6 +216,36 @@ void _testJsonRoundTripAndDefaults() {
   });
 }
 
+void _testPersistedJsonContract() {
+  test('grouped note values preserve the flat persisted JSON contract', () {
+    expect(_note().toJson(), {
+      'id': 'note-1',
+      'title': 'Planning',
+      'speaker': 'Speaker',
+      'source': 'recording',
+      'durationSec': 65,
+      'createdAt': '2024-01-02T03:04:05.000Z',
+      'asrIsLocal': false,
+      'summaryIsLocal': false,
+      'asrName': 'GPT Transcribe',
+      'asrSub': 'OpenAI',
+      'llmName': 'GPT-5.6 Luna · Cloud',
+      'llmSub': 'Provider',
+      'gist': 'Summary',
+      'points': ['Point one', 'Point two'],
+      'todos': [
+        {'text': 'Default todo', 'done': false},
+      ],
+      'transcript': [
+        {'text': 'Default'},
+      ],
+      'summaryError': null,
+      'audioPath': '/audio/note.m4a',
+      'audioOwnership': 'external',
+    });
+  });
+}
+
 void _testLegacyJson() {
   group('TranscriptNote legacy JSON', () {
     test('migrates legacy remote mode to both processing stages', () {
@@ -282,22 +313,28 @@ TranscriptNote _note({
   List<TodoItem>? todos,
   List<TranscriptLine>? transcript,
 }) => TranscriptNote(
-  id: 'note-1',
-  title: 'Planning',
-  speaker: 'Speaker',
-  source: source,
-  durationSec: 65,
-  createdAt: DateTime.utc(2024, 1, 2, 3, 4, 5),
-  asrIsLocal: localStages.asr,
-  summaryIsLocal: localStages.summary,
-  asrName: 'GPT Transcribe',
-  asrSub: 'OpenAI',
-  llmName: llmName,
-  llmSub: 'Provider',
-  gist: 'Summary',
-  points: const ['Point one', 'Point two'],
-  todos: todos ?? [TodoItem(text: 'Default todo')],
-  transcript: transcript ?? const [TranscriptLine(text: 'Default')],
+  metadata: NoteMetadata(
+    id: 'note-1',
+    title: 'Planning',
+    speaker: 'Speaker',
+    source: source,
+    durationSec: 65,
+    createdAt: DateTime.utc(2024, 1, 2, 3, 4, 5),
+  ),
+  origins: NoteOrigins(
+    asrIsLocal: localStages.asr,
+    summaryIsLocal: localStages.summary,
+    asrName: 'GPT Transcribe',
+    asrSub: 'OpenAI',
+    llmName: llmName,
+    llmSub: 'Provider',
+  ),
+  content: NoteContent(
+    gist: 'Summary',
+    points: const ['Point one', 'Point two'],
+    todos: todos ?? [TodoItem(text: 'Default todo')],
+    transcript: transcript ?? const [TranscriptLine(text: 'Default')],
+  ),
   audioPath: '/audio/note.m4a',
   audioOwnership: audioOwnership,
 );

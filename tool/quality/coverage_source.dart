@@ -14,6 +14,9 @@ final class _SourceAnalysis {
   final String? nonInstrumentableReason;
 
   factory _SourceAnalysis.parse(String path) {
+    if (isGeneratedDartSource(path, File(path).readAsStringSync())) {
+      return const _SourceAnalysis.nonInstrumentable('generated Dart source');
+    }
     final parsed = parseFile(
       path: path,
       featureSet: FeatureSet.latestLanguageVersion(),

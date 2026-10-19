@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_palette.dart';
+import '../../../core/toast.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
@@ -73,6 +74,7 @@ class ShareSheetContent extends ConsumerStatefulWidget {
 class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
     with ProcessingControllerLifecycle<ShareSheetContent> {
   bool _saving = false;
+  bool _finishing = false;
 
   @override
   void startProcessing() {
@@ -92,15 +94,39 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || _finishing) return;
     setState(() => _saving = true);
-    await processingController.commit();
+    try {
+      await processingController.commit();
+    } catch (_) {
+      _showError();
+      return;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+    if (!mounted) return;
     await _finish();
   }
 
   Future<void> _finish() async {
-    await processingController.discardCurrent();
-    widget.onFinished();
+    if (_saving || _finishing) return;
+    _finishing = true;
+    try {
+      await processingController.discardCurrent();
+      if (mounted) widget.onFinished();
+    } catch (_) {
+      _finishing = false;
+      _showError();
+    }
+  }
+
+  void _showError() {
+    if (!mounted) return;
+    showAppToast(
+      ref.read(stringsProvider).errorTitle,
+      isError: true,
+      messenger: ScaffoldMessenger.of(context),
+    );
   }
 
   Future<void> _openSettings() async {

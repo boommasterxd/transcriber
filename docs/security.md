@@ -22,6 +22,14 @@ Provider response bodies are bounded and error messages are normalized, whitespa
 
 Failed summaries retain a diagnostic alongside the transcript in the note database. Before persistence, diagnostics remove both stages' API keys and credential-shaped fields, normalize whitespace, and limit detail to 512 characters plus a truncation marker. Only user-facing service messages are retained; unexpected exceptions use a generic message without exception contents. Diagnostics are rendered as selectable plain text and are removed with the note. Provider messages may still contain personal information and receive the same local protection as transcripts.
 
+### Historical Scanner Exceptions
+
+On 2026-10-19, the project owner confirmed that the historical Google keys detected in `app/google-services.json` are no longer usable. This is an owner confirmation, not an independent provider-authentication check. No key values are reproduced or tested against a provider.
+
+[`.gitleaksignore`](../.gitleaksignore) contains exactly three fingerprints, each bound to the complete immutable commit ID, path, `gcp-api-key` rule and line 18. These exceptions apply only to those historical findings. Default detectors still cover every path, including tests and Firebase configuration; later commits, other locations and current files receive no exemption. Do not replace these entries with path, rule or credential-pattern allowlists. Reassess them if the confirmation changes or scanner fingerprint semantics change.
+
+The checksum-verified Gitleaks 8.30.1 history and current-tree scans pass with these exceptions. Scanner regressions verify that an exact historical fingerprint can be ignored while the same synthetic credential in a later commit still fails. See [code quality](code-quality.md#ci-jobs) for scanner commands and coverage.
+
 ## Files and Cache
 
 External originals are never deleted. Destructive operations require explicit app ownership and a path inside a known app-private directory. Share filenames are sanitized, stream copies are limited to 250 MiB, symlinks are not followed during cleanup, and partial copies are removed after failures.
@@ -38,6 +46,7 @@ Legacy SharedPreferences migration commits the marker and imported data atomical
 
 - only fixed OpenAI and Google HTTPS origins are used;
 - request timeouts prevent indefinite hangs;
+- request deadlines abort supported HTTP transports and cancel response consumption; internally owned clients are closed after every operation;
 - response size is capped;
 - audio size and extension are validated before upload;
 - Gemini Files uploads are streamed and deleted remotely in `finally` cleanup;
@@ -49,6 +58,8 @@ The application does not pin TLS certificates. It relies on Android's platform t
 ## Android
 
 The main activity is exported for the launcher and audio `VIEW` intents. Incoming paths are copied into validated app-owned storage before processing. The translucent share activity is exported only for audio share intents, validates schemes and MIME type, sanitizes names, bounds copies, and stores data in application cache.
+
+Dedicated share imports run outside the main thread with a 60-second readiness deadline and lifecycle cancellation. One process-wide import slot and a bounded cleanup executor prevent repeated stalled providers from creating unbounded workers. Cancellation signals, descriptor/stream closure, and partial-file deletion are best effort when an external provider does not cooperate.
 
 The exported input-method service is protected by Android's `BIND_INPUT_METHOD` permission, so ordinary applications cannot bind to it. It records only while its keyboard window is visible and a current supported editor is active. Password variations, numeric PINs, non-text editors, and editors that prohibit personalized learning are rejected before recording. Every editor transition invalidates the previous session; late audio, provider events, and text mutations are discarded. Partial text uses composing spans and finalized text uses `commitText`. The service never requests surrounding editor text.
 
@@ -63,6 +74,8 @@ Keyboard audio remains in memory and is never written to application storage. St
 - third-party editor implementations can vary in their `InputConnection` and composing-text behavior, so release testing must cover supported Samsung and Pixel applications;
 - direct mobile BYOK exposes provider credentials to the application process during an active request even though storage and transport avoid plaintext URLs;
 - active cloud processing is not guaranteed to survive Android process suspension or termination because no foreground service is retained;
-- deleting a Gemini Files resource is best-effort if the cleanup request itself cannot reach Google.
+- deleting a Gemini Files resource is best-effort if the cleanup request itself cannot reach Google;
+- an external content provider that ignores cancellation can keep the bounded import slot occupied until its I/O returns; no forced thread termination is attempted;
+- custom injected HTTP transports must support abortable requests to terminate their own I/O, although response consumption is cancelled independently.
 
 Do not claim complete confidentiality or correctness. Release review must verify the actual provider terms, privacy disclosures, Android behavior, and data flows.

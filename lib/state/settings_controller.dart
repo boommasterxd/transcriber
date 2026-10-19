@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/l10n/app_strings.dart';
-import '../core/theme/app_accent.dart';
 import '../data/catalog/remote_catalog.dart';
+import '../data/models/app_accent.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/remote_provider.dart';
 import '../data/models/transcription_language.dart';
@@ -21,61 +20,77 @@ class SettingsController extends Notifier<AppSettings> {
     await ref.read(settingsRepositoryProvider).save(next);
   }
 
-  Future<void> setThemeMode(ThemeMode mode) =>
-      _persist(state.copyWith(themeMode: mode));
+  Future<void> setThemeMode(AppThemeMode mode) => _persist(
+    state.copyWith(appearance: state.appearance.copyWith(themeMode: mode)),
+  );
 
   Future<void> setTranscriptionLanguage(TranscriptionLanguage language) =>
-      _persist(state.copyWith(transcriptionLanguage: language));
+      _persist(
+        state.copyWith(
+          transcription: state.transcription.copyWith(language: language),
+        ),
+      );
 
-  Future<void> setAccent(AppAccent accent) =>
-      _persist(state.copyWith(accent: accent));
+  Future<void> setAccent(AppAccent accent) => _persist(
+    state.copyWith(appearance: state.appearance.copyWith(accent: accent)),
+  );
 
-  Future<void> setLanguage(AppLanguage language) =>
-      _persist(state.copyWith(language: language));
+  Future<void> setLanguage(AppLanguage language) => _persist(
+    state.copyWith(appearance: state.appearance.copyWith(language: language)),
+  );
 
-  Future<void> setAsrProvider(RemoteProviderId provider) =>
-      _persist(state.copyWith(asrProvider: provider));
+  Future<void> setAsrProvider(RemoteProviderId provider) => _persist(
+    state.copyWith(
+      transcription: state.transcription.copyWith(provider: provider),
+    ),
+  );
 
-  Future<void> setSummaryProvider(RemoteProviderId provider) =>
-      _persist(state.copyWith(summaryProvider: provider));
+  Future<void> setSummaryProvider(RemoteProviderId provider) => _persist(
+    state.copyWith(summary: state.summary.copyWith(provider: provider)),
+  );
 
   /// Saves a confirmed provider and model together without an intermediate choice.
   Future<void> setAsrSelection(RemoteProviderId provider, String modelId) =>
       _persist(
         state.copyWith(
-          asrProvider: provider,
-          asrModelByProvider: {...state.asrModelByProvider, provider: modelId},
+          transcription: state.transcription.copyWith(
+            provider: provider,
+            models: {...state.asrModelByProvider, provider: modelId},
+          ),
         ),
       );
 
   Future<void> setSummarySelection(RemoteProviderId provider, String modelId) =>
       _persist(
         state.copyWith(
-          summaryProvider: provider,
-          chatModelByProvider: {
-            ...state.chatModelByProvider,
-            provider: modelId,
-          },
+          summary: state.summary.copyWith(
+            provider: provider,
+            models: {...state.chatModelByProvider, provider: modelId},
+          ),
         ),
       );
 
   Future<void> setSummaryModel(RemoteProviderId provider, String modelId) {
     final map = Map<RemoteProviderId, String>.of(state.chatModelByProvider)
       ..[provider] = modelId;
-    return _persist(state.copyWith(chatModelByProvider: map));
+    return _persist(
+      state.copyWith(summary: state.summary.copyWith(models: map)),
+    );
   }
 
   Future<void> setAsrModel(RemoteProviderId provider, String modelId) {
     final map = Map<RemoteProviderId, String>.of(state.asrModelByProvider)
       ..[provider] = modelId;
-    return _persist(state.copyWith(asrModelByProvider: map));
+    return _persist(
+      state.copyWith(transcription: state.transcription.copyWith(models: map)),
+    );
   }
 
   Future<void> setAutoDelete(bool value) =>
       _persist(state.copyWith(autoDeleteAudio: value));
 
   Future<void> setSummarizeEnabled(bool value) =>
-      _persist(state.copyWith(summarizeEnabled: value));
+      _persist(state.copyWith(summary: state.summary.copyWith(enabled: value)));
 
   Future<void> completeOnboarding() =>
       _persist(state.copyWith(onboarded: true));

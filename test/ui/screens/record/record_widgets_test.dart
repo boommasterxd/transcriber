@@ -56,6 +56,10 @@ void main() {
     expect(find.text(strings.recHint), findsOneWidget);
   });
 
+  _registerRecordControlsTests(strings);
+}
+
+void _registerRecordControlsTests(AppStrings strings) {
   testWidgets('record controls expose discard, stop and pause actions', (
     tester,
   ) async {
@@ -67,9 +71,11 @@ void main() {
         RecordControls(
           paused: false,
           strings: strings,
-          onCancel: () => canceled = true,
-          onStop: () => stopped = true,
-          onTogglePause: () => toggled = true,
+          actions: RecordingActions(
+            cancel: () => canceled = true,
+            stop: () => stopped = true,
+            togglePause: () => toggled = true,
+          ),
         ),
       ),
     );
@@ -90,14 +96,47 @@ void main() {
         RecordControls(
           paused: true,
           strings: strings,
-          onCancel: () {},
-          onStop: () {},
-          onTogglePause: () {},
+          actions: RecordingActions(
+            cancel: () {},
+            stop: () {},
+            togglePause: () {},
+          ),
         ),
       ),
     );
     expect(find.text(strings.recResume), findsOneWidget);
     expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+  });
+
+  testWidgets('compact controls disable only missing recording actions', (
+    tester,
+  ) async {
+    var stopped = false;
+    await tester.pumpWidget(
+      _themed(
+        RecordControls(
+          paused: false,
+          strings: strings,
+          compact: true,
+          actions: RecordingActions(stop: () => stopped = true),
+        ),
+      ),
+    );
+
+    final responses = tester.widgetList<InkResponse>(find.byType(InkResponse));
+    expect(responses.map((response) => response.onTap != null), [
+      false,
+      true,
+      false,
+    ]);
+    expect(
+      tester
+          .widgetList<Opacity>(find.byType(Opacity))
+          .map((widget) => widget.opacity),
+      [0.42, 1.0, 0.42],
+    );
+    await tester.tap(find.text(strings.recStopShort));
+    expect(stopped, isTrue);
   });
 }
 

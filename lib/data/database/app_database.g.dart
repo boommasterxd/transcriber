@@ -761,6 +761,18 @@ class $NotesTableTable extends NotesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _titleSearchMeta = const VerificationMeta(
+    'titleSearch',
+  );
+  @override
+  late final GeneratedColumn<String> titleSearch = GeneratedColumn<String>(
+    'title_search',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _speakerMeta = const VerificationMeta(
     'speaker',
   );
@@ -917,6 +929,7 @@ class $NotesTableTable extends NotesTable
   List<GeneratedColumn> get $columns => [
     id,
     title,
+    titleSearch,
     speaker,
     source,
     durationSec,
@@ -956,6 +969,15 @@ class $NotesTableTable extends NotesTable
       );
     } else if (isInserting) {
       context.missing(_titleMeta);
+    }
+    if (data.containsKey('title_search')) {
+      context.handle(
+        _titleSearchMeta,
+        titleSearch.isAcceptableOrUnknown(
+          data['title_search']!,
+          _titleSearchMeta,
+        ),
+      );
     }
     if (data.containsKey('speaker')) {
       context.handle(
@@ -1097,6 +1119,10 @@ class $NotesTableTable extends NotesTable
         DriftSqlType.string,
         data['${effectivePrefix}title'],
       )!,
+      titleSearch: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title_search'],
+      )!,
       speaker: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}speaker'],
@@ -1165,6 +1191,7 @@ class $NotesTableTable extends NotesTable
 class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   final String id;
   final String title;
+  final String titleSearch;
   final String speaker;
   final String source;
   final int durationSec;
@@ -1182,6 +1209,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   const NotesTableData({
     required this.id,
     required this.title,
+    required this.titleSearch,
     required this.speaker,
     required this.source,
     required this.durationSec,
@@ -1202,6 +1230,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['title'] = Variable<String>(title);
+    map['title_search'] = Variable<String>(titleSearch);
     map['speaker'] = Variable<String>(speaker);
     map['source'] = Variable<String>(source);
     map['duration_sec'] = Variable<int>(durationSec);
@@ -1227,6 +1256,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return NotesTableCompanion(
       id: Value(id),
       title: Value(title),
+      titleSearch: Value(titleSearch),
       speaker: Value(speaker),
       source: Value(source),
       durationSec: Value(durationSec),
@@ -1256,6 +1286,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return NotesTableData(
       id: serializer.fromJson<String>(json['id']),
       title: serializer.fromJson<String>(json['title']),
+      titleSearch: serializer.fromJson<String>(json['titleSearch']),
       speaker: serializer.fromJson<String>(json['speaker']),
       source: serializer.fromJson<String>(json['source']),
       durationSec: serializer.fromJson<int>(json['durationSec']),
@@ -1278,6 +1309,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'title': serializer.toJson<String>(title),
+      'titleSearch': serializer.toJson<String>(titleSearch),
       'speaker': serializer.toJson<String>(speaker),
       'source': serializer.toJson<String>(source),
       'durationSec': serializer.toJson<int>(durationSec),
@@ -1298,6 +1330,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   NotesTableData copyWith({
     String? id,
     String? title,
+    String? titleSearch,
     String? speaker,
     String? source,
     int? durationSec,
@@ -1315,6 +1348,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   }) => NotesTableData(
     id: id ?? this.id,
     title: title ?? this.title,
+    titleSearch: titleSearch ?? this.titleSearch,
     speaker: speaker ?? this.speaker,
     source: source ?? this.source,
     durationSec: durationSec ?? this.durationSec,
@@ -1334,6 +1368,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return NotesTableData(
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
+      titleSearch: data.titleSearch.present
+          ? data.titleSearch.value
+          : this.titleSearch,
       speaker: data.speaker.present ? data.speaker.value : this.speaker,
       source: data.source.present ? data.source.value : this.source,
       durationSec: data.durationSec.present
@@ -1366,6 +1403,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return (StringBuffer('NotesTableData(')
           ..write('id: $id, ')
           ..write('title: $title, ')
+          ..write('titleSearch: $titleSearch, ')
           ..write('speaker: $speaker, ')
           ..write('source: $source, ')
           ..write('durationSec: $durationSec, ')
@@ -1388,6 +1426,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   int get hashCode => Object.hash(
     id,
     title,
+    titleSearch,
     speaker,
     source,
     durationSec,
@@ -1409,6 +1448,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       (other is NotesTableData &&
           other.id == this.id &&
           other.title == this.title &&
+          other.titleSearch == this.titleSearch &&
           other.speaker == this.speaker &&
           other.source == this.source &&
           other.durationSec == this.durationSec &&
@@ -1428,6 +1468,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
 class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   final Value<String> id;
   final Value<String> title;
+  final Value<String> titleSearch;
   final Value<String> speaker;
   final Value<String> source;
   final Value<int> durationSec;
@@ -1446,6 +1487,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   const NotesTableCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
+    this.titleSearch = const Value.absent(),
     this.speaker = const Value.absent(),
     this.source = const Value.absent(),
     this.durationSec = const Value.absent(),
@@ -1465,6 +1507,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   NotesTableCompanion.insert({
     required String id,
     required String title,
+    this.titleSearch = const Value.absent(),
     required String speaker,
     required String source,
     required int durationSec,
@@ -1497,6 +1540,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   static Insertable<NotesTableData> custom({
     Expression<String>? id,
     Expression<String>? title,
+    Expression<String>? titleSearch,
     Expression<String>? speaker,
     Expression<String>? source,
     Expression<int>? durationSec,
@@ -1516,6 +1560,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (title != null) 'title': title,
+      if (titleSearch != null) 'title_search': titleSearch,
       if (speaker != null) 'speaker': speaker,
       if (source != null) 'source': source,
       if (durationSec != null) 'duration_sec': durationSec,
@@ -1537,6 +1582,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   NotesTableCompanion copyWith({
     Value<String>? id,
     Value<String>? title,
+    Value<String>? titleSearch,
     Value<String>? speaker,
     Value<String>? source,
     Value<int>? durationSec,
@@ -1556,6 +1602,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     return NotesTableCompanion(
       id: id ?? this.id,
       title: title ?? this.title,
+      titleSearch: titleSearch ?? this.titleSearch,
       speaker: speaker ?? this.speaker,
       source: source ?? this.source,
       durationSec: durationSec ?? this.durationSec,
@@ -1582,6 +1629,9 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
+    }
+    if (titleSearch.present) {
+      map['title_search'] = Variable<String>(titleSearch.value);
     }
     if (speaker.present) {
       map['speaker'] = Variable<String>(speaker.value);
@@ -1636,6 +1686,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     return (StringBuffer('NotesTableCompanion(')
           ..write('id: $id, ')
           ..write('title: $title, ')
+          ..write('titleSearch: $titleSearch, ')
           ..write('speaker: $speaker, ')
           ..write('source: $source, ')
           ..write('durationSec: $durationSec, ')
@@ -2763,6 +2814,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $TranscriptSegmentsTableTable(this);
   late final $MigrationStateTableTable migrationStateTable =
       $MigrationStateTableTable(this);
+  late final Index notesHistoryOrder = Index(
+    'notes_history_order',
+    'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2774,6 +2829,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     noteTodosTable,
     transcriptSegmentsTable,
     migrationStateTable,
+    notesHistoryOrder,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3165,6 +3221,7 @@ typedef $$NotesTableTableCreateCompanionBuilder =
     NotesTableCompanion Function({
       required String id,
       required String title,
+      Value<String> titleSearch,
       required String speaker,
       required String source,
       required int durationSec,
@@ -3185,6 +3242,7 @@ typedef $$NotesTableTableUpdateCompanionBuilder =
     NotesTableCompanion Function({
       Value<String> id,
       Value<String> title,
+      Value<String> titleSearch,
       Value<String> speaker,
       Value<String> source,
       Value<int> durationSec,
@@ -3286,6 +3344,11 @@ class $$NotesTableTableFilterComposer
 
   ColumnFilters<String> get title => $composableBuilder(
     column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get titleSearch => $composableBuilder(
+    column: $table.titleSearch,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3455,6 +3518,11 @@ class $$NotesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get titleSearch => $composableBuilder(
+    column: $table.titleSearch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get speaker => $composableBuilder(
     column: $table.speaker,
     builder: (column) => ColumnOrderings(column),
@@ -3540,6 +3608,11 @@ class $$NotesTableTableAnnotationComposer
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get titleSearch => $composableBuilder(
+    column: $table.titleSearch,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get speaker =>
       $composableBuilder(column: $table.speaker, builder: (column) => column);
@@ -3705,6 +3778,7 @@ class $$NotesTableTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
+                Value<String> titleSearch = const Value.absent(),
                 Value<String> speaker = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<int> durationSec = const Value.absent(),
@@ -3723,6 +3797,7 @@ class $$NotesTableTableTableManager
               }) => NotesTableCompanion(
                 id: id,
                 title: title,
+                titleSearch: titleSearch,
                 speaker: speaker,
                 source: source,
                 durationSec: durationSec,
@@ -3743,6 +3818,7 @@ class $$NotesTableTableTableManager
               ({
                 required String id,
                 required String title,
+                Value<String> titleSearch = const Value.absent(),
                 required String speaker,
                 required String source,
                 required int durationSec,
@@ -3761,6 +3837,7 @@ class $$NotesTableTableTableManager
               }) => NotesTableCompanion.insert(
                 id: id,
                 title: title,
+                titleSearch: titleSearch,
                 speaker: speaker,
                 source: source,
                 durationSec: durationSec,

@@ -6,26 +6,23 @@ import '../../core/theme/app_palette.dart';
 class ModelTile extends StatelessWidget {
   const ModelTile({
     super.key,
-    required this.title,
-    required this.subtitle,
+    required this.content,
     required this.trailing,
     this.onTap,
     this.leading,
-    this.leadingColor,
     this.isLast = false,
-    this.badge,
   });
 
-  final String title;
-  final String subtitle;
+  final ModelTileContent content;
   final Widget trailing;
   final VoidCallback? onTap;
   final Widget? leading;
-  final Color? leadingColor;
   final bool isLast;
 
   /// Optional small badge shown next to the title (e.g. "Empfohlen").
-  final Widget? badge;
+  String get title => content.title;
+  String get subtitle => content.subtitle;
+  Widget? get badge => content.badge;
 
   @override
   Widget build(BuildContext context) {
@@ -42,18 +39,7 @@ class ModelTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         child: Row(
           children: [
-            if (leading != null) ...[
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: leadingColor ?? palette.accentSoft2,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Center(child: leading),
-              ),
-              const SizedBox(width: 13),
-            ],
+            if (leading != null) ...[leading!, const SizedBox(width: 13)],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,6 +75,36 @@ class ModelTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class ModelTileContent {
+  const ModelTileContent({
+    required this.title,
+    required this.subtitle,
+    this.badge,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? badge;
+}
+
+class ModelTileLeading extends StatelessWidget {
+  const ModelTileLeading({super.key, required this.child, this.color});
+
+  final Widget child;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 38,
+    height: 38,
+    decoration: BoxDecoration(
+      color: color ?? context.palette.accentSoft2,
+      borderRadius: BorderRadius.circular(11),
+    ),
+    child: Center(child: child),
+  );
 }
 
 /// Radio/checkmark selection indicator.

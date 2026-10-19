@@ -161,7 +161,7 @@ Map<String, Object?> _graphPlan(
     );
   }
   final production = reachable(
-    partOwners,
+    unionGraphs(partOwners, reverseGraph(partOwners)),
     changed,
   ).where((file) => file.startsWith('lib/'));
   if (production.any(

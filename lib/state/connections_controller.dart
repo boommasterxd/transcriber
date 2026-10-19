@@ -6,6 +6,12 @@ import 'providers.dart';
 /// Tracks which cloud providers have an API key stored (connected), and manages
 /// connect / disconnect. Keys live in secure storage via [SettingsRepository].
 class ConnectionsController extends Notifier<Map<RemoteProviderId, bool>> {
+  final _catalogRevisions = <RemoteProviderId, int>{};
+
+  /// Changes only after a stored credential is replaced or removed.
+  int catalogRevision(RemoteProviderId provider) =>
+      _catalogRevisions[provider] ?? 0;
+
   @override
   Map<RemoteProviderId, bool> build() =>
       Map.of(ref.watch(initialConnectionsProvider));
@@ -19,6 +25,7 @@ class ConnectionsController extends Notifier<Map<RemoteProviderId, bool>> {
     }
     await ref.read(providerCredentialTesterProvider)(provider, trimmed);
     await ref.read(settingsRepositoryProvider).setApiKey(provider, trimmed);
+    _catalogRevisions[provider] = catalogRevision(provider) + 1;
     state = {...state, provider: true};
   }
 
@@ -32,6 +39,7 @@ class ConnectionsController extends Notifier<Map<RemoteProviderId, bool>> {
 
   Future<void> disconnect(RemoteProviderId provider) async {
     await ref.read(settingsRepositoryProvider).deleteApiKey(provider);
+    _catalogRevisions[provider] = catalogRevision(provider) + 1;
     state = {...state, provider: false};
   }
 

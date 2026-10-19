@@ -167,8 +167,10 @@ OnboardingTestConfig _configuration(
   double textScale = 1,
 }) => OnboardingTestConfig(
   modelCatalog: catalog,
-  surfaceSize: size,
-  textScale: textScale,
+  viewport: MediaQueryData(
+    size: size,
+    textScaler: TextScaler.linear(textScale),
+  ),
   connections: const {RemoteProviderId.google: true},
 );
 

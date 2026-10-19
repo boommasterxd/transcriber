@@ -51,6 +51,8 @@ class ProcessingController extends Notifier<ProcessingState> {
   TranscriptNote? _pendingNote;
   bool _committed = false;
   bool _discardRequested = false;
+  bool _persistencePending = false;
+  Future<void>? _commitOperation;
 
   @override
   ProcessingState build() => const ProcessingState();
@@ -65,16 +67,18 @@ class ProcessingController extends Notifier<ProcessingState> {
     String? fileName,
     bool save = true,
   }) async {
+    if (state.running) return;
+    final retryNote = _persistencePending && _sameInput(input)
+        ? _pendingNote
+        : null;
     final previousPreview = _pendingNote;
-    if (!_committed && previousPreview != null) {
+    if (retryNote == null && !_committed && previousPreview != null) {
       await _discardNoteAudio(previousPreview);
     }
-    final settings = ref.read(settingsControllerProvider);
-    final pipeline = ref.read(processingPipelineProvider);
-    final credentials = await _credentialsFor(settings);
     _input = input;
-    _pendingNote = null;
-    _committed = false;
+    _pendingNote = retryNote;
+    if (retryNote == null) _committed = false;
+    _persistencePending = false;
     _discardRequested = false;
 
     state = ProcessingState(
@@ -84,35 +88,63 @@ class ProcessingController extends Notifier<ProcessingState> {
     );
 
     try {
-      final note = await pipeline.process(
-        ProcessingRequest(
-          input: input,
-          settings: settings,
-          credentials: credentials,
-        ),
-        callbacks: ProcessingCallbacks(onStep: _updateStep),
-      );
+      final note = retryNote ?? await _process(input);
       _pendingNote = note;
       if (_discardRequested) {
-        await _discardNoteAudio(note);
-        await _discardInput(input);
-        state = const ProcessingState();
+        await _discardCancelledRun(input);
         return;
       }
       if (save) {
-        await ref.read(notesControllerProvider.notifier).add(note);
-        _committed = true;
-        await _discardInput(input);
+        await _save(note, input);
       }
       state = state.copyWith(running: false, result: note);
     } catch (e) {
       if (_discardRequested) {
-        await ref.read(audioCacheManagerProvider).discard(input.audio);
-        state = const ProcessingState();
+        await _discardCancelledRun(input);
         return;
       }
       state = state.copyWith(running: false, error: e);
     }
+  }
+
+  bool _sameInput(ProcessingInput input) =>
+      _input?.audioPath == input.audioPath &&
+      _input?.audio.ownership == input.audio.ownership &&
+      _input?.source == input.source;
+
+  Future<void> _discardCancelledRun(ProcessingInput input) async {
+    final note = _pendingNote;
+    if (!_committed && note != null) await _discardNoteAudio(note);
+    await _discardInput(input);
+    _input = null;
+    _pendingNote = null;
+    _persistencePending = false;
+    state = const ProcessingState();
+  }
+
+  Future<TranscriptNote> _process(ProcessingInput input) async {
+    final settings = ref.read(settingsControllerProvider);
+    final credentials = await _credentialsFor(settings);
+    return ref
+        .read(processingPipelineProvider)
+        .process(
+          ProcessingRequest(
+            input: input,
+            settings: settings,
+            credentials: credentials,
+          ),
+          callbacks: ProcessingCallbacks(onStep: _updateStep),
+        );
+  }
+
+  Future<void> _save(TranscriptNote note, ProcessingInput input) async {
+    _persistencePending = true;
+    if (!_committed) {
+      await ref.read(notesControllerProvider.notifier).add(note);
+      _committed = true;
+    }
+    await _discardInput(input);
+    _persistencePending = false;
   }
 
   Future<ProcessingCredentials> _credentialsFor(AppSettings settings) async {
@@ -133,18 +165,31 @@ class ProcessingController extends Notifier<ProcessingState> {
 
   /// Persists the current preview result (used by the share overlay's explicit
   /// "Save"). No-op if there's nothing to save.
-  Future<void> commit() async {
-    if (_committed) return;
+  Future<void> commit() {
+    final pending = _commitOperation;
+    if (pending != null) return pending;
+    if (_committed) return Future.value();
     final note = state.result;
-    if (note == null) return;
-    await ref.read(notesControllerProvider.notifier).add(note);
-    _committed = true;
+    if (note == null) return Future.value();
     final input = _input;
-    if (input != null) await _discardInput(input);
+    if (input == null) return Future.value();
+    final operation = _save(note, input).whenComplete(() {
+      _commitOperation = null;
+    });
+    _commitOperation = operation;
+    return operation;
   }
 
   /// Discards an uncommitted preview or failed input without touching externals.
   Future<void> discardCurrent() async {
+    final pending = _commitOperation;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {
+        // A failed commit leaves ownership here, so dismissal may discard it.
+      }
+    }
     if (_committed) return;
     if (state.running) {
       _discardRequested = true;
@@ -158,6 +203,7 @@ class ProcessingController extends Notifier<ProcessingState> {
     if (input != null) await _discardInput(input);
     _input = null;
     _pendingNote = null;
+    _persistencePending = false;
   }
 
   Future<void> _discardInput(ProcessingInput input) =>

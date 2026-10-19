@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_theme_mode.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -80,7 +81,7 @@ class _KeyboardAppState extends State<KeyboardApp> with WidgetsBindingObserver {
     debugShowCheckedModeBanner: false,
     theme: AppTheme.build(Brightness.light, _settings.accent),
     darkTheme: AppTheme.build(Brightness.dark, _settings.accent),
-    themeMode: _settings.themeMode,
+    themeMode: _settings.themeMode.flutterThemeMode,
     builder: (context, child) => _KeyboardAppearance(
       platform: widget.settingsPlatform,
       child: child ?? const SizedBox.shrink(),

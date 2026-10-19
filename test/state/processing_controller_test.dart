@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,6 +85,34 @@ void _registerCredentialTests() {
 }
 
 void _registerCommitTests() {
+  test(
+    'dismissal waits for pending commit without deleting saved audio',
+    () async {
+      final harness = await _Harness.create();
+      addTearDown(harness.dispose);
+      await harness.run(save: false);
+      final retained = harness.retainedAudio;
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      harness.notesRepository.gate = gate.future;
+      harness.notesRepository.started = started;
+
+      final commit = harness.controller.commit();
+      await started.future;
+      final duplicateCommit = harness.controller.commit();
+      final discard = harness.controller.discardCurrent();
+      expect(await retained.exists(), isTrue);
+      expect(await harness.staging.exists(), isTrue);
+      gate.complete();
+      await Future.wait([commit, duplicateCommit, discard]);
+
+      expect(harness.notesRepository.saved, hasLength(1));
+      expect(harness.notesRepository.loaded.single.audioPath, retained.path);
+      expect(await retained.exists(), isTrue);
+      expect(await harness.staging.exists(), isFalse);
+    },
+  );
+
   test('save commits the note before deleting its staging audio', () async {
     final harness = await _Harness.create();
     addTearDown(harness.dispose);
@@ -115,6 +144,45 @@ void _registerCommitTests() {
 }
 
 void _registerDiscardTests() {
+  for (final saveFails in [true, false]) {
+    test(
+      'discard during save preserves only committed audio: $saveFails',
+      () async {
+        final harness = await _Harness.create();
+        addTearDown(harness.dispose);
+        final gate = Completer<void>();
+        final started = Completer<void>();
+        harness.notesRepository
+          ..failOnSave = saveFails
+          ..gate = gate.future
+          ..started = started;
+
+        final run = harness.run(save: true);
+        await started.future;
+        final retained = File(harness.notesRepository.attempted!.audioPath!);
+        expect(await retained.exists(), isTrue);
+        await harness.controller.discardCurrent();
+        gate.complete();
+        await run;
+
+        expect(await harness.staging.exists(), isFalse);
+        expect(await retained.exists(), !saveFails);
+        expect(harness.notesRepository.loaded, hasLength(saveFails ? 0 : 1));
+        if (saveFails) {
+          expect(
+            harness.state,
+            isA<ProcessingState>()
+                .having((state) => state.running, 'running', false)
+                .having((state) => state.result, 'result', isNull)
+                .having((state) => state.error, 'error', isNull),
+          );
+          await harness.controller.commit();
+          expect(harness.notesRepository.loaded, isEmpty);
+        }
+      },
+    );
+  }
+
   test('discard removes preview-retained and staging audio', () async {
     final harness = await _Harness.create();
     addTearDown(harness.dispose);
@@ -156,9 +224,7 @@ void _registerRetryTests() {
     harness.clientFactory.error = null;
     await harness.run(save: true);
 
-    expect(harness.state.hasError, isFalse);
-    expect(await harness.staging.exists(), isFalse);
-    expect(harness.notesRepository.loaded, hasLength(1));
+    await _expectCommitted(harness);
   });
 
   test('persistence failure preserves staging and allows retry', () async {
@@ -169,14 +235,31 @@ void _registerRetryTests() {
     await harness.run(save: true);
     expect(harness.state.error, isA<StateError>());
     expect(await harness.staging.exists(), isTrue);
+    expect(harness.notesRepository.loaded, isEmpty);
+    final attempts = harness.clientFactory.calls.length;
+    final pending = harness.notesRepository.saved.single.single;
+    expect(await File(pending.audioPath!).exists(), isTrue);
 
     harness.notesRepository.failOnSave = false;
     await harness.run(save: true);
 
-    expect(harness.state.hasError, isFalse);
-    expect(await harness.staging.exists(), isFalse);
-    expect(harness.notesRepository.loaded, isNotEmpty);
+    await _expectCommitted(harness);
+    expect(harness.notesRepository.loaded.single.id, pending.id);
+    expect(harness.notesRepository.loaded.single.audioPath, pending.audioPath);
+    expect(await File(pending.audioPath!).exists(), isTrue);
+    expect(harness.clientFactory.calls, hasLength(attempts));
   });
+}
+
+Future<void> _expectCommitted(_Harness harness) async {
+  expect(harness.state.error, isNull);
+  expect(await harness.staging.exists(), isFalse);
+  expect(harness.notesRepository.loaded, hasLength(1));
+  expect(
+    harness.notesRepository.loaded.single.fullTranscriptText,
+    'Transcript',
+  );
+  expect(await harness.retainedAudio.exists(), isTrue);
 }
 
 final class _Harness {
@@ -184,7 +267,6 @@ final class _Harness {
     required this.database,
     required this.root,
     required this.staging,
-    required this.settingsRepository,
     required this.notesRepository,
     required this.clientFactory,
     required this.container,
@@ -193,7 +275,8 @@ final class _Harness {
   final AppDatabase database;
   final Directory root;
   final File staging;
-  final FakeSettingsRepository settingsRepository;
+  FakeSettingsRepository get settingsRepository =>
+      container.read(settingsRepositoryProvider) as FakeSettingsRepository;
   final _ObservingNotesRepository notesRepository;
   final _ClientFactory clientFactory;
   final ProviderContainer container;
@@ -222,9 +305,13 @@ final class _Harness {
       clientBuilder: clientFactory.create,
     );
     final settings = AppSettings.initial().copyWith(
-      asrProvider: RemoteProviderId.openai,
-      summaryProvider: RemoteProviderId.google,
-      summarizeEnabled: summaryEnabled,
+      transcription: const TranscriptionSettings(
+        provider: RemoteProviderId.openai,
+      ),
+      summary: SummarySettings(
+        provider: RemoteProviderId.google,
+        enabled: summaryEnabled,
+      ),
       autoDeleteAudio: false,
     );
     final container = ProviderContainer(
@@ -242,7 +329,6 @@ final class _Harness {
       database: database,
       root: root,
       staging: staging,
-      settingsRepository: settingsRepository,
       notesRepository: notesRepository,
       clientFactory: clientFactory,
       container: container,
@@ -278,11 +364,17 @@ final class _ObservingNotesRepository extends FakeNotesRepository {
 
   final File staging;
   bool? stagingExistedDuringSave;
+  Future<void>? gate;
+  Completer<void>? started;
+  TranscriptNote? attempted;
 
   @override
-  Future<void> saveAll(List<TranscriptNote> notes) async {
+  Future<TranscriptNote> add(TranscriptNote note) async {
     stagingExistedDuringSave = await staging.exists();
-    await super.saveAll(notes);
+    attempted = note;
+    started?.complete();
+    await gate;
+    return super.add(note);
   }
 }
 
@@ -302,6 +394,9 @@ final class _RemoteClient implements RemoteProviderClient {
 
   final Object? Function() error;
   final Object? Function() summaryError;
+
+  @override
+  void close() {}
 
   @override
   Future<TranscriptionResult> transcribe(
@@ -332,6 +427,10 @@ final class _RemoteClient implements RemoteProviderClient {
   Future<List<RemoteModelInfo>> listModels({
     required bool forTranscription,
   }) async => const [];
+
+  @override
+  Future<ProviderModelCatalog> loadModelCatalog() async =>
+      ProviderModelCatalog.openAi(const []);
 
   @override
   Future<void> testConnection() async {}

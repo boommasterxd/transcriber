@@ -39,7 +39,9 @@ void main() {
     tester,
   ) async {
     final controller = _TestSettingsController(
-      AppSettings.initial().copyWith(summarizeEnabled: false),
+      AppSettings.initial().copyWith(
+        summary: const SummarySettings(enabled: false),
+      ),
     );
     await tester.pumpWidget(
       _settingsApp(child: const SummarySection(), controller: controller),
@@ -92,6 +94,6 @@ class _TestSettingsController extends SettingsController {
 
   @override
   Future<void> setSummarizeEnabled(bool value) async {
-    state = state.copyWith(summarizeEnabled: value);
+    state = state.copyWith(summary: state.summary.copyWith(enabled: value));
   }
 }

@@ -59,7 +59,7 @@ void main() {
 void _registerNonInstrumentableSourceTest() {
   test('reports analyzer-classified non-instrumentable sources', () {
     final fixture = CoverageFixture.create({
-      'fragment.dart': 'part of sample;\nvoid generatedHelper() {}\n',
+      'fragment.dart': "part of 'sample.dart';\nconst values = {'a': 1};\n",
       'contracts.dart': '''
 abstract interface class Port {
   void run();
@@ -85,7 +85,7 @@ typedef Callback = void Function();
     expect(report.missingSources, isEmpty);
     expect(report.nonInstrumentableSources, {
       'lib/contracts.dart': 'abstract interfaces and typedefs only',
-      'lib/fragment.dart': 'part fragment',
+      'lib/fragment.dart': 'constant data and memberless enums only',
     });
     expect(report.summary(), contains('lib/contracts.dart'));
     expect(report.summary(), contains('lib/fragment.dart'));

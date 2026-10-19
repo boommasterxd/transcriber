@@ -6,7 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../data/models/transcript_note.dart';
-import '../../../../state/notes_controller.dart';
+import '../../../../state/note_detail_provider.dart';
 import '../../../widgets/note_actions.dart';
 
 mixin NoteDetailInteractionState<T extends ConsumerStatefulWidget>
@@ -16,10 +16,7 @@ mixin NoteDetailInteractionState<T extends ConsumerStatefulWidget>
   Timer? _copyTimer;
 
   TranscriptNote? watchNote(String noteId) {
-    for (final note in ref.watch(notesControllerProvider)) {
-      if (note.id == noteId) return note;
-    }
-    return null;
+    return ref.watch(noteDetailProvider(noteId)).asData?.value;
   }
 
   @override

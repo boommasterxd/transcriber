@@ -9,24 +9,14 @@ class RecordControls extends StatelessWidget {
     super.key,
     required this.paused,
     required this.strings,
-    required this.onCancel,
-    required this.onStop,
-    required this.onTogglePause,
+    required this.actions,
     this.compact = false,
-    this.cancelEnabled = true,
-    this.stopEnabled = true,
-    this.pauseEnabled = true,
   });
 
   final bool paused;
   final AppStrings strings;
-  final VoidCallback onCancel;
-  final VoidCallback onStop;
-  final VoidCallback onTogglePause;
+  final RecordingActions actions;
   final bool compact;
-  final bool cancelEnabled;
-  final bool stopEnabled;
-  final bool pauseEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -43,14 +33,14 @@ class RecordControls extends StatelessWidget {
               icon: Icons.delete_outline_rounded,
               label: strings.recCancel,
               color: context.palette.coralInk,
-              onTap: cancelEnabled ? onCancel : null,
+              onTap: actions.cancel,
               dimensions: dimensions,
             ),
           ),
           Expanded(
             child: _RecordStopAction(
               label: strings.recStopShort,
-              onTap: stopEnabled ? onStop : null,
+              onTap: actions.stop,
               dimensions: dimensions,
             ),
           ),
@@ -59,7 +49,7 @@ class RecordControls extends StatelessWidget {
               icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
               label: paused ? strings.recResume : strings.recPause,
               color: context.palette.body,
-              onTap: pauseEnabled ? onTogglePause : null,
+              onTap: actions.togglePause,
               dimensions: dimensions,
             ),
           ),
@@ -67,6 +57,15 @@ class RecordControls extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A null callback disables the corresponding recording action.
+class RecordingActions {
+  const RecordingActions({this.cancel, this.stop, this.togglePause});
+
+  final VoidCallback? cancel;
+  final VoidCallback? stop;
+  final VoidCallback? togglePause;
 }
 
 /// Microphone start action matching the central stop control.
@@ -91,8 +90,7 @@ class RecordStartControl extends StatelessWidget {
       child: _CircularAction(
         label: label,
         onTap: onTap,
-        size: dimensions.stopSize,
-        labelSize: dimensions.labelSize,
+        dimensions: dimensions,
         color: context.palette.accent,
         shadow: true,
         child: Icon(
@@ -121,8 +119,7 @@ class _RecordStopAction extends StatelessWidget {
     child: _CircularAction(
       label: label,
       onTap: onTap,
-      size: dimensions.stopSize,
-      labelSize: dimensions.labelSize,
+      dimensions: dimensions,
       color: context.palette.accent,
       shadow: true,
       child: Container(
@@ -157,8 +154,7 @@ class _RecordAction extends StatelessWidget {
     child: _CircularAction(
       label: label,
       onTap: onTap,
-      size: dimensions.sideSize,
-      labelSize: dimensions.labelSize,
+      dimensions: dimensions,
       color: context.palette.chip,
       child: Icon(icon, color: color, size: dimensions.sideIconSize),
     ),
@@ -169,8 +165,7 @@ class _CircularAction extends StatelessWidget {
   const _CircularAction({
     required this.label,
     required this.onTap,
-    required this.size,
-    required this.labelSize,
+    required this.dimensions,
     required this.color,
     required this.child,
     this.shadow = false,
@@ -178,8 +173,9 @@ class _CircularAction extends StatelessWidget {
 
   final String label;
   final VoidCallback? onTap;
-  final double size;
-  final double labelSize;
+  final _ControlDimensions dimensions;
+  double get size => shadow ? dimensions.stopSize : dimensions.sideSize;
+  double get labelSize => dimensions.labelSize;
   final Color color;
   final Widget child;
   final bool shadow;

@@ -3,6 +3,8 @@ import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 
+import '../../../support/note_test_fixtures.dart';
+
 TranscriptNote buildTestNote({
   required String id,
   required String title,
@@ -10,25 +12,24 @@ TranscriptNote buildTestNote({
   TestNoteOverrides overrides = const TestNoteOverrides(),
 }) {
   return TranscriptNote(
-    id: id,
-    title: title,
-    speaker: '',
-    source: NoteSource.recording,
-    durationSec: 30,
-    createdAt: createdAt,
-    asrIsLocal: false,
-    summaryIsLocal: false,
-    asrName: 'gpt-transcribe',
-    asrSub: 'OpenAI',
-    llmName: 'gemini-3.7-flash',
-    llmSub: 'Google Gemini',
-    gist: '',
-    points: const [],
-    todos: List.generate(
-      overrides.todoCount,
-      (index) => TodoItem(text: 'Task $index'),
+    metadata: NoteMetadata(
+      id: id,
+      title: title,
+      speaker: '',
+      source: NoteSource.recording,
+      durationSec: 30,
+      createdAt: createdAt,
     ),
-    transcript: const [],
+    origins: cloudNoteOrigins,
+    content: NoteContent(
+      gist: '',
+      points: const [],
+      todos: List.generate(
+        overrides.todoCount,
+        (index) => TodoItem(text: 'Task $index'),
+      ),
+      transcript: const [],
+    ),
   );
 }
 

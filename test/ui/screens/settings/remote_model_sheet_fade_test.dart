@@ -29,8 +29,7 @@ void _registerTaskFlows() {
                 ? const Scaffold(body: OnboardingModelsStep())
                 : const ModelSettingsScreen(),
             config: OnboardingTestConfig(
-              surfaceSize: const Size(400, 800),
-              textScale: 1,
+              viewport: const MediaQueryData(size: Size(400, 800)),
               connections: const {RemoteProviderId.google: true},
               modelCatalog: (_) async => _models(40),
             ),
@@ -84,8 +83,7 @@ void _registerCatalogResize() {
       tester,
       child: const ModelSettingsScreen(),
       config: OnboardingTestConfig(
-        surfaceSize: const Size(400, 800),
-        textScale: 1,
+        viewport: const MediaQueryData(size: Size(400, 800)),
         connections: const {RemoteProviderId.google: true},
         modelCatalog: (_) async => _models(count),
       ),

@@ -40,13 +40,13 @@ Run Android quality checks separately:
 ```bash
 bash tool/quality/check_kotlin_quality.sh
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
-  :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+  :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
 ```
 
 For only the manifest-listed pure Kotlin tests, Flutter and an Android SDK are unnecessary:
 
 ```bash
-JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test
+JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test verifyNativeCoverage
 ```
 
 Run instrumented Android tests on an attached device or emulator:
@@ -55,6 +55,8 @@ Run instrumented Android tests on an attached device or emulator:
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:connectedDebugAndroidTest
 ```
+
+For CI coverage-control changes, also run `JAVA_HOME=/path/to/jdk17 node --test test/tool/ci/native-coverage.integration.cjs`. Android unit coverage uses locked, offline-provided Robolectric SDKs and all maintained Kotlin sources; it does not replace the device checks above. Metric mappings and dependency-inventory updates are documented in [code quality](code-quality.md#native-coverage).
 
 ## Keyboard Dictation Verification
 

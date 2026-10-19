@@ -1,10 +1,9 @@
 import 'package:drift/drift.dart';
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../core/l10n/app_strings.dart';
-import '../../core/theme/app_accent.dart';
 import '../database/app_database.dart';
+import '../models/app_accent.dart';
+import '../models/app_language.dart';
 import '../models/app_settings.dart';
 import '../models/remote_provider.dart';
 import '../models/transcription_language.dart';
@@ -60,18 +59,22 @@ class SettingsRepository {
     final asrProvider = RemoteProviderId.fromId(row.asrProvider);
     final summaryProvider = RemoteProviderId.fromId(row.summaryProvider);
     return AppSettings(
-      themeMode: _themeMode(row.themeMode),
-      accent: AppAccent.fromId(row.accent),
-      language: AppLanguage.fromCode(row.language),
-      transcriptionLanguage: TranscriptionLanguage.fromCode(
-        row.transcriptionLanguage,
+      appearance: AppearanceSettings(
+        themeMode: _themeMode(row.themeMode),
+        accent: AppAccent.fromId(row.accent),
+        language: AppLanguage.fromCode(row.language),
       ),
-      asrProvider: asrProvider,
-      summaryProvider: summaryProvider,
-      asrModelByProvider: {asrProvider: row.asrModel},
-      chatModelByProvider: {summaryProvider: row.summaryModel},
+      transcription: TranscriptionSettings(
+        language: TranscriptionLanguage.fromCode(row.transcriptionLanguage),
+        provider: asrProvider,
+        models: {asrProvider: row.asrModel},
+      ),
+      summary: SummarySettings(
+        provider: summaryProvider,
+        models: {summaryProvider: row.summaryModel},
+        enabled: row.summarizeEnabled,
+      ),
       autoDeleteAudio: row.autoDeleteAudio,
-      summarizeEnabled: row.summarizeEnabled,
       onboarded: row.onboarded,
     );
   }
@@ -98,8 +101,8 @@ class SettingsRepository {
     }
   }
 
-  ThemeMode _themeMode(String value) => ThemeMode.values.firstWhere(
+  AppThemeMode _themeMode(String value) => AppThemeMode.values.firstWhere(
     (mode) => mode.name == value,
-    orElse: () => ThemeMode.system,
+    orElse: () => AppThemeMode.system,
   );
 }

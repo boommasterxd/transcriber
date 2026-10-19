@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../data/models/transcript_note.dart';
-import '../../../../state/notes_controller.dart';
+import '../../../../data/models/note_history.dart';
+import '../../../../state/history_controller.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../navigation.dart';
 import '../../../widgets/buttons.dart';
@@ -16,6 +16,7 @@ import 'active_model_pill.dart';
 import 'home_search_bar.dart';
 import 'note_badges.dart';
 import 'swipe_delete_background.dart';
+import 'history_page_controls.dart';
 
 class TabletSidebarActions {
   const TabletSidebarActions({
@@ -32,21 +33,21 @@ class TabletSidebarActions {
 class TabletSidebar extends ConsumerWidget {
   const TabletSidebar({
     super.key,
-    required this.query,
     required this.selectedId,
     required this.actions,
   });
 
-  final String query;
   final String? selectedId;
   final TabletSidebarActions actions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
-    final notes = ref.watch(notesControllerProvider);
-    final filtered = filterNotesByTitle(notes, query);
-    final groups = groupNotesByAge(filtered, now: DateTime.now());
+    final page = ref.watch(historyControllerProvider);
+    final groups = groupNotesByAge(
+      page.asData?.value.entries ?? const [],
+      now: DateTime.now(),
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -56,10 +57,11 @@ class TabletSidebar extends ConsumerWidget {
       child: Column(
         children: [
           _TabletControls(
-            noteCount: notes.length,
+            noteCount: page.asData?.value.totalCount ?? 0,
             strings: strings,
             status: ref.watch(homeModelStatusProvider),
             actions: actions,
+            query: ref.read(historyControllerProvider.notifier).query,
           ),
           Expanded(
             child: _TabletHistory(
@@ -67,6 +69,7 @@ class TabletSidebar extends ConsumerWidget {
               strings: strings,
               selectedId: selectedId,
               onSelect: actions.onSelect,
+              page: page,
             ),
           ),
         ],
@@ -81,12 +84,14 @@ class _TabletControls extends StatelessWidget {
     required this.strings,
     required this.status,
     required this.actions,
+    required this.query,
   });
 
   final int noteCount;
   final AppStrings strings;
   final HomeModelStatus status;
   final TabletSidebarActions actions;
+  final String query;
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +104,7 @@ class _TabletControls extends StatelessWidget {
           const SizedBox(height: 16),
           HomeSearchBar(
             hint: strings.search,
+            query: query,
             onChanged: actions.onQueryChanged,
             style: HomeSearchStyle.tablet,
           ),
@@ -178,11 +184,10 @@ class _TabletPrimaryActions extends StatelessWidget {
           onTap: () => AppNavigator.openRecord(context),
         ),
         const SizedBox(height: 10),
-        PillButton(
+        PillButton.outlined(
           label: strings.pickTitle,
           icon: Icons.file_upload_outlined,
           height: 48,
-          outlined: true,
           onTap: actions.onPickFile,
         ),
       ],
@@ -196,64 +201,54 @@ class _TabletHistory extends StatelessWidget {
     required this.strings,
     required this.selectedId,
     required this.onSelect,
+    required this.page,
   });
 
   final List<HistoryGroup> groups;
   final AppStrings strings;
   final String? selectedId;
   final ValueChanged<String> onSelect;
+  final AsyncValue<HistoryPage> page;
 
   @override
   Widget build(BuildContext context) {
     return FadeEdges(
-      builder: (context, controller) => ListView(
+      builder: (context, controller) => CustomScrollView(
         controller: controller,
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
-        children: [
-          for (final group in groups)
-            _TabletHistoryGroup(
-              group: group,
-              strings: strings,
-              selectedId: selectedId,
-              onSelect: onSelect,
+        slivers: [
+          for (final group in groups) ...[
+            SliverToBoxAdapter(
+              child: _TabletGroupLabel(
+                text: historyPeriodLabel(group.period, strings),
+              ),
             ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              sliver: SliverList.builder(
+                itemCount: group.notes.length,
+                itemBuilder: (context, index) {
+                  final note = group.notes[index];
+                  return DismissibleHistoryNote(
+                    key: ValueKey(note.id),
+                    note: note,
+                    strings: strings,
+                    style: SwipeDeleteStyle.tablet,
+                    child: TabletHistoryRow(
+                      note: note,
+                      strings: strings,
+                      selected: note.id == selectedId,
+                      onTap: () => onSelect(note.id),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          SliverToBoxAdapter(
+            child: HistoryPageControls(page: page, strings: strings),
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _TabletHistoryGroup extends StatelessWidget {
-  const _TabletHistoryGroup({
-    required this.group,
-    required this.strings,
-    required this.selectedId,
-    required this.onSelect,
-  });
-
-  final HistoryGroup group;
-  final AppStrings strings;
-  final String? selectedId;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _TabletGroupLabel(text: historyPeriodLabel(group.period, strings)),
-        for (final note in group.notes)
-          DismissibleHistoryNote(
-            note: note,
-            strings: strings,
-            style: SwipeDeleteStyle.tablet,
-            child: TabletHistoryRow(
-              note: note,
-              strings: strings,
-              selected: note.id == selectedId,
-              onTap: () => onSelect(note.id),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -290,7 +285,7 @@ class TabletHistoryRow extends StatelessWidget {
     required this.onTap,
   });
 
-  final TranscriptNote note;
+  final NoteHistoryEntry note;
   final AppStrings strings;
   final bool selected;
   final VoidCallback onTap;
@@ -298,8 +293,7 @@ class TabletHistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return InkWell(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -324,7 +318,7 @@ class TabletHistoryRow extends StatelessWidget {
             Expanded(child: _TabletNoteText(note: note)),
             const SizedBox(width: 8),
             TodoCountBadge(
-              count: note.todos.length,
+              count: note.todoCount,
               strings: strings,
               density: TodoBadgeDensity.compact,
             ),
@@ -338,7 +332,7 @@ class TabletHistoryRow extends StatelessWidget {
 class _TabletNoteText extends StatelessWidget {
   const _TabletNoteText({required this.note});
 
-  final TranscriptNote note;
+  final NoteHistoryEntry note;
 
   @override
   Widget build(BuildContext context) => Column(

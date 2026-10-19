@@ -32,13 +32,21 @@ extension _DictationConnection on DictationController {
         break;
       case LiveTranscriptionPartial(:final text):
         _partial = text;
-        _setState(_state.copyWith(phase: _streamingPhase(true), preview: text));
+        _setState(
+          _state.copyWith(
+            phase: _streamingPhase(true),
+            progress: _state.progress.copyWith(preview: text),
+          ),
+        );
         _queueComposition(sessionId, _sessionTranscript);
       case LiveTranscriptionFinal(:final text):
         _finalized = _joinTranscript(_finalized, text);
         _partial = '';
         _setState(
-          _state.copyWith(phase: _streamingPhase(false), preview: text),
+          _state.copyWith(
+            phase: _streamingPhase(false),
+            progress: _state.progress.copyWith(preview: text),
+          ),
         );
         _queueComposition(sessionId, _finalized);
       case LiveTranscriptionDisconnected():

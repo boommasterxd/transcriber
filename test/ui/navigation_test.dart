@@ -134,7 +134,9 @@ Future<void> _pumpHarness(
 ) async {
   final database = AppDatabase(NativeDatabase.memory());
   addTearDown(database.close);
-  final settings = AppSettings.initial().copyWith(summarizeEnabled: false);
+  final settings = AppSettings.initial().copyWith(
+    summary: const SummarySettings(enabled: false),
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

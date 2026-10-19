@@ -5,6 +5,7 @@ import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../state/notes_controller.dart';
+import '../../../state/note_detail_provider.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/audio_deleted_notice.dart';
@@ -16,6 +17,7 @@ import 'widgets/note_detail_interactions.dart';
 import 'widgets/note_summary_metadata_widgets.dart';
 import 'widgets/processed_with_card.dart';
 import 'widgets/summary_failure_notice.dart';
+import 'widgets/note_detail_status.dart';
 
 /// In-app screen showing a fully processed note: audio, summary, key points,
 /// to-dos, the models used, and the expandable transcript.
@@ -39,6 +41,17 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
+    final detail = ref.watch(noteDetailProvider(widget.noteId));
+    if (detail.isLoading || detail.hasError) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: NoteDetailStatus(
+          loading: detail.isLoading,
+          strings: t,
+          retry: () => ref.invalidate(noteDetailProvider(widget.noteId)),
+        ),
+      );
+    }
     final note = watchNote(widget.noteId);
 
     return note == null ? _missingNote(t) : _detailScreen(note, t);

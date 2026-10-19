@@ -7,6 +7,8 @@ import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/ui/screens/detail/widgets/note_content_widgets.dart';
 import 'package:transcriber/ui/screens/detail/widgets/note_summary_metadata_widgets.dart';
 
+import '../../../../support/note_test_fixtures.dart';
+
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
 
@@ -76,22 +78,21 @@ void main() {
 
 TranscriptNote _note() {
   return TranscriptNote(
-    id: 'note-1',
-    title: 'Test note',
-    speaker: 'Speaker',
-    source: NoteSource.shared,
-    durationSec: 65,
-    createdAt: DateTime(2026, 8, 28),
-    asrIsLocal: false,
-    summaryIsLocal: false,
-    asrName: 'gpt-transcribe',
-    asrSub: 'OpenAI',
-    llmName: 'gemini-3.7-flash',
-    llmSub: 'Google Gemini',
-    gist: 'Compact summary',
-    points: const ['First key point'],
-    todos: [TodoItem(text: 'Follow up')],
-    transcript: const [TranscriptLine(text: 'Transcript text')],
+    metadata: NoteMetadata(
+      id: 'note-1',
+      title: 'Test note',
+      speaker: 'Speaker',
+      source: NoteSource.shared,
+      durationSec: 65,
+      createdAt: DateTime(2026, 8, 28),
+    ),
+    origins: cloudNoteOrigins,
+    content: NoteContent(
+      gist: 'Compact summary',
+      points: const ['First key point'],
+      todos: [TodoItem(text: 'Follow up')],
+      transcript: const [TranscriptLine(text: 'Transcript text')],
+    ),
   );
 }
 
