@@ -1,43 +1,102 @@
-# Transcriber
+<p align="center">
+  <img src="docs/assets/readme-banner.svg" alt="Transcriber: Your voice, organized. Record, import, share, and dictate." width="100%">
+</p>
 
-Transcriber is a Flutter Android application that records, imports, or receives shared audio and creates transcript notes with optional summaries.
+<p align="center">
+  Turn audio into searchable notes, clear summaries, and actionable to-dos.<br>
+  Built for Android with Flutter. Powered by your own OpenAI or Google Gemini API keys.
+</p>
 
-Processing is cloud-only and uses personal API keys:
+<p align="center">
+  <a href="https://github.com/boommasterxd/transcriber/releases/latest"><img src="https://img.shields.io/github/v/release/boommasterxd/transcriber?style=flat-square&amp;color=6C5CE7" alt="Latest release"></a>
+  <a href="#get-started"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8.0 or later"></a>
+  <a href="#get-started"><img src="https://img.shields.io/badge/Architecture-arm64--v8a-2F7BF6?style=flat-square" alt="arm64-v8a architecture"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6C5CE7?style=flat-square" alt="MIT license"></a>
+</p>
 
-- selectable OpenAI transcription and multimodal audio models, defaulting to
-  `gpt-transcribe`
-- selectable Gemini Transcribe and general multimodal audio models, defaulting
-  to `gemini-3.5-transcribe`
-- independently selected OpenAI or Gemini summary models
+<p align="center">
+  <a href="https://github.com/boommasterxd/transcriber/releases/latest">Download APK</a> ·
+  <a href="docs/provider-setup.md">Set up API keys</a> ·
+  <a href="#development">Build from source</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
 
-API keys are stored only in Android-backed `FlutterSecureStorage`. Settings, notes, points, to-dos, transcript segments, and migration state use Drift with SQLite. External source files are never deleted.
+## What you can do
 
-## Documentation
+| Workflow | Feature |
+|---|---|
+| **Capture your way** | Record with pause and resume, import an audio file, or send audio from another app through Android's share menu. |
+| **Make it useful** | Keep the full transcript and optionally generate a title, short summary, key points, and checkable to-dos. |
+| **Choose your models** | Select OpenAI or Gemini independently for transcription and summaries. Pick from the compatible models returned for your API key. |
+| **Dictate into other apps** | Enable the optional Transcriber keyboard to stream speech into supported text fields. |
+| **Find and reuse** | Search note titles, play retained audio, and copy or share note text. |
+| **Feel at home** | German and English UI, system/light/dark themes, selectable accent colors, and layouts for phones and tablets. |
 
-- [Architecture](docs/architecture.md)
-- [Configuration](docs/configuration.md)
-- [Provider key setup](docs/provider-setup.md)
-- [Cache lifecycle](docs/cache-lifecycle.md)
-- [Operations](docs/operations.md)
-- [Security](docs/security.md)
-- [Code quality](docs/code-quality.md)
+## Get started
+
+1. Download the Android APK from the [latest release](https://github.com/boommasterxd/transcriber/releases/latest). The latest release also includes a `SHA256SUMS` file for checksum verification.
+2. Install it on an **Android 8.0+ arm64-v8a** device. Android may ask you to allow installation from your browser or file manager.
+3. Connect an OpenAI or Google Gemini API key during onboarding, choose a transcription model, and enable summaries if you want them.
+4. Record, import, or share audio into Transcriber.
+
+For live dictation, open **Settings > Transcriber keyboard** and follow the Android keyboard setup. Dictation uses the selected transcription provider and a separate compatible live model.
+
+See [provider key setup](docs/provider-setup.md) for credential instructions and [configuration](docs/configuration.md) for supported audio formats, upload limits, and model selection. This README describes the current source; published releases may differ.
+
+## Your data and API usage
+
+**Processing requires an internet connection and your own API access.** Audio goes to the selected transcription provider. When summaries are enabled, transcript text goes to the separately selected summary provider. Live dictation streams microphone audio to its provider.
+
+Notes and settings are stored locally in SQLite through Drift. API keys use Android-backed `FlutterSecureStorage`. The note database is **not encrypted by the app**. Audio retention is configurable, and external original files are never deleted by Transcriber.
+
+Provider billing, quotas, and data handling follow your provider account and terms. See [provider setup](docs/provider-setup.md), [security and privacy](docs/security.md), and [audio lifecycle](docs/cache-lifecycle.md) for details. Review AI-generated transcripts and summaries before relying on them.
 
 ## Development
 
-Use the Flutter version pinned in `.fvmrc` and the locked dependency graph:
+Use the exact Flutter SDK in [`.fvmrc`](.fvmrc), **JDK 17**, and the Android SDK. The Android build configuration defines the required SDK and NDK versions; install those components before building. Device builds target arm64-v8a.
 
 ```bash
+git clone https://github.com/boommasterxd/transcriber.git
+cd transcriber
 flutter pub get --enforce-lockfile
+flutter run
+```
+
+With the pinned Flutter SDK on `PATH`, the core local checks are:
+
+```bash
+dart format --output=none --set-exit-if-changed lib test tool
 flutter analyze --fatal-infos
-flutter test
+flutter test --coverage --branch-coverage
+dart run tool/quality/check_coverage.dart coverage/lcov.info
 flutter build bundle --debug
 ```
 
-See [operations](docs/operations.md) and [code quality](docs/code-quality.md) for the complete validation workflow.
+These commands are a starting point. The [complete quality workflow](docs/code-quality.md) also covers complexity, unused code, duplication, native Kotlin, dependency auditing, and workflow checks. See [operations](docs/operations.md) for device tests and release verification.
+
+The app uses **Riverpod** for state, **Drift/SQLite** for persistence, and dedicated service boundaries for recording, transcription, summaries, and live dictation. Start with the [architecture guide](docs/architecture.md) before changing those boundaries.
+
+## Contributing
+
+Bug reports and focused pull requests are welcome. For bugs, include the app version, Android version, device model, and steps to reproduce. Keep API keys, private audio, and transcript content out of reports.
+
+Read [AGENTS.md](AGENTS.md) for repository conventions and [code quality](docs/code-quality.md) for required checks. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+
+## Documentation
+
+| Guide | Covers |
+|---|---|
+| [Provider setup](docs/provider-setup.md) | Creating and connecting personal API keys. |
+| [Configuration](docs/configuration.md) | Toolchain, model selection, formats, and resource limits. |
+| [Architecture](docs/architecture.md) | Application layers, entry points, and processing flows. |
+| [Audio lifecycle](docs/cache-lifecycle.md) | File ownership, retention, and temporary-file cleanup. |
+| [Operations](docs/operations.md) | Local setup, device checks, troubleshooting, and releases. |
+| [Security and privacy](docs/security.md) | Data transfers, credential protection, and known limitations. |
+| [Code quality](docs/code-quality.md) | Required checks and coverage thresholds. |
+| [CI test selection](docs/ci-test-selection.md) | How pull requests select checks and tests. |
+
+The complete documentation index, including decisions and reports, is in [AGENTS.md](AGENTS.md#documentation-index).
 
 ## License
 
-Original project source code and documentation are licensed under the [MIT License](LICENSE).
-Third-party components retain their respective licenses. OpenAI and Gemini names
-and logos are not covered by the MIT License and remain subject to their owners'
-[brand terms](docs/configuration.md#provider-brand-assets).
+Original project source code and documentation are licensed under the [MIT License](LICENSE). Third-party components retain their respective licenses. OpenAI and Gemini names and logos remain subject to their owners' [brand terms](docs/configuration.md#provider-brand-assets).
