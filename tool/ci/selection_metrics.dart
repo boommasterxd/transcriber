@@ -2,6 +2,7 @@ import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 
+import '../quality/coverage_source_kind.dart';
 import 'selection_git.dart';
 
 // A restricted scope must support the existing nonempty function and branch
@@ -21,6 +22,7 @@ Future<bool> supportsScopedMetrics(
       throwIfDiagnostics: false,
     );
     if (parsed.errors.isNotEmpty) return false;
+    if (nonInstrumentableSourceReason(parsed.unit) != null) continue;
     final pending = <AstNode>[parsed.unit];
     while (pending.isNotEmpty) {
       final node = pending.removeLast();

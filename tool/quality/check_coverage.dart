@@ -10,6 +10,7 @@ import 'package:analyzer/source/line_info.dart';
 import 'package:path/path.dart' as paths;
 
 import '../ci/test_selection.dart';
+import 'coverage_source_kind.dart';
 
 part 'coverage_lcov.dart';
 part 'coverage_merge.dart';

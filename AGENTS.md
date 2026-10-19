@@ -50,7 +50,7 @@ These limits are strict. Do not add baselines, grandfathered violations, broad e
 
 ## Required Quality Tooling
 
-Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pull-request CI enforces:
+Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pull-request CI selects the applicable gates below from the complete merge-base-to-PR-head diff, including deletions, both rename endpoints, transitive consumers, changed tests, and explicit runtime contracts:
 
 - locked dependency resolution;
 - Dart formatting and `flutter analyze --fatal-infos`;
@@ -63,6 +63,8 @@ Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pul
 - OSV dependency vulnerability scanning;
 - a Flutter asset-bundle build and artifact existence check;
 - the existing gitleaks workflow for secret scanning.
+
+Apply the mappings and conservative fallbacks in [`docs/ci-test-selection.md`](docs/ci-test-selection.md). Global CI, dependency, framework, security, or test-setup changes and empty, unknown, or unreliable impact require full checks. Pure changes under root `docs/` may skip application checks while receiving a real successful final `CI` check. Every other PR retains a fresh dependency audit; gitleaks and PR-title validation remain required. Keep inexpensive Dart gates repository-wide when Dart checks apply, and preserve every selected gate's thresholds. The final `CI` check must validate the complete plan and reject failed, cancelled, missing, or unexpectedly skipped work.
 
 Commit `pubspec.lock` and update it only through Flutter or Dart package-manager commands. GitHub Actions and downloaded security tools must remain version-pinned. Do not weaken release signing or checksum verification.
 

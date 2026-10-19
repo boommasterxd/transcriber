@@ -11,10 +11,75 @@ void main() {
   setUp(() async => fixture = await GitFixture.create());
   tearDown(() async => fixture.dispose());
   registerDependencyTests();
+  registerPartCoverageTests();
   registerChangedFileTests();
   registerFallbackTests();
   registerValidationTests();
   registerCheckoutTests();
+}
+
+void registerPartCoverageTests() {
+  test(
+    'falls back when only a part fragment contains metric candidates',
+    () async {
+      await fixture.write({
+        'lib/first.dart': "part 'fragment.dart';\n",
+        'lib/fragment.dart':
+            "part of 'first.dart';\n${fixtureSource('fragment', 1)}",
+      });
+      fixture.base = await fixture.commit();
+      final plan = await fixture.plan({
+        'lib/fragment.dart':
+            "part of 'first.dart';\n${fixtureSource('fragment', 2)}",
+      });
+      expect(plan['mode'], 'full');
+      expect(
+        plan['reason'],
+        'Restricted coverage metrics cannot be established.',
+      );
+    },
+  );
+
+  test(
+    'keeps part selections when the owner supplies measurable metrics',
+    () async {
+      await fixture.write({
+        'lib/first.dart': "part 'fragment.dart';\n${fixtureSource('owner', 1)}",
+        'lib/fragment.dart':
+            "part of 'first.dart';\n${fixtureSource('fragment', 1)}",
+      });
+      fixture.base = await fixture.commit();
+      final plan = await fixture.plan({
+        'lib/fragment.dart':
+            "part of 'first.dart';\n${fixtureSource('fragment', 2)}",
+      });
+      expectSelected(plan, ['test/first_test.dart']);
+      expect(plan['affectedSources'], ['lib/first.dart', 'lib/fragment.dart']);
+    },
+  );
+
+  test(
+    'keeps mixed part selections when another source supplies metrics',
+    () async {
+      await fixture.write({
+        'lib/first.dart': "part 'fragment.dart';\n",
+        'lib/fragment.dart':
+            "part of 'first.dart';\n${fixtureSource('fragment', 1)}",
+      });
+      fixture.base = await fixture.commit();
+      final plan = await fixture.plan({
+        'lib/fragment.dart':
+            "part of 'first.dart';\n${fixtureSource('fragment', 2)}",
+        'lib/second.dart': fixtureSource('second', 3),
+      });
+      expectSelected(plan, ['test/first_test.dart', 'test/second_test.dart']);
+      expect(plan['affectedSources'], [
+        'lib/first.dart',
+        'lib/fragment.dart',
+        'lib/second.dart',
+      ]);
+    },
+  );
 }
 
 void registerDependencyTests() {
