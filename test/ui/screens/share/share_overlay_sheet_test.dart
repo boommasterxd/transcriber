@@ -20,6 +20,38 @@ void main() {
 }
 
 void _registerPreviewCommitTest() {
+  testWidgets(
+    'failed share save stays retryable and closes only after success',
+    (tester) async {
+      late _FakeProcessingController controller;
+      var finishes = 0;
+      await tester.pumpWidget(
+        _shareApp(
+          createProcessing: () => controller = _FakeProcessingController([
+            shareTestNote(gist: 'Preview'),
+          ])..failCommit = true,
+          child: ShareSheetContent(
+            audioPath: '/audio/shared.m4a',
+            onFinished: () => finishes++,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text(shareTestStrings.shSave));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text(shareTestStrings.errorTitle), findsOneWidget);
+      expect(finishes, 0);
+      expect(controller.discardCalls, 0);
+
+      controller.failCommit = false;
+      await tester.tap(find.text(shareTestStrings.shSave));
+      await tester.pump();
+      expect(controller.commitCalls, 2);
+      expect(finishes, 1);
+    },
+  );
+
   testWidgets('share preview uses save false and commits at most once', (
     tester,
   ) async {
@@ -203,6 +235,7 @@ final class _FakeProcessingController extends ProcessingController {
   int runCalls = 0;
   int commitCalls = 0;
   int discardCalls = 0;
+  bool failCommit = false;
   bool? lastSave;
   ProcessingInput? lastInput;
 
@@ -227,6 +260,7 @@ final class _FakeProcessingController extends ProcessingController {
   @override
   Future<void> commit() async {
     commitCalls++;
+    if (failCommit) throw StateError('injected persistence failure');
   }
 
   @override

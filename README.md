@@ -34,3 +34,10 @@ flutter build bundle --debug
 ```
 
 See [operations](docs/operations.md) and [code quality](docs/code-quality.md) for the complete validation workflow.
+
+## License
+
+Original project source code and documentation are licensed under the [MIT License](LICENSE).
+Third-party components retain their respective licenses. OpenAI and Gemini names
+and logos are not covered by the MIT License and remain subject to their owners'
+[brand terms](docs/configuration.md#provider-brand-assets).

@@ -51,7 +51,9 @@ Future<void> pumpKeyboardSettingsSurface(
   final database = testDatabase();
   addTearDown(database.close);
   final settings = AppSettings.initial().copyWith(
-    asrProvider: RemoteProviderId.google,
+    transcription: const TranscriptionSettings(
+      provider: RemoteProviderId.google,
+    ),
     onboarded: true,
   );
   await tester.pumpWidget(

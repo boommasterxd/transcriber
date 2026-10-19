@@ -161,21 +161,27 @@ void _registerMalformedPayloadTest(
 }
 
 TranscriptNote _note(String id) => TranscriptNote(
-  id: id,
-  title: 'Legacy title',
-  speaker: 'Legacy speaker',
-  source: NoteSource.file,
-  durationSec: 12,
-  createdAt: DateTime.utc(2025, 1, 1),
-  asrIsLocal: true,
-  summaryIsLocal: false,
-  asrName: 'Whisper Base',
-  asrSub: 'Local',
-  llmName: 'Gemma',
-  llmSub: 'Local',
-  gist: 'Legacy gist',
-  points: const ['Legacy point'],
-  todos: [TodoItem(text: 'Legacy todo')],
-  transcript: const [TranscriptLine(text: 'Legacy transcript')],
+  metadata: NoteMetadata(
+    id: id,
+    title: 'Legacy title',
+    speaker: 'Legacy speaker',
+    source: NoteSource.file,
+    durationSec: 12,
+    createdAt: DateTime.utc(2025, 1, 1),
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: true,
+    summaryIsLocal: false,
+    asrName: 'Whisper Base',
+    asrSub: 'Local',
+    llmName: 'Gemma',
+    llmSub: 'Local',
+  ),
+  content: NoteContent(
+    gist: 'Legacy gist',
+    points: const ['Legacy point'],
+    todos: [TodoItem(text: 'Legacy todo')],
+    transcript: const [TranscriptLine(text: 'Legacy transcript')],
+  ),
   audioPath: '/external/legacy.m4a',
 );

@@ -17,6 +17,15 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.recording: 'Recording',
   _StringKey.recPaused: 'Paused',
   _StringKey.recHint: 'Securely uploaded after you stop',
+  _StringKey.previousPage: 'Previous page',
+  _StringKey.nextPage: 'Next page',
+  _StringKey.recLimit: 'Automatically stops at {duration}',
+  _StringKey.recLimitWarning:
+      'Recording limit approaching. Remaining: {duration}',
+  _StringKey.recLimitReached:
+      'Recording limit reached. Audio is preserved. Press Stop to continue or discard it.',
+  _StringKey.recFailure:
+      'Recording interrupted. Audio is preserved. Try Stop again or discard it.',
   _StringKey.recResume: 'Resume',
   _StringKey.recPause: 'Pause',
   _StringKey.recStopShort: 'Stop',

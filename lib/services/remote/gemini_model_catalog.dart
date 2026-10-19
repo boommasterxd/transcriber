@@ -1,5 +1,5 @@
 import 'provider_model_capabilities.dart';
-import 'remote_api_client.dart';
+import 'remote_model_info.dart';
 
 /// Parses only documented Gemini fields and filters purpose hints conservatively.
 RemoteModelInfo? geminiCatalogModel(Map raw, {required bool forTranscription}) {

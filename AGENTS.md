@@ -113,7 +113,11 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 | [`docs/ci-test-selection.md`](docs/ci-test-selection.md) | Explains impacted-test selection, conservative fallbacks, runner reuse, and measured CI timings. |
 | [`docs/code-quality.md`](docs/code-quality.md) | Defines strict quality gates, commands, Flutter coverage mappings, and CI behavior. |
 | [`docs/configuration.md`](docs/configuration.md) | Documents supported toolchains, runtime settings, external services, and secret handling. |
+| [`docs/decisions/bounded-native-recording.md`](docs/decisions/bounded-native-recording.md) | Explains native WAV byte limits, capture ownership, and lifecycle synchronization. |
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |
 | [`docs/operations.md`](docs/operations.md) | Provides local development, validation, build, and release operating procedures. |
 | [`docs/provider-setup.md`](docs/provider-setup.md) | Explains how to create and safely configure OpenAI and Gemini API keys. |
+| [`docs/reports/CODE-QUALITY-REPORT.md`](docs/reports/CODE-QUALITY-REPORT.md) | Reports verified code-quality findings, effective CI gates, checks, and limitations. |
+| [`docs/reports/PERFORMANCE-REPORT.md`](docs/reports/PERFORMANCE-REPORT.md) | Assesses measured database and UI work, resource bounds, caching, and performance evidence gaps. |
+| [`docs/reports/project-setup-report.md`](docs/reports/project-setup-report.md) | Documents local and GitHub setup findings, verification results, and evidence gaps. |
 | [`docs/security.md`](docs/security.md) | Describes protected assets, trust boundaries, controls, assumptions, and residual risks. |

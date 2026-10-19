@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/data/models/note_history.dart';
 import 'package:transcriber/ui/screens/home/history_logic.dart';
 
 import 'home_test_helpers.dart';
@@ -17,15 +17,30 @@ void _registerFilterTests() {
   ];
 
   test('empty queries return every note', () {
-    expect(filterNotesByTitle(notes, ''), notes);
+    expect(
+      filterNotesByTitle(
+        notes.map(NoteHistoryEntry.fromNote),
+        '',
+      ).map((n) => n.id),
+      notes.map((n) => n.id),
+    );
   });
 
   test('title filtering is case-insensitive and order-preserving', () {
-    expect(filterNotesByTitle(notes, 'UPDATE').map((note) => note.id), ['two']);
+    expect(
+      filterNotesByTitle(
+        notes.map(NoteHistoryEntry.fromNote),
+        'UPDATE',
+      ).map((note) => note.id),
+      ['two'],
+    );
   });
 
   test('title filtering does not trim the query', () {
-    expect(filterNotesByTitle(notes, ' sync '), isEmpty);
+    expect(
+      filterNotesByTitle(notes.map(NoteHistoryEntry.fromNote), ' sync '),
+      isEmpty,
+    );
   });
 }
 
@@ -47,7 +62,10 @@ void _registerGroupingTests() {
       buildTestNote(id: 'second', title: 'Second', createdAt: now),
     ];
 
-    final groups = groupNotesByAge(notes, now: now);
+    final groups = groupNotesByAge(
+      notes.map(NoteHistoryEntry.fromNote),
+      now: now,
+    );
 
     expect(groups, hasLength(1));
     expect(groups.single.period, HistoryPeriod.today);
@@ -63,13 +81,15 @@ void _registerGroupingTests() {
     );
 
     expect(
-      groupNotesByAge([note], now: now).single.period,
+      groupNotesByAge([
+        NoteHistoryEntry.fromNote(note),
+      ], now: now).single.period,
       HistoryPeriod.today,
     );
   });
 }
 
-List<TranscriptNote> _notesAcrossAgeBoundaries(DateTime now) => [
+List<NoteHistoryEntry> _notesAcrossAgeBoundaries(DateTime now) => [
   buildTestNote(
     id: 'future',
     title: 'Future',
@@ -86,4 +106,4 @@ List<TranscriptNote> _notesAcrossAgeBoundaries(DateTime now) => [
     title: 'Earlier',
     createdAt: now.subtract(const Duration(days: 7)),
   ),
-];
+].map(NoteHistoryEntry.fromNote).toList();

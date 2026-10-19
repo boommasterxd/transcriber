@@ -132,19 +132,23 @@ final class ProcessingPipeline {
     );
   }
 
-  Future<TranscriptionResult> _transcribe(ProcessingRequest request) {
+  Future<TranscriptionResult> _transcribe(ProcessingRequest request) async {
     final settings = request.settings;
     final client = _clientBuilder(
       settings.asrProvider,
       request.credentials.asrApiKey,
     );
-    return RemoteTranscriptionService(
-      client,
-      settings.asrModelId(settings.asrProvider),
-    ).transcribe(
-      request.input.audioPath,
-      languageCode: settings.transcriptionLanguage.code,
-    );
+    try {
+      return await RemoteTranscriptionService(
+        client,
+        settings.asrModelId(settings.asrProvider),
+      ).transcribe(
+        request.input.audioPath,
+        languageCode: settings.transcriptionLanguage.code,
+      );
+    } finally {
+      client.close();
+    }
   }
 
   Future<SummaryResult> _summarizeIfEnabled(
@@ -152,7 +156,7 @@ final class ProcessingPipeline {
     String transcript,
     String fallbackTitle,
     ProcessingCallbacks callbacks,
-  ) {
+  ) async {
     if (!request.settings.summarizeEnabled) {
       return Future.value(
         SummaryResult(
@@ -169,11 +173,15 @@ final class ProcessingPipeline {
       settings.summaryProvider,
       request.credentials.summaryApiKey,
     );
-    return RemoteSummarizationService(
-      client: client,
-      apiModelId: settings.summaryModelId(settings.summaryProvider),
-      fallbackTitle: fallbackTitle,
-    ).summarize(transcript, german: settings.language == AppLanguage.de);
+    try {
+      return await RemoteSummarizationService(
+        client: client,
+        apiModelId: settings.summaryModelId(settings.summaryProvider),
+        fallbackTitle: fallbackTitle,
+      ).summarize(transcript, german: settings.language == AppLanguage.de);
+    } finally {
+      client.close();
+    }
   }
 
   Future<TranscriptNote> _assembleNote(
@@ -186,22 +194,28 @@ final class ProcessingPipeline {
     final profile = ProcessingProfile.resolve(settings);
     final noSummary = !settings.summarizeEnabled;
     return TranscriptNote(
-      id: _uuid.v4(),
-      title: summary.title.isEmpty ? fallbackTitle : summary.title,
-      speaker: _speaker(request.input.source, request.strings),
-      source: request.input.source,
-      durationSec: request.input.knownDurationSec ?? 0,
-      createdAt: _now(),
-      asrIsLocal: false,
-      summaryIsLocal: false,
-      asrName: profile.asr.name,
-      asrSub: profile.asr.providerName,
-      llmName: noSummary ? request.strings.summaryOff : profile.summary.name,
-      llmSub: noSummary ? '' : profile.summary.providerName,
-      gist: summary.gist,
-      points: summary.points,
-      todos: summary.todos.map((text) => TodoItem(text: text)).toList(),
-      transcript: transcription.segments,
+      metadata: NoteMetadata(
+        id: _uuid.v4(),
+        title: summary.title.isEmpty ? fallbackTitle : summary.title,
+        speaker: _speaker(request.input.source, request.strings),
+        source: request.input.source,
+        durationSec: request.input.knownDurationSec ?? 0,
+        createdAt: _now(),
+      ),
+      origins: NoteOrigins(
+        asrIsLocal: false,
+        summaryIsLocal: false,
+        asrName: profile.asr.name,
+        asrSub: profile.asr.providerName,
+        llmName: noSummary ? request.strings.summaryOff : profile.summary.name,
+        llmSub: noSummary ? '' : profile.summary.providerName,
+      ),
+      content: NoteContent(
+        gist: summary.gist,
+        points: summary.points,
+        todos: summary.todos.map((text) => TodoItem(text: text)).toList(),
+        transcript: transcription.segments,
+      ),
       audioPath: null,
       audioOwnership: AudioOwnership.external,
     );

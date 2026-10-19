@@ -19,12 +19,17 @@ permissions:
 jobs:
   gitleaks:
     name: gitleaks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          check-latest: true
+          package-manager-cache: false
       - name: Run gitleaks
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -36,6 +41,7 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" -o "$scanner_dir/gitleaks.tar.gz"
           printf '%s  %s\n' "$sum" "$scanner_dir/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf "$scanner_dir/gitleaks.tar.gz" -C "$scanner_dir" gitleaks
+          GITLEAKS_EXECUTABLE="$scanner_dir/gitleaks" node --test test/tool/ci/gitleaks.integration.cjs
           "$scanner_dir/gitleaks" dir --no-banner --redact --exit-code 1 .
 
           log_options=""

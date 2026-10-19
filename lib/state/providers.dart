@@ -46,9 +46,14 @@ typedef ProviderCredentialTester =
     Future<void> Function(RemoteProviderId provider, String apiKey);
 
 final providerCredentialTesterProvider = Provider<ProviderCredentialTester>(
-  (ref) =>
-      (provider, apiKey) =>
-          RemoteClientFactory.create(provider, apiKey).testConnection(),
+  (ref) => (provider, apiKey) async {
+    final client = RemoteClientFactory.create(provider, apiKey);
+    try {
+      await client.testConnection();
+    } finally {
+      client.close();
+    }
+  },
 );
 
 final processingPipelineProvider = Provider<ProcessingPipeline>(

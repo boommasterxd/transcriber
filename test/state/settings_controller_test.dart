@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
@@ -29,13 +28,13 @@ void _registerAppearanceTests(_SettingsFixture fixture) {
       final controller = fixture.controller;
 
       expect(fixture.settings, AppSettings.initial());
-      await controller.setThemeMode(ThemeMode.dark);
+      await controller.setThemeMode(AppThemeMode.dark);
       await controller.setAccent(AppAccent.magenta);
       await controller.setLanguage(AppLanguage.en);
       await controller.setTranscriptionLanguage(TranscriptionLanguage.de);
 
       final state = fixture.settings;
-      expect(state.themeMode, ThemeMode.dark);
+      expect(state.themeMode, AppThemeMode.dark);
       expect(state.accent, AppAccent.magenta);
       expect(state.language, AppLanguage.en);
       expect(state.transcriptionLanguage, TranscriptionLanguage.de);

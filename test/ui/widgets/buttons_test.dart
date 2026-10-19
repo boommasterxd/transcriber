@@ -72,7 +72,7 @@ void _registerIconCircleTest() {
     tester,
   ) async {
     await tester.pumpWidget(
-      themed(PillButton(label: 'Settings', outlined: true, onTap: () {})),
+      themed(PillButton.outlined(label: 'Settings', onTap: () {})),
     );
 
     final container = tester.widget<Container>(find.byType(Container).first);

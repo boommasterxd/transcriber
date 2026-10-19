@@ -69,6 +69,8 @@ void _registerProviderCombinationTest(
     expect(asrClient.audioPath, run.audio.path);
     expect(asrClient.languageCode, 'auto');
     expect(summaryClient.summaryCalls, 1);
+    expect(asrClient.closeCalls, asr == summary ? 2 : 1);
+    expect(summaryClient.closeCalls, asr == summary ? 2 : 1);
     expect(summaryClient.summaryModelId, '${summary.id}-summary');
     expect(summaryClient.transcript, contains('Transcript text'));
     expect(run.steps, [
@@ -171,6 +173,7 @@ void _registerValidationTests(ProcessingFileFixture fixture) {
       );
 
       expect(clients.clients[RemoteProviderId.openai]!.summaryCalls, 0);
+      expect(clients.clients[RemoteProviderId.openai]!.closeCalls, 1);
       await fixture.cacheManager.discard(audio);
       expect(await File(audio.path).exists(), isFalse);
     });

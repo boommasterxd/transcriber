@@ -109,7 +109,14 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
       return;
     }
     try {
+      ref.invalidate(remoteModelCatalogProvider(query.provider));
       ref.invalidate(remoteModelsProvider(query));
+      ref.invalidate(
+        remoteModelsProvider((
+          provider: query.provider,
+          forTranscription: !query.forTranscription,
+        )),
+      );
       await ref.read(remoteModelsProvider(query).future);
     } catch (_) {
       // Catalog errors are rendered through the existing sanitized error state.
@@ -187,7 +194,7 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
       else
         RemoteModelOptions(
           catalog: catalog,
-          onRetry: () => ref.invalidate(remoteModelsProvider(_query)),
+          onRetry: _refreshModels,
           strings: strings,
         ),
     ],

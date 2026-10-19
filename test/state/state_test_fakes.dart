@@ -5,6 +5,7 @@ import 'package:record/record.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
+import 'package:transcriber/data/models/note_history.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
 import 'package:transcriber/data/repositories/settings_repository.dart';
@@ -63,9 +64,102 @@ class FakeNotesRepository extends NotesRepository {
 
   @override
   Future<void> saveAll(List<TranscriptNote> notes) async {
+    _save(notes);
+  }
+
+  @override
+  Future<TranscriptNote> add(TranscriptNote note) async {
+    _save(
+      [note, ...loaded.where((existing) => existing.id != note.id)]
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+    );
+    return note;
+  }
+
+  @override
+  Future<TranscriptNote?> findById(String id) async =>
+      loaded.where((note) => note.id == id).firstOrNull;
+
+  @override
+  Future<HistoryPage> loadHistoryPage({
+    String query = '',
+    HistoryCursor? cursor,
+    bool previous = false,
+    int limit = 50,
+  }) async {
+    if (failOnLoad) throw StateError('load failed');
+    final notes =
+        loaded
+            .where(
+              (note) => note.title.toLowerCase().contains(query.toLowerCase()),
+            )
+            .toList()
+          ..sort((a, b) {
+            final date = b.createdAt.compareTo(a.createdAt);
+            return date == 0 ? b.id.compareTo(a.id) : date;
+          });
+    final boundary = cursor == null
+        ? 0
+        : notes.indexWhere((note) => note.id == cursor.id);
+    final start = cursor == null
+        ? 0
+        : previous
+        ? (boundary - limit).clamp(0, notes.length)
+        : boundary + 1;
+    final end = previous ? boundary : (start + limit).clamp(0, notes.length);
+    return HistoryPage(
+      entries: notes
+          .sublist(start, end)
+          .map(NoteHistoryEntry.fromNote)
+          .toList(),
+      hasNext: end < notes.length,
+      hasPrevious: start > 0,
+      totalCount: notes.length,
+    );
+  }
+
+  @override
+  Future<NotesDeletion> remove(String id) async {
+    final deleted = loaded.where((note) => note.id == id).firstOrNull;
+    _save(loaded.where((note) => note.id != id).toList());
+    return NotesDeletion(
+      deleted == null
+          ? null
+          : DeletedNoteAudio(
+              id: deleted.id,
+              audioPath: deleted.audioPath,
+              audioOwnership: deleted.audioOwnership,
+            ),
+    );
+  }
+
+  @override
+  Future<TranscriptNote?> toggleTodo(String noteId, int index) async {
+    _save(
+      loaded.map((note) {
+        if (note.id != noteId) return note;
+        return note.copyWith(
+          todos: [
+            for (var position = 0; position < note.todos.length; position++)
+              if (position == index)
+                TodoItem(
+                  text: note.todos[position].text,
+                  done: !note.todos[position].done,
+                )
+              else
+                note.todos[position],
+          ],
+        );
+      }).toList(),
+    );
+    return findById(noteId);
+  }
+
+  List<TranscriptNote> _save(List<TranscriptNote> notes) {
     saved.add(List.of(notes));
     if (failOnSave) throw StateError('save failed');
     loaded = List.of(notes);
+    return List.of(loaded);
   }
 }
 
@@ -76,6 +170,8 @@ class FakeAudioRecorderService extends AudioRecorderService {
     : super(cacheManager: cacheManager);
 
   bool permission = true;
+  Completer<bool>? permissionRequest;
+  Completer<String>? startRequest;
   String path = '/recordings/fake.wav';
   String? stoppedPath = '/recordings/fake.wav';
   int startCalls = 0;
@@ -83,16 +179,20 @@ class FakeAudioRecorderService extends AudioRecorderService {
   int resumeCalls = 0;
   int stopCalls = 0;
   int cancelCalls = 0;
+  int? recordingMaxBytes;
+  Object? stopError;
+  final progress = StreamController<RecordingProgress>.broadcast(sync: true);
   final StreamController<Amplitude> amplitudes =
       StreamController<Amplitude>.broadcast(sync: true);
 
   @override
-  Future<bool> hasPermission() async => permission;
+  Future<bool> hasPermission() async => permissionRequest?.future ?? permission;
 
   @override
-  Future<String> start() async {
+  Future<String> start({int maxBytes = 100 * 1024 * 1024}) async {
     startCalls++;
-    return path;
+    recordingMaxBytes = maxBytes;
+    return startRequest?.future ?? path;
   }
 
   @override
@@ -108,6 +208,7 @@ class FakeAudioRecorderService extends AudioRecorderService {
   @override
   Future<String?> stop() async {
     stopCalls++;
+    if (stopError case final error?) throw error;
     return stoppedPath;
   }
 
@@ -120,7 +221,11 @@ class FakeAudioRecorderService extends AudioRecorderService {
   Stream<Amplitude> amplitudeStream() => amplitudes.stream;
 
   @override
+  Stream<RecordingProgress> get progressStream => progress.stream;
+
+  @override
   Future<void> dispose() async {
     await amplitudes.close();
+    await progress.close();
   }
 }

@@ -10,6 +10,10 @@ class RecordingHttpClient extends http.BaseClient {
 
   final RequestHandler _handler;
   final List<http.BaseRequest> requests = [];
+  int closeCalls = 0;
+
+  @override
+  void close() => closeCalls++;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {

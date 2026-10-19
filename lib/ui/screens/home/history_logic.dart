@@ -1,4 +1,4 @@
-import '../../../data/models/transcript_note.dart';
+import '../../../data/models/note_history.dart';
 
 enum HistoryPeriod { today, recent, earlier }
 
@@ -6,14 +6,14 @@ class HistoryGroup {
   const HistoryGroup({required this.period, required this.notes});
 
   final HistoryPeriod period;
-  final List<TranscriptNote> notes;
+  final List<NoteHistoryEntry> notes;
 }
 
-List<TranscriptNote> filterNotesByTitle(
-  Iterable<TranscriptNote> notes,
+List<NoteHistoryEntry> filterNotesByTitle(
+  Iterable<NoteHistoryEntry> notes,
   String query,
 ) {
-  if (query.isEmpty) return List<TranscriptNote>.of(notes);
+  if (query.isEmpty) return List<NoteHistoryEntry>.of(notes);
   final normalizedQuery = query.toLowerCase();
   return notes
       .where((note) => note.title.toLowerCase().contains(normalizedQuery))
@@ -21,13 +21,13 @@ List<TranscriptNote> filterNotesByTitle(
 }
 
 List<HistoryGroup> groupNotesByAge(
-  Iterable<TranscriptNote> notes, {
+  Iterable<NoteHistoryEntry> notes, {
   required DateTime now,
 }) {
   final startOfToday = now.isUtc
       ? DateTime.utc(now.year, now.month, now.day)
       : DateTime(now.year, now.month, now.day);
-  final grouped = <HistoryPeriod, List<TranscriptNote>>{
+  final grouped = <HistoryPeriod, List<NoteHistoryEntry>>{
     for (final period in HistoryPeriod.values) period: [],
   };
 
@@ -40,7 +40,7 @@ List<HistoryGroup> groupNotesByAge(
       .map(
         (period) => HistoryGroup(
           period: period,
-          notes: List<TranscriptNote>.unmodifiable(grouped[period]!),
+          notes: List<NoteHistoryEntry>.unmodifiable(grouped[period]!),
         ),
       )
       .toList(growable: false);

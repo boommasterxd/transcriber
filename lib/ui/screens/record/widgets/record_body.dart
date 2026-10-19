@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../state/recording_controller.dart';
 import '../../../widgets/waveforms.dart';
+import 'record_limit_hint.dart';
 
 /// Main recording content, including status, timer, waveform and privacy hint.
 class RecordBody extends StatelessWidget {
@@ -29,6 +30,8 @@ class RecordBody extends StatelessWidget {
           _RecordWaveform(paused: paused),
           const SizedBox(height: 24),
           _RecordHint(text: strings.recHint),
+          const SizedBox(height: 12),
+          RecordLimitHint(strings: strings),
         ],
       ),
     );

@@ -6,11 +6,15 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 /// Shows a short floating toast. No-op if the messenger isn't mounted.
-void showAppToast(String message, {bool isError = false}) {
-  final messenger = scaffoldMessengerKey.currentState;
-  if (messenger == null) return;
-  messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
+void showAppToast(
+  String message, {
+  bool isError = false,
+  ScaffoldMessengerState? messenger,
+}) {
+  final target = messenger ?? scaffoldMessengerKey.currentState;
+  if (target == null) return;
+  target.hideCurrentSnackBar();
+  target.showSnackBar(
     SnackBar(
       content: Text(message),
       duration: Duration(seconds: isError ? 4 : 2),

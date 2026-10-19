@@ -126,10 +126,14 @@ class _SetupContent extends StatelessWidget {
           complete: status.enabled,
           title: strings.keyboardSetupEnableTitle,
           body: strings.keyboardSetupEnableBody,
-          actionLabel: status.enabled
-              ? strings.keyboardEnabled
-              : strings.keyboardOpenSettings,
-          action: status.enabled ? null : actions.enable,
+          action: FilledButton.tonal(
+            onPressed: status.enabled ? null : actions.enable,
+            child: Text(
+              status.enabled
+                  ? strings.keyboardEnabled
+                  : strings.keyboardOpenSettings,
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         _SetupStep(
@@ -137,10 +141,16 @@ class _SetupContent extends StatelessWidget {
           complete: status.selected,
           title: strings.keyboardSetupChooseTitle,
           body: strings.keyboardSetupChooseBody,
-          actionLabel: status.selected
-              ? strings.keyboardSelected
-              : strings.keyboardChoose,
-          action: status.enabled && !status.selected ? actions.choose : null,
+          action: FilledButton.tonal(
+            onPressed: status.enabled && !status.selected
+                ? actions.choose
+                : null,
+            child: Text(
+              status.selected
+                  ? strings.keyboardSelected
+                  : strings.keyboardChoose,
+            ),
+          ),
         ),
         const SizedBox(height: 14),
         Row(
@@ -220,7 +230,6 @@ class _SetupStep extends StatelessWidget {
     required this.title,
     required this.body,
     this.detail,
-    this.actionLabel,
     this.action,
   });
 
@@ -229,8 +238,7 @@ class _SetupStep extends StatelessWidget {
   final String title;
   final String body;
   final String? detail;
-  final String? actionLabel;
-  final VoidCallback? action;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -265,9 +273,9 @@ class _SetupStep extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (actionLabel case final label?) ...[
+                if (action case final button?) ...[
                   const SizedBox(height: 10),
-                  FilledButton.tonal(onPressed: action, child: Text(label)),
+                  button,
                 ],
               ],
             ),

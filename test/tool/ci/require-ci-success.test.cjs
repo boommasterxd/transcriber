@@ -5,6 +5,7 @@ const childProcess = require('node:child_process');
 const path = require('node:path');
 const test = require('node:test');
 const { requireCiSuccess } = require('../../../tool/ci/require-ci-success.cjs');
+const { classifyPaths } = require('../../../tool/ci/detect-change-scope.cjs');
 
 const jobs = [
   'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
@@ -34,6 +35,28 @@ test('full CI requires all quality, build and security jobs', () => {
     const needs = prerequisites();
     delete needs[job];
     assert.throws(() => requireCiSuccess(needs));
+  }
+});
+
+test('global CI-control edits require successful application, native and workflow gates', () => {
+  for (const file of ['tool/ci/detect-change-scope.cjs', 'tool/ci/require-ci-success.cjs',
+    'test/tool/ci/detect-change-scope.test.cjs', 'test/tool/ci/require-ci-success.test.cjs',
+    'tool/ci/select_tests.dart', 'tool/ci/run_test_plan.dart', 'tool/ci/test_selection.dart',
+    'test/tool/ci/test_selection_test.dart', 'tool/quality/check_code_quality.dart',
+    'tool/quality/check_coverage.dart', 'tool/quality/coverage_source.dart',
+    'test/tool/quality/parameter_count_test.dart']) {
+    const needs = prerequisites();
+    needs.changes.outputs = Object.fromEntries(Object.entries(classifyPaths([file]))
+      .map(([flag, value]) => [flag, String(value)]));
+    assert.deepEqual(needs.changes.outputs, prerequisites().changes.outputs, file);
+    assert.doesNotThrow(() => requireCiSuccess(needs), file);
+    for (const job of ['workflow-lint', 'dart-quality', 'kotlin-quality', 'dependency-audit']) {
+      for (const result of ['failure', 'cancelled', 'skipped']) {
+        needs[job].result = result;
+        assert.throws(() => requireCiSuccess(needs), new RegExp(job), `${file}: ${job}: ${result}`);
+      }
+      needs[job].result = 'success';
+    }
   }
 });
 

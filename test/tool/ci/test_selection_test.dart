@@ -19,32 +19,11 @@ void main() {
 }
 
 void registerPartCoverageTests() {
-  test(
-    'falls back when only a part fragment contains metric candidates',
-    () async {
+  for (final measuredOwner in [false, true]) {
+    test('selects instrumented parts with owner code=$measuredOwner', () async {
+      final ownerCode = measuredOwner ? fixtureSource('owner', 1) : '';
       await fixture.write({
-        'lib/first.dart': "part 'fragment.dart';\n",
-        'lib/fragment.dart':
-            "part of 'first.dart';\n${fixtureSource('fragment', 1)}",
-      });
-      fixture.base = await fixture.commit();
-      final plan = await fixture.plan({
-        'lib/fragment.dart':
-            "part of 'first.dart';\n${fixtureSource('fragment', 2)}",
-      });
-      expect(plan['mode'], 'full');
-      expect(
-        plan['reason'],
-        'Restricted coverage metrics cannot be established.',
-      );
-    },
-  );
-
-  test(
-    'keeps part selections when the owner supplies measurable metrics',
-    () async {
-      await fixture.write({
-        'lib/first.dart': "part 'fragment.dart';\n${fixtureSource('owner', 1)}",
+        'lib/first.dart': "part 'fragment.dart';\n$ownerCode",
         'lib/fragment.dart':
             "part of 'first.dart';\n${fixtureSource('fragment', 1)}",
       });
@@ -55,8 +34,8 @@ void registerPartCoverageTests() {
       });
       expectSelected(plan, ['test/first_test.dart']);
       expect(plan['affectedSources'], ['lib/first.dart', 'lib/fragment.dart']);
-    },
-  );
+    });
+  }
 
   test(
     'keeps mixed part selections when another source supplies metrics',

@@ -22,6 +22,7 @@ void main() {
   _registerImmediateSelection(strings);
   _registerDismissal();
   _registerRefresh(strings);
+  _registerSharedRefresh();
   _registerKeyboardRefresh();
   _registerConnectionChanges(strings);
   _registerResponsiveSheet();
@@ -187,6 +188,34 @@ void _registerDismissal() {
       },
     );
   }
+}
+
+void _registerSharedRefresh() {
+  testWidgets('pull refresh invalidates both model stages', (tester) async {
+    var generation = 0;
+    final container = await _openSheet(
+      tester,
+      catalog: (query) async => [
+        RemoteModelInfo(id: '${query.forTranscription}-$generation'),
+      ],
+    );
+    await tester.pumpAndSettle();
+    const summary = (
+      provider: RemoteProviderId.google,
+      forTranscription: false,
+    );
+    expect(
+      (await container.read(remoteModelsProvider(summary).future)).single.id,
+      'false-0',
+    );
+    generation++;
+    await _pullRefresh(tester);
+    expect(find.text('true-1'), findsOneWidget);
+    expect(
+      (await container.read(remoteModelsProvider(summary).future)).single.id,
+      'false-1',
+    );
+  });
 }
 
 void _registerRefresh(AppStrings strings) {
@@ -441,8 +470,10 @@ Future<ProviderContainer> _openSheet(
     ),
     config: OnboardingTestConfig(
       connections: connections,
-      surfaceSize: surfaceSize,
-      textScale: textScale,
+      viewport: MediaQueryData(
+        size: surfaceSize,
+        textScaler: TextScaler.linear(textScale),
+      ),
       modelCatalog:
           catalog ??
           (_) async => const [

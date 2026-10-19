@@ -16,8 +16,10 @@ Future<bool> supportsScopedMetrics(
   var hasFunction = false;
   var hasBranch = false;
   for (final source in sources) {
+    final content = await git.read(['show', '$revision:$source']);
+    if (isGeneratedDartSource(source, content)) continue;
     final parsed = parseString(
-      content: await git.read(['show', '$revision:$source']),
+      content: content,
       featureSet: FeatureSet.latestLanguageVersion(),
       throwIfDiagnostics: false,
     );

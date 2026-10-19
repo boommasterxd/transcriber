@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../state/notes_controller.dart';
+import '../../../../data/models/note_history.dart';
+import '../../../../state/history_controller.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../navigation.dart';
 import '../../../widgets/buttons.dart';
@@ -13,29 +14,31 @@ import 'active_model_pill.dart';
 import 'home_actions.dart';
 import 'home_search_bar.dart';
 import 'phone_history.dart';
+import 'history_page_controls.dart';
 
 class PhoneHomeView extends ConsumerWidget {
   const PhoneHomeView({
     super.key,
-    required this.query,
     required this.onQueryChanged,
     required this.onPickFile,
   });
 
-  final String query;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onPickFile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notes = ref.watch(notesControllerProvider);
+    final page = ref.watch(historyControllerProvider);
     final strings = ref.watch(stringsProvider);
-    final filtered = filterNotesByTitle(notes, query);
     final data = _HomeData(
-      noteCount: notes.length,
+      page: page,
+      query: ref.read(historyControllerProvider.notifier).query,
       strings: strings,
       modelStatus: ref.watch(homeModelStatusProvider),
-      groups: groupNotesByAge(filtered, now: DateTime.now()),
+      groups: groupNotesByAge(
+        page.asData?.value.entries ?? const [],
+        now: DateTime.now(),
+      ),
     );
 
     return Scaffold(
@@ -56,13 +59,16 @@ class PhoneHomeView extends ConsumerWidget {
 
 class _HomeData {
   const _HomeData({
-    required this.noteCount,
+    required this.page,
+    required this.query,
     required this.strings,
     required this.modelStatus,
     required this.groups,
   });
 
-  final int noteCount;
+  final AsyncValue<HistoryPage> page;
+  final String query;
+  int get noteCount => page.asData?.value.totalCount ?? 0;
   final AppStrings strings;
   final HomeModelStatus modelStatus;
   final List<HistoryGroup> groups;
@@ -84,22 +90,34 @@ class _HomeList extends StatelessWidget {
     return FadeEdges(
       topHeight: 54,
       bottomHeight: 92,
-      builder: (context, controller) => ListView(
+      builder: (context, controller) => CustomScrollView(
         controller: controller,
-        padding: const EdgeInsets.only(top: 56, bottom: 104),
-        children: [
-          _HomeControls(
-            data: data,
-            onQueryChanged: onQueryChanged,
-            onPickFile: onPickFile,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.only(top: 56),
+            sliver: SliverToBoxAdapter(
+              child: _HomeControls(
+                data: data,
+                onQueryChanged: onQueryChanged,
+                onPickFile: onPickFile,
+              ),
+            ),
           ),
-          if (data.groups.isEmpty)
-            HomeEmptyState(
-              title: data.strings.emptyTitle,
-              subtitle: data.strings.emptySub,
+          if (data.groups.isEmpty &&
+              !data.page.isLoading &&
+              !data.page.hasError)
+            SliverToBoxAdapter(
+              child: HomeEmptyState(
+                title: data.strings.emptyTitle,
+                subtitle: data.strings.emptySub,
+              ),
             )
           else
             PhoneHistory(groups: data.groups, strings: data.strings),
+          SliverToBoxAdapter(
+            child: HistoryPageControls(page: data.page, strings: data.strings),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 104)),
         ],
       ),
     );
@@ -125,7 +143,11 @@ class _HomeControls extends StatelessWidget {
         _HomeHeader(noteCount: data.noteCount, strings: strings),
         const SizedBox(height: 18),
         _HorizontalPadding(
-          child: HomeSearchBar(hint: strings.search, onChanged: onQueryChanged),
+          child: HomeSearchBar(
+            hint: strings.search,
+            onChanged: onQueryChanged,
+            query: data.query,
+          ),
         ),
         const SizedBox(height: 12),
         _HorizontalPadding(

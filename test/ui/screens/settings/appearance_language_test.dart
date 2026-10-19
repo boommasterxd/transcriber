@@ -25,15 +25,15 @@ void main() {
     final strings = AppStrings.of(AppLanguage.de);
     await tester.tap(find.text(strings.light));
     await tester.pump();
-    expect(controller.state.themeMode, ThemeMode.light);
+    expect(controller.state.themeMode, AppThemeMode.light);
 
     await tester.tap(find.text(strings.dark));
     await tester.pump();
-    expect(controller.state.themeMode, ThemeMode.dark);
+    expect(controller.state.themeMode, AppThemeMode.dark);
 
     await tester.tap(find.text(strings.system));
     await tester.pump();
-    expect(controller.state.themeMode, ThemeMode.system);
+    expect(controller.state.themeMode, AppThemeMode.system);
   });
 
   testWidgets('appearance section changes every accent swatch', (tester) async {
@@ -125,22 +125,30 @@ class _FakeSettingsController extends SettingsController {
   AppSettings build() => _initial;
 
   @override
-  Future<void> setThemeMode(ThemeMode mode) async {
-    state = state.copyWith(themeMode: mode);
+  Future<void> setThemeMode(AppThemeMode mode) async {
+    state = state.copyWith(
+      appearance: state.appearance.copyWith(themeMode: mode),
+    );
   }
 
   @override
   Future<void> setAccent(AppAccent accent) async {
-    state = state.copyWith(accent: accent);
+    state = state.copyWith(
+      appearance: state.appearance.copyWith(accent: accent),
+    );
   }
 
   @override
   Future<void> setLanguage(AppLanguage language) async {
-    state = state.copyWith(language: language);
+    state = state.copyWith(
+      appearance: state.appearance.copyWith(language: language),
+    );
   }
 
   @override
   Future<void> setTranscriptionLanguage(TranscriptionLanguage language) async {
-    state = state.copyWith(transcriptionLanguage: language);
+    state = state.copyWith(
+      transcription: state.transcription.copyWith(language: language),
+    );
   }
 }

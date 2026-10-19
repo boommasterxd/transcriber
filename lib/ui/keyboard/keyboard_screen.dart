@@ -33,31 +33,34 @@ class KeyboardScreen extends StatelessWidget {
     builder: (context, _) => KeyboardView(
       state: controller.state,
       strings: strings,
-      start: controller.start,
-      stop: controller.stop,
-      togglePause: controller.togglePause,
-      cancel: controller.cancel,
-      deleteBackward: controller.deleteBackward,
-      switchBack: controller.switchBack,
-      openAppSettings: openAppSettings ?? controller.start,
+      actions: KeyboardActions(
+        start: controller.start,
+        recording: RecordingActions(
+          stop: controller.stop,
+          togglePause: controller.togglePause,
+          cancel: controller.cancel,
+        ),
+        deleteBackward: controller.deleteBackward,
+        switchBack: controller.switchBack,
+        openAppSettings: openAppSettings ?? controller.start,
+      ),
     ),
   );
 }
 
-class _KeyboardActions {
-  const _KeyboardActions({
+class KeyboardActions {
+  const KeyboardActions({
     required this.start,
-    required this.stop,
-    required this.togglePause,
-    required this.cancel,
+    required this.recording,
     required this.deleteBackward,
     required this.switchBack,
     required this.openAppSettings,
   });
   final VoidCallback start;
-  final VoidCallback stop;
-  final VoidCallback togglePause;
-  final VoidCallback cancel;
+  final RecordingActions recording;
+  VoidCallback get stop => recording.stop!;
+  VoidCallback get togglePause => recording.togglePause!;
+  VoidCallback get cancel => recording.cancel!;
   final VoidCallback deleteBackward;
   final VoidCallback switchBack;
   final VoidCallback openAppSettings;
@@ -68,37 +71,16 @@ class KeyboardView extends StatelessWidget {
     super.key,
     required this.state,
     required this.strings,
-    required this.start,
-    required this.stop,
-    required this.togglePause,
-    required this.cancel,
-    required this.deleteBackward,
-    required this.switchBack,
-    required this.openAppSettings,
+    required this.actions,
   });
 
   final DictationState state;
   final AppStrings strings;
-  final VoidCallback start;
-  final VoidCallback stop;
-  final VoidCallback togglePause;
-  final VoidCallback cancel;
-  final VoidCallback deleteBackward;
-  final VoidCallback switchBack;
-  final VoidCallback openAppSettings;
+  final KeyboardActions actions;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final actions = _KeyboardActions(
-      start: start,
-      stop: stop,
-      togglePause: togglePause,
-      cancel: cancel,
-      deleteBackward: deleteBackward,
-      switchBack: switchBack,
-      openAppSettings: openAppSettings,
-    );
     return Scaffold(
       backgroundColor: palette.bg,
       body: SafeArea(

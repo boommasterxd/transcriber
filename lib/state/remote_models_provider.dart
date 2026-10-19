@@ -11,18 +11,42 @@ typedef RemoteModelsQuery = ({
   bool forTranscription,
 });
 
-/// Fetches the live model list for a provider from its API (requires a stored
-/// key). Re-runs when the provider's connection changes.
+/// Keeps one raw listing per provider and credential revision, without keys in
+/// provider identities or cached catalog values.
+final remoteModelCatalogProvider =
+    FutureProvider.family<ProviderModelCatalog?, RemoteProviderId>(
+      retry: (_, _) => null,
+      (ref, provider) async {
+        final controller = ref.watch(connectionsControllerProvider.notifier);
+        ref.watch(
+          connectionsControllerProvider.select(
+            (connections) => (
+              connections[provider] ?? false,
+              controller.catalogRevision(provider),
+            ),
+          ),
+        );
+        final key = await controller.apiKey(provider);
+        if (!ref.mounted || key.isEmpty) return null;
+        final client = RemoteClientFactory.create(provider, key);
+        ref.onDispose(client.close);
+        try {
+          return await client.loadModelCatalog();
+        } finally {
+          client.close();
+        }
+      },
+    );
+
+/// Locally filters the shared listing for one model picker.
 final remoteModelsProvider =
-    FutureProvider.family<List<RemoteModelInfo>, RemoteModelsQuery>((
-      ref,
-      query,
-    ) async {
-      ref.watch(connectionsControllerProvider);
-      final key = await ref
-          .read(connectionsControllerProvider.notifier)
-          .apiKey(query.provider);
-      if (key.isEmpty) return const [];
-      final client = RemoteClientFactory.create(query.provider, key);
-      return client.listModels(forTranscription: query.forTranscription);
-    });
+    FutureProvider.family<List<RemoteModelInfo>, RemoteModelsQuery>(
+      retry: (_, _) => null,
+      (ref, query) async {
+        final catalog = await ref.watch(
+          remoteModelCatalogProvider(query.provider).future,
+        );
+        return catalog?.modelsFor(forTranscription: query.forTranscription) ??
+            const [];
+      },
+    );

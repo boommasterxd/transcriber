@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
+import 'package:transcriber/data/models/note_history.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/ui/screens/home/widgets/active_model_pill.dart';
@@ -80,7 +81,9 @@ void _registerNoteBadgesTest() {
           width: 320,
           child: Row(
             children: [
-              Expanded(child: NoteModelBadge(note: note)),
+              Expanded(
+                child: NoteModelBadge(note: NoteHistoryEntry.fromNote(note)),
+              ),
               TodoCountBadge(count: note.todos.length, strings: strings),
             ],
           ),
@@ -109,7 +112,7 @@ void _registerPhoneHistoryRowTest() {
         SizedBox(
           width: 400,
           child: NoteListItem(
-            note: note,
+            note: NoteHistoryEntry.fromNote(note),
             strings: strings,
             isLast: true,
             onTap: () => tapped = true,
@@ -140,7 +143,7 @@ void _registerTabletHistoryRowTest() {
         SizedBox(
           width: 344,
           child: TabletHistoryRow(
-            note: note,
+            note: NoteHistoryEntry.fromNote(note),
             strings: AppStrings.of(AppLanguage.en),
             selected: true,
             onTap: () => tapped = true,

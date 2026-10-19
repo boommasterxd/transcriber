@@ -75,7 +75,7 @@ void _registerIndependentStages(AppStrings strings) {
     'connected selections stay independent across wizard back navigation',
     (tester) async {
       final initial = AppSettings.initial().copyWith(
-        summaryProvider: RemoteProviderId.openai,
+        summary: const SummarySettings(provider: RemoteProviderId.openai),
       );
       final container = await openOnboardingStep(
         tester,
@@ -181,8 +181,10 @@ void _registerCompactLayout(AppStrings strings) {
         tester,
         1,
         config: const OnboardingTestConfig(
-          surfaceSize: Size(320, 640),
-          textScale: 2,
+          viewport: MediaQueryData(
+            size: Size(320, 640),
+            textScaler: TextScaler.linear(2),
+          ),
         ),
       );
       expect(tester.takeException(), isNull);

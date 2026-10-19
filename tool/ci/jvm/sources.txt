@@ -1,2 +1,6 @@
 com.transcriber.app.EditorSessionGate
 com.transcriber.app.PcmLevelMeter
+com.transcriber.app.BoundedWaveWriter
+com.transcriber.app.ShareFileNamePolicy
+com.transcriber.app.ShareImportControl
+com.transcriber.app.ShareImportCoordinator

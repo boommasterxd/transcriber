@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("dev.flutter.flutter-gradle-plugin")
+    jacoco
 }
 
 // Release signing is read from android/key.properties when present (created in
@@ -23,6 +24,14 @@ android {
     // Pinned so the whole build uses one NDK (see android/build.gradle.kts) and
     // CI can pre-install exactly this version reliably.
     ndkVersion = "28.2.13676358"
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    testCoverage {
+        jacocoVersion = "0.8.14"
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -61,6 +70,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableAndroidTestCoverage = true
+        }
         release {
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
@@ -75,7 +87,45 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("org.mockito:mockito-core:5.21.0")
+    // Keep Kotlin's runtime lock graph stable (Gradle issue 21396).
+    testRuntimeOnly("org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
+}
+
+// Keep the complete native unit-test graph reviewable and available to OSV.
+configurations.matching {
+    it.name in setOf("debugUnitTestCompileClasspath", "debugUnitTestRuntimeClasspath")
+}.configureEach {
+    resolutionStrategy.activateDependencyLocking()
+}
+
+// Resolve the exact sandbox SDKs through Gradle so the audit sees runtime downloads too.
+val robolectricSdks = listOf(
+    "8.1.0-robolectric-4611349-i7",
+    "9-robolectric-4913185-2-i7",
+    "15-robolectric-13954326-i7",
+).mapIndexed { index, version ->
+    configurations.create("robolectricSdk$index") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+        resolutionStrategy.activateDependencyLocking()
+    }.also {
+        dependencies.add(it.name, "org.robolectric:android-all-instrumented:$version")
+    }
+}
+val sandboxDirectory = layout.buildDirectory.dir("robolectric-sdks")
+val prepareRobolectricSdks = tasks.register<Sync>("prepareRobolectricSdks") {
+    from(robolectricSdks)
+    into(sandboxDirectory)
+}
+tasks.withType<Test>().configureEach {
+    dependsOn(prepareRobolectricSdks)
+    inputs.files(robolectricSdks).withPropertyName("robolectricSdks")
+        .withPathSensitivity(PathSensitivity.NAME_ONLY)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", sandboxDirectory.get().asFile.absolutePath)
 }
 
 // Built-in Kotlin (AGP 9+): the Kotlin toolchain is configured via the new
@@ -96,3 +146,15 @@ extra["requiredTestSourceFiles"] = fileTree("src/test/kotlin") {
     include("**/*Test.kt")
 }.files
 apply(from = rootProject.file("../tool/ci/jvm/require_executed_tests.gradle.kts"))
+
+extra["coverageSources"] = fileTree("src/main/kotlin") { include("**/*.kt") }.files
+extra["coverageSourceRoot"] = file("src/main/kotlin")
+extra["coverageClassDirectories"] = files(layout.buildDirectory.dir("tmp/kotlin-classes/debug"))
+extra["coverageTestTask"] = "testDebugUnitTest"
+extra["coverageDeviceTask"] = "connectedDebugAndroidTest"
+apply(from = rootProject.file("../tool/ci/jvm/native_coverage.gradle.kts"))
+
+// Robolectric's resource APK consumes the Flutter assets produced by this task.
+tasks.matching { it.name == "packageDebugUnitTestForUnitTest" }.configureEach {
+    dependsOn("copyFlutterAssetsDebug")
+}

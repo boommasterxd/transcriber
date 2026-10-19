@@ -31,13 +31,20 @@ function fullScope() {
 function checksForPath(path) {
   if (path.startsWith('docs/') && path.length > 5) return [];
   if (path.endsWith('/flutter_test_config.dart')) return CHECKS;
-  if (['pubspec.yaml', 'pubspec.lock', '.fvmrc', 'analysis_options.yaml', '.github/workflows/ci.yml',
+  // Selection, execution and quality gates control the complete CI contract.
+  if (/^(tool|test\/tool)\/(ci|quality)\/[^/]+\.dart$/.test(path)) return CHECKS;
+  if (['pubspec.yaml', 'pubspec.lock', 'android/app/gradle.lockfile',
+    '.fvmrc', 'analysis_options.yaml', '.github/workflows/ci.yml',
     '.github/workflows/gitleaks.yml', '.github/workflows/update-gitleaks.yml',
     '.github/workflows/dependency-audit.yml',
+    'tool/ci/detect-change-scope.cjs', 'test/tool/ci/detect-change-scope.test.cjs',
+    'tool/ci/require-ci-success.cjs', 'test/tool/ci/require-ci-success.test.cjs',
+    'test/tool/ci/gitleaks.integration.cjs',
     '.github/actions/setup-flutter/action.yml'].includes(path)) return CHECKS;
   if (/^\.github\/workflows\/[^/]+\.ya?ml$/.test(path)
     || ['.github/dependabot.yml', '.github/release.yml'].includes(path)) return ['workflow'];
-  if (path === 'test/tool/ci/jvm-test-failure.integration.cjs') return ['workflow', 'jvm'];
+  if (['test/tool/ci/jvm-test-failure.integration.cjs',
+    'test/tool/ci/native-coverage.integration.cjs'].includes(path)) return ['workflow', 'jvm'];
   if (/^(tool|test\/tool)\/ci\/[^/]+\.cjs$/.test(path)) return ['workflow'];
   for (const name of JVM_CLASSES) {
     const classPath = name.replaceAll('.', '/');
@@ -54,7 +61,8 @@ function checksForPath(path) {
   if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
   // Native entrypoint names and channel payloads are runtime contracts.
   if (['lib/main.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
-    'lib/services/dictation/dictation_platform.dart'].includes(path)) return ['dart', 'native', 'build'];
+    'lib/services/dictation/dictation_platform.dart',
+    'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'build'];
   if (/^lib\/.*\.dart$/.test(path)) return ['dart'];
   if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
   if (path.startsWith('assets/')) return ['dart', 'build'];

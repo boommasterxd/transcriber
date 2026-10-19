@@ -17,6 +17,15 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.recording: 'Nimmt auf',
   _StringKey.recPaused: 'Pausiert',
   _StringKey.recHint: 'Wird nach dem Stoppen sicher hochgeladen',
+  _StringKey.previousPage: 'Vorherige Seite',
+  _StringKey.nextPage: 'Nächste Seite',
+  _StringKey.recLimit: 'Automatischer Stopp bei {duration}',
+  _StringKey.recLimitWarning:
+      'Aufnahmegrenze bald erreicht. Verbleibend: {duration}',
+  _StringKey.recLimitReached:
+      'Aufnahmegrenze erreicht. Audio bleibt erhalten. Mit Stopp fortfahren oder verwerfen.',
+  _StringKey.recFailure:
+      'Aufnahme unterbrochen. Audio bleibt erhalten. Stopp erneut versuchen oder verwerfen.',
   _StringKey.recResume: 'Fortsetzen',
   _StringKey.recPause: 'Pause',
   _StringKey.recStopShort: 'Stoppen',

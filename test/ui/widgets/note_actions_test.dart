@@ -104,20 +104,26 @@ void _registerDeleteTest() {
 }
 
 TranscriptNote _note() => TranscriptNote(
-  id: 'widget-test-note',
-  title: 'Test note',
-  speaker: 'Test speaker',
-  source: NoteSource.file,
-  durationSec: 4,
-  createdAt: DateTime(2024),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'gpt-transcribe',
-  asrSub: 'OpenAI',
-  llmName: 'gemini-3.7-flash',
-  llmSub: 'Google Gemini',
-  gist: 'Test gist',
-  points: const [],
-  todos: [],
-  transcript: const [],
+  metadata: NoteMetadata(
+    id: 'widget-test-note',
+    title: 'Test note',
+    speaker: 'Test speaker',
+    source: NoteSource.file,
+    durationSec: 4,
+    createdAt: DateTime(2024),
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: false,
+    summaryIsLocal: false,
+    asrName: 'gpt-transcribe',
+    asrSub: 'OpenAI',
+    llmName: 'gemini-3.7-flash',
+    llmSub: 'Google Gemini',
+  ),
+  content: const NoteContent(
+    gist: 'Test gist',
+    points: [],
+    todos: [],
+    transcript: [],
+  ),
 );

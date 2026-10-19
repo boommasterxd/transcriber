@@ -189,14 +189,18 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
             child: ProviderCredentialForm(
               provider: widget.provider,
               controller: _keyController,
-              busy: _busy,
-              connected: connected,
-              verified: _verified,
-              failed: _failed,
-              onConnect: _connect,
-              onShowHelp: _showKeyHelp,
-              onTest: connected ? _test : null,
-              onDisconnect: connected ? _disconnect : null,
+              status: CredentialFormStatus(
+                busy: _busy,
+                connected: connected,
+                verified: _verified,
+                failed: _failed,
+              ),
+              actions: CredentialFormActions(
+                connect: _connect,
+                showHelp: _showKeyHelp,
+                test: connected ? _test : null,
+                disconnect: connected ? _disconnect : null,
+              ),
             ),
           )
         : const SizedBox(width: double.infinity);

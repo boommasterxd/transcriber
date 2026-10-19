@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme_mode.dart';
 import '../../../../state/settings_controller.dart';
 
 /// Shared theme and localization shell for the main and translucent apps.
@@ -39,7 +40,7 @@ class TranscriberAppShell extends ConsumerWidget {
       scaffoldMessengerKey: scaffoldMessengerKey,
       theme: AppTheme.build(Brightness.light, accent),
       darkTheme: AppTheme.build(Brightness.dark, accent),
-      themeMode: themeMode,
+      themeMode: themeMode.flutterThemeMode,
       locale: Locale(language.code),
       supportedLocales: const [Locale('de'), Locale('en')],
       localizationsDelegates: const [

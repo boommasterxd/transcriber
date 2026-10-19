@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../../widgets/surfaces.dart';
 import '../../../navigation.dart';
 import '../history_logic.dart';
@@ -15,55 +16,44 @@ class PhoneHistory extends StatelessWidget {
   final AppStrings strings;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (final group in groups)
-          _HistorySection(group: group, strings: strings),
-      ],
-    );
-  }
-}
-
-class _HistorySection extends StatelessWidget {
-  const _HistorySection({required this.group, required this.strings});
-
-  final HistoryGroup group;
-  final AppStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SectionLabel(
-          historyPeriodLabel(group.period, strings),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+  Widget build(BuildContext context) => SliverMainAxisGroup(
+    slivers: [
+      for (final group in groups) ...[
+        SliverToBoxAdapter(
+          child: SectionLabel(
+            historyPeriodLabel(group.period, strings),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+          ),
         ),
-        Padding(
+        SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
-          child: SurfaceCard(
-            clip: true,
-            child: Column(
-              children: [
-                for (var index = 0; index < group.notes.length; index++)
-                  DismissibleHistoryNote(
-                    note: group.notes[index],
-                    strings: strings,
-                    child: NoteListItem(
-                      note: group.notes[index],
-                      strings: strings,
-                      isLast: index == group.notes.length - 1,
-                      onTap: () => AppNavigator.openDetail(
-                        context,
-                        group.notes[index].id,
-                      ),
-                    ),
-                  ),
-              ],
+          sliver: SliverList.builder(
+            itemCount: group.notes.length,
+            itemBuilder: (context, index) => Material(
+              key: ValueKey(group.notes[index].id),
+              color: context.palette.surface,
+              borderRadius: BorderRadius.vertical(
+                top: index == 0 ? const Radius.circular(22) : Radius.zero,
+                bottom: index == group.notes.length - 1
+                    ? const Radius.circular(22)
+                    : Radius.zero,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: DismissibleHistoryNote(
+                note: group.notes[index],
+                strings: strings,
+                child: NoteListItem(
+                  note: group.notes[index],
+                  strings: strings,
+                  isLast: index == group.notes.length - 1,
+                  onTap: () =>
+                      AppNavigator.openDetail(context, group.notes[index].id),
+                ),
+              ),
             ),
           ),
         ),
       ],
-    );
-  }
+    ],
+  );
 }

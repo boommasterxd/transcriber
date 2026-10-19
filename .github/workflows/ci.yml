@@ -17,7 +17,7 @@ permissions:
 jobs:
   changes:
     name: Change scope
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
@@ -200,10 +200,12 @@ jobs:
         run: node tool/ci/check-native-file-length.cjs
       - name: Run pure JVM unit tests
         if: ${{ !cancelled() }}
-        run: android/gradlew -p tool/ci/jvm test --no-daemon
+        run: android/gradlew -p tool/ci/jvm test verifyNativeCoverage --no-daemon
       - name: Prove JVM tests reject a production defect
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
-        run: node --test test/tool/ci/jvm-test-failure.integration.cjs
+        run: >-
+          node --test test/tool/ci/jvm-test-failure.integration.cjs
+          test/tool/ci/native-coverage.integration.cjs
 
   kotlin-quality:
     name: Android quality and tests
@@ -245,13 +247,15 @@ jobs:
       - name: Run native unit tests and compile device tests
         if: ${{ !cancelled() }}
         working-directory: android
-        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+        run: ./gradlew :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
       - name: Verify standalone JVM harness
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
-        run: android/gradlew -p tool/ci/jvm test --no-daemon
+        run: android/gradlew -p tool/ci/jvm test verifyNativeCoverage --no-daemon
       - name: Prove JVM tests reject failures and skipped suites
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
-        run: node --test test/tool/ci/jvm-test-failure.integration.cjs
+        run: >-
+          node --test test/tool/ci/jvm-test-failure.integration.cjs
+          test/tool/ci/native-coverage.integration.cjs
       - name: Verify Flutter bundle assembled by native tests
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
         run: |
@@ -287,7 +291,7 @@ jobs:
     name: CI
     if: always()
     needs: [changes, workflow-lint, dart-quality, jvm-quality, kotlin-quality, dependency-audit]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

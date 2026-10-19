@@ -24,6 +24,8 @@ UI -> Riverpod state -> services and repositories -> models and integrations
 - `lib/ui/` renders state and delegates work.
 - `android/` owns Android entry points and bounded share-file copying.
 
+Settings use framework-independent `AppearanceSettings`, `TranscriptionSettings`, and `SummarySettings` values. Flutter theme modes and accent colors are mapped only in `lib/core/theme/`. `TranscriptNote` groups recording metadata, processing origins, and generated content while retaining its flat persisted JSON format.
+
 ## Entry Points and Bootstrap
 
 `lib/main.dart` declares three entry points:
@@ -36,11 +38,13 @@ The main and share entry points call `loadAppBootstrap`, which:
 
 1. opens the Drift database;
 2. atomically imports legacy SharedPreferences data once;
-3. loads settings, provider connection state, and notes;
+3. loads settings and provider connection state without historical transcripts;
 4. removes stale app-owned temporary audio;
 5. injects initialized dependencies into Riverpod.
 
 SharedPreferences remains a read-only legacy source until the migration window is intentionally removed. It is not the active persistence layer.
+
+The native share activity imports content on a process-wide single-worker executor. An early `getInitialSharedPath` call waits for completion instead of reading a premature null path. A 60-second deadline, activity destruction, or explicit finish cancels the import and releases pending channel calls. File descriptors, streams, cancellation signals, and incomplete files have explicit ownership until Dart receives the path. A separate bounded cleanup worker keeps provider cancellation off the main thread. Providers that ignore cancellation can occupy the single import slot, but cannot accumulate import threads.
 
 The keyboard entry point deliberately loads only the database, settings repository, active settings, and secure credential boundary. It does not load notes or run cache cleanup. `TranscriberInputMethodService` owns a dedicated `FlutterEngine` and embeds the keyboard Flutter view in a measured 312 dp input container. Fullscreen extract mode is disabled so Android cannot expand the dictation surface over the application. Native Android code owns editor lifecycle, microphone capture, and `InputConnection`; Flutter owns the live-session controller and keyboard presentation.
 
@@ -62,6 +66,8 @@ Provider behavior is split into small contracts:
 - `RemoteProviderClient` composes the three contracts for the factory.
 
 `OpenAiClient` and `GoogleClient` implement direct REST requests with the existing `http` stack. Provider model catalogs are loaded dynamically and filtered by `ProviderModelCapabilities` because neither catalog exposes complete audio-input and text-output modality metadata. Dedicated transcription models use provider-native transcription payloads, while compatible multimodal models receive audio plus a plain-text transcription instruction. Provider-specific payloads and errors remain behind those clients. API keys are transmitted in headers and are never placed in URLs, database rows, logs, or user-visible error details.
+
+Each REST request owns an abort trigger, deadline, and bounded response subscription. Deadlines cancel transport and response consumption, including stalled uploads and late headers. Processing stages, model catalogs, and credential checks close their internally created clients in `finally`; injected HTTP clients remain caller-owned. Cancellation cleanup waits at most one second. Injected transports must implement the HTTP package's abortable-request contract to terminate their own underlying I/O.
 
 Keyboard dictation uses the separate `LiveTranscriptionClient` contract. Its fixed compatibility catalog maps OpenAI `gpt-live-transcribe` to 24 kHz PCM and Gemini `gemini-3.5-transcribe-live` to 16 kHz PCM. Language hints are normalized per protocol, including `de-DE` and `en-US` for Gemini. Native `AudioRecord` emits mono PCM16 chunks through an event channel. The selected live client confirms provider setup before recording, streams those chunks over WebSocket, and emits partial and final text events. A single bounded deadline covers DNS, TLS, the WebSocket handshake, and provider setup. Cancellation invalidates late sockets, and socket shutdown is bounded so cleanup cannot leave the UI in a transient state. Sanitized connection failures distinguish authentication, quota, model access, rejected configuration, timeout, and transient disconnects without exposing provider responses or credentials.
 
@@ -100,11 +106,17 @@ active supported editor
 
 Drift tables store singleton settings, notes, ordered key points, ordered to-dos, ordered transcript text segments, and migration markers. Timestamps are intentionally not part of the transcript domain or database schema. Repository writes are transactional. API keys remain exclusively in `FlutterSecureStorage`.
 
+Ordinary note operations insert/restore, delete, or toggle one persisted item; they never replace another engine's complete note snapshot. Reads and targeted mutation results are transactional, and each controller serializes state publication after successful commits. Whole-snapshot replacement is reserved for explicit import/test setup. Failed saves retain the finished note and audio for idempotent persistence retry without another provider call. Share commit/discard operations coordinate their ownership decision so dismissing a saving preview cannot remove committed audio; save failures leave the action retryable. Undo retains the application controller independently of the removed detail route.
+
 Schema version 3 adds the nullable `notes.summary_error` column. Existing notes and legacy JSON default to no summary failure. The diagnostic survives note reloads and JSON round trips.
 
 The one-time legacy migration parses old settings and notes before entering a database transaction. The marker, settings, notes, points, to-dos, and transcript segments commit atomically. Successfully imported SharedPreferences values are removed only after the commit.
 
-The main application reloads the persisted note snapshot whenever its activity resumes. This synchronizes notes written by the dedicated share entry point while the main Flutter UI was paused.
+History loads after the main UI starts, using metadata-only keyset pages of at most 50 entries, ordered by creation date and ID. Phone and tablet build individual visible rows lazily. Search, page changes, mutation invalidation, and activity resume replace the current page rather than accumulating an unbounded list. Filtered totals and substring searches inspect note metadata; transcript and summary payloads are excluded. Shared audio startup never loads history.
+
+Selected details load by primary key with ordered, note-scoped child queries. Active detail providers dispose their data with their consumers; the mutation controller retains at most eight recently changed notes. Successful writes and resume invalidate consumers, preserving visibility of the separate share engine without loading the entire history. Deletion retrieves only the target audio metadata before its targeted writes.
+
+Schema version 4 adds the `(created_at DESC, id DESC)` history index and a `title_search` value normalized with Dart lowercase for consistent Unicode search. Upgrade normalizes existing titles in batches of 128 rows without reading transcripts. Literal `%`, `_`, and backslash search characters are escaped as data.
 
 ## Audio Ownership
 

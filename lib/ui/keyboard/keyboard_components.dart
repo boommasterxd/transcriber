@@ -207,7 +207,7 @@ class _Controls extends StatelessWidget {
   });
   final DictationState state;
   final AppStrings strings;
-  final _KeyboardActions actions;
+  final KeyboardActions actions;
 
   @override
   Widget build(BuildContext context) {
@@ -241,17 +241,20 @@ class _Controls extends StatelessWidget {
     compact: true,
     paused: state.phase == DictationPhase.paused,
     strings: strings,
-    onCancel: actions.cancel,
-    onStop: actions.stop,
-    onTogglePause: actions.togglePause,
-    cancelEnabled: state.phase != DictationPhase.stopping,
-    stopEnabled:
-        state.phase != DictationPhase.connecting &&
-        state.phase != DictationPhase.stopping,
-    pauseEnabled:
-        state.phase == DictationPhase.recording ||
-        state.phase == DictationPhase.correcting ||
-        state.phase == DictationPhase.paused,
+    actions: RecordingActions(
+      cancel: state.phase != DictationPhase.stopping ? actions.cancel : null,
+      stop:
+          state.phase != DictationPhase.connecting &&
+              state.phase != DictationPhase.stopping
+          ? actions.stop
+          : null,
+      togglePause:
+          state.phase == DictationPhase.recording ||
+              state.phase == DictationPhase.correcting ||
+              state.phase == DictationPhase.paused
+          ? actions.togglePause
+          : null,
+    ),
   );
 }
 

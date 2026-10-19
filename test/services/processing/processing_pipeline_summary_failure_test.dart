@@ -38,6 +38,7 @@ void main() {
       expect(note.todos, isEmpty);
       expect(note.llmName, '${provider.id}-summary');
       expect(client.summaryCalls, 1);
+      expect(client.closeCalls, provider == RemoteProviderId.openai ? 2 : 1);
       expect(clients.clients[RemoteProviderId.openai]!.transcriptionCalls, 1);
       expect(steps, [ProcessingStep.transcribing, ProcessingStep.summarizing]);
       expect(note.audioOwnership, AudioOwnership.retained);

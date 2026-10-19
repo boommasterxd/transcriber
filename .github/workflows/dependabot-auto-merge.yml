@@ -12,7 +12,7 @@ permissions:
 jobs:
   inspect:
     name: Inspect Dependabot update
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     if: >-
       github.event_name == 'pull_request_target' &&
@@ -34,7 +34,7 @@ jobs:
   merge:
     name: Enable Dependabot auto-merge
     needs: inspect
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     if: >-
       needs.inspect.result == 'success' &&

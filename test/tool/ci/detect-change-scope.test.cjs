@@ -36,9 +36,10 @@ test('known paths request precisely their relevant checks', () => {
     ['docs/nested/guide.md', []],
     ['.github/workflows/release.yml', ['workflow']],
     ['.github/dependabot.yml', ['workflow']],
-    ['tool/ci/detect-change-scope.cjs', ['workflow']],
-    ['test/tool/ci/detect-change-scope.test.cjs', ['workflow']],
+    ['tool/ci/check-native-file-length.cjs', ['workflow']],
+    ['test/tool/ci/check-native-file-length.test.cjs', ['workflow']],
     ['test/tool/ci/jvm-test-failure.integration.cjs', ['workflow', 'jvm']],
+    ['test/tool/ci/native-coverage.integration.cjs', ['workflow', 'jvm']],
     ['android/app/src/main/kotlin/Example.kt', ['dart', 'native']],
     ['android/app/src/main/AndroidManifest.xml', ['dart', 'native']],
     ['android/app/src/main/res/values/strings.xml', ['dart', 'native']],
@@ -64,13 +65,27 @@ test('known paths request precisely their relevant checks', () => {
     ['lib/share_entrypoint.dart', ['dart', 'native', 'build']],
     ['lib/keyboard_entrypoint.dart', ['dart', 'native', 'build']],
     ['lib/services/dictation/dictation_platform.dart', ['dart', 'native', 'build']],
+    ['lib/services/audio/audio_recorder_service.dart', ['dart', 'native', 'build']],
     ['lib/services/example.dart', ['dart']],
     ['test/services/example_test.dart', ['dart']],
-    ['tool/ci/select_tests.dart', ['dart']],
     ['assets/images/example.png', ['dart', 'build']],
   ];
   for (const [name, checks] of cases) {
     assert.deepEqual(classifyPaths([name]), scope(...checks), name);
+  }
+});
+
+test('Dart CI and quality infrastructure requires every gate, including its regression tests', () => {
+  const full = scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit');
+  for (const name of ['tool/ci/select_tests.dart', 'tool/ci/run_test_plan.dart',
+    'tool/ci/selection_graph.dart', 'tool/ci/test_selection.dart', 'tool/ci/test_runtime.dart',
+    'test/tool/ci/test_selection_test.dart', 'test/tool/ci/test_runtime_test.dart',
+    'tool/quality/check_code_quality.dart', 'tool/quality/check_coverage.dart',
+    'tool/quality/coverage_source.dart', 'tool/quality/coverage_merge.dart',
+    'tool/quality/parameter_count.dart', 'test/tool/quality/parameter_count_test.dart',
+    'test/tool/quality/coverage_analysis_test.dart']) {
+    assert.deepEqual(classifyPaths([name]), full, name);
+    assert.deepEqual(classifyPaths(['docs/guide.md', name, 'lib/services/example.dart']), full, name);
   }
 });
 
@@ -92,10 +107,14 @@ test('ordinary Dart edits never select Java, native tests, or packaging', () => 
 
 test('shared foundations, unknown paths and incomplete inputs require every check', () => {
   const full = scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit');
-  for (const name of ['pubspec.yaml', 'pubspec.lock', '.fvmrc', 'analysis_options.yaml',
+  for (const name of ['pubspec.yaml', 'pubspec.lock', 'android/app/gradle.lockfile',
+    '.fvmrc', 'analysis_options.yaml',
     'test/flutter_test_config.dart', 'test/nested/flutter_test_config.dart', '.github/workflows/ci.yml',
     '.github/workflows/gitleaks.yml', '.github/workflows/update-gitleaks.yml',
     '.github/workflows/dependency-audit.yml', '.gitleaks.toml',
+    'tool/ci/detect-change-scope.cjs', 'test/tool/ci/detect-change-scope.test.cjs',
+    'tool/ci/require-ci-success.cjs', 'test/tool/ci/require-ci-success.test.cjs',
+    'test/tool/ci/gitleaks.integration.cjs',
     '.github/actions/setup-flutter/action.yml', '.github/actions/new/action.yml',
     '.github/new-config.toml', 'tool/ci/jvm/build.gradle.kts', 'tool/ci/jvm/sources.txt',
     'README.md', 'new/config.toml', '']) {
@@ -131,6 +150,7 @@ function fixture(context) {
   git(cwd, ['init', '-q', '--initial-branch=main']);
   git(cwd, ['config', 'user.email', 'test@example.com']);
   git(cwd, ['config', 'user.name', 'Test']);
+  git(cwd, ['config', 'commit.gpgsign', 'false']);
   write(cwd, 'docs/guide.md', 'Guide\n');
   write(cwd, 'src/index.js', 'module.exports = 1;\n');
   return { cwd, base: commit(cwd) };
