@@ -1,0 +1,8 @@
+{
+  "format": ["javascript"],
+  "minTokens": 50,
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": ["**/node_modules/**", "**/build/**", "**/.gradle/**", "**/.kotlin/**"],
+  "gitignore": true
+}

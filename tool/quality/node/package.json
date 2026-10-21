@@ -1,0 +1,24 @@
+{
+  "name": "transcriber-node-quality",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "lint": "cd ../../.. && tool/quality/node/node_modules/.bin/eslint --config tool/quality/node/eslint.config.js --max-warnings 0 tool test/tool",
+    "duplicates": "cd ../../.. && tool/quality/node/node_modules/.bin/jscpd --config tool/quality/node/jscpd.json --fail-on-empty tool test/tool",
+    "test": "cd ../../.. && node --test test/tool/quality/node_quality.test.cjs",
+    "check": "npm run lint && npm run duplicates && npm test",
+    "audit": "npm audit --audit-level=info"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "eslint": "10.13.0",
+    "eslint-plugin-sonarjs": "4.2.2",
+    "globals": "17.13.0",
+    "jscpd": "5.4.2"
+  }
+}

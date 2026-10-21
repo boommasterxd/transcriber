@@ -20,5 +20,6 @@ jobs:
         --lockfile=android/app/gradle.lockfile
         --lockfile=tool/ci/jvm/gradle.lockfile
         --lockfile=tool/ci/jvm/gradle/verification-metadata.xml
+        --lockfile=tool/quality/node/package-lock.json
       upload-sarif: false
       fail-on-vuln: true
