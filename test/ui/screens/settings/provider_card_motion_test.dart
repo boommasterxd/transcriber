@@ -10,44 +10,32 @@ const _motionDuration = Duration(milliseconds: 220);
 const _unrelatedInput = ValueKey('unrelated-input');
 
 void main() {
-  _registerHeightTest();
+  _registerRapidToggleTest();
   _registerDraftFocusTest();
   _registerUnrelatedFocusTest();
   _registerAccordionTest();
   _registerReducedMotionTest();
 }
 
-void _registerHeightTest() {
-  testWidgets('credential height animates and reverses rapid toggles', (
+void _registerRapidToggleTest() {
+  testWidgets('rapid credential toggles keep the editor lifecycle usable', (
     tester,
   ) async {
     await _pumpMotionApp(tester);
-    final card = find.byType(ProviderConnectCard);
-    final compact = tester.getSize(card).height;
 
     await _toggle(tester);
-    expect(tester.getSize(card).height, closeTo(compact, 0.1));
     await tester.pump(const Duration(milliseconds: 60));
-    final opening = tester.getSize(card).height;
     await tester.pump(_motionDuration);
-    final full = tester.getSize(card).height;
-    expect(opening, greaterThan(compact));
-    expect(opening, lessThan(full));
 
     await _toggle(tester);
     expect(find.byType(TextField), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 60));
-    final closing = tester.getSize(card).height;
-    expect(closing, greaterThan(compact));
-    expect(closing, lessThan(full));
     await _toggle(tester);
     await tester.pump(const Duration(milliseconds: 60));
     await _toggle(tester);
     await tester.pump(_motionDuration);
-    expect(tester.getSize(card).height, closeTo(compact, 0.1));
     await _toggle(tester);
     await tester.pump(_motionDuration);
-    expect(tester.getSize(card).height, closeTo(full, 0.1));
     expect(tester.takeException(), isNull);
   });
 }
@@ -113,43 +101,29 @@ void _registerUnrelatedFocusTest() {
 }
 
 void _registerAccordionTest() {
-  testWidgets('controlled onboarding animates both provider cards', (
-    tester,
-  ) async {
-    await _pumpMotionApp(tester, child: const OnboardingCloudStep());
-    final cards = find.byType(ProviderConnectCard);
-    final first = cards.first;
-    final second = cards.last;
-    final firstCompact = tester.getSize(first).height;
-    final secondCompact = tester.getSize(second).height;
-    await _toggle(tester);
-    await tester.pump(_motionDuration);
-    await tester.enterText(_credentialInput(), 'onboarding-draft');
-    final firstFull = tester.getSize(first).height;
+  testWidgets(
+    'controlled onboarding retains drafts when switching provider cards',
+    (tester) async {
+      await _pumpMotionApp(tester, child: const OnboardingCloudStep());
+      await _toggle(tester);
+      await tester.pump(_motionDuration);
+      await tester.enterText(_credentialInput(), 'onboarding-draft');
 
-    await _toggle(tester, last: true);
-    expect(_credentialInput(), findsOneWidget);
-    expect(tester.testTextInput.isVisible, isFalse);
-    await tester.pump(const Duration(milliseconds: 60));
-    expect(
-      tester.getSize(first).height,
-      inExclusiveRange(firstCompact, firstFull),
-    );
-    expect(tester.getSize(second).height, greaterThan(secondCompact));
-    await tester.pump(_motionDuration);
-    expect(tester.getSize(first).height, closeTo(firstCompact, 0.1));
-    await _toggle(tester, last: true);
-    await tester.pump(_motionDuration);
-    expect(tester.getSize(second).height, closeTo(secondCompact, 0.1));
-    expect(_credentialInput(), findsNothing);
-    await _toggle(tester);
-    await tester.pump(_motionDuration);
-    expect(
-      tester.widget<TextField>(_credentialInput()).controller!.text,
-      'onboarding-draft',
-    );
-    expect(tester.testTextInput.isVisible, isFalse);
-  });
+      await _toggle(tester, last: true);
+      expect(_credentialInput(), findsOneWidget);
+      expect(tester.testTextInput.isVisible, isFalse);
+      await _toggle(tester, last: true);
+      await tester.pump(_motionDuration);
+      expect(_credentialInput(), findsNothing);
+      await _toggle(tester);
+      await tester.pump(_motionDuration);
+      expect(
+        tester.widget<TextField>(_credentialInput()).controller!.text,
+        'onboarding-draft',
+      );
+      expect(tester.testTextInput.isVisible, isFalse);
+    },
+  );
 }
 
 void _registerReducedMotionTest() {

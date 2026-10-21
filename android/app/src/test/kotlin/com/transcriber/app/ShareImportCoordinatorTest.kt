@@ -43,7 +43,7 @@ class ShareImportCoordinatorTest {
             val fixture = Fixture()
             val replies = mutableListOf<String?>()
             fixture.coordinator.start {
-                if (fail) throw IllegalArgumentException("invalid fixture")
+                require(!fail) { "invalid fixture" }
                 null
             }
             fixture.coordinator.awaitPath(replies::add)

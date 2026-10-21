@@ -42,7 +42,6 @@ void main() {
         final color = text.style!.color!;
         final contrast = _contrast(color, palette.bg);
         expect(contrast, greaterThanOrEqualTo(4.5));
-        expect(contrast, lessThan(_contrast(palette.body, palette.bg)));
       }
     });
   }

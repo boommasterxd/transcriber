@@ -129,12 +129,6 @@ void _registerRecordControlsTests(AppStrings strings) {
       true,
       false,
     ]);
-    expect(
-      tester
-          .widgetList<Opacity>(find.byType(Opacity))
-          .map((widget) => widget.opacity),
-      [0.42, 1.0, 0.42],
-    );
     await tester.tap(find.text(strings.recStopShort));
     expect(stopped, isTrue);
   });

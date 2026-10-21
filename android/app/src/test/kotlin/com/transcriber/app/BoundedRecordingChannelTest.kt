@@ -1,8 +1,6 @@
 package com.transcriber.app
 
 import io.flutter.plugin.common.FlutterException
-import java.io.File
-import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -11,12 +9,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mockConstruction
-import org.mockito.Mockito.verify
 import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
@@ -137,7 +137,10 @@ class BoundedRecordingChannelTest {
                 val writer = writers.constructed().single()
                 `when`(writer.append(byteArrayOf(1, 2))).thenAnswer { throw IOException("Write failed") }
                 var attempts = 0
-                doAnswer { if (attempts++ == 0) throw IOException("Sync failed"); null }.`when`(writer).finish()
+                doAnswer {
+                    if (attempts++ == 0) throw IOException("Sync failed")
+                    null
+                }.`when`(writer).finish()
                 chunk(byteArrayOf(1, 2), 0.1)
                 assertEquals(true, progress()["failed"])
                 assertEquals(true, progress()["stopped"])
@@ -184,9 +187,14 @@ class BoundedRecordingChannelTest {
             assertTrue(call("pause") as Boolean)
             val staleResume = transport.captureCall("app/recording", "resume")
             val staleStart = transport.captureCall(
-                "app/recording", "start", mapOf("path" to destination().path, "maxBytes" to 48),
+                "app/recording",
+                "start",
+                mapOf("path" to destination().path, "maxBytes" to 48),
             )
-            doAnswer { assertTrue(Thread.holdsLock(channel)); null }.`when`(recorder).stop()
+            doAnswer {
+                assertTrue(Thread.holdsLock(channel))
+                null
+            }.`when`(recorder).stop()
             channel.dispose()
             channel.dispose()
             org.mockito.Mockito.clearInvocations(recorder)

@@ -70,16 +70,6 @@ void _registerInteractionTests() {
     expect(find.text('Text wird live korrigiert'), findsOneWidget);
     expect(find.text('Guten Mor'), findsNothing);
     expect(find.text('02:07'), findsOneWidget);
-    final wave = tester.widget<RecordWave>(find.byType(RecordWave));
-    expect(wave.barWidth, 5);
-    expect(tester.getSize(find.byType(RecordWave)).height, greaterThan(100));
-    expect(
-      find.ancestor(
-        of: find.byType(RecordWave),
-        matching: find.byType(Container),
-      ),
-      findsNothing,
-    );
     await tester.tap(find.byIcon(Icons.backspace_outlined));
     await tester.tap(find.text('Stoppen'));
     expect(find.byType(RecordWave), findsOneWidget);

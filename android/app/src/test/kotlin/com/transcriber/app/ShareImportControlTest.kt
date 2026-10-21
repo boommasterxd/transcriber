@@ -18,11 +18,13 @@ class ShareImportControlTest {
         try {
             assertTrue(control.track(file))
             val closed = mutableListOf<Int>()
-            control.register(Closeable {
-                assertFalse(file.exists())
-                closed.add(1)
-                throw IllegalStateException("close fixture")
-            })
+            control.register(
+                Closeable {
+                    assertFalse(file.exists())
+                    closed.add(1)
+                    error("close fixture")
+                }
+            )
             control.register(Closeable { closed.add(2) })
             control.cancel()
             control.cancel()

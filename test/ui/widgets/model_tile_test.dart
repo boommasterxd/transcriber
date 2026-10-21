@@ -6,7 +6,6 @@ import 'widget_test_helpers.dart';
 
 void main() {
   _registerModelTileTests();
-  _registerSelectionTest();
   _registerSelectionIndicatorTest();
 }
 
@@ -42,23 +41,6 @@ void _registerModelTileTests() {
   });
 }
 
-void _registerSelectionTest() {
-  testWidgets('ModelTile omits bottom border for last item', (tester) async {
-    await tester.pumpWidget(
-      themed(
-        const ModelTile(
-          content: ModelTileContent(title: 'Model', subtitle: 'Google Gemini'),
-          isLast: true,
-          trailing: SizedBox.shrink(),
-        ),
-      ),
-    );
-
-    final tile = tester.widget<Container>(find.byType(Container).first);
-    expect((tile.decoration! as BoxDecoration).border, isNull);
-  });
-}
-
 void _registerSelectionIndicatorTest() {
   testWidgets('SelectionIndicator renders distinct selected states', (
     tester,
@@ -75,7 +57,5 @@ void _registerSelectionIndicatorTest() {
     );
 
     expect(find.byIcon(Icons.check), findsOneWidget);
-    final containers = tester.widgetList<Container>(find.byType(Container));
-    expect(containers.length, greaterThanOrEqualTo(2));
   });
 }

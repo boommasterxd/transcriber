@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,6 +20,8 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
@@ -75,7 +75,10 @@ class PcmAudioRecorderTest {
                         buffer[0] = 1
                         2
                     }.thenReturn(-1)
-                doAnswer { released.countDown(); null }.`when`(record).release()
+                doAnswer {
+                    released.countDown()
+                    null
+                }.`when`(record).release()
             }.use { records ->
                 val recorder = PcmAudioRecorder(context, { bytes, level ->
                     assertTrue(level in 0.05..1.0)
@@ -131,8 +134,8 @@ class PcmAudioRecorderTest {
         audioMinimum(320).use {
             mockConstruction(AudioRecord::class.java) { record, _ ->
                 `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
-                doAnswer { throw IllegalStateException("device unavailable") }.`when`(record).startRecording()
-                doAnswer { throw IllegalStateException("not started") }.`when`(record).stop()
+                doAnswer { error("device unavailable") }.`when`(record).startRecording()
+                doAnswer { error("not started") }.`when`(record).stop()
             }.use { records ->
                 val recorder = PcmAudioRecorder(context, { _, _ -> error("No audio expected") }, { error(it) })
                 assertFalse(recorder.start(16_000))
@@ -146,8 +149,11 @@ class PcmAudioRecorderTest {
                 `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
                 `when`(record.read(any(ByteArray::class.java), anyInt(), anyInt(), anyInt()))
                     .thenThrow(IllegalStateException("read failed"))
-                doAnswer { throw IllegalStateException("already stopped") }.`when`(record).stop()
-                doAnswer { released.countDown(); null }.`when`(record).release()
+                doAnswer { error("already stopped") }.`when`(record).stop()
+                doAnswer {
+                    released.countDown()
+                    null
+                }.`when`(record).release()
             }.use {
                 val recorder = PcmAudioRecorder(context, { _, _ -> error("No audio expected") }, failures::add)
                 assertTrue(recorder.start(16_000))

@@ -100,7 +100,11 @@ class ShareAudioCacheTest {
 
     @Test
     fun rejectedMetadataAndCancelledProviderCannotLeaveCachedFiles() {
-        val errors = listOf(SecurityException("fixture"), IllegalArgumentException("fixture"), OperationCanceledException())
+        val errors = listOf(
+            SecurityException("fixture"),
+            IllegalArgumentException("fixture"),
+            OperationCanceledException()
+        )
         for (error in errors) {
             val fixture = fixture("voice.wav", "audio/wav")
             doThrow(error).`when`(fixture.resolver).getType(fixture.uri)

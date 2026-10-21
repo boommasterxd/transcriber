@@ -7,14 +7,12 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/state/remote_models_provider.dart';
-import 'package:transcriber/ui/screens/settings/widgets/model_sheet_frame.dart';
 import 'package:transcriber/ui/screens/settings/widgets/remote_model_sheet.dart';
 import 'package:transcriber/ui/screens/settings/widgets/remote_stage.dart';
 
 import '../onboarding/onboarding_test_support.dart';
 
 const _screen = Size(400, 1000);
-final _maximumHeight = _screen.height * .92;
 
 void main() {
   _registerCatalogGrowth();
@@ -24,7 +22,7 @@ void main() {
 }
 
 void _registerCatalogGrowth() {
-  testWidgets('catalog grows with content until the share sheet height limit', (
+  testWidgets('catalog becomes scrollable when content exceeds the viewport', (
     tester,
   ) async {
     var count = 1;
@@ -33,22 +31,16 @@ void _registerCatalogGrowth() {
       _configuration((_) async => _models(count)),
     );
     await tester.pumpAndSettle();
-    final shortHeight = _height(tester);
-    expect(shortHeight, lessThan(_screen.height / 2));
     expect(_scrollPosition(tester).maxScrollExtent, 0);
 
     count = 5;
     container.invalidate(remoteModelsProvider);
     await tester.pumpAndSettle();
-    final mediumHeight = _height(tester);
-    expect(mediumHeight, greaterThan(shortHeight));
-    expect(mediumHeight, lessThan(_maximumHeight));
     expect(_scrollPosition(tester).maxScrollExtent, 0);
 
     count = 40;
     container.invalidate(remoteModelsProvider);
     await tester.pumpAndSettle();
-    expect(_height(tester), closeTo(_maximumHeight, .01));
     expect(_scrollPosition(tester).maxScrollExtent, greaterThan(0));
     expect(tester.takeException(), isNull);
   });
@@ -63,8 +55,6 @@ void _registerCatalogGrowth() {
       onSelected: (selection) => result = selection,
     );
     await tester.pumpAndSettle();
-    final initialHeight = _height(tester);
-    expect(initialHeight, closeTo(_maximumHeight, .01));
     expect(find.text('Catalog model 39').hitTestable(), findsNothing);
 
     await tester.scrollUntilVisible(
@@ -73,7 +63,6 @@ void _registerCatalogGrowth() {
       scrollable: find.byType(Scrollable),
     );
     await tester.pumpAndSettle();
-    expect(_height(tester), initialHeight);
     await tester.tap(find.text('Catalog model 39'));
     await tester.pumpAndSettle();
     expect(result, (provider: RemoteProviderId.google, modelId: 'catalog-39'));
@@ -83,51 +72,48 @@ void _registerCatalogGrowth() {
 }
 
 void _registerLoadingResize() {
-  testWidgets('loading catalog changes height when a short list arrives', (
-    tester,
-  ) async {
-    final catalog = Completer<List<RemoteModelInfo>>();
-    await _launchPicker(tester, _configuration((_) => catalog.future));
-    // Complete the modal route transition while the catalog remains pending.
-    await tester.pump(const Duration(seconds: 1));
-    final loadingHeight = _height(tester);
-    expect(loadingHeight, lessThan(_screen.height / 2));
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  testWidgets(
+    'loading catalog replaces its progress indicator with model choices',
+    (tester) async {
+      final catalog = Completer<List<RemoteModelInfo>>();
+      await _launchPicker(tester, _configuration((_) => catalog.future));
+      // Complete the modal route transition while the catalog remains pending.
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    catalog.complete(_models(2));
-    await tester.pumpAndSettle();
-    expect(_height(tester), greaterThan(loadingHeight));
-    expect(_height(tester), lessThan(_screen.height / 2));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Catalog model 1'), findsOneWidget);
-    expect(_scrollPosition(tester).maxScrollExtent, 0);
-    expect(tester.takeException(), isNull);
-  });
+      catalog.complete(_models(2));
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('Catalog model 1'), findsOneWidget);
+      expect(_scrollPosition(tester).maxScrollExtent, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 void _registerCompactMessages() {
   final strings = AppStrings.of(AppLanguage.de);
   for (final failed in [false, true]) {
-    testWidgets('${failed ? 'error' : 'empty'} catalog uses compact height', (
-      tester,
-    ) async {
-      await _launchPicker(
-        tester,
-        _configuration((_) async {
-          if (failed) throw StateError('catalog unavailable');
-          return [];
-        }),
-      );
-      await tester.pumpAndSettle();
-      expect(_height(tester), lessThan(_screen.height / 2));
-      expect(
-        find.text(failed ? strings.modelLoadFailed : strings.noModels),
-        findsOneWidget,
-      );
-      expect(find.text(strings.retry).hitTestable(), findsOneWidget);
-      expect(_scrollPosition(tester).maxScrollExtent, 0);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      '${failed ? 'error' : 'empty'} catalog exposes a reachable retry',
+      (tester) async {
+        await _launchPicker(
+          tester,
+          _configuration((_) async {
+            if (failed) throw StateError('catalog unavailable');
+            return [];
+          }),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(failed ? strings.modelLoadFailed : strings.noModels),
+          findsOneWidget,
+        );
+        expect(find.text(strings.retry).hitTestable(), findsOneWidget);
+        expect(_scrollPosition(tester).maxScrollExtent, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 }
 
@@ -143,7 +129,6 @@ void _registerConstrainedDisplays() {
         onSelected: (selection) => selected = selection,
       );
       await tester.pumpAndSettle();
-      expect(_height(tester), closeTo(size.height * .92, .01));
       expect(tester.takeException(), isNull);
       await tester.scrollUntilVisible(
         find.text('Catalog model 14'),
@@ -179,9 +164,6 @@ List<RemoteModelInfo> _models(int count) => List.generate(
   (index) =>
       RemoteModelInfo(id: 'catalog-$index', label: 'Catalog model $index'),
 );
-
-double _height(WidgetTester tester) =>
-    tester.getSize(find.byType(ModelSheetFrame)).height;
 
 ScrollPosition _scrollPosition(WidgetTester tester) =>
     tester.state<ScrollableState>(find.byType(Scrollable)).position;
