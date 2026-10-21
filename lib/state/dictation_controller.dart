@@ -53,11 +53,13 @@ final class DictationController extends ChangeNotifier {
   Duration _elapsedBeforeSegment = Duration.zero;
   Future<void> _editorWrites = Future.value();
   Future<void> _editorTransitions = Future.value();
+  ({String sessionId, String text, int generation})? _pendingComposition;
   String _finalized = '';
   String _partial = '';
   int _connectionGeneration = 0;
   int _textGeneration = 0;
   int _reconnectAttempt = 0;
+  bool _compositionWorkerRunning = false;
   bool _connected = false;
   bool _disposed = false;
 
@@ -94,6 +96,7 @@ final class DictationController extends ChangeNotifier {
         ),
       );
       _textGeneration++;
+      _pendingComposition = null;
       _finalized = '';
       _partial = '';
       _setState(
@@ -266,6 +269,7 @@ final class DictationController extends ChangeNotifier {
 
   Future<void> _discardSession() async {
     _textGeneration++;
+    _pendingComposition = null;
     final sessionId = _editor?.sessionId;
     if (sessionId != null) await _platform.stopRecording(sessionId);
     _stopTimer();
@@ -362,6 +366,7 @@ final class DictationController extends ChangeNotifier {
     _config = null;
     _finalized = '';
     _partial = '';
+    _pendingComposition = null;
     _pendingAudio.clear();
     final platformSubscription = _platformSubscription;
     final clientSubscription = _clientSubscription;
@@ -392,6 +397,20 @@ String _joinTranscript(String finalized, String current) {
     return '$finalized$current';
   }
   return '$finalized $current';
+}
+
+bool _fitsSessionTranscript(String finalized, String current) =>
+    _joinedTranscriptLength(finalized, current) <=
+    LiveTranscriptionLimits.maximumTranscriptCharacters;
+
+int _joinedTranscriptLength(String finalized, String current) {
+  if (finalized.isEmpty || current.isEmpty) {
+    return finalized.length + current.length;
+  }
+  final needsSeparator =
+      !_hasBoundaryWhitespace(finalized, current) &&
+      !_startsWithPunctuation(current);
+  return finalized.length + current.length + (needsSeparator ? 1 : 0);
 }
 
 bool _hasBoundaryWhitespace(String left, String right) =>

@@ -31,6 +31,10 @@ extension _DictationConnection on DictationController {
       case LiveTranscriptionReady():
         break;
       case LiveTranscriptionPartial(:final text):
+        if (!_fitsSessionTranscript(_finalized, text)) {
+          unawaited(_abortWithError('provider_rejected'));
+          return;
+        }
         _partial = text;
         _setState(
           _state.copyWith(
@@ -40,6 +44,10 @@ extension _DictationConnection on DictationController {
         );
         _queueComposition(sessionId, _sessionTranscript);
       case LiveTranscriptionFinal(:final text):
+        if (!_fitsSessionTranscript(_finalized, text)) {
+          unawaited(_abortWithError('provider_rejected'));
+          return;
+        }
         _finalized = _joinTranscript(_finalized, text);
         _partial = '';
         _setState(
@@ -57,18 +65,48 @@ extension _DictationConnection on DictationController {
   }
 
   void _queueComposition(String sessionId, String text) {
-    final generation = _textGeneration;
-    _editorWrites = _editorWrites.then((_) async {
-      if (generation != _textGeneration || !_isCurrent(sessionId)) return;
-      try {
-        if (!await _platform.setComposingText(sessionId, text) &&
-            generation == _textGeneration) {
-          unawaited(cancel());
+    _pendingComposition = (
+      sessionId: sessionId,
+      text: text,
+      generation: _textGeneration,
+    );
+    if (_compositionWorkerRunning) return;
+    _compositionWorkerRunning = true;
+    _editorWrites = _drainCompositionQueue();
+  }
+
+  Future<void> _drainCompositionQueue() async {
+    try {
+      while (_pendingComposition != null) {
+        final pending = _pendingComposition!;
+        _pendingComposition = null;
+        if (pending.generation != _textGeneration ||
+            !_isCurrent(pending.sessionId)) {
+          continue;
         }
-      } catch (_) {
-        if (generation == _textGeneration) unawaited(cancel());
+        await _writeComposition(pending);
       }
-    });
+    } finally {
+      _compositionWorkerRunning = false;
+    }
+  }
+
+  Future<void> _writeComposition(
+    ({String sessionId, String text, int generation}) pending,
+  ) async {
+    try {
+      final written = await _platform.setComposingText(
+        pending.sessionId,
+        pending.text,
+      );
+      if (!written) _cancelCompositionIfCurrent(pending.generation);
+    } catch (_) {
+      _cancelCompositionIfCurrent(pending.generation);
+    }
+  }
+
+  void _cancelCompositionIfCurrent(int generation) {
+    if (generation == _textGeneration) unawaited(cancel());
   }
 
   Future<void> _reconnect(

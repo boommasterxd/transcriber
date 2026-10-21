@@ -3,6 +3,13 @@ import 'dart:typed_data';
 import '../../data/models/remote_provider.dart';
 import '../../data/models/transcription_language.dart';
 
+abstract final class LiveTranscriptionLimits {
+  static const maximumFrameBytes = 5 * 1024 * 1024;
+  static const maximumTranscriptCharacters = 250000;
+  static const maximumPartialItems = 8;
+  static const maximumItemIdCharacters = 256;
+}
+
 /// Live models are intentionally separate from the file-transcription catalog.
 class LiveDictationModelCatalog {
   const LiveDictationModelCatalog._();

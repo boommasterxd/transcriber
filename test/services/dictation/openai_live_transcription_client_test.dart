@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
-import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/dictation/live_transcription.dart';
 import 'package:transcriber/services/dictation/openai_live_transcription_client.dart';
 
 import 'live_test_support.dart';
+import 'openai_live_test_support.dart';
 
 late LiveClientTestHarness<OpenAiLiveTranscriptionClient> harness;
 FakeLiveSocket get socket => harness.socket;
@@ -15,26 +15,19 @@ OpenAiLiveTranscriptionClient get client => harness.client;
 List<LiveTranscriptionEvent> get events => harness.events;
 
 void main() {
-  setUp(() async {
-    harness = LiveClientTestHarness.create(
-      (connector) => OpenAiLiveTranscriptionClient(
-        const LiveTranscriptionConfig(
-          provider: RemoteProviderId.openai,
-          apiKey: 'secret-openai-key',
-          languageCode: 'de',
-        ),
-        connector: connector.call,
-      ),
-    );
-  });
+  setUp(() => harness = createOpenAiHarness());
 
   tearDown(() => harness.close());
 
-  _registerConnectionTests();
+  _registerConnectionHandshakeTests();
+  _registerProviderErrorTests();
+  _registerMalformedResponseTests();
+  _registerFrameLimitTests();
+  _registerPartialLimitTests();
   _registerTranscriptionTests();
 }
 
-void _registerConnectionTests() {
+void _registerConnectionHandshakeTests() {
   test(
     'connects with header auth and configures realtime transcription',
     () async {
@@ -48,7 +41,7 @@ void _registerConnectionTests() {
       final input = setup['session']['audio']['input'] as Map<String, dynamic>;
       expect(input['format'], {'type': 'audio/pcm', 'rate': 24000});
       expect(input['transcription']['languages'], ['de']);
-      expect(input['turn_detection']['type'], 'server_vad');
+      expect(input['turn_detection'], isNull);
       expect(events.whereType<LiveTranscriptionReady>(), isEmpty);
 
       socket.controller.add(jsonEncode({'type': 'session.updated'}));
@@ -57,29 +50,26 @@ void _registerConnectionTests() {
       expect(events, contains(isA<LiveTranscriptionReady>()));
     },
   );
+}
 
-  test(
-    'reports protocol errors, disconnects, and malformed messages safely',
-    () async {
-      await _connectClient();
-      socket.controller.add('not json');
-      socket.controller.add([1, 2]);
-      socket.controller.add(
-        jsonEncode({
-          'type': 'error',
-          'error': {'code': 'rate_limit'},
-        }),
-      );
-      await socket.controller.close();
-      await pumpEventQueue();
+void _registerProviderErrorTests() {
+  test('reports provider errors and unexpected disconnects', () async {
+    await _connectOpenAiClient();
+    socket.controller.add(
+      jsonEncode({
+        'type': 'error',
+        'error': {'code': 'rate_limit'},
+      }),
+    );
+    await socket.controller.close();
+    await pumpEventQueue();
 
-      expect(
-        events.whereType<LiveTranscriptionFailure>().single.code,
-        'quota_exceeded',
-      );
-      expect(events.whereType<LiveTranscriptionDisconnected>(), hasLength(1));
-    },
-  );
+    expect(
+      events.whereType<LiveTranscriptionFailure>().single.code,
+      'quota_exceeded',
+    );
+    expect(events.whereType<LiveTranscriptionDisconnected>(), hasLength(1));
+  });
 
   test('reports a rejected setup before recording starts', () async {
     final connecting = client.connect();
@@ -104,9 +94,101 @@ void _registerConnectionTests() {
   });
 }
 
+void _registerMalformedResponseTests() {
+  test('fails and closes on malformed JSON', () async {
+    await _connectOpenAiClient();
+    socket.controller.add('not json');
+    await pumpEventQueue();
+
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+
+  test('fails and closes on a malformed transcription delta', () async {
+    await _connectOpenAiClient();
+
+    socket.controller.add(
+      jsonEncode({
+        'type': 'conversation.item.input_audio_transcription.delta',
+        'item_id': 'one',
+        'delta': 5,
+      }),
+    );
+    await pumpEventQueue();
+
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+}
+
+void _registerFrameLimitTests() {
+  test('rejects and closes on a JSON frame above the byte limit', () async {
+    await _connectOpenAiClient();
+
+    socket.controller.add(oversizedLiveJsonFrame());
+    await pumpEventQueue();
+
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+}
+
+void _registerPartialLimitTests() {
+  test('bounds accumulated partial transcription text', () async {
+    await _connectOpenAiClient();
+    final firstDelta = List.filled(
+      LiveTranscriptionLimits.maximumTranscriptCharacters,
+      'x',
+    ).join();
+    socket.controller.add(
+      jsonEncode({
+        'type': 'conversation.item.input_audio_transcription.delta',
+        'item_id': 'one',
+        'delta': firstDelta,
+      }),
+    );
+    await pumpEventQueue();
+    socket.controller.add(
+      jsonEncode({
+        'type': 'conversation.item.input_audio_transcription.delta',
+        'item_id': 'one',
+        'delta': 'x',
+      }),
+    );
+    await pumpEventQueue();
+
+    expect(
+      events.whereType<LiveTranscriptionPartial>().single.text,
+      firstDelta,
+    );
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+
+  test('bounds the number of unfinished transcription items', () async {
+    await _connectOpenAiClient();
+    for (
+      var index = 0;
+      index < LiveTranscriptionLimits.maximumPartialItems + 1;
+      index++
+    ) {
+      socket.controller.add(
+        jsonEncode({
+          'type': 'conversation.item.input_audio_transcription.delta',
+          'item_id': 'item-$index',
+          'delta': 'x',
+        }),
+      );
+    }
+    await pumpEventQueue();
+
+    expect(
+      events.whereType<LiveTranscriptionPartial>(),
+      hasLength(LiveTranscriptionLimits.maximumPartialItems),
+    );
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+}
+
 void _registerTranscriptionTests() {
   test('streams PCM and reconciles deltas with the final transcript', () async {
-    await _connectClient();
+    await _connectOpenAiClient();
     client.addAudio(Uint8List.fromList([1, 2, 3]));
     socket.controller.add(
       jsonEncode({
@@ -122,6 +204,10 @@ void _registerTranscriptionTests() {
         'delta': 'lo',
       }),
     );
+    final finishing = client.finish();
+    socket.controller.add(
+      jsonEncode({'type': 'input_audio_buffer.committed', 'item_id': 'one'}),
+    );
     socket.controller.add(
       jsonEncode({
         'type': 'conversation.item.input_audio_transcription.completed',
@@ -129,7 +215,7 @@ void _registerTranscriptionTests() {
         'transcript': 'Hallo',
       }),
     );
-    await pumpEventQueue();
+    await finishing;
 
     final audio = jsonDecode(socket.sent[1]) as Map<String, dynamic>;
     expect(audio['type'], 'input_audio_buffer.append');
@@ -144,7 +230,7 @@ void _registerTranscriptionTests() {
   test(
     'commits pending audio on finish and ignores an empty-commit error',
     () async {
-      await _connectClient();
+      await _connectOpenAiClient();
       client.addAudio(Uint8List.fromList([1, 2]));
       final finishing = client.finish();
       await pumpEventQueue();
@@ -162,10 +248,5 @@ void _registerTranscriptionTests() {
   );
 }
 
-Future<void> _connectClient() async {
-  final connecting = client.connect();
-  await pumpEventQueue();
-  socket.controller.add(jsonEncode({'type': 'session.updated'}));
-  await connecting;
-  await pumpEventQueue();
-}
+Future<void> _connectOpenAiClient() =>
+    connectLiveClient(client, socket, {'type': 'session.updated'});

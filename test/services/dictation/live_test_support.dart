@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:test/test.dart';
 import 'package:transcriber/services/dictation/live_socket.dart';
 import 'package:transcriber/services/dictation/live_transcription.dart';
 
@@ -9,6 +12,7 @@ final class FakeLiveSocket implements LiveSocket {
   bool closed = false;
   int closeCount = 0;
   Completer<void>? closeGate;
+  Completer<void>? sendGate;
 
   @override
   int? closeCode;
@@ -20,7 +24,10 @@ final class FakeLiveSocket implements LiveSocket {
   Stream<Object?> get messages => controller.stream;
 
   @override
-  void add(String message) => sent.add(message);
+  Future<void> send(String message) async {
+    sent.add(message);
+    await sendGate?.future;
+  }
 
   @override
   Future<void> close() async {
@@ -54,6 +61,48 @@ List<LiveTranscriptionEvent> collectEvents(LiveTranscriptionClient client) {
   final events = <LiveTranscriptionEvent>[];
   client.events.listen(events.add);
   return events;
+}
+
+Future<void> connectLiveClient(
+  LiveTranscriptionClient client,
+  FakeLiveSocket socket,
+  Object readyMessage,
+) async {
+  final connecting = client.connect();
+  await pumpEventQueue();
+  socket.controller.add(jsonEncode(readyMessage));
+  await connecting;
+  await pumpEventQueue();
+}
+
+void expectProviderRejectedAndClosed(
+  LiveSocketTranscriptionClient client,
+  FakeLiveSocket socket,
+  List<LiveTranscriptionEvent> events,
+) {
+  expect(
+    events.whereType<LiveTranscriptionFailure>().single.code,
+    'provider_rejected',
+  );
+  expect(client.isClosed, isTrue);
+  expect(socket.closed, isTrue);
+}
+
+Uint8List encodeLiveJsonFrame(Object? message) =>
+    Uint8List.fromList(utf8.encode(jsonEncode(message)));
+
+Uint8List encodeLiveTextFrame(String message) =>
+    Uint8List.fromList(utf8.encode(message));
+
+String oversizedLiveJsonFrame() {
+  final frame = StringBuffer('{"payload":"');
+  final chunk = 'x'.padRight(1024, 'x');
+  final chunks = LiveTranscriptionLimits.maximumFrameBytes ~/ chunk.length + 1;
+  for (var index = 0; index < chunks; index++) {
+    frame.write(chunk);
+  }
+  frame.write('"}');
+  return frame.toString();
 }
 
 final class LiveClientTestHarness<T extends LiveTranscriptionClient> {

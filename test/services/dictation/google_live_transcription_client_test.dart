@@ -38,6 +38,12 @@ void main() {
 }
 
 void _registerConnectionTests() {
+  _registerSetupTests();
+  _registerMessageValidationTests();
+  _registerRejectedSetupTests();
+}
+
+void _registerSetupTests() {
   test('authenticates in a header and waits for setup completion', () async {
     final connecting = client.connect();
     await pumpEventQueue();
@@ -59,29 +65,59 @@ void _registerConnectionTests() {
     final connecting = client.connect();
     await pumpEventQueue();
 
-    socket.controller.add(
-      Uint8List.fromList(utf8.encode(jsonEncode({'setupComplete': {}}))),
-    );
+    socket.controller.add(encodeLiveJsonFrame({'setupComplete': {}}));
 
     await connecting;
     expect(events, contains(isA<LiveTranscriptionReady>()));
   });
+}
 
-  test('ignores malformed and unrelated server messages', () async {
-    final connecting = client.connect();
-    await pumpEventQueue();
-    socket.controller.add(jsonEncode({'setupComplete': {}}));
-    await connecting;
-    socket.controller.add('invalid');
-    socket.controller.add(Uint8List.fromList([0xff]));
-    socket.controller.add(jsonEncode({'serverContent': 'wrong'}));
+void _registerMessageValidationTests() {
+  test('ignores unrelated server messages', () async {
+    await _connectGoogleClient();
     socket.controller.add(jsonEncode({'other': true}));
     await pumpEventQueue();
 
     expect(events.whereType<LiveTranscriptionPartial>(), isEmpty);
     expect(events.whereType<LiveTranscriptionFinal>(), isEmpty);
+    expect(events.whereType<LiveTranscriptionFailure>(), isEmpty);
+    expect(client.isClosed, isFalse);
   });
 
+  test('fails and closes on malformed JSON', () async {
+    await _connectGoogleClient();
+    socket.controller.add('invalid');
+    await pumpEventQueue();
+
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+
+  test('fails and closes on a malformed transcription text field', () async {
+    await _connectGoogleClient();
+
+    socket.controller.add(
+      jsonEncode({
+        'serverContent': {
+          'interimInputTranscription': {'text': 5},
+        },
+      }),
+    );
+    await pumpEventQueue();
+
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+
+  test('rejects and closes on an oversized binary frame', () async {
+    await _connectGoogleClient();
+
+    socket.controller.add(encodeLiveTextFrame(oversizedLiveJsonFrame()));
+    await pumpEventQueue();
+
+    expectProviderRejectedAndClosed(client, socket, events);
+  });
+}
+
+void _registerRejectedSetupTests() {
   test('classifies a rejected setup without waiting for timeout', () async {
     final connecting = client.connect();
     await pumpEventQueue();
@@ -170,10 +206,7 @@ void _registerConnectionLifecycleTests() {
 
 void _registerTranscriptionTests() {
   test('streams 16 kHz PCM and emits interim and final text', () async {
-    final connecting = client.connect();
-    await pumpEventQueue();
-    socket.controller.add(jsonEncode({'setupComplete': {}}));
-    await connecting;
+    await _connectGoogleClient();
 
     client.addAudio(Uint8List.fromList([4, 5, 6]));
     socket.controller.add(
@@ -204,10 +237,7 @@ void _registerTranscriptionTests() {
   });
 
   test('signals stream end and completes when the server finalizes', () async {
-    final connecting = client.connect();
-    await pumpEventQueue();
-    socket.controller.add(jsonEncode({'setupComplete': {}}));
-    await connecting;
+    await _connectGoogleClient();
 
     final finishing = client.finish();
     await pumpEventQueue();
@@ -223,21 +253,14 @@ void _registerTranscriptionTests() {
   });
 
   test('decodes transcription delivered as a binary frame', () async {
-    final connecting = client.connect();
-    await pumpEventQueue();
-    socket.controller.add(jsonEncode({'setupComplete': {}}));
-    await connecting;
+    await _connectGoogleClient();
 
     socket.controller.add(
-      Uint8List.fromList(
-        utf8.encode(
-          jsonEncode({
-            'serverContent': {
-              'inputTranscription': {'text': 'Binary text'},
-            },
-          }),
-        ),
-      ),
+      encodeLiveJsonFrame({
+        'serverContent': {
+          'inputTranscription': {'text': 'Binary text'},
+        },
+      }),
     );
     await pumpEventQueue();
 
@@ -247,6 +270,9 @@ void _registerTranscriptionTests() {
     );
   });
 }
+
+Future<void> _connectGoogleClient() =>
+    connectLiveClient(client, socket, {'setupComplete': {}});
 
 GoogleLiveTranscriptionClient _googleClient(
   LiveSocketConnector connector, {
