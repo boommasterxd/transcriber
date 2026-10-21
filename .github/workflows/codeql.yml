@@ -57,6 +57,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          dependency-caching: ${{ matrix.language == 'java-kotlin' }}
       - name: Compile Android sources for analysis
         if: matrix.language == 'java-kotlin'
         run: >-
