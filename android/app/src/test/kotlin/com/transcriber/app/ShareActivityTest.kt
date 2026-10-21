@@ -49,19 +49,40 @@ class ShareActivityTest {
         assertEquals(uri, extract(activity, multiple))
         val clip = shareIntent().apply { clipData = ClipData.newRawUri("audio", uri) }
         assertEquals(uri, extract(activity, clip))
-        assertEquals(Uri.parse("file:///voice.wav"), extract(activity, shareIntent()
-            .putExtra(Intent.EXTRA_STREAM, Uri.parse("file:///voice.wav"))))
+        assertEquals(uri, extract(activity, Intent(Intent.ACTION_VIEW).setDataAndType(uri, "audio/wav")))
+        assertEquals(
+            Uri.parse("file:///voice.wav"),
+            extract(
+                activity,
+                shareIntent()
+                    .putExtra(Intent.EXTRA_STREAM, Uri.parse("file:///voice.wav"))
+            )
+        )
         for (invalid in listOf("https://fixture/voice.wav", "content:///voice.wav", "file:", "/voice.wav")) {
             assertNull(extract(activity, shareIntent().putExtra(Intent.EXTRA_STREAM, Uri.parse(invalid))))
         }
         assertNull(extract(activity, Intent(Intent.ACTION_VIEW).setType("audio/wav")))
+        assertNull(extract(activity, Intent(Intent.ACTION_VIEW).setDataAndType(uri, "text/plain")))
         assertNull(extract(activity, Intent(Intent.ACTION_SEND)))
+        assertNull(
+            extract(
+                activity,
+                Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+            )
+        )
+        assertNull(extract(activity, Intent(Intent.ACTION_SEND).setType("audio/wav")))
         assertNull(extract(activity, shareIntent().setType("text/plain")))
         assertNull(extract(activity, shareIntent()))
         assertNull(extract(activity, null))
         assertNull(extract(activity, shareIntent().putExtra(Intent.EXTRA_STREAM, "invalid")))
-        assertNull(extract(activity, Intent(Intent.ACTION_SEND_MULTIPLE).setType("audio/wav")
-            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf<Uri>())))
+        assertNull(
+            extract(
+                activity,
+                Intent(Intent.ACTION_SEND_MULTIPLE).setType("audio/wav")
+                    .putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf<Uri>())
+            )
+        )
     }
 
     @Test
@@ -193,13 +214,13 @@ class ShareActivityTest {
         lateinit var activity: FlutterActivity
 
         @Implementation
-        protected fun onCreate(state: Bundle?) = Unit
+        fun onCreate(ignored: Bundle?) = Unit
 
         @Implementation
         override fun onDestroy() = Unit
 
         @Implementation
-        fun configureFlutterEngine(engine: FlutterEngine) {
+        fun configureFlutterEngine(ignored: FlutterEngine) {
             intentHidden = activity.intent.action == null
         }
 

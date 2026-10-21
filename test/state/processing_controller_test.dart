@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:uuid/data.dart';
+import 'package:uuid/uuid.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
@@ -19,12 +21,20 @@ import 'package:transcriber/state/providers.dart';
 
 import 'state_test_fakes.dart';
 
+part 'processing_controller_discard_cases.dart';
+part 'processing_controller_reentry_cases.dart';
+
 void main() {
   _registerCredentialTests();
   _registerCommitTests();
   _registerDiscardTests();
   _registerRetryTests();
   _registerSummaryFailureTests();
+  _registerRunningDiscardTests();
+  _registerReplacementTests();
+  _registerReentryRecoveryTests();
+  _registerCommitReentryTest();
+  _registerPreviewCleanupReentryTest();
 }
 
 void _registerSummaryFailureTests() {
@@ -281,7 +291,11 @@ final class _Harness {
   final _ClientFactory clientFactory;
   final ProviderContainer container;
 
-  static Future<_Harness> create({bool summaryEnabled = true}) async {
+  static Future<_Harness> create({
+    bool summaryEnabled = true,
+    Uuid? retentionUuid,
+    Future<StoragePaths> Function(StoragePaths)? cachePaths,
+  }) async {
     final database = createTestDatabase();
     final settingsRepository = FakeSettingsRepository(database)
       ..keys.addAll({
@@ -298,7 +312,10 @@ final class _Harness {
     final staging = File('${(await paths.importCacheDir()).path}/input.m4a');
     await staging.writeAsBytes([1, 2, 3]);
     final notesRepository = _ObservingNotesRepository(database, staging);
-    final cacheManager = AudioCacheManager(paths: Future.value(paths));
+    final cacheManager = AudioCacheManager(
+      paths: cachePaths?.call(paths) ?? Future.value(paths),
+      uuid: retentionUuid,
+    );
     final clientFactory = _ClientFactory();
     final pipeline = ProcessingPipeline(
       cacheManager: cacheManager,
@@ -340,12 +357,12 @@ final class _Harness {
   ProcessingState get state => container.read(processingControllerProvider);
   File get retainedAudio => File(state.result!.audioPath!);
 
-  Future<void> run({required bool save}) => controller.run(
+  Future<void> run({
+    required bool save,
+    AudioOwnership ownership = AudioOwnership.temporary,
+  }) => controller.run(
     ProcessingInput(
-      audio: ManagedAudioFile(
-        path: staging.path,
-        ownership: AudioOwnership.temporary,
-      ),
+      audio: ManagedAudioFile(path: staging.path, ownership: ownership),
       source: NoteSource.file,
       knownDurationSec: 1,
     ),
@@ -367,6 +384,7 @@ final class _ObservingNotesRepository extends FakeNotesRepository {
   Future<void>? gate;
   Completer<void>? started;
   TranscriptNote? attempted;
+  void Function()? afterSave;
 
   @override
   Future<TranscriptNote> add(TranscriptNote note) async {
@@ -374,7 +392,9 @@ final class _ObservingNotesRepository extends FakeNotesRepository {
     attempted = note;
     started?.complete();
     await gate;
-    return super.add(note);
+    final saved = await super.add(note);
+    afterSave?.call();
+    return saved;
   }
 }
 
@@ -382,18 +402,18 @@ final class _ClientFactory {
   final List<(RemoteProviderId, String)> calls = [];
   Object? error;
   Object? summaryError;
+  Future<void> Function(ProcessingStep)? beforeStage;
 
   RemoteProviderClient create(RemoteProviderId provider, String apiKey) {
     calls.add((provider, apiKey));
-    return _RemoteClient(() => error, () => summaryError);
+    return _RemoteClient(this);
   }
 }
 
 final class _RemoteClient implements RemoteProviderClient {
-  const _RemoteClient(this.error, this.summaryError);
+  const _RemoteClient(this.factory);
 
-  final Object? Function() error;
-  final Object? Function() summaryError;
+  final _ClientFactory factory;
 
   @override
   void close() {}
@@ -404,7 +424,8 @@ final class _RemoteClient implements RemoteProviderClient {
     required String modelId,
     String? languageCode,
   }) async {
-    final failure = error();
+    await factory.beforeStage?.call(ProcessingStep.transcribing);
+    final failure = factory.error;
     if (failure != null) throw failure;
     return const TranscriptionResult(
       text: 'Transcript',
@@ -418,7 +439,8 @@ final class _RemoteClient implements RemoteProviderClient {
     required String userPrompt,
     required String modelId,
   }) async {
-    final failure = summaryError();
+    await factory.beforeStage?.call(ProcessingStep.summarizing);
+    final failure = factory.summaryError;
     if (failure != null) throw failure;
     return '{"title":"Summary","gist":"Gist","points":[],"todos":[]}';
   }

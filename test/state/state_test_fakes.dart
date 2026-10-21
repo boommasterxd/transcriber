@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:record/record.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/note_history.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
@@ -53,6 +54,7 @@ class FakeNotesRepository extends NotesRepository {
 
   List<TranscriptNote> loaded = [];
   final List<List<TranscriptNote>> saved = [];
+  final Set<String> pendingAudioDeletions = {};
   bool failOnLoad = false;
   bool failOnSave = false;
 
@@ -73,7 +75,39 @@ class FakeNotesRepository extends NotesRepository {
       [note, ...loaded.where((existing) => existing.id != note.id)]
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
     );
+    if (note.audioOwnership == AudioOwnership.retained &&
+        note.audioPath != null) {
+      pendingAudioDeletions.remove(note.audioPath);
+    }
     return note;
+  }
+
+  @override
+  Future<List<String>> pendingAudioDeletionPaths({int limit = 128}) async =>
+      pendingAudioDeletions.take(limit).toList();
+
+  @override
+  Future<bool> tryProcessPendingAudioDeletion(
+    String path,
+    Future<bool> Function(String path) deleteFile,
+  ) async {
+    if (!pendingAudioDeletions.contains(path)) return true;
+    if (loaded.any(
+      (note) =>
+          note.audioOwnership == AudioOwnership.retained &&
+          note.audioPath == path,
+    )) {
+      pendingAudioDeletions.remove(path);
+      return true;
+    }
+    if (!await deleteFile(path)) {
+      pendingAudioDeletions
+        ..remove(path)
+        ..add(path);
+      return false;
+    }
+    pendingAudioDeletions.remove(path);
+    return true;
   }
 
   @override
@@ -122,6 +156,10 @@ class FakeNotesRepository extends NotesRepository {
   Future<NotesDeletion> remove(String id) async {
     final deleted = loaded.where((note) => note.id == id).firstOrNull;
     _save(loaded.where((note) => note.id != id).toList());
+    if (deleted?.audioOwnership == AudioOwnership.retained &&
+        deleted?.audioPath != null) {
+      pendingAudioDeletions.add(deleted!.audioPath!);
+    }
     return NotesDeletion(
       deleted == null
           ? null

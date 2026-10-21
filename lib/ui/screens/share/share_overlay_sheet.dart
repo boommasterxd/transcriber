@@ -75,6 +75,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
     with ProcessingControllerLifecycle<ShareSheetContent> {
   bool _saving = false;
   bool _finishing = false;
+  bool _openingSettings = false;
 
   @override
   void startProcessing() {
@@ -90,6 +91,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
         ),
         fileName: widget.fileName,
         save: false,
+        owner: processingOwner,
       );
   }
 
@@ -112,7 +114,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
     if (_saving || _finishing) return;
     _finishing = true;
     try {
-      await processingController.discardCurrent();
+      await processingController.discardCurrent(owner: processingOwner);
       if (mounted) widget.onFinished();
     } catch (_) {
       _finishing = false;
@@ -130,13 +132,14 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
   }
 
   Future<void> _openSettings() async {
-    await processingController.discardCurrent();
-    if (!mounted) return;
-    widget.onFinished();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = navigatorKey.currentContext;
-      if (context != null) AppNavigator.openSettings(context);
-    });
+    if (_saving || _finishing || _openingSettings) return;
+    _openingSettings = true;
+    try {
+      await AppNavigator.openSettings(context);
+      if (mounted) startProcessing();
+    } finally {
+      _openingSettings = false;
+    }
   }
 
   @override

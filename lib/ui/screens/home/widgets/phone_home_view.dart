@@ -50,7 +50,7 @@ class PhoneHomeView extends ConsumerWidget {
             onQueryChanged: onQueryChanged,
             onPickFile: onPickFile,
           ),
-          const _RecordButtonPosition(),
+          _RecordButtonPosition(strings: strings),
         ],
       ),
     );
@@ -230,7 +230,9 @@ class _HorizontalPadding extends StatelessWidget {
 }
 
 class _RecordButtonPosition extends StatelessWidget {
-  const _RecordButtonPosition();
+  const _RecordButtonPosition({required this.strings});
+
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) => Positioned(
@@ -238,7 +240,10 @@ class _RecordButtonPosition extends StatelessWidget {
     left: 0,
     right: 0,
     child: Center(
-      child: RecordFab(onTap: () => AppNavigator.openRecord(context)),
+      child: RecordFab(
+        semanticLabel: strings.tabRecord,
+        onTap: () => AppNavigator.openRecord(context),
+      ),
     ),
   );
 }

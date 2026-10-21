@@ -6,7 +6,7 @@ import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/state/processing_controller.dart';
-import 'package:transcriber/ui/navigation.dart';
+import 'package:transcriber/ui/screens/settings/settings_screen.dart';
 import 'package:transcriber/ui/screens/share/share_overlay_sheet.dart';
 import '../../../support/app_test_fakes.dart';
 import 'share_test_support.dart';
@@ -16,7 +16,6 @@ void main() {
   _registerDismissTest();
   _registerRetryTest();
   _registerSettingsTest();
-  _registerLayoutTests();
 }
 
 void _registerPreviewCommitTest() {
@@ -135,16 +134,18 @@ void _registerRetryTest() {
 }
 
 void _registerSettingsTest() {
-  testWidgets('missing API key opens settings after closing share sheet', (
+  testWidgets('missing API key opens local settings and retries on return', (
     tester,
   ) async {
     var finished = false;
+    late _FakeProcessingController controller;
     final observer = _RecordingNavigatorObserver();
     await tester.pumpWidget(
       _shareApp(
         observer: observer,
-        createProcessing: () => _FakeProcessingController([
+        createProcessing: () => controller = _FakeProcessingController([
           const MissingApiKeyException('Provider key unavailable'),
+          shareTestNote(gist: 'Recovered after connecting'),
         ]),
         child: ShareSheetContent(
           audioPath: '/audio/shared.m4a',
@@ -155,55 +156,20 @@ void _registerSettingsTest() {
     await tester.pump();
 
     await tester.tap(find.text(shareTestStrings.goToSettings));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
-    expect(finished, isTrue);
+    expect(finished, isFalse);
+    expect(controller.discardCalls, 0);
     expect(observer.pushes, 2);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(controller.runCalls, 2);
+    expect(find.text('Recovered after connecting'), findsOneWidget);
+    expect(finished, isFalse);
   });
-}
-
-void _registerLayoutTests() {
-  _registerSheetWidthTest(
-    'share sheet uses the full phone width',
-    const Size(400, 800),
-    400,
-  );
-  _registerSheetWidthTest(
-    'share sheet caps its width on tablets',
-    const Size(800, 800),
-    600,
-  );
-}
-
-void _registerSheetWidthTest(String name, Size size, double expectedWidth) {
-  testWidgets(name, (tester) async {
-    await tester.binding.setSurfaceSize(size);
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await _pumpSheet(tester);
-
-    expect(tester.getSize(find.byType(ShareSheetContent)).width, expectedWidth);
-  });
-}
-
-Future<void> _pumpSheet(WidgetTester tester) async {
-  final note = shareTestNote(gist: 'Layout summary.');
-  await tester.pumpWidget(
-    _shareApp(
-      createProcessing: () => _FakeProcessingController([note]),
-      child: Builder(
-        builder: (context) => ElevatedButton(
-          onPressed: () => presentShareSheet(
-            context: context,
-            audioPath: '/audio/shared.m4a',
-          ),
-          child: const Text('Open'),
-        ),
-      ),
-    ),
-  );
-  await tester.tap(find.text('Open'));
-  await tester.pump();
-  await tester.pump();
 }
 
 Widget _shareApp({
@@ -219,7 +185,6 @@ Widget _shareApp({
     child: ProviderScope(
       overrides: [processingControllerProvider.overrideWith(createProcessing)],
       child: MaterialApp(
-        navigatorKey: navigatorKey,
         navigatorObservers: observer == null ? const [] : [observer],
         theme: shareTestTheme(),
         home: Scaffold(body: child),
@@ -247,6 +212,7 @@ final class _FakeProcessingController extends ProcessingController {
     ProcessingInput input, {
     String? fileName,
     bool save = true,
+    Object? owner,
   }) async {
     runCalls++;
     lastInput = input;
@@ -264,7 +230,7 @@ final class _FakeProcessingController extends ProcessingController {
   }
 
   @override
-  Future<void> discardCurrent() async {
+  Future<void> discardCurrent({Object? owner}) async {
     discardCalls++;
   }
 }

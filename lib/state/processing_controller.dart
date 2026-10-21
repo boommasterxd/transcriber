@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/app_settings.dart';
@@ -53,11 +55,21 @@ class ProcessingController extends Notifier<ProcessingState> {
   bool _discardRequested = false;
   bool _persistencePending = false;
   Future<void>? _commitOperation;
+  Future<void>? _runOperation;
+  _QueuedProcessingRun? _queuedRun;
+  Object? _owner;
+  int _requestId = 0;
 
   @override
   ProcessingState build() => const ProcessingState();
 
-  void reset() => state = const ProcessingState();
+  void reset() {
+    if (_runOperation == null && _commitOperation == null) {
+      state = const ProcessingState();
+    }
+  }
+
+  bool isOwnedBy(Object owner) => identical(owner, _owner);
 
   /// Runs the pipeline. When [save] is false the finished note is exposed via
   /// [ProcessingState.result] but NOT persisted. The share overlay shows it as
@@ -66,28 +78,82 @@ class ProcessingController extends Notifier<ProcessingState> {
     ProcessingInput input, {
     String? fileName,
     bool save = true,
+    Object? owner,
+  }) {
+    if (_runOperation != null || _commitOperation != null) {
+      if (!_discardRequested || _queuedRun != null) return Future.value();
+      _requestId++;
+      final queued = _QueuedProcessingRun(input, fileName, save, owner);
+      _queuedRun = queued;
+      _owner = owner;
+      _showRunning(input, fileName);
+      return queued.completed.future;
+    }
+    _requestId++;
+    _owner = owner;
+    return _startRun(input, fileName: fileName, save: save);
+  }
+
+  Future<void> _startRun(
+    ProcessingInput input, {
+    String? fileName,
+    required bool save,
+  }) {
+    final operation = _executeRun(
+      input,
+      fileName: fileName,
+      save: save,
+    ).whenComplete(_startQueuedRun);
+    _runOperation = operation;
+    return operation;
+  }
+
+  void _startQueuedRun() {
+    _runOperation = null;
+    if (_commitOperation != null) return;
+    final queued = _queuedRun;
+    _queuedRun = null;
+    if (queued == null) return;
+    _owner = queued.owner;
+    _startRun(
+      queued.input,
+      fileName: queued.fileName,
+      save: queued.save,
+    ).then(queued.completed.complete, onError: queued.completed.completeError);
+  }
+
+  void _showRunning(ProcessingInput input, String? fileName) {
+    state = ProcessingState(
+      running: true,
+      fileName: fileName ?? input.audioPath.split('/').last,
+    );
+  }
+
+  Future<void> _executeRun(
+    ProcessingInput input, {
+    String? fileName,
+    required bool save,
   }) async {
-    if (state.running) return;
     final retryNote = _persistencePending && _sameInput(input)
         ? _pendingNote
         : null;
     final previousPreview = _pendingNote;
-    if (retryNote == null && !_committed && previousPreview != null) {
-      await _discardNoteAudio(previousPreview);
-    }
+    final discardPrevious =
+        retryNote == null && !_committed && previousPreview != null;
     _input = input;
     _pendingNote = retryNote;
     if (retryNote == null) _committed = false;
     _persistencePending = false;
     _discardRequested = false;
 
-    state = ProcessingState(
-      running: true,
-      step: ProcessingStep.transcribing,
-      fileName: fileName ?? input.audioPath.split('/').last,
-    );
+    _showRunning(input, fileName);
 
     try {
+      if (discardPrevious) await _discardNoteAudio(previousPreview);
+      if (_discardRequested) {
+        await _discardCancelledRun(input);
+        return;
+      }
       final note = retryNote ?? await _process(input);
       _pendingNote = note;
       if (_discardRequested) {
@@ -96,6 +162,10 @@ class ProcessingController extends Notifier<ProcessingState> {
       }
       if (save) {
         await _save(note, input);
+      }
+      if (_discardRequested) {
+        await _discardCancelledRun(input);
+        return;
       }
       state = state.copyWith(running: false, result: note);
     } catch (e) {
@@ -119,7 +189,7 @@ class ProcessingController extends Notifier<ProcessingState> {
     _input = null;
     _pendingNote = null;
     _persistencePending = false;
-    state = const ProcessingState();
+    if (_queuedRun == null) state = const ProcessingState();
   }
 
   Future<TranscriptNote> _process(ProcessingInput input) async {
@@ -133,7 +203,10 @@ class ProcessingController extends Notifier<ProcessingState> {
             settings: settings,
             credentials: credentials,
           ),
-          callbacks: ProcessingCallbacks(onStep: _updateStep),
+          callbacks: ProcessingCallbacks(
+            onStep: _updateStep,
+            isCancelled: () => _discardRequested,
+          ),
         );
   }
 
@@ -160,7 +233,7 @@ class ProcessingController extends Notifier<ProcessingState> {
   }
 
   void _updateStep(ProcessingStep step) {
-    state = state.copyWith(step: step);
+    if (!_discardRequested) state = state.copyWith(step: step);
   }
 
   /// Persists the current preview result (used by the share overlay's explicit
@@ -175,32 +248,50 @@ class ProcessingController extends Notifier<ProcessingState> {
     if (input == null) return Future.value();
     final operation = _save(note, input).whenComplete(() {
       _commitOperation = null;
+      if (_runOperation == null) _startQueuedRun();
     });
     _commitOperation = operation;
     return operation;
   }
 
   /// Discards an uncommitted preview or failed input without touching externals.
-  Future<void> discardCurrent() async {
+  Future<void> discardCurrent({Object? owner}) async {
+    if (owner != null && !identical(owner, _owner)) return;
+    final requestId = _requestId;
+    final queued = _queuedRun;
+    if (queued != null) {
+      _queuedRun = null;
+      _owner = null;
+      state = const ProcessingState();
+      try {
+        await _discardInput(queued.input);
+      } finally {
+        queued.completed.complete();
+      }
+      return;
+    }
     final pending = _commitOperation;
     if (pending != null) {
+      _discardRequested = true;
       try {
         await pending;
       } catch (_) {
         // A failed commit leaves ownership here, so dismissal may discard it.
       }
+      if (requestId != _requestId) return;
     }
-    if (_committed) return;
-    if (state.running) {
+    if (_runOperation != null) {
       _discardRequested = true;
       return;
     }
+    if (_committed) return;
     final note = state.result ?? _pendingNote;
+    final input = _input;
     if (note != null) {
       await _discardNoteAudio(note);
     }
-    final input = _input;
     if (input != null) await _discardInput(input);
+    if (requestId != _requestId) return;
     _input = null;
     _pendingNote = null;
     _persistencePending = false;
@@ -214,6 +305,16 @@ class ProcessingController extends Notifier<ProcessingState> {
       .deleteRetainedPath(
         note.audioOwnership == AudioOwnership.retained ? note.audioPath : null,
       );
+}
+
+final class _QueuedProcessingRun {
+  _QueuedProcessingRun(this.input, this.fileName, this.save, this.owner);
+
+  final ProcessingInput input;
+  final String? fileName;
+  final bool save;
+  final Object? owner;
+  final completed = Completer<void>();
 }
 
 final processingControllerProvider =
