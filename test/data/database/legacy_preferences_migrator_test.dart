@@ -42,6 +42,141 @@ void _registerMigrationTests(_MigrationContext Function() contextFactory) {
   _registerAtomicMigrationTest(contextFactory);
   _registerIdempotentMigrationTest(contextFactory);
   _registerMalformedPayloadTest(contextFactory);
+  _registerCompletedMigrationTest(contextFactory);
+  _registerPartialMigrationTest(contextFactory);
+  _registerFailedMigrationTest(contextFactory);
+}
+
+void _registerCompletedMigrationTest(
+  _MigrationContext Function() contextFactory,
+) {
+  test(
+    'completed migration skips retained payload reads and cleans secrets',
+    () async {
+      final context = contextFactory();
+      await _migrate(context);
+      await context.preferences.setString('app_settings', 'not-json');
+      await context.preferences.setString('notes', 'recovery-data');
+      await context.secureStorage.write(key: 'hf_token', value: 'legacy-token');
+      await context.secureStorage.write(
+        key: 'api_key_openrouter',
+        value: 'obsolete-key',
+      );
+      final preferences = _ReadTrackingPreferences(context.preferences);
+
+      await LegacyPreferencesMigrator(
+        database: context.database,
+        preferences: preferences,
+        secureStorage: context.secureStorage,
+      ).migrate();
+
+      expect(preferences.reads, isEmpty);
+      expect(context.preferences.getString('app_settings'), 'not-json');
+      expect(context.preferences.getString('notes'), 'recovery-data');
+      expect(await context.secureStorage.read(key: 'hf_token'), isNull);
+      expect(
+        await context.secureStorage.read(key: 'api_key_openrouter'),
+        isNull,
+      );
+    },
+  );
+}
+
+void _registerPartialMigrationTest(
+  _MigrationContext Function() contextFactory,
+) {
+  test(
+    'imports valid notes once and preserves partial-error recovery JSON',
+    () async {
+      final context = contextFactory();
+      final note = _note('valid');
+      final raw = jsonEncode([
+        note.toJson(),
+        {'id': 'invalid'},
+      ]);
+      await context.preferences.setString('notes', raw);
+      final preferences = _ReadTrackingPreferences(context.preferences);
+      final migrator = LegacyPreferencesMigrator(
+        database: context.database,
+        preferences: preferences,
+        secureStorage: context.secureStorage,
+      );
+
+      await migrator.migrate();
+      expect(preferences.reads, ['app_settings', 'notes']);
+      final imported = await context.database
+          .select(context.database.notesTable)
+          .get();
+      expect(imported.single.id, note.id);
+      expect(context.preferences.getString('notes'), raw);
+      preferences.reads.clear();
+
+      await migrator.migrate();
+      expect(preferences.reads, isEmpty);
+      expect(context.preferences.getString('notes'), raw);
+      expect(
+        await context.database.select(context.database.notesTable).get(),
+        hasLength(1),
+      );
+    },
+  );
+}
+
+void _registerFailedMigrationTest(_MigrationContext Function() contextFactory) {
+  test(
+    'rolls back failed imports and retries before cleaning legacy data',
+    () async {
+      final context = contextFactory();
+      final note = _note('retry');
+      await _seedLegacyStorage(context, note);
+      await context.database.customStatement('''
+      CREATE TRIGGER reject_legacy_note BEFORE INSERT ON notes
+      BEGIN SELECT RAISE(ABORT, 'import unavailable'); END
+    ''');
+
+      await expectLater(_migrate(context), throwsA(isA<Exception>()));
+      expect(
+        await context.database.select(context.database.notesTable).get(),
+        isEmpty,
+      );
+      expect(
+        await context.database.select(context.database.appSettingsTable).get(),
+        isEmpty,
+      );
+      expect(
+        await context.database
+            .select(context.database.migrationStateTable)
+            .get(),
+        isEmpty,
+      );
+      expect(context.preferences.containsKey('notes'), isTrue);
+      expect(context.preferences.containsKey('app_settings'), isTrue);
+      expect(await context.secureStorage.read(key: 'hf_token'), 'legacy-token');
+
+      await context.database.customStatement('DROP TRIGGER reject_legacy_note');
+      await _migrate(context);
+      await _expectAtomicMigration(context, note);
+    },
+  );
+}
+
+class _ReadTrackingPreferences implements SharedPreferences {
+  _ReadTrackingPreferences(this.delegate);
+
+  final SharedPreferences delegate;
+  final reads = <String>[];
+
+  @override
+  String? getString(String key) {
+    reads.add(key);
+    return delegate.getString(key);
+  }
+
+  @override
+  Future<bool> remove(String key) => delegate.remove(key);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void _registerAtomicMigrationTest(_MigrationContext Function() contextFactory) {

@@ -11,6 +11,7 @@ import '../services/processing/processing_pipeline.dart';
 import '../services/remote/remote_client_factory.dart';
 import '../services/share/share_intent_service.dart';
 import '../services/storage/audio_cache_manager.dart';
+import '../services/storage/pending_audio_deletion_recovery.dart';
 
 /// Overridden after the Drift database has been initialized.
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -41,6 +42,14 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
 final notesRepositoryProvider = Provider<NotesRepository>(
   (ref) => NotesRepository(ref.watch(databaseProvider)),
 );
+
+final pendingAudioDeletionRecoveryProvider =
+    Provider<PendingAudioDeletionRecovery>(
+      (ref) => PendingAudioDeletionRecovery(
+        ref.watch(notesRepositoryProvider),
+        ref.watch(audioCacheManagerProvider),
+      ),
+    );
 
 typedef ProviderCredentialTester =
     Future<void> Function(RemoteProviderId provider, String apiKey);
