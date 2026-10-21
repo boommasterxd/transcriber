@@ -5,6 +5,7 @@
 library;
 
 import '../../data/models/app_language.dart';
+import '../../data/models/app_accent.dart';
 
 export '../../data/models/app_language.dart';
 
@@ -68,6 +69,17 @@ class AppStrings {
   String get light => _string(_StringKey.light);
   String get dark => _string(_StringKey.dark);
   String get accentC => _string(_StringKey.accentC);
+  String accentName(AppAccent accent) => _string(switch (accent) {
+    AppAccent.violet => _StringKey.accentViolet,
+    AppAccent.blue => _StringKey.accentBlue,
+    AppAccent.emerald => _StringKey.accentEmerald,
+    AppAccent.amber => _StringKey.accentAmber,
+    AppAccent.magenta => _StringKey.accentMagenta,
+  });
+  String get actionClose => _string(_StringKey.actionClose);
+  String get actionBack => _string(_StringKey.actionBack);
+  String get actionDelete => _string(_StringKey.actionDelete);
+  String get actionShare => _string(_StringKey.actionShare);
   String get delete => _string(_StringKey.delete);
   String get autoLang => _string(_StringKey.autoLang);
   String get transLang => _string(_StringKey.transLang);
@@ -143,6 +155,7 @@ class AppStrings {
   String get justNow => _string(_StringKey.justNow);
   String get processingTitle => _string(_StringKey.processingTitle);
   String get errorTitle => _string(_StringKey.errorTitle);
+  String get audioImportFailed => _string(_StringKey.audioImportFailed);
   String get retry => _string(_StringKey.retry);
   String get dismiss => _string(_StringKey.dismiss);
   String get goToSettings => _string(_StringKey.goToSettings);

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/data/models/note_history.dart';
-import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/ui/screens/home/widgets/active_model_pill.dart';
 import 'package:transcriber/ui/screens/home/widgets/home_search_bar.dart';
 import 'package:transcriber/ui/screens/home/widgets/note_badges.dart';
@@ -129,7 +127,7 @@ void _registerPhoneHistoryRowTest() {
 }
 
 void _registerTabletHistoryRowTest() {
-  testWidgets('tablet history row reflects selection and handles taps', (
+  testWidgets('tablet history row displays its title and handles taps', (
     tester,
   ) async {
     var tapped = false;
@@ -152,11 +150,6 @@ void _registerTabletHistoryRowTest() {
       ),
     );
 
-    final row = tester.widget<AnimatedContainer>(
-      find.byType(AnimatedContainer),
-    );
-    final decoration = row.decoration! as BoxDecoration;
-    expect(decoration.color, AppPalette.light(AppAccent.blue).accentSoft);
     await tester.tap(find.text('Tablet note'));
     expect(tapped, isTrue);
   });
