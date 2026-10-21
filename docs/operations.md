@@ -93,6 +93,10 @@ Before releasing the first Drift-backed version, install the previous production
 - OpenAI and Google keys remain accessible from secure storage;
 - obsolete Hugging Face, Anthropic, and OpenRouter keys are removed.
 
+For subsequent schema upgrades, verify preserved note content after an in-place update. Host SQLite regressions cover failed upgrades, rollback of schema changes and the version marker, reopening the database, and recovery of partially applied older title-search upgrades. They also check foreign-key rejection and cascading deletion. These checks do not replace Android storage and process-lifecycle verification.
+
+On an Android test installation, delete a note with retained audio and terminate the process during the undo window. Reopen the normal app and verify that the queued file is removed. Also verify that successful undo preserves the note and audio and that opening the share activity during undo does not trigger recovery. Startup processes at most 128 candidates; failed attempts move behind other queued files for later starts.
+
 ## Provider Smoke Tests
 
 Use non-production audio without personal information. Test all selected combinations:
@@ -122,4 +126,37 @@ Force a summary failure after successful transcription and verify that the regul
 
 ## Release
 
-The Android package remains arm64-only. Preserve release signing, checksum verification, and minimal Android permissions. The main activity is exported for the launcher and audio `VIEW` intents. The exported share activity accepts audio `SEND` intents and copies them through bounded, sanitized app-private storage. The exported input-method service must remain protected by `android.permission.BIND_INPUT_METHOD`.
+### Signing prerequisites
+
+The [Release workflow](../.github/workflows/release.yml) and the separate [Build APK workflow](../.github/workflows/build-apk.yml) read four GitHub Actions secrets for the established Android release key:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Base64-encoded release keystore. |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password. |
+| `ANDROID_KEY_PASSWORD` | Password for the signing key. |
+| `ANDROID_KEY_ALIAS` | Alias of the signing key in the keystore. |
+
+Keep their values out of source, logs, screenshots, and issue reports. The jobs write temporary keystore/signing configuration files and run `apksigner verify --print-certs` against the built APK. A failed verification or an Android Debug certificate stops the job before artifact upload. Missing signing configuration can fall back to debug signing during compilation, but that result cannot pass this publication check. Keep the established signing key for installable updates. The release-publication job targets the GitHub environment `release`; its configured environment protections apply separately from the build job.
+
+### Version and source selection
+
+Release starts on a tag push matching `v*`, or manually through **Actions > Release > Run workflow** with a required `version` input. Choose the intended source ref for a manual run. The version resolver accepts SemVer such as `1.2.3` or `1.2.3-rc.1`, with an optional leading `v` and without build metadata. Invalid versions stop before packaging; the workflow run number supplies the Android build number.
+
+Publication jobs are serialized by the normalized version without interrupting an active publisher. The job uses the exact checked-out build commit when creating a new release tag. Existing lightweight or annotated remote tags must resolve to that same commit, and a failed remote query prevents publication. Advancing `main` during a manual build therefore does not change the release's source revision. See the [version resolver](../tool/package/version.sh) and [release-tag guard](../tool/package/verify_release_tag.sh).
+
+### Artifacts and verification
+
+Release builds `transcriber-<version>-android.apk` and uploads it as the temporary Actions artifact `android`, with three-day retention. The publisher generates `SHA256SUMS` and attaches both files to the GitHub Release `v<version>`, with generated release notes. After publication it deletes the intermediate Actions artifact; the release assets remain available separately.
+
+Download the APK and `SHA256SUMS` from the same release into one directory. From that directory, verify the download before installing:
+
+```bash
+sha256sum --check SHA256SUMS
+```
+
+The workflow generates the checksums; the command above verifies the downloaded files. APK signature verification is a separate check performed by the build job. Before release acceptance, install or upgrade on an arm64 Android device and complete the device checks above; successful host checks alone do not establish that behavior.
+
+For an unpublished test build, the manual **Build APK** workflow produces `app-release.apk` in the Actions artifact `transcriber-android`, also retained for three days. It checks signing but creates neither a GitHub Release nor `SHA256SUMS`.
+
+The Android package remains arm64-only. Preserve release signing, checksum verification, and minimal Android permissions. The main activity is exported for the launcher. The exported share activity accepts audio `VIEW`, `SEND`, and `SEND_MULTIPLE` intents and copies them through bounded, sanitized app-private storage; explicit media intents to the main activity are forwarded there. The exported input-method service must remain protected by `android.permission.BIND_INPUT_METHOD`.

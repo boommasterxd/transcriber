@@ -4,15 +4,19 @@
 
 The required `CI` workflow runs on pull requests to `main`. It compares the complete pull-request head with its merge base, rather than the latest commit or a truncated changed-files API response. Disabling rename detection exposes both endpoints as additions/deletions. A nonempty diff entirely under root `docs/` skips application checks and still runs the final `CI` gate. Empty, unknown, incomplete, or unreadable changes require full checks.
 
-The final gate validates the change plan and every expected job result. Failures, cancellations, missing outputs, malformed plans, and unexpected skips fail the gate. Existing `gitleaks`, PR-title requirements, branch freshness, and squash-only merge protection remain independent and unchanged. There is no additional full test run before merge or on the resulting `main` push.
+The final gate validates the change plan and every expected job result. The outer job plan includes `base_sha`, `head_sha`, and the actual checkout's `merge_sha`; the final gate compares all three with the current GitHub event. Manual runs bind all three to the dispatched checkout and select full checks. Failures, cancellations, missing outputs, malformed or stale plans, and unexpected skips fail the gate. Existing `gitleaks`, PR-title requirements, branch freshness, and squash-only merge protection remain independent and unchanged. There is no additional full test run before merge or on the resulting `main` push.
 
 Dependency vulnerability scanning remains mandatory on every non-documentation PR: advisory databases can change even when the dependency files do not. The final gate rejects a plan that omits this security check.
 
 Changes to the central CJS classifier/final gate, top-level Dart CI and quality helpers, and their mirrored regression tests require full checks. This includes test-plan generation/execution and coverage/parameter enforcement: these controls cannot safely select only the checks they modify. The final-gate regressions reject failed, cancelled or unexpectedly skipped work for these full plans. The isolated JVM failure fixture retains its explicit workflow/JVM scope.
 
+Any GitHub Actions workflow YAML or Dependabot configuration change also selects the full Dart, JVM, Android, and bundle checks. These files control global build, release, and security behavior, so workflow lint and the dependency audit alone do not provide sufficient verification.
+
 ## Flutter dependency graph
 
 The selector parses maintained Dart sources with the existing analyzer dependency. It includes imports, exports, conditional directives, and library parts in both merge-base and head snapshots. Reverse reachability over their union finds direct and transitive consumers, including consumers of deleted or renamed files. Existing changed tests select themselves; changed shared test helpers select their consumers. An unknown dependency or unexpectedly empty selection falls back to the full suite.
+
+Removing or renaming any existing `*_test.dart` suite also requires full tests and complete production coverage. This remains true when another changed test would otherwise produce a nonempty selection: losing a suite must not silently remove its unchanged production sources from coverage.
 
 Tests execute against GitHub's simulated merge checkout, which is also included in the graph. Plans bind to that checkout and are recomputed and validated before execution; a stale or altered selection must not silently remove tests. Uncommitted source changes require full tests. Full local test commands remain in [code quality](code-quality.md#local-commands).
 
@@ -52,8 +56,8 @@ The conservative mappings intentionally include broader suites when a reliable n
 | Package dependencies, SDK selectors, global analysis/test configuration | Full affected language checks and tests. |
 | Ordinary Dart production or test changes | Dart quality checks and affected Dart/Flutter tests, without Java, Android compilation, or a separate application bundle. Tests compile their selected Dart inputs. |
 | Native Android channels, resources, manifests, and Gradle inputs | JVM/Android tests and instrumented-test compilation plus Flutter checks for cross-language contracts. Unknown native impact retains the complete native suite. |
-| Pure Kotlin test changes | The manifest-listed `EditorSessionGateTest.kt` and `PcmLevelMeterTest.kt` require only the independent JVM quality/test job and dependency audit. |
-| Pure Kotlin production changes | `EditorSessionGate.kt` and `PcmLevelMeter.kt` require JVM tests and Android compilation/tests to check transitive consumers; Dart checks remain excluded. |
+| Pure Kotlin test changes | Tests corresponding to classes in the [JVM source manifest](../tool/ci/jvm/sources.txt) require only the independent JVM quality/test job and dependency audit. |
+| Pure Kotlin production changes | Classes in the [JVM source manifest](../tool/ci/jvm/sources.txt) require JVM tests and Android compilation/tests to check transitive consumers; Dart checks remain excluded. |
 | Dart entrypoint/channel contracts | `lib/main.dart`, `lib/share_entrypoint.dart`, `lib/keyboard_entrypoint.dart`, `lib/services/dictation/dictation_platform.dart`, and `lib/services/audio/audio_recorder_service.dart` also select native checks and bundle verification. Maintain this mapping when adding or relocating native bridges. |
 | Filesystem, HTTP, and platform contracts | Import consumers include mocked boundary tests; unknown fixtures or contract files require the full suite. |
 | Shared test support and setup | Transitive test consumers; global setup requires full tests. |
@@ -64,7 +68,7 @@ This Android application has Flutter unit/widget tests and Android JVM/instrumen
 
 ## Runner work and caches
 
-Change classification, final `CI`, title validation, Gitleaks, Dependabot metadata/merge, version updaters and release publication use `ubuntu-slim` with explicit five- or ten-minute timeouts. Substantive workflow/Dart/JVM/Android checks, APK builds and container-based OSV scans retain compatible regular runners. Source validation does not establish hosted Slim compatibility; that requires an actual matching execution. No workflow was dispatched to obtain that evidence.
+Change classification, final `CI`, title validation, Gitleaks, Dependabot metadata/merge, version updaters and release publication use `ubuntu-slim` with explicit five- or ten-minute timeouts. Workflow lint now also enforces Node static quality and duplication, so that selected quality job uses a regular runner alongside Dart/JVM/Android checks, APK builds and container-based OSV scans. Source validation does not establish hosted runner compatibility; that requires an actual matching execution. No workflow was dispatched to obtain that evidence.
 
 Formatting, analysis, size/complexity, dead-code detection, duplication, selected Dart/Flutter tests, and the optional asset-bundle build share a runner and one locked dependency resolution. Dart static checks retain their complete source scope. Ordinary Dart edits do not build the application bundle; entrypoints, assets, dependencies, packaging inputs, global configuration, and uncertainty retain bundle checks. When native checks already assemble the Flutter debug bundle, CI verifies its nonempty kernel and asset manifest instead of building it again on the Dart runner.
 

@@ -8,10 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/boommasterxd/transcriber/releases/latest"><img src="https://img.shields.io/github/v/release/boommasterxd/transcriber?style=flat-square&amp;color=6C5CE7" alt="Latest release"></a>
-  <a href="#get-started"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square" alt="Android 8.0 or later"></a>
-  <a href="#get-started"><img src="https://img.shields.io/badge/Architecture-arm64--v8a-2F7BF6?style=flat-square" alt="arm64-v8a architecture"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6C5CE7?style=flat-square" alt="MIT license"></a>
+  <a href="#get-started">Android 8.0+</a> · arm64-v8a · <a href="LICENSE">MIT License</a>
 </p>
 
 <p align="center">
@@ -41,7 +38,7 @@
 
 For live dictation, open **Settings > Transcriber keyboard** and follow the Android keyboard setup. Dictation uses the selected transcription provider and a separate compatible live model.
 
-See [provider key setup](docs/provider-setup.md) for credential instructions and [configuration](docs/configuration.md) for supported audio formats, upload limits, and model selection. This README describes the current source; published releases may differ.
+See [provider key setup](docs/provider-setup.md) for credential instructions and [audio formats and limits](docs/configuration.md#audio-formats-and-limits) for import and upload boundaries. [Configuration](docs/configuration.md) also explains model selection. This README describes the current source; published releases may differ.
 
 ## Your data and API usage
 
@@ -95,7 +92,7 @@ Read [AGENTS.md](AGENTS.md) for repository conventions and [code quality](docs/c
 | [Code quality](docs/code-quality.md) | Required checks and coverage thresholds. |
 | [CI test selection](docs/ci-test-selection.md) | How pull requests select checks and tests. |
 
-The complete documentation index, including decisions and reports, is in [AGENTS.md](AGENTS.md#documentation-index).
+The complete documentation index, including architecture decisions, is in [AGENTS.md](AGENTS.md#documentation-index).
 
 ## License
 

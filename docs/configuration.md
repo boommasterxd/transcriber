@@ -68,7 +68,15 @@ In-app recording uses mono 16 kHz PCM16 WAV. Native capture checks the selected 
 
 Imported and shared files accept FLAC, MP3, MP4, MPEG, MPGA, M4A, OGG/Opus, WAV, and WebM. WhatsApp Opus files keep their original bytes and extension. Gemini receives `audio/opus`; OpenAI's transcription endpoint receives the same bytes with the supported OGG filename and MIME metadata. No FFmpeg conversion is performed.
 
-Application boundaries reject empty files and files larger than 250 MiB. Provider clients apply their own stricter request limits before network access where required.
+The application applies separate import and transcription limits. One MiB is 1,048,576 bytes; empty audio files are rejected.
+
+| Boundary | Maximum audio file size | Applies to |
+|---|---:|---|
+| Import and Android share/open-file input | 250 MiB (262,144,000 bytes) | The app-owned working copy, before provider-specific validation. |
+| Batch transcription | 100 MiB (104,857,600 bytes) | Gemini Files uploads and OpenAI Audio Transcriptions requests. |
+| OpenAI inline audio | 20 MiB (20,971,520 bytes) | Chat Completions audio input; the smaller cap bounds Base64 memory overhead. |
+
+A file can pass import validation and still exceed the selected transcription endpoint's limit. These are application-side caps, not provider guarantees; the provider may reject a smaller file because of its own limits, format support, model access, or quota. Upload caps are shared by [recording and provider validation](../lib/services/remote/remote_audio_limits.dart); import validation belongs to [AudioCacheManager](../lib/services/storage/audio_cache_manager.dart).
 
 Temporary audio has a 24-hour TTL and a 512 MiB quota. These values are centralized in `AudioCacheManager`.
 

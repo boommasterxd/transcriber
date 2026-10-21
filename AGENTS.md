@@ -56,6 +56,7 @@ Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pul
 - Dart formatting and `flutter analyze --fatal-infos`;
 - function size, file size, cyclomatic complexity, cognitive complexity, parameter count, and nesting depth;
 - Detekt metrics, formatting, and unused-private-code checks for maintained Kotlin;
+- ESLint correctness, formatting, unused-code and size/complexity limits for maintained Node tooling, with locked development dependencies and jscpd at 50 tokens and at most 5% duplication;
 - unused Dart declarations and files as the Dart equivalent of `knip`;
 - tests with strict line, statement, function, and branch coverage thresholds;
 - `jscpd` for Dart with `minTokens: 50` and zero accepted duplication;
@@ -117,7 +118,4 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |
 | [`docs/operations.md`](docs/operations.md) | Provides local development, validation, build, and release operating procedures. |
 | [`docs/provider-setup.md`](docs/provider-setup.md) | Explains how to create and safely configure OpenAI and Gemini API keys. |
-| [`docs/reports/CODE-QUALITY-REPORT.md`](docs/reports/CODE-QUALITY-REPORT.md) | Documents verified code-quality findings, effective CI gates, checks, and limitations. |
-| [`docs/reports/PERFORMANCE-REPORT.md`](docs/reports/PERFORMANCE-REPORT.md) | Documents measured database and UI work, resource bounds, caching, and performance evidence gaps. |
-| [`docs/reports/project-setup-report.md`](docs/reports/project-setup-report.md) | Documents local and GitHub setup findings, verification results, and evidence gaps. |
 | [`docs/security.md`](docs/security.md) | Describes protected assets, trust boundaries, controls, assumptions, and residual risks. |

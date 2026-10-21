@@ -19,13 +19,17 @@ Review thresholds guide refactoring before CI limits are reached. CI limits are 
 | Function coverage | below 85% | 85% | LCOV `FNDA`, or analyzer-derived function spans mapped to line hits |
 | Branch coverage | below 80% | 80% | Flutter LCOV `BRDA` records |
 
+Tests protect observable behavior, persistence, failure recovery, and supported interaction contracts. Purely decorative snapshots of chosen colors, shadows, radii, fonts, asset filenames, animation values, or column arrangements are not retained. Functional contrast, focus visibility, reduced motion, touch targets, overflow, scrolling, and keyboard checks remain required. Utility algorithms and persisted user preferences are tested through their input/output contracts rather than fixed widget styling.
+
 Flutter coverage is line-oriented and currently omits native `FNDA` records. The repository therefore uses executable lines as the statement proxy and maps analyzer-derived Dart function spans to LCOV line hits as the function proxy. The full checker enumerates every tracked `lib/**/*.dart` source and fails closed if Flutter omits any source from LCOV. Selected-test coverage uses an explicitly validated, restricted source inventory and is reported as partial coverage. Thresholds remain identical, and missing required sources or empty metric denominators fail. These mappings must remain documented until Flutter emits independent statement and function coverage. See [CI test selection](ci-test-selection.md) for scope and fallback rules.
 
 Executable maintained Dart parts are separate measured sources, including `dictation_connection.dart` and `keyboard_components.dart`. Missing part records fail; changing either a library or one of its parts includes the enclosing library and sibling parts in selected coverage. Only generated `.g.dart` units with the generated-code header, pure abstract interfaces/typedefs, directive-only units, and constant-only data/memberless enums lack independent executable metrics. These are syntax-checked tool limitations, not blanket part exclusions.
 
 The parameter gate walks every analyzer `FormalParameterList`, including constructors, factories, `copyWith`, functions, closures, callbacks, and function types. DCL omits some of those declarations, so its parameter metric is not authoritative. Remaining DCL size/cyclomatic/nesting measurements must be present exactly once and contain valid numeric values for each reported function; malformed or incomplete reports fail.
 
-`analysis_options.yaml` explicitly excludes generated build output and platform roots from Dart analysis. These are language and tool-scope boundaries, not a quality baseline: CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Maintained Kotlin under `android/app/src/main/kotlin/` is checked separately with Detekt and its formatting rules.
+`analysis_options.yaml` explicitly excludes generated build output and platform roots from Dart analysis. These are language and tool-scope boundaries, not a quality baseline: CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Detekt inventories every maintained `.kt` and `.kts` file through Git, including unit tests, instrumented tests, and Gradle scripts. Required complexity rules explicitly include test paths. Generated and ignored build output is outside the maintained inventory; an unavailable or empty inventory fails.
+
+Maintained Node `.cjs`, `.js`, and `.mjs` sources and tests under `tool/` and `test/tool/` use ESLint with the same 500/100-line, 20/25-complexity, six-parameter and four-level nesting limits. Recommended correctness and unused-code rules and stylistic rules are blocking; inline suppressions cannot disable them. Node duplication uses at least 50 tokens and the general 5% limit; the existing Dart duplication limit remains zero.
 
 Drift generates `lib/data/database/app_database.g.dart`. The file is checked into source control so builds do not depend on code generation, but it is excluded from direct analyzer, size, complexity, and duplication measurements only when it carries Drift's generated-code header. It remains compiled through `app_database.dart`. Maintained database declarations, queries, repositories, and migrations remain fully subject to every quality gate.
 
@@ -65,6 +69,16 @@ dart run dart_code_linter:metrics check-unused-code \
   lib test tool --analyze-private-members
 dart run dart_code_linter:metrics check-unused-files lib test tool
 ```
+
+Check Node tooling using its isolated, private npm package and generated lockfile:
+
+```bash
+npm ci --prefix tool/quality/node --ignore-scripts
+npm --prefix tool/quality/node run check
+npm --prefix tool/quality/node run audit
+```
+
+The package requires Node.js 24.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately.
 
 Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and formatting plugin:
 
@@ -151,18 +165,18 @@ All Flutter jobs, including manual APK validation and releases, use `.github/act
 
 `.github/workflows/ci.yml` starts only jobs required by the complete change scope:
 
-- `Workflow lint` verifies every GitHub Actions workflow with a pinned, checksum-verified `actionlint` binary.
+- `Workflow lint` resolves locked Node quality tools, enforces Node static quality and duplication, audits those dependencies, runs the CI and release helper regressions, and verifies every GitHub Actions workflow and maintained shell script with pinned, checksum-verified linters. This substantive quality job uses a regular runner only when selected.
 - `Dart quality, tests and bundle` shares one Flutter installation and locked dependency resolution across formatting, analysis, selected tests/coverage, size/complexity, unused-code/file detection, duplication, and the optional bundle build. Applicable independent checks still run after another check fails; the job remains failed.
 - `JVM quality and tests` runs the manifest-listed pure Kotlin tests without Flutter/Android, plus the existing Detekt and Kotlin/Gradle/shell file-length gates, only when the plan excludes Android. CI-tool changes additionally exercise real defect/skip fixtures; ordinary pure-test changes skip those fixtures.
 - `Android quality and tests` compiles Android consumers, runs every native JVM test, and compiles instrumented Android tests, with the same Detekt/file-length gates. Global/workflow changes also verify the independent JVM harness and its regression fixtures on this runner, without starting an additional JVM job. Local Android commands remain complete.
 - Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
 - Bundle verification runs for entrypoints, channel bridges, assets, dependencies, packaging/global configuration, and uncertainty. Ordinary Dart changes use analysis and selected test compilation. When Gradle already assembles the debug bundle, the native job verifies its kernel and asset manifest without a second bundle build on the Dart runner.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile`, and its dependency verification metadata with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree. Its default detectors cover every path without test or Firebase-file allowlists. Before scanning, the checksum-verified binary must pass synthetic regressions for those paths and for a credential deleted from the final tree but retained in introduced history.
+`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile`, its dependency verification metadata, and `tool/quality/node/package-lock.json` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree. Its default detectors cover every path without test or Firebase-file allowlists. Before scanning, the checksum-verified binary must pass synthetic regressions for those paths and for a credential deleted from the final tree but retained in introduced history.
 
 The only historical exceptions are three commit/path/rule/line fingerprints in [`.gitleaksignore`](../.gitleaksignore), covering Google keys the project owner confirmed are no longer usable. Their rationale and limits are recorded in [security](security.md#historical-scanner-exceptions). Scanner regressions also prove that the same synthetic credential in a later commit remains blocked.
 
-Lightweight classification, final gates, scanning, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. Substantive quality/build jobs and container-based OSV scanning retain regular runners. Actual hosted Slim execution remains separate from local workflow validation; no savings are inferred from runner selection alone.
+Lightweight classification, final gates, scanning, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. Workflow/Node and Dart/native quality/build jobs and container-based OSV scanning retain regular runners. Actual hosted execution remains separate from local workflow validation; no savings are inferred from runner selection alone.
 
 ### Native GitHub Scanning
 
@@ -170,17 +184,19 @@ Repository secret scanning and push protection are enabled, independently of req
 
 `.github/workflows/codeql.yml` defines one advanced configuration for Actions, JavaScript and manually compiled Kotlin, using the pinned Flutter SDK and JDK 17. It replaces default setup, whose automatic Kotlin build failed and excluded that language. Its substantive analysis jobs use regular runners with bounded timeouts. Kotlin compilation disables build-cache and up-to-date reuse so the extractor sees maintained sources. Local YAML validation and compilation do not establish hosted Kotlin extraction; inspect matching PR analysis results. CodeQL scans are distinct from application `CI` and do not add another required check or repeat its tests.
 
-The current [CodeQL language support table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) lists Kotlin through 2.4.20; the project uses 2.4.21. The first hosted traced build and analysis succeeded with CodeQL 2.27.2, as qualified in the [setup report](reports/project-setup-report.md#published-verification-snapshot). Reverify the actual hosted bundle when changing this toolchain. Do not downgrade the project or exclude Kotlin merely to make the scan green.
+The Kotlin CodeQL job enables the pinned action's native dependency cache. It restores and stores build dependencies while retaining a fresh traced compilation for analysis. Actions and JavaScript analysis do not enable that cache. Cache hits and any effect on hosted duration require evidence from a subsequent matching run; local validation does not establish a speedup.
+
+The current [CodeQL language support table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) lists Kotlin through 2.4.20; the project uses 2.4.21. The first hosted traced build and analysis succeeded with CodeQL 2.27.2. Reverify the actual hosted bundle when changing this toolchain. Do not downgrade the project or exclude Kotlin merely to make the scan green.
 
 APK-build workflows explicitly default to `contents: read`. Only the separate release-publication job overrides that default with the content/artifact write access it needs; compilation itself receives no repository write permission.
 
 ## Protected Pull Requests
 
-Automatic quality checks and secret scanning run on pull requests targeting `main`, using GitHub's simulated merge checkout. They do not run again on the resulting `main` push. The final `CI` check validates all planned job results. Failed, cancelled, missing or unexpectedly skipped jobs block the final check.
+Automatic quality checks and secret scanning run on pull requests targeting `main`, using GitHub's simulated merge checkout. They do not run again on the resulting `main` push. The final `CI` check validates all planned job results and compares the plan's base, head and checkout SHAs with the current workflow event. Failed, cancelled, missing, stale or unexpectedly skipped work blocks the final check.
 
 Only a nonempty, complete change set entirely below the root `docs/` directory takes the documentation short path. `tool/ci/detect-change-scope.cjs` compares the merge base with the PR head, includes both sides of renames, and defaults to full CI on uncertainty. Other recognized changes select relevant jobs, and Flutter tests use the analyzer dependency graph. Documentation-only changes intentionally skip all expensive jobs and still receive a real successful `CI` result. Root Markdown and other unknown inputs run full CI. Secret scanning and PR-title validation remain required. [CI test selection](ci-test-selection.md) documents mappings, limitations, local selection commands, and measured starting durations.
 
-The active GitHub ruleset requires exactly `CI`, `gitleaks` and `Validate PR Title`, with an up-to-date branch. Only repository administrators retain an `always` bypass; that capability does not authorize its use. Actions must be pinned to complete commit SHAs. Dependabot's metadata-only automation has separate read and write jobs, verifies actor, author and repository identity, and only enables auto-merge for npm minor/patch updates. This Flutter repository has no npm dependency ecosystem, so Pub, Gradle and Actions updates remain manual.
+The active GitHub ruleset requires exactly `CI`, `gitleaks` and `Validate PR Title`, with an up-to-date branch. Only repository administrators retain an `always` bypass; that capability does not authorize its use. Actions must be pinned to complete commit SHAs. Dependabot's metadata-only automation has separate read and write jobs, verifies actor, author and repository identity, and only enables auto-merge for npm minor/patch updates. Only the isolated Node quality package uses npm dependencies; its minor/patch updates follow these guarded checks. Dependabot proposes Gradle updates for both `/android` and the independent `/tool/ci/jvm` project; Pub and Actions updates remain manual.
 
 Run the dependency-free CI helper regressions with Node.js 24.x:
 
