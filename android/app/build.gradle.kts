@@ -88,7 +88,7 @@ android {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.17")
-    testImplementation("org.mockito:mockito-core:5.21.0")
+    testImplementation("org.mockito:mockito-core:5.24.0")
     // Keep Kotlin's runtime lock graph stable (Gradle issue 21396).
     testRuntimeOnly("org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
