@@ -14,7 +14,7 @@ Transcriber uses personal provider credentials. A ChatGPT or Gemini consumer sub
 
 OpenAI API usage and ChatGPT subscriptions are billed separately. Never send the key through chat, email, screenshots, logs, or issue reports.
 
-Official references: [API key safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety), [API quickstart](https://platform.openai.com/docs/quickstart/make-your-first-api-request), and [`gpt-transcribe`](https://developers.openai.com/api/docs/models/gpt-transcribe).
+Official references: [API key safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety), [API quickstart](https://developers.openai.com/api/docs/quickstart), and [`gpt-transcribe`](https://developers.openai.com/api/docs/models/gpt-transcribe).
 
 ## Google Gemini
 

@@ -2799,6 +2799,182 @@ class MigrationStateTableCompanion
   }
 }
 
+class $PendingAudioDeletionsTableTable extends PendingAudioDeletionsTable
+    with
+        TableInfo<
+          $PendingAudioDeletionsTableTable,
+          PendingAudioDeletionsTableData
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingAudioDeletionsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [path];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_audio_deletions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingAudioDeletionsTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('path')) {
+      context.handle(
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pathMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {path};
+  @override
+  PendingAudioDeletionsTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingAudioDeletionsTableData(
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingAudioDeletionsTableTable createAlias(String alias) {
+    return $PendingAudioDeletionsTableTable(attachedDatabase, alias);
+  }
+}
+
+class PendingAudioDeletionsTableData extends DataClass
+    implements Insertable<PendingAudioDeletionsTableData> {
+  final String path;
+  const PendingAudioDeletionsTableData({required this.path});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['path'] = Variable<String>(path);
+    return map;
+  }
+
+  PendingAudioDeletionsTableCompanion toCompanion(bool nullToAbsent) {
+    return PendingAudioDeletionsTableCompanion(path: Value(path));
+  }
+
+  factory PendingAudioDeletionsTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingAudioDeletionsTableData(
+      path: serializer.fromJson<String>(json['path']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{'path': serializer.toJson<String>(path)};
+  }
+
+  PendingAudioDeletionsTableData copyWith({String? path}) =>
+      PendingAudioDeletionsTableData(path: path ?? this.path);
+  PendingAudioDeletionsTableData copyWithCompanion(
+    PendingAudioDeletionsTableCompanion data,
+  ) {
+    return PendingAudioDeletionsTableData(
+      path: data.path.present ? data.path.value : this.path,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingAudioDeletionsTableData(')
+          ..write('path: $path')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => path.hashCode;
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingAudioDeletionsTableData && other.path == this.path);
+}
+
+class PendingAudioDeletionsTableCompanion
+    extends UpdateCompanion<PendingAudioDeletionsTableData> {
+  final Value<String> path;
+  final Value<int> rowid;
+  const PendingAudioDeletionsTableCompanion({
+    this.path = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingAudioDeletionsTableCompanion.insert({
+    required String path,
+    this.rowid = const Value.absent(),
+  }) : path = Value(path);
+  static Insertable<PendingAudioDeletionsTableData> custom({
+    Expression<String>? path,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (path != null) 'path': path,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingAudioDeletionsTableCompanion copyWith({
+    Value<String>? path,
+    Value<int>? rowid,
+  }) {
+    return PendingAudioDeletionsTableCompanion(
+      path: path ?? this.path,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingAudioDeletionsTableCompanion(')
+          ..write('path: $path, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2814,9 +2990,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $TranscriptSegmentsTableTable(this);
   late final $MigrationStateTableTable migrationStateTable =
       $MigrationStateTableTable(this);
+  late final $PendingAudioDeletionsTableTable pendingAudioDeletionsTable =
+      $PendingAudioDeletionsTableTable(this);
   late final Index notesHistoryOrder = Index(
     'notes_history_order',
     'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
+  );
+  late final Index notesAudioPath = Index(
+    'notes_audio_path',
+    'CREATE INDEX notes_audio_path ON notes (audio_path)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -2829,7 +3011,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     noteTodosTable,
     transcriptSegmentsTable,
     migrationStateTable,
+    pendingAudioDeletionsTable,
     notesHistoryOrder,
+    notesAudioPath,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5051,6 +5235,159 @@ typedef $$MigrationStateTableTableProcessedTableManager =
       MigrationStateTableData,
       PrefetchHooks Function()
     >;
+typedef $$PendingAudioDeletionsTableTableCreateCompanionBuilder =
+    PendingAudioDeletionsTableCompanion Function({
+      required String path,
+      Value<int> rowid,
+    });
+typedef $$PendingAudioDeletionsTableTableUpdateCompanionBuilder =
+    PendingAudioDeletionsTableCompanion Function({
+      Value<String> path,
+      Value<int> rowid,
+    });
+
+class $$PendingAudioDeletionsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingAudioDeletionsTableTable> {
+  $$PendingAudioDeletionsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingAudioDeletionsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingAudioDeletionsTableTable> {
+  $$PendingAudioDeletionsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingAudioDeletionsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingAudioDeletionsTableTable> {
+  $$PendingAudioDeletionsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+}
+
+class $$PendingAudioDeletionsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingAudioDeletionsTableTable,
+          PendingAudioDeletionsTableData,
+          $$PendingAudioDeletionsTableTableFilterComposer,
+          $$PendingAudioDeletionsTableTableOrderingComposer,
+          $$PendingAudioDeletionsTableTableAnnotationComposer,
+          $$PendingAudioDeletionsTableTableCreateCompanionBuilder,
+          $$PendingAudioDeletionsTableTableUpdateCompanionBuilder,
+          (
+            PendingAudioDeletionsTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingAudioDeletionsTableTable,
+              PendingAudioDeletionsTableData
+            >,
+          ),
+          PendingAudioDeletionsTableData,
+          PrefetchHooks Function()
+        > {
+  $$PendingAudioDeletionsTableTableTableManager(
+    _$AppDatabase db,
+    $PendingAudioDeletionsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingAudioDeletionsTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PendingAudioDeletionsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingAudioDeletionsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> path = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) =>
+                  PendingAudioDeletionsTableCompanion(path: path, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required String path,
+                Value<int> rowid = const Value.absent(),
+              }) => PendingAudioDeletionsTableCompanion.insert(
+                path: path,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $PendingAudioDeletionsTableTable,
+                    PendingAudioDeletionsTableData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $PendingAudioDeletionsTableTable,
+                    PendingAudioDeletionsTableData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingAudioDeletionsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingAudioDeletionsTableTable,
+      PendingAudioDeletionsTableData,
+      $$PendingAudioDeletionsTableTableFilterComposer,
+      $$PendingAudioDeletionsTableTableOrderingComposer,
+      $$PendingAudioDeletionsTableTableAnnotationComposer,
+      $$PendingAudioDeletionsTableTableCreateCompanionBuilder,
+      $$PendingAudioDeletionsTableTableUpdateCompanionBuilder,
+      (
+        PendingAudioDeletionsTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingAudioDeletionsTableTable,
+          PendingAudioDeletionsTableData
+        >,
+      ),
+      PendingAudioDeletionsTableData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5070,4 +5407,10 @@ class $AppDatabaseManager {
       );
   $$MigrationStateTableTableTableManager get migrationStateTable =>
       $$MigrationStateTableTableTableManager(_db, _db.migrationStateTable);
+  $$PendingAudioDeletionsTableTableTableManager
+  get pendingAudioDeletionsTable =>
+      $$PendingAudioDeletionsTableTableTableManager(
+        _db,
+        _db.pendingAudioDeletionsTable,
+      );
 }

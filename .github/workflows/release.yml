@@ -32,6 +32,9 @@ jobs:
     name: Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      commit: ${{ steps.ver.outputs.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -46,10 +49,15 @@ jobs:
 
       - name: Resolve version
         id: ver
-        run: echo "version=$(bash tool/package/version.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          version=$(bash tool/package/version.sh)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Stamp version into pubspec
-        run: bash tool/package/stamp_version.sh ${{ steps.ver.outputs.version }} ${{ github.run_number }}
+        env:
+          BUILD_VERSION: ${{ steps.ver.outputs.version }}
+        run: bash tool/package/stamp_version.sh "$BUILD_VERSION" "$GITHUB_RUN_NUMBER"
 
       - name: Cache Gradle
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -100,21 +108,28 @@ jobs:
           done
 
       - name: Build
+        env:
+          BUILD_VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          flutter pub get
+          flutter pub get --enforce-lockfile
           flutter build apk --release \
-            --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }}
+            --no-pub \
+            --build-name="$BUILD_VERSION" \
+            --build-number="$GITHUB_RUN_NUMBER"
 
       - name: Rename APK
+        env:
+          BUILD_VERSION: ${{ steps.ver.outputs.version }}
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk \
-            "transcriber-${{ steps.ver.outputs.version }}-android.apk"
+            "transcriber-$BUILD_VERSION-android.apk"
 
       # Fail the release if signing fell back to the debug key.
       - name: Verify signature
+        env:
+          BUILD_VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          APK="transcriber-${{ steps.ver.outputs.version }}-android.apk"
+          APK="transcriber-$BUILD_VERSION-android.apk"
           APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner | sort -V | tail -1)
           CERTS=$("$APKSIGNER" verify --print-certs "$APK")
           echo "$CERTS"
@@ -133,6 +148,9 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [android]
+    concurrency:
+      group: release-${{ needs.android.outputs.version }}
+      cancel-in-progress: false
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-slim
     timeout-minutes: 10
@@ -141,15 +159,9 @@ jobs:
       contents: write
       actions: write   # lets this job delete the run's own artifacts below
     steps:
-      - name: Resolve tag
-        id: tag
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            v="${{ inputs.version }}"
-          else
-            v="${GITHUB_REF#refs/tags/v}"
-          fi
-          echo "name=v${v#v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.android.outputs.commit }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -164,10 +176,20 @@ jobs:
             | sed 's|^\./||' | sort | xargs -r sha256sum > SHA256SUMS
           cat SHA256SUMS
 
+      - name: Verify release tag against built commit
+        id: tag
+        env:
+          BUILD_VERSION: ${{ needs.android.outputs.version }}
+          BUILT_COMMIT: ${{ needs.android.outputs.commit }}
+        run: |
+          tag=$(bash tool/package/verify_release_tag.sh "$BUILD_VERSION" "$BUILT_COMMIT")
+          echo "name=$tag" >> "$GITHUB_OUTPUT"
+
       - name: Create release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ steps.tag.outputs.name }}
+          target_commitish: ${{ needs.android.outputs.commit }}
           name: ${{ steps.tag.outputs.name }}
           files: |
             dist/transcriber-*

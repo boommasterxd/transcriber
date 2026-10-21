@@ -20,18 +20,20 @@ class SettingsSwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Row(
-      children: [
-        _SettingsSwitchIcon(icon: icon),
-        const SizedBox(width: 13),
-        Expanded(child: _SettingsSwitchCopy(content: content)),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: palette.accent,
-          inactiveTrackColor: palette.line2,
-        ),
-      ],
+    return MergeSemantics(
+      child: Row(
+        children: [
+          _SettingsSwitchIcon(icon: icon),
+          const SizedBox(width: 13),
+          Expanded(child: _SettingsSwitchCopy(content: content)),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: palette.accent,
+            inactiveTrackColor: palette.line2,
+          ),
+        ],
+      ),
     );
   }
 }

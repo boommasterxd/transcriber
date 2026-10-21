@@ -6,7 +6,7 @@ import '../../../data/models/transcript_note.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/recording_controller.dart';
 import '../../../state/settings_controller.dart';
-import '../../navigation.dart';
+import '../../processing_navigation.dart';
 import '../../widgets/recording_controls.dart';
 import 'widgets/record_body.dart';
 import 'widgets/record_header.dart';
@@ -76,7 +76,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     // Replace the record screen with processing so that, after processing swaps
     // itself for the detail screen, back from detail returns to home, not to a
     // lingering record screen.
-    await AppNavigator.startProcessing(
+    await startProcessingRoute(
       context,
       ProcessingNavigationRequest(
         audioPath: result.path,

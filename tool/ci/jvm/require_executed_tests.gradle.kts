@@ -1,6 +1,6 @@
+import org.gradle.api.tasks.testing.Test
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
-import org.gradle.api.tasks.testing.Test
 
 val maintainedTestRoot = (extra["requiredTestSourceRoot"] as File).toPath().toAbsolutePath().normalize()
 val maintainedTestFiles = (extra["requiredTestSourceFiles"] as Collection<*>).map { it as File }

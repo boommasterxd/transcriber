@@ -156,12 +156,32 @@ void registerChangedFileTests() {
     expectSelected(plan, ['test/first_test.dart']);
   });
 
-  test('does not return deleted tests', () async {
+  test('uses full coverage after deleting a production test suite', () async {
     await fixture.remove('test/first_test.dart');
     final plan = await fixture.plan({
       'lib/second.dart': fixtureSource('second', 4),
     });
-    expectSelected(plan, ['test/second_test.dart']);
+    expect(plan['mode'], 'full');
+  });
+
+  test(
+    'keeps full coverage for deletion mixed with a test-only edit',
+    () async {
+      await fixture.remove('test/first_test.dart');
+      final plan = await fixture.plan({
+        'test/second_test.dart': "import '../lib/second.dart';\n// Updated.\n",
+      });
+      expect(plan['mode'], 'full');
+      expect(plan['tests'], isEmpty);
+    },
+  );
+
+  test('uses full coverage after renaming a test suite', () async {
+    await fixture.git(['mv', 'test/first_test.dart', 'test/renamed_test.dart']);
+    final plan = await fixture.plan({
+      'test/renamed_test.dart': "import '../lib/second.dart';\n",
+    });
+    expect(plan['mode'], 'full');
   });
 }
 

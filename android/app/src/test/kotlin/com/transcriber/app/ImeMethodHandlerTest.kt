@@ -37,16 +37,25 @@ class ImeMethodHandlerTest {
         register()
         val invalid = assertThrows(FlutterException::class.java) { call("startRecording", emptyMap()) }
         assertEquals("invalid_session", invalid.code)
-        assertEquals("invalid_session", assertThrows(FlutterException::class.java) {
-            call("startRecording", arguments + ("sampleRate" to 44_100))
-        }.code)
-        assertEquals("microphone_denied", assertThrows(FlutterException::class.java) {
-            call("startRecording")
-        }.code)
+        assertEquals(
+            "invalid_session",
+            assertThrows(FlutterException::class.java) {
+                call("startRecording", arguments + ("sampleRate" to 44_100))
+            }.code
+        )
+        assertEquals(
+            "microphone_denied",
+            assertThrows(FlutterException::class.java) {
+                call("startRecording")
+            }.code
+        )
         `when`(recorder.hasPermission()).thenReturn(true)
-        assertEquals("audio_start_failed", assertThrows(FlutterException::class.java) {
-            call("startRecording")
-        }.code)
+        assertEquals(
+            "audio_start_failed",
+            assertThrows(FlutterException::class.java) {
+                call("startRecording")
+            }.code
+        )
         `when`(recorder.start(16_000)).thenReturn(true)
         assertEquals(true, call("startRecording"))
         assertEquals(true, call("stopRecording"))
@@ -59,12 +68,18 @@ class ImeMethodHandlerTest {
     fun pauseAndResumePropagateFailuresAndRejectStaleSessions() {
         register()
         for (method in listOf("pauseRecording", "resumeRecording")) {
-            assertEquals("invalid_session", assertThrows(FlutterException::class.java) {
-                call(method, emptyMap())
-            }.code)
-            assertEquals("audio_state_failed", assertThrows(FlutterException::class.java) {
-                call(method)
-            }.code)
+            assertEquals(
+                "invalid_session",
+                assertThrows(FlutterException::class.java) {
+                    call(method, emptyMap())
+                }.code
+            )
+            assertEquals(
+                "audio_state_failed",
+                assertThrows(FlutterException::class.java) {
+                    call(method)
+                }.code
+            )
         }
         `when`(recorder.pause()).thenReturn(true)
         `when`(recorder.resume()).thenReturn(true)

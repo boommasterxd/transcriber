@@ -15,7 +15,11 @@ const _channel = MethodChannel('app/share');
 /// from `shareMain` in main.dart (which is the actual Dart entrypoint).
 Future<void> runShareEntrypoint({
   Future<AppBootstrapData> Function()? loadBootstrap,
-}) => runBootstrappedApp(app: const _ShareApp(), loadBootstrap: loadBootstrap);
+}) => runBootstrappedApp(
+  app: const _ShareApp(),
+  loadBootstrap: loadBootstrap,
+  recoverPendingAudioDeletes: false,
+);
 
 class _ShareApp extends StatelessWidget {
   const _ShareApp();

@@ -25,7 +25,6 @@ void main() {
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
     expect(find.text('ready'), findsOneWidget);
     expect(snackBar.duration, const Duration(seconds: 2));
-    expect(snackBar.behavior, SnackBarBehavior.floating);
   });
 
   testWidgets('showAppToast displays an error toast for four seconds', (

@@ -1,73 +1,30 @@
 import 'package:flutter/material.dart';
 
-import '../data/models/transcript_note.dart';
-import '../services/storage/managed_audio_file.dart';
+import 'navigation_routes.dart';
+import 'processing_navigation.dart';
 import 'screens/detail/transcript_detail_screen.dart';
-import 'screens/processing/processing_screen.dart';
 import 'screens/record/record_screen.dart';
-import 'screens/settings/settings_screen.dart';
+
+export 'processing_navigation.dart' show ProcessingNavigationRequest;
 
 /// Global navigator key so background events (share intents) can navigate.
 final navigatorKey = GlobalKey<NavigatorState>();
-
-/// Input needed to open the processing flow for one managed audio file.
-final class ProcessingNavigationRequest {
-  const ProcessingNavigationRequest({
-    required this.audioPath,
-    required this.ownership,
-    required this.source,
-    this.fileName,
-    this.knownDurationSec,
-  });
-
-  final String audioPath;
-  final AudioOwnership ownership;
-  final NoteSource source;
-  final String? fileName;
-  final int? knownDurationSec;
-}
-
-/// A shared fade + slide-up page transition used for all in-app navigation.
-Route<T> _fadeSlideRoute<T>(Widget page) {
-  return PageRouteBuilder<T>(
-    transitionDuration: const Duration(milliseconds: 320),
-    reverseTransitionDuration: const Duration(milliseconds: 240),
-    pageBuilder: (_, _, _) => page,
-    transitionsBuilder: (_, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.03),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
-}
 
 /// Centralized navigation so screens don't depend on each other's constructors.
 class AppNavigator {
   const AppNavigator._();
 
   static Future<void> openSettings(BuildContext context) {
-    FocusManager.instance.primaryFocus?.unfocus();
-    return Navigator.of(context).push(_fadeSlideRoute(const SettingsScreen()));
+    return openSettingsRoute(context);
   }
 
   static Future<void> openRecord(BuildContext context) =>
-      Navigator.of(context).push(_fadeSlideRoute(const RecordScreen()));
+      Navigator.of(context).push(fadeSlideRoute(const RecordScreen()));
 
   static Future<void> openDetail(BuildContext context, String noteId) =>
       Navigator.of(
         context,
-      ).push(_fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
+      ).push(fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
 
   /// Starts the processing [request]; the processing screen routes to the
   /// detail screen on success. When [replace] is true the current route is
@@ -78,16 +35,6 @@ class AppNavigator {
     ProcessingNavigationRequest request, {
     bool replace = false,
   }) {
-    final route = _fadeSlideRoute(
-      ProcessingScreen(
-        audioPath: request.audioPath,
-        ownership: request.ownership,
-        source: request.source,
-        fileName: request.fileName,
-        knownDurationSec: request.knownDurationSec,
-      ),
-    );
-    final nav = Navigator.of(context);
-    return replace ? nav.pushReplacement(route) : nav.push(route);
+    return startProcessingRoute(context, request, replace: replace);
   }
 }

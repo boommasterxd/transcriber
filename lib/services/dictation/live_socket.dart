@@ -3,13 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'live_failure_classifier.dart';
+import 'live_socket_sender.dart';
 import 'live_transcription.dart';
 
 abstract interface class LiveSocket {
   Stream<Object?> get messages;
   int? get closeCode;
   String? get closeReason;
-  void add(String message);
+  Future<void> send(String message);
   Future<void> close();
 }
 
@@ -19,12 +20,53 @@ typedef LiveSocketConnector =
 Future<LiveSocket> connectLiveSocket(
   Uri uri,
   Map<String, String> headers,
-) async =>
-    IoLiveSocket(await WebSocket.connect(uri.toString(), headers: headers));
+) async {
+  final transports = <Socket>[];
+  var aborted = false;
+  void abort() {
+    aborted = true;
+    for (final socket in transports) {
+      socket.destroy();
+    }
+    transports.clear();
+  }
+
+  final httpClient = HttpClient()
+    ..connectionFactory = (target, proxyHost, proxyPort) async {
+      final host = proxyHost ?? target.host;
+      final port = proxyPort ?? target.port;
+      final task = target.scheme == 'https' && proxyHost == null
+          ? await SecureSocket.startConnect(host, port)
+          : await Socket.startConnect(host, port);
+      final socket = await task.socket;
+      if (aborted) {
+        socket.destroy();
+      } else {
+        transports.add(socket);
+      }
+      return task;
+    };
+  try {
+    final socket = await WebSocket.connect(
+      uri.toString(),
+      headers: headers,
+      customClient: httpClient,
+    );
+    return IoLiveSocket(socket, abort);
+  } catch (_) {
+    abort();
+    rethrow;
+  } finally {
+    httpClient.close(force: true);
+  }
+}
 
 final class IoLiveSocket implements LiveSocket {
-  IoLiveSocket(this._socket);
+  IoLiveSocket(this._socket, this._abort);
   final WebSocket _socket;
+  final void Function() _abort;
+  bool _sending = false;
+  bool _closed = false;
 
   @override
   Stream<Object?> get messages => _socket;
@@ -36,11 +78,30 @@ final class IoLiveSocket implements LiveSocket {
   String? get closeReason => _socket.closeReason;
 
   @override
-  void add(String message) => _socket.add(message);
+  Future<void> send(String message) async {
+    if (_closed || _sending) throw StateError('Socket is not writable.');
+    _sending = true;
+    try {
+      await _socket.addStream(Stream.value(message));
+    } finally {
+      _sending = false;
+    }
+  }
 
   @override
   Future<void> close() async {
-    await _socket.close(WebSocketStatus.normalClosure);
+    if (_closed) return;
+    _closed = true;
+    try {
+      // Initiate WebSocket lifecycle cleanup even if its sink is still bound.
+      await _socket
+          .close(WebSocketStatus.normalClosure)
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // A bound addStream or stalled close must still destroy the transport.
+    } finally {
+      _abort();
+    }
   }
 }
 
@@ -59,6 +120,7 @@ abstract base class LiveSocketTranscriptionClient
   final StreamController<LiveTranscriptionEvent> eventController =
       StreamController<LiveTranscriptionEvent>.broadcast(sync: true);
   LiveSocket? activeSocket;
+  LiveSocketSender? _sender;
   StreamSubscription<Object?>? _subscription;
   _LiveConnectionAttempt? _connectionAttempt;
   Completer<void>? _finishCompleter;
@@ -92,15 +154,19 @@ abstract base class LiveSocketTranscriptionClient
       throw const _LiveConnectionCancelled();
     }
     activeSocket = socket;
+    _sender = LiveSocketSender(
+      write: socket.send,
+      onFailure: _handleSendFailure,
+    );
     _subscription = socket.messages.listen(
-      handleSocketMessage,
+      _dispatchSocketMessage,
       onError: (_) => handleTransportFailure(null),
       onDone: () => handleTransportFailure(
         classifyLiveSocketClosure(socket.closeCode, socket.closeReason),
       ),
       cancelOnError: false,
     );
-    socket.add(jsonEncode(setupMessage));
+    _sender!.add(jsonEncode(setupMessage));
     final setupResult = await Future.any<Object>([
       attempt.setup.future.then((_) => _ConnectionSignal.setup),
       attempt.cancelled.future.then((_) => _ConnectionSignal.cancelled),
@@ -174,22 +240,48 @@ abstract base class LiveSocketTranscriptionClient
   }
 
   void send(Object message) {
-    if (!isClosed) activeSocket?.add(jsonEncode(message));
+    if (!isClosed) _sender?.add(jsonEncode(message));
+  }
+
+  void _handleSendFailure() {
+    failSetupOrEmit('connection_failed');
+    unawaited(close());
   }
 
   Map<String, dynamic>? decodeMessage(Object? raw) {
+    if (!_isBoundedFrame(raw)) {
+      rejectMalformedResponse();
+      return null;
+    }
     try {
       final text = switch (raw) {
         String value => value,
         List<int> bytes => utf8.decode(bytes),
         _ => null,
       };
-      if (text == null) return null;
+      if (text == null) {
+        rejectMalformedResponse();
+        return null;
+      }
       final decoded = jsonDecode(text);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      if (decoded is Map<String, dynamic>) return decoded;
+      rejectMalformedResponse();
+      return null;
     } on FormatException {
+      rejectMalformedResponse();
       return null;
     }
+  }
+
+  void rejectMalformedResponse() {
+    if (isClosed) return;
+    final attempt = _connectionAttempt;
+    if (attempt != null && !attempt.setup.isCompleted) {
+      failSetupOrEmit('provider_rejected');
+    } else {
+      emit(const LiveTranscriptionFailure('provider_rejected'));
+    }
+    unawaited(close());
   }
 
   void emit(LiveTranscriptionEvent event) {
@@ -214,10 +306,33 @@ abstract base class LiveSocketTranscriptionClient
 
   void handleSocketMessage(Object? raw);
 
+  void onClosing() {}
+
+  void _dispatchSocketMessage(Object? raw) {
+    try {
+      handleSocketMessage(raw);
+    } on Object {
+      rejectMalformedResponse();
+    }
+  }
+
+  bool _isBoundedFrame(Object? raw) => switch (raw) {
+    String value =>
+      value.length <= LiveTranscriptionLimits.maximumFrameBytes &&
+          utf8.encode(value).length <=
+              LiveTranscriptionLimits.maximumFrameBytes,
+    List<int> bytes =>
+      bytes.length <= LiveTranscriptionLimits.maximumFrameBytes,
+    _ => false,
+  };
+
   @override
   Future<void> close() async {
     if (isClosed) return;
     isClosed = true;
+    _sender?.close();
+    _sender = null;
+    onClosing();
     final attempt = _connectionAttempt;
     _connectionAttempt = null;
     attempt?.cancel();

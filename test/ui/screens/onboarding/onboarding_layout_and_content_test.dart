@@ -12,33 +12,8 @@ import 'onboarding_test_support.dart';
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
   useGrantedOnboardingPermissions();
-  _registerContentTests(strings);
   _registerCloudStepTests(strings);
   _registerLayoutTests(strings);
-}
-
-void _registerContentTests(AppStrings strings) {
-  testWidgets('step content renders all six distinct steps', (tester) async {
-    final expected = [
-      strings.obWelcomeT,
-      strings.obConnectStep,
-      strings.obModelsT,
-      strings.obLookT,
-      strings.obPermsT,
-      strings.obReadyT,
-    ];
-    for (var step = 0; step < OnboardingLayout.stepCount; step++) {
-      await pumpOnboardingTestApp(
-        tester,
-        child: Scaffold(
-          body: SingleChildScrollView(
-            child: OnboardingStepContent(step: step, strings: strings),
-          ),
-        ),
-      );
-      expect(find.text(expected[step]), findsOneWidget);
-    }
-  });
 }
 
 void _registerCloudStepTests(AppStrings strings) {

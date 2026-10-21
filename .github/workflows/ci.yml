@@ -27,6 +27,9 @@ jobs:
       native: ${{ steps.scope.outputs.native }}
       build: ${{ steps.scope.outputs.build }}
       dependency_audit: ${{ steps.scope.outputs.dependency_audit }}
+      base_sha: ${{ steps.scope.outputs.base_sha }}
+      head_sha: ${{ steps.scope.outputs.head_sha }}
+      merge_sha: ${{ steps.scope.outputs.merge_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,6 +60,14 @@ jobs:
           node-version: "24.x"
           check-latest: true
           package-manager-cache: false
+          cache: npm
+          cache-dependency-path: tool/quality/node/package-lock.json
+      - name: Resolve locked Node quality tools
+        run: npm ci --prefix tool/quality/node --ignore-scripts
+      - name: Check Node quality and gate enforcement
+        run: npm --prefix tool/quality/node run check
+      - name: Audit Node quality dependencies
+        run: npm --prefix tool/quality/node run audit
       - name: Test CI classification and final gate
         run: >-
           node --test --experimental-test-coverage
@@ -206,6 +217,7 @@ jobs:
         run: >-
           node --test test/tool/ci/jvm-test-failure.integration.cjs
           test/tool/ci/native-coverage.integration.cjs
+          test/tool/ci/kotlin-quality.integration.cjs
 
   kotlin-quality:
     name: Android quality and tests
@@ -256,6 +268,7 @@ jobs:
         run: >-
           node --test test/tool/ci/jvm-test-failure.integration.cjs
           test/tool/ci/native-coverage.integration.cjs
+          test/tool/ci/kotlin-quality.integration.cjs
       - name: Verify Flutter bundle assembled by native tests
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
         run: |
@@ -303,4 +316,7 @@ jobs:
       - name: Require every applicable CI job to succeed
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_MERGE_SHA: ${{ github.sha }}
         run: node tool/ci/require-ci-success.cjs

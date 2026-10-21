@@ -138,16 +138,30 @@ final class AudioCacheManager {
   }
 
   Future<void> discard(ManagedAudioFile audio) async {
-    if (audio.ownership == AudioOwnership.external) return;
+    await tryDiscard(audio);
+  }
+
+  /// Deletes app-owned audio when it is no longer active in this engine.
+  ///
+  /// Returns false when an active audio operation still owns the path. The
+  /// caller can keep its durable deletion marker and retry during recovery.
+  Future<bool> tryDiscard(ManagedAudioFile audio) async {
+    if (audio.ownership == AudioOwnership.external) return true;
     final file = File(audio.path);
-    if (_activePaths.contains(_canonicalPath(file))) return;
-    if (!await _isOwned(file, audio.ownership)) return;
-    await _deleteQuietly(file);
+    if (_activePaths.contains(_canonicalPath(file))) return false;
+    if (!await file.exists()) return true;
+    if (!await _isOwned(file, audio.ownership)) return false;
+    return _tryDeleteQuietly(file);
   }
 
   Future<void> deleteRetainedPath(String? path) async {
-    if (path == null) return;
-    await discard(
+    await tryDeleteRetainedPath(path);
+  }
+
+  /// Attempts to delete a retained file without blocking an active operation.
+  Future<bool> tryDeleteRetainedPath(String? path) async {
+    if (path == null) return true;
+    return tryDiscard(
       ManagedAudioFile(path: path, ownership: AudioOwnership.retained),
     );
   }
@@ -241,10 +255,16 @@ final class AudioCacheManager {
       _deleteQuietly(entry.file);
 
   Future<void> _deleteQuietly(File file) async {
+    await _tryDeleteQuietly(file);
+  }
+
+  Future<bool> _tryDeleteQuietly(File file) async {
     try {
       if (await file.exists()) await file.delete();
+      return true;
     } on FileSystemException {
       // Cleanup is best-effort; the next startup pass retries stale files.
+      return false;
     }
   }
 }

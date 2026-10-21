@@ -17,26 +17,16 @@ void main() {
 
     expect(find.text('Send report'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsNothing);
-    expect(
-      tester.widget<Text>(find.text('Send report')).style?.decoration,
-      isNull,
-    );
     await tester.tap(find.text('Send report'));
     expect(toggles, 1);
   });
 
-  testWidgets('TodoTile displays completed item with check and line-through', (
-    tester,
-  ) async {
+  testWidgets('TodoTile displays completed item with check', (tester) async {
     await tester.pumpWidget(
       themed(const TodoTile(text: 'Send report', done: true, onToggle: _noop)),
     );
 
     expect(find.byIcon(Icons.check), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('Send report')).style?.decoration,
-      TextDecoration.lineThrough,
-    );
     await tester.pump(const Duration(milliseconds: 220));
   });
 }

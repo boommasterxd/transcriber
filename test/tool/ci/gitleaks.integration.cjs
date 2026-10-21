@@ -114,5 +114,5 @@ test('an exact historical fingerprint does not exempt later identical credential
   const head = git('rev-parse', 'HEAD');
   assert.equal(scan(['git', '--log-opts', historical + '..' + head, directory],
     directory, ignorePath), 1,
-    'The same credential at the same path and line in a later commit must fail.');
+  'The same credential at the same path and line in a later commit must fail.');
 });

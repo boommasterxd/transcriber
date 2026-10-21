@@ -13,6 +13,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   bool get isDark => brightness == Brightness.dark;
 
+  /// Contrasting outline colors for keyboard focus on accent-colored controls.
+  List<Color> get focusIndicatorColors => isDark ? [surface, ink] : [ink];
+
   Color get accentDeep => mixSrgb(accent, const Color(0xFF000000), 0.80);
   Color get accentSoft => isDark
       ? mixSrgb(accent, const Color(0xFF1B1828), 0.24)

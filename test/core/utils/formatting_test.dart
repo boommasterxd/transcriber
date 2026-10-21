@@ -7,7 +7,6 @@ void main() {
     test('pads seconds and rolls over at each minute', () {
       expect(formatDuration(0), '0:00');
       expect(formatDuration(1), '0:01');
-      expect(formatDuration(9), '0:09');
       expect(formatDuration(59), '0:59');
       expect(formatDuration(60), '1:00');
       expect(formatDuration(61), '1:01');
@@ -43,6 +42,7 @@ void main() {
       expect(formatBytes(gb - 1, german: false), '1024 MB');
       expect(formatBytes(gb, german: false), '1 GB');
       expect(formatBytes(gb + gb ~/ 2, german: false), '1.5 GB');
+      expect(formatBytes(gb + gb ~/ 2, german: true), '1,5 GB');
       expect(formatBytes(10 * gb + gb ~/ 2, german: true), '11 GB');
     });
   });

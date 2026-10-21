@@ -24,6 +24,7 @@ class AppSettingsTable extends Table {
 @TableIndex.sql(
   'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
 )
+@TableIndex.sql('CREATE INDEX notes_audio_path ON notes (audio_path)')
 class NotesTable extends Table {
   @override
   String get tableName => 'notes';
@@ -90,4 +91,15 @@ class MigrationStateTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {key};
+}
+
+/// Durable deletion candidates for retained audio removed with an undoable note.
+class PendingAudioDeletionsTable extends Table {
+  @override
+  String get tableName => 'pending_audio_deletions';
+
+  TextColumn get path => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {path};
 }

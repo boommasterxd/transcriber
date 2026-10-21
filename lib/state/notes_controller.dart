@@ -26,10 +26,11 @@ class NotesController extends Notifier<List<TranscriptNote>> {
         final note = result.deleted;
         if (deleteAudio &&
             note?.audioOwnership == AudioOwnership.retained &&
+            note?.audioPath != null &&
             ref.mounted) {
           await ref
-              .read(audioCacheManagerProvider)
-              .deleteRetainedPath(note!.audioPath);
+              .read(pendingAudioDeletionRecoveryProvider)
+              .finalize(note!.audioPath);
         }
       });
 
@@ -55,8 +56,8 @@ class NotesController extends Notifier<List<TranscriptNote>> {
   Future<void> deleteNoteAudio(TranscriptNote note) async {
     if (note.audioOwnership != AudioOwnership.retained) return;
     await ref
-        .read(audioCacheManagerProvider)
-        .deleteRetainedPath(note.audioPath);
+        .read(pendingAudioDeletionRecoveryProvider)
+        .finalize(note.audioPath);
   }
 
   TranscriptNote? byId(String id) {

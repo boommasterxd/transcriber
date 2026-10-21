@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
+import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/widgets/todo_tile.dart';
 
@@ -133,25 +135,43 @@ void _registerDeleteTest(AppStrings strings) {
     final note = detailTestNote();
     final notes = DetailTestNotesController([note]);
     await tester.pumpWidget(
-      detailTestApp(
-        notes: notes,
-        withMessenger: true,
-        home: TranscriptDetailScreen(noteId: note.id),
-      ),
+      detailTestApp(notes: notes, withMessenger: true, home: _noteListHome()),
     );
+
+    await tester.tap(find.text(note.title));
+    await tester.pumpAndSettle();
 
     await cancelNoteDeletion(tester, strings);
     expect(notes.deletions, isEmpty);
 
     await confirmNoteDeletion(tester, strings);
     expect(notes.deletions, [(id: note.id, deleteAudio: false)]);
-    expect(find.text(strings.errorTitle), findsOneWidget);
-
-    tester.widget<SnackBarAction>(find.byType(SnackBarAction)).onPressed();
+    await tester.pumpAndSettle();
+    expect(find.byType(TranscriptDetailScreen), findsNothing);
+    expect(find.text(note.title), findsNothing);
+    await tester.tap(find.text(strings.undo));
     await tester.pump();
     expect(find.text(note.title), findsOneWidget);
   });
 }
+
+Widget _noteListHome() => Consumer(
+  builder: (context, ref, _) => Scaffold(
+    body: Column(
+      children: [
+        for (final note in ref.watch(notesControllerProvider))
+          TextButton(
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => TranscriptDetailScreen(noteId: note.id),
+              ),
+            ),
+            child: Text(note.title),
+          ),
+      ],
+    ),
+  ),
+);
 
 Future<void> _reveal(WidgetTester tester, Finder finder) async {
   await tester.scrollUntilVisible(

@@ -8,8 +8,8 @@ import android.content.res.AssetFileDescriptor
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
-import android.os.CancellationSignal
 import android.os.Build
+import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
@@ -21,9 +21,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
@@ -97,11 +97,14 @@ class ShareImportProviderTest {
     private fun provider(): FixtureProvider {
         val source = temporary.newFile("source.wav").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
         return FixtureProvider(source).also {
-            it.attachInfo(context, ProviderInfo().apply {
-                authority = "com.transcriber.test.share"
-                applicationInfo = context.applicationInfo
-                exported = false
-            })
+            it.attachInfo(
+                context,
+                ProviderInfo().apply {
+                    authority = "com.transcriber.test.share"
+                    applicationInfo = context.applicationInfo
+                    exported = false
+                }
+            )
         }
     }
 
@@ -147,7 +150,9 @@ class ShareImportProviderTest {
             coordinator.start {
                 try {
                     ShareAudioCache(root, ContentResolver.wrap(provider)) {}.copy(
-                        Uri.parse("content://com.transcriber.test.share/source.wav"), "audio/wav", control,
+                        Uri.parse("content://com.transcriber.test.share/source.wav"),
+                        "audio/wav",
+                        control,
                     )
                 } finally {
                     workerFinished.countDown()
@@ -181,8 +186,12 @@ class ShareImportProviderTest {
         }
 
         override fun query(
-            uri: Uri, projection: Array<out String>?, selection: String?,
-            selectionArgs: Array<out String>?, sortOrder: String?, cancellationSignal: CancellationSignal?,
+            uri: Uri,
+            projection: Array<out String>?,
+            selection: String?,
+            selectionArgs: Array<out String>?,
+            sortOrder: String?,
+            cancellationSignal: CancellationSignal?,
         ): Cursor {
             offMainThread = offMainThread && Looper.myLooper() != Looper.getMainLooper()
             queryEntered.countDown()
@@ -198,8 +207,11 @@ class ShareImportProviderTest {
         }
 
         override fun query(
-            uri: Uri, projection: Array<out String>?, selection: String?,
-            selectionArgs: Array<out String>?, sortOrder: String?,
+            uri: Uri,
+            projection: Array<out String>?,
+            selection: String?,
+            selectionArgs: Array<out String>?,
+            sortOrder: String?,
         ): Cursor = query(uri, projection, selection, selectionArgs, sortOrder, null)
 
         override fun openAssetFile(uri: Uri, mode: String, signal: CancellationSignal?): AssetFileDescriptor {
@@ -221,6 +233,11 @@ class ShareImportProviderTest {
 
         override fun insert(uri: Uri, values: ContentValues?): Uri? = null
         override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
-        override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
+        override fun update(
+            uri: Uri,
+            values: ContentValues?,
+            selection: String?,
+            selectionArgs: Array<out String>?
+        ): Int = 0
     }
 }

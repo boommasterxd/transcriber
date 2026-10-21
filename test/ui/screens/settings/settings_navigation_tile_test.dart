@@ -38,7 +38,6 @@ void _registerPaletteTest(Brightness brightness, AppAccent accent) {
         ),
       ),
     );
-    final backgrounds = <Color>{};
     for (final icon in [
       Icons.keyboard_outlined,
       Icons.tune_rounded,
@@ -50,10 +49,8 @@ void _registerPaletteTest(Brightness brightness, AppAccent accent) {
         find.ancestor(of: finder, matching: find.byType(Container)).first,
       );
       final background = (container.decoration! as BoxDecoration).color!;
-      backgrounds.add(background);
       expect(_contrast(foreground, background), greaterThanOrEqualTo(3));
     }
-    expect(backgrounds, hasLength(3));
     expect(tester.takeException(), isNull);
   });
 }

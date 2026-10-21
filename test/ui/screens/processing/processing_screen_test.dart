@@ -112,12 +112,72 @@ void main() {
     );
     expect(detail.noteId, 'note-42');
   });
+
+  _registerReentryNavigationTest();
+}
+
+void _registerReentryNavigationTest() {
+  testWidgets('System Back releases the old route before a new import starts', (
+    tester,
+  ) async {
+    final controller = _FakeProcessingController(
+      const ProcessingState(running: true),
+    );
+    await _pumpScreen(
+      tester,
+      controller,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ProcessingScreen(
+                  audioPath: '/tmp/audio.m4a',
+                  ownership: AudioOwnership.external,
+                  source: NoteSource.file,
+                ),
+              ),
+            ),
+            child: const Text('Import'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Import'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    final firstOwner = controller.lastOwner;
+
+    await tester.binding.handlePopRoute();
+    expect(controller.discardedOwners, contains(firstOwner));
+    controller.emit(ProcessingState(result: _note('discarded-note')));
+    await tester.pumpAndSettle();
+    expect(find.text('Import'), findsOneWidget);
+    expect(find.byType(TranscriptDetailScreen), findsNothing);
+
+    controller.emit(const ProcessingState(running: true));
+    await tester.tap(find.text('Import'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(controller.runCount, 2);
+    expect(controller.lastOwner, isNot(same(firstOwner)));
+    controller.emit(ProcessingState(result: _note('second-note')));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester
+          .widget<TranscriptDetailScreen>(find.byType(TranscriptDetailScreen))
+          .noteId,
+      'second-note',
+    );
+  });
 }
 
 Future<void> _pumpScreen(
   WidgetTester tester,
   _FakeProcessingController controller, {
   NavigatorObserver? observer,
+  Widget? home,
 }) async {
   final database = testDatabase();
   addTearDown(database.close);
@@ -140,12 +200,14 @@ Future<void> _pumpScreen(
             ],
           ),
           navigatorObservers: [?observer],
-          home: const ProcessingScreen(
-            audioPath: '/tmp/audio.m4a',
-            ownership: AudioOwnership.external,
-            source: NoteSource.file,
-            fileName: 'meeting.m4a',
-          ),
+          home:
+              home ??
+              const ProcessingScreen(
+                audioPath: '/tmp/audio.m4a',
+                ownership: AudioOwnership.external,
+                source: NoteSource.file,
+                fileName: 'meeting.m4a',
+              ),
         ),
       ),
     ),
@@ -185,6 +247,8 @@ final class _FakeProcessingController extends ProcessingController {
   int runCount = 0;
   ProcessingInput? lastInput;
   String? lastFileName;
+  Object? lastOwner;
+  final discardedOwners = <Object?>[];
 
   @override
   ProcessingState build() => initialState;
@@ -194,10 +258,20 @@ final class _FakeProcessingController extends ProcessingController {
     ProcessingInput input, {
     String? fileName,
     bool save = true,
+    Object? owner,
   }) async {
     runCount++;
     lastInput = input;
     lastFileName = fileName;
+    lastOwner = owner;
+  }
+
+  @override
+  bool isOwnedBy(Object owner) => identical(owner, lastOwner);
+
+  @override
+  Future<void> discardCurrent({Object? owner}) async {
+    discardedOwners.add(owner);
   }
 
   void emit(ProcessingState next) => state = next;

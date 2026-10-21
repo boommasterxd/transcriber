@@ -63,7 +63,19 @@ final class ProcessingRequest {
 
 /// Optional observer callbacks for the visible cloud processing stages.
 final class ProcessingCallbacks {
-  const ProcessingCallbacks({this.onStep});
+  const ProcessingCallbacks({this.onStep, this.isCancelled});
 
   final ProcessingStepCallback? onStep;
+  final bool Function()? isCancelled;
+
+  /// Stops subsequent local stages; an in-flight provider request may complete.
+  void throwIfCancelled() {
+    if (isCancelled?.call() ?? false) {
+      throw const ProcessingCancelledException();
+    }
+  }
+}
+
+final class ProcessingCancelledException implements Exception {
+  const ProcessingCancelledException();
 }

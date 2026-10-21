@@ -60,6 +60,7 @@ class AppearanceSection extends ConsumerWidget {
             child: AccentSwatches(
               selected: appearance.accent,
               onSelected: ctrl.setAccent,
+              strings: t,
             ),
           ),
         ],

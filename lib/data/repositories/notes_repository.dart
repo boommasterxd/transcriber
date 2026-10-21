@@ -8,6 +8,8 @@ import 'notes_history_query.dart';
 
 /// Persists notes and their ordered child collections in Drift.
 class NotesRepository {
+  static const maxPendingAudioDeletionBatchSize = 128;
+
   NotesRepository(this._database);
 
   final AppDatabase _database;
@@ -28,6 +30,64 @@ class NotesRepository {
 
   Future<TranscriptNote?> findById(String id) =>
       _database.transaction(() => _findById(id));
+
+  /// Returns the oldest queued retained audio deletion candidates first.
+  Future<List<String>> pendingAudioDeletionPaths({int limit = 128}) async {
+    if (limit <= 0 || limit > maxPendingAudioDeletionBatchSize) {
+      throw ArgumentError.value(limit, 'limit');
+    }
+    final query = _database.select(_database.pendingAudioDeletionsTable);
+    query
+      ..orderBy([(table) => OrderingTerm.asc(table.rowId)])
+      ..limit(limit);
+    final rows = await query.get();
+    return rows.map((row) => row.path).toList(growable: false);
+  }
+
+  /// Processes one queued file while serializing note restoration against it.
+  Future<bool> tryProcessPendingAudioDeletion(
+    String path,
+    Future<bool> Function(String path) deleteFile,
+  ) => _database.transaction(() async {
+    // Claim the marker before checking references. The DELETE takes SQLite's
+    // writer lock, including across the share engine's separate connection.
+    final claimed = await (_database.delete(
+      _database.pendingAudioDeletionsTable,
+    )..where((table) => table.path.equals(path))).go();
+    if (claimed == 0) return true;
+
+    if (await _hasRetainedAudioReference(path)) {
+      return true;
+    }
+
+    if (!await deleteFile(path)) {
+      // Reinsert behind remaining candidates so failures cannot block recovery.
+      await _queuePendingAudioDeletion(path);
+      return false;
+    }
+    return true;
+  });
+
+  Future<void> _queuePendingAudioDeletion(String path) => _database
+      .into(_database.pendingAudioDeletionsTable)
+      .insertOnConflictUpdate(
+        PendingAudioDeletionsTableCompanion.insert(path: path),
+      );
+
+  Future<bool> _hasRetainedAudioReference(String path) async {
+    final row =
+        await (_database.selectOnly(_database.notesTable)
+              ..addColumns([_database.notesTable.id])
+              ..where(
+                _database.notesTable.audioPath.equals(path) &
+                    _database.notesTable.audioOwnership.equals(
+                      AudioOwnership.retained.id,
+                    ),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row != null;
+  }
 
   Future<TranscriptNote?> _findById(String id) async {
     final row = await (_database.select(
@@ -96,6 +156,12 @@ class NotesRepository {
         await _database
             .into(_database.notesTable)
             .insertOnConflictUpdate(_toNoteCompanion(note));
+        if (note.audioOwnership == AudioOwnership.retained &&
+            note.audioPath != null) {
+          await (_database.delete(
+            _database.pendingAudioDeletionsTable,
+          )..where((table) => table.path.equals(note.audioPath!))).go();
+        }
         await _deleteChildren(note.id);
         await _database.batch((batch) {
           batch.insertAll(_database.notePointsTable, _pointRows([note]));
@@ -127,6 +193,15 @@ class NotesRepository {
               row.read(_database.notesTable.audioOwnership),
             ),
           );
+    final audioPath = deleted?.audioPath;
+    if (deleted?.audioOwnership == AudioOwnership.retained &&
+        audioPath != null) {
+      await _database
+          .into(_database.pendingAudioDeletionsTable)
+          .insertOnConflictUpdate(
+            PendingAudioDeletionsTableCompanion.insert(path: audioPath),
+          );
+    }
     await _deleteChildren(id);
     await (_database.delete(
       _database.notesTable,

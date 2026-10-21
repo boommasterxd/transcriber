@@ -8,8 +8,10 @@ import 'data/database/legacy_preferences_migrator.dart';
 import 'data/models/app_settings.dart';
 import 'data/models/remote_provider.dart';
 import 'data/models/transcript_note.dart';
+import 'data/repositories/notes_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'services/storage/audio_cache_manager.dart';
+import 'services/storage/pending_audio_deletion_recovery.dart';
 import 'state/providers.dart';
 
 /// Fully initialized application dependencies and synchronous seed state.
@@ -33,9 +35,14 @@ final class AppBootstrapData {
 Future<void> runBootstrappedApp({
   required Widget app,
   Future<AppBootstrapData> Function()? loadBootstrap,
+  bool recoverPendingAudioDeletes = true,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final bootstrap = await (loadBootstrap ?? loadAppBootstrap)();
+  final bootstrap = loadBootstrap == null
+      ? await loadAppBootstrap(
+          recoverPendingAudioDeletes: recoverPendingAudioDeletes,
+        )
+      : await loadBootstrap();
 
   runApp(
     ProviderScope(
@@ -57,6 +64,7 @@ Future<AppBootstrapData> loadAppBootstrap({
   SharedPreferences? preferences,
   FlutterSecureStorage secureStorage = const FlutterSecureStorage(),
   AudioCacheManager? cacheManager,
+  bool recoverPendingAudioDeletes = true,
 }) async {
   final resolvedDatabase = database ?? AppDatabase.defaults();
   final legacyPreferences =
@@ -73,6 +81,12 @@ Future<AppBootstrapData> loadAppBootstrap({
   );
   final resolvedCacheManager = cacheManager ?? AudioCacheManager();
   await resolvedCacheManager.cleanup();
+  if (recoverPendingAudioDeletes) {
+    await PendingAudioDeletionRecovery(
+      NotesRepository(resolvedDatabase),
+      resolvedCacheManager,
+    ).recover();
+  }
 
   return AppBootstrapData(
     database: resolvedDatabase,

@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const childProcess = require('node:child_process');
 const test = require('node:test');
-const { detectDocsOnly, detectChangeScope, classifyPaths, parseJvmClasses } = require('../../../tool/ci/detect-change-scope.cjs');
+const { detectDocsOnly, detectChangeScope, classifyPaths, parseJvmClasses, createChangePlan } = require('../../../tool/ci/detect-change-scope.cjs');
 
 function scope(...checks) {
   return { docs_only: checks.length === 0,
@@ -34,12 +34,16 @@ test('JVM mappings accept only a nonempty manifest of unique qualified classes',
 test('known paths request precisely their relevant checks', () => {
   const cases = [
     ['docs/nested/guide.md', []],
-    ['.github/workflows/release.yml', ['workflow']],
-    ['.github/dependabot.yml', ['workflow']],
+    ['.github/workflows/release.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
+    ['.github/workflows/build-apk.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
+    ['.github/workflows/codeql.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
+    ['.github/dependabot.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
     ['tool/ci/check-native-file-length.cjs', ['workflow']],
     ['test/tool/ci/check-native-file-length.test.cjs', ['workflow']],
     ['test/tool/ci/jvm-test-failure.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/native-coverage.integration.cjs', ['workflow', 'jvm']],
+    ['test/tool/ci/jvm_fixture.cjs', ['workflow', 'jvm']],
+    ['test/tool/ci/kotlin-quality.integration.cjs', ['workflow', 'jvm']],
     ['android/app/src/main/kotlin/Example.kt', ['dart', 'native']],
     ['android/app/src/main/AndroidManifest.xml', ['dart', 'native']],
     ['android/app/src/main/res/values/strings.xml', ['dart', 'native']],
@@ -298,7 +302,7 @@ test('CLI emits the complete GitHub output plan and exits successfully on uncert
       cwd, encoding: 'utf8', timeout: 5000,
       env: { ...process.env, CHANGE_EVENT: event, CHANGE_BASE_SHA: base, CHANGE_HEAD_SHA: head },
     });
-    const expected = detectChangeScope(event, base, head, cwd);
+    const expected = createChangePlan(event, base, head, cwd);
     assert.equal(output, Object.entries(expected).map(([name, value]) => `${name}=${value}\n`).join(''));
   }
 });
@@ -314,4 +318,38 @@ test('real deletions and cross-category renames include both affected check sets
   fs.rmSync(path.join(cwd, 'test/example_test.dart'));
   assert.deepEqual(detectChangeScope('pull_request', moved, commit(cwd), cwd), scope('dart'));
   assert.equal(detectChangeScope('push', base, moved, cwd).docs_only, false);
+});
+
+test('every workflow and shared dependency configuration selects all applicable checks', () => {
+  for (const file of ['release.yml', 'build-apk.yml', 'codeql.yml', 'commit-style-check.yml',
+    'dependabot-auto-merge.yml', 'update-flutter.yml', 'new-workflow.yaml']) {
+    assert.deepEqual(classifyPaths([`.github/workflows/${file}`]),
+      scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'));
+  }
+});
+
+test('plans carry the actual checkout and PR comparison revisions', (context) => {
+  const { cwd, base } = fixture(context);
+  write(cwd, 'docs/guide.md', 'Updated\n');
+  const head = commit(cwd);
+  const plan = createChangePlan('pull_request', base, head, cwd);
+  assert.deepEqual(plan, { ...scope(), base_sha: base, head_sha: head, merge_sha: head });
+  const manual = createChangePlan('workflow_dispatch', undefined, undefined, cwd);
+  assert.deepEqual(manual, {
+    ...scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'),
+    base_sha: head, head_sha: head, merge_sha: head,
+  });
+  assert.throws(() => createChangePlan('pull_request', '', head, cwd), /valid.*revisions/);
+  assert.throws(() => createChangePlan('pull_request', base, head, path.join(cwd, 'missing')));
+});
+
+test('planning CLI cannot emit an unbound plan when comparison revisions are missing', (context) => {
+  const { cwd } = fixture(context);
+  const script = path.join(__dirname, '../../../tool/ci/detect-change-scope.cjs');
+  const result = childProcess.spawnSync(process.execPath, [script], {
+    cwd, encoding: 'utf8', timeout: 5000,
+    env: { ...process.env, CHANGE_EVENT: 'pull_request', CHANGE_BASE_SHA: '', CHANGE_HEAD_SHA: '' },
+  });
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, '');
 });

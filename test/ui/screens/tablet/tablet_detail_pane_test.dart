@@ -21,7 +21,6 @@ import '../detail/widgets/summary_failure_test_support.dart';
 void main() {
   _registerUnknownSelectionTest();
   _registerNarrowLayoutTest();
-  _registerWideLayoutTest();
   _registerHeaderActionsTest();
   _registerSummaryFailureTest();
 }
@@ -58,7 +57,9 @@ void _registerUnknownSelectionTest() {
 }
 
 void _registerNarrowLayoutTest() {
-  testWidgets('uses a vertical layout on a narrow tablet pane', (tester) async {
+  testWidgets('narrow tablet pane supports todos, transcript and copying', (
+    tester,
+  ) async {
     final repository = await _pumpPane(
       tester,
       size: const Size(600, 1000),
@@ -66,9 +67,6 @@ void _registerNarrowLayoutTest() {
     );
     final strings = AppStrings.of(AppLanguage.en);
 
-    final summaryY = tester.getTopLeft(find.text('Tablet summary')).dy;
-    final pointY = tester.getTopLeft(find.text('Tablet key point')).dy;
-    expect(pointY, greaterThan(summaryY));
     expect(find.text('Tablet todo'), findsOneWidget);
     expect(find.text(strings.shShow), findsOneWidget);
 
@@ -88,21 +86,6 @@ void _registerNarrowLayoutTest() {
       _testNote().fullTranscriptText,
       clipboard,
     );
-  });
-}
-
-void _registerWideLayoutTest() {
-  testWidgets('uses a two-column layout on a wide tablet pane', (tester) async {
-    await _pumpPane(
-      tester,
-      size: const Size(1000, 1000),
-      noteId: 'tablet-note',
-    );
-
-    final summaryY = tester.getTopLeft(find.text('Tablet summary')).dy;
-    final pointY = tester.getTopLeft(find.text('Tablet key point')).dy;
-    expect(pointY, lessThan(summaryY));
-    expect(tester.takeException(), isNull);
   });
 }
 

@@ -9,6 +9,7 @@ import '../../../../state/processing_controller.dart';
 mixin ProcessingControllerLifecycle<T extends ConsumerStatefulWidget>
     on ConsumerState<T> {
   late final ProcessingController processingController;
+  final processingOwner = Object();
 
   /// Starts the processing run after the first frame has been rendered.
   void startProcessing();
@@ -24,7 +25,17 @@ mixin ProcessingControllerLifecycle<T extends ConsumerStatefulWidget>
 
   @override
   void dispose() {
-    unawaited(processingController.discardCurrent());
+    discardProcessing();
     super.dispose();
+  }
+
+  void discardProcessing() {
+    unawaited(
+      processingController.discardCurrent(owner: processingOwner).catchError((
+        Object _,
+      ) {
+        // A closed route cannot present errors; cache cleanup retries later.
+      }),
+    );
   }
 }

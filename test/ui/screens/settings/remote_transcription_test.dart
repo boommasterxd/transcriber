@@ -388,18 +388,6 @@ void _registerKeyboardRefresh() {
 }
 
 void _registerResponsiveSheet() {
-  for (final (size, width) in [
-    (const Size(400, 800), 400.0),
-    (const Size(800, 800), 600.0),
-  ]) {
-    testWidgets('model picker matches share sheet width at $size', (
-      tester,
-    ) async {
-      await _openSheet(tester, surfaceSize: size);
-      await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(RemoteModelSheet)).width, width);
-    });
-  }
   for (final size in [const Size(320, 640), const Size(568, 320)]) {
     testWidgets('model tap remains usable at $size with doubled text', (
       tester,

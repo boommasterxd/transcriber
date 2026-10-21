@@ -20,6 +20,7 @@ import 'processing_request.dart';
 export 'processing_request.dart'
     show
         ProcessingCallbacks,
+        ProcessingCancelledException,
         ProcessingCredentials,
         ProcessingInput,
         ProcessingRequest,
@@ -53,26 +54,29 @@ final class ProcessingPipeline {
     ProcessingRequest request, {
     ProcessingCallbacks callbacks = const ProcessingCallbacks(),
   }) async {
+    callbacks.throwIfCancelled();
     _validateCredentials(request);
     await _cacheManager.validate(request.input.audio);
+    callbacks.throwIfCancelled();
     _cacheManager.markActive(request.input.audio);
-    late TranscriptNote note;
     try {
       final duration =
           request.input.knownDurationSec ??
           await _metadata.durationSeconds(request.input.audioPath);
-      note = await _process(
+      callbacks.throwIfCancelled();
+      final note = await _process(
         request.withKnownDuration(duration),
         callbacks: callbacks,
+      );
+      callbacks.throwIfCancelled();
+      final retained = await _retainedAudio(request);
+      return note.copyWith(
+        audioPath: retained?.path,
+        audioOwnership: retained?.ownership ?? AudioOwnership.external,
       );
     } finally {
       _cacheManager.markInactive(request.input.audio);
     }
-    final retained = await _retainedAudio(request);
-    return note.copyWith(
-      audioPath: retained?.path,
-      audioOwnership: retained?.ownership ?? AudioOwnership.external,
-    );
   }
 
   void _validateCredentials(ProcessingRequest request) {
@@ -91,7 +95,9 @@ final class ProcessingPipeline {
   }) async {
     final fallbackTitle = _fallbackTitle(request);
     callbacks.onStep?.call(ProcessingStep.transcribing);
+    callbacks.throwIfCancelled();
     final transcription = await _transcribe(request);
+    callbacks.throwIfCancelled();
     late SummaryResult summary;
     String? summaryError;
     try {
@@ -102,6 +108,7 @@ final class ProcessingPipeline {
         callbacks,
       );
     } catch (error) {
+      callbacks.throwIfCancelled();
       summary = SummaryResult(
         title: fallbackTitle,
         gist: '',
@@ -110,6 +117,7 @@ final class ProcessingPipeline {
       );
       summaryError = _summaryError(error, request);
     }
+    callbacks.throwIfCancelled();
     final note = await _assembleNote(
       request,
       transcription,
@@ -168,6 +176,7 @@ final class ProcessingPipeline {
       );
     }
     callbacks.onStep?.call(ProcessingStep.summarizing);
+    callbacks.throwIfCancelled();
     final settings = request.settings;
     final client = _clientBuilder(
       settings.summaryProvider,

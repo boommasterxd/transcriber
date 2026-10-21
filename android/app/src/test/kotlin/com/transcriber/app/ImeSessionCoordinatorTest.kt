@@ -34,7 +34,10 @@ class ImeSessionCoordinatorTest {
         `when`(loader.findAppBundlePath()).thenReturn("test-assets")
         mockStatic(FlutterInjector::class.java).use { factory ->
             factory.`when`<FlutterInjector> { FlutterInjector.instance() }.thenReturn(injector)
-            mockConstruction(FlutterEngine::class.java, withSettings().defaultAnswer(RETURNS_DEEP_STUBS)).use { engines ->
+            mockConstruction(
+                FlutterEngine::class.java,
+                withSettings().defaultAnswer(RETURNS_DEEP_STUBS)
+            ).use { engines ->
                 val coordinator = ImeSessionCoordinator(service)
                 coordinator.create()
                 assertNotNull(coordinator.inputView)

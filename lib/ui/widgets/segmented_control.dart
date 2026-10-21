@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_palette.dart';
+import 'keyboard_action_target.dart';
 
 /// One option in an [AnimatedSegmentedControl].
 class SegmentOption {
@@ -70,9 +71,14 @@ class AnimatedSegmentedControl extends StatelessWidget {
             children: [
               for (var i = 0; i < n; i++)
                 Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onChanged(i),
+                  child: KeyboardActionTarget(
+                    action: (
+                      label: options[i].label,
+                      onActivate: () => onChanged(i),
+                      focusBorderRadius: BorderRadius.circular(9999),
+                      selected: i == selectedIndex,
+                      inMutuallyExclusiveGroup: true,
+                    ),
                     child: _Segment(
                       option: options[i],
                       selected: i == selectedIndex,

@@ -99,13 +99,15 @@ class ShareActivity : FlutterActivity() {
     }
 
     private fun isSupportedShareIntent(intent: Intent): Boolean {
-        val actionSupported = intent.action == Intent.ACTION_SEND ||
+        val actionSupported = intent.action == Intent.ACTION_VIEW ||
+            intent.action == Intent.ACTION_SEND ||
             intent.action == Intent.ACTION_SEND_MULTIPLE
         val type = intent.type?.trim()?.lowercase(Locale.ROOT)
         return actionSupported && type?.startsWith("audio/") == true
     }
 
     private fun readSharedUri(intent: Intent): Uri? {
+        if (intent.action == Intent.ACTION_VIEW) return intent.data
         val stream = intent.extras?.get(Intent.EXTRA_STREAM)
         val extraUri = when (intent.action) {
             Intent.ACTION_SEND -> stream as? Uri

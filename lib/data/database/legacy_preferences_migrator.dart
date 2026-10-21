@@ -35,13 +35,13 @@ class LegacyPreferencesMigrator {
   ];
 
   Future<void> migrate() async {
-    final imported = _readLegacyData();
-    await database.transaction(() async {
+    final imported = await database.transaction<_LegacyData?>(() async {
       final existing = await (database.select(
         database.migrationStateTable,
       )..where((table) => table.key.equals(marker))).getSingleOrNull();
-      if (existing != null) return;
+      if (existing != null) return null;
 
+      final imported = _readLegacyData();
       await database
           .into(database.migrationStateTable)
           .insert(
@@ -52,12 +52,13 @@ class LegacyPreferencesMigrator {
           );
       await SettingsRepository(database).save(imported.settings);
       await NotesRepository(database).replaceAllInTransaction(imported.notes);
+      return imported;
     });
 
-    if (imported.settingsCanBeRemoved) {
+    if (imported?.settingsCanBeRemoved ?? false) {
       await preferences.remove(_settingsKey);
     }
-    if (imported.notesCanBeRemoved) {
+    if (imported?.notesCanBeRemoved ?? false) {
       await preferences.remove(_notesKey);
     }
     await secureStorage.delete(key: _hfTokenKey);

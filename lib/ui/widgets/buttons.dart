@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_accent.dart';
 import '../../core/theme/app_palette.dart';
+import 'keyboard_action_target.dart';
 
 /// Wraps [child] so it scales down briefly while pressed, providing tactile feedback
 /// without an ink ripple. Used by the primary buttons and tappable tiles.
@@ -9,12 +11,12 @@ class PressableScale extends StatefulWidget {
   const PressableScale({
     super.key,
     required this.child,
-    required this.onTap,
+    required this.action,
     this.pressedScale = 0.96,
   });
 
   final Widget child;
-  final VoidCallback onTap;
+  final KeyboardAction action;
   final double pressedScale;
 
   @override
@@ -30,9 +32,8 @@ class _PressableScaleState extends State<PressableScale> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
+    return KeyboardActionTarget(
+      action: widget.action,
       onTapDown: (_) => _set(true),
       onTapUp: (_) => _set(false),
       onTapCancel: () => _set(false),
@@ -78,7 +79,13 @@ class PillButton extends StatelessWidget {
     final palette = context.palette;
     final fg = outlined ? palette.accent : palette.onAccent;
     return PressableScale(
-      onTap: onTap,
+      action: (
+        label: label,
+        onActivate: onTap,
+        focusBorderRadius: BorderRadius.circular(20),
+        selected: null,
+        inMutuallyExclusiveGroup: false,
+      ),
       child: Container(
         height: height,
         decoration: BoxDecoration(
@@ -131,19 +138,42 @@ class IconCircleButton extends StatelessWidget {
   const IconCircleButton({
     super.key,
     required this.icon,
+    this.semanticLabel,
     required this.onTap,
     this.size = 42,
   });
 
   final IconData icon;
+  final String? semanticLabel;
   final VoidCallback onTap;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final strings = AppStrings.of(
+      Localizations.localeOf(context).languageCode == 'de'
+          ? AppLanguage.de
+          : AppLanguage.en,
+    );
+    final label =
+        semanticLabel ??
+        switch (icon) {
+          Icons.close_rounded => strings.actionClose,
+          Icons.arrow_back_ios_new_rounded => strings.actionBack,
+          Icons.delete_outline_rounded => strings.actionDelete,
+          Icons.ios_share_rounded => strings.actionShare,
+          Icons.settings_outlined => strings.setTitle,
+          _ => strings.actionClose,
+        };
     return PressableScale(
-      onTap: onTap,
+      action: (
+        label: label,
+        onActivate: onTap,
+        focusBorderRadius: BorderRadius.circular(size),
+        selected: null,
+        inMutuallyExclusiveGroup: false,
+      ),
       pressedScale: 0.9,
       child: Container(
         width: size,
@@ -171,43 +201,55 @@ class AccentSwatches extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
+    required this.strings,
     this.size = 40,
   });
 
   final AppAccent selected;
   final ValueChanged<AppAccent> onSelected;
+  final AppStrings strings;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 14,
-      runSpacing: 14,
-      children: [
-        for (final accent in AppAccent.values)
-          GestureDetector(
-            onTap: () => onSelected(accent),
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: accent.color,
-                shape: BoxShape.circle,
-                boxShadow: accent == selected
-                    ? [
-                        BoxShadow(color: palette.surface, spreadRadius: 3),
-                        BoxShadow(color: accent.color, spreadRadius: 5),
-                      ]
-                    : [BoxShadow(color: palette.shadow, blurRadius: 8)],
+    return Semantics(
+      label: strings.accentC,
+      container: true,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 14,
+        runSpacing: 14,
+        children: [
+          for (final accent in AppAccent.values)
+            PressableScale(
+              action: (
+                label: strings.accentName(accent),
+                onActivate: () => onSelected(accent),
+                focusBorderRadius: BorderRadius.circular(size),
+                selected: accent == selected,
+                inMutuallyExclusiveGroup: true,
               ),
-              child: accent == selected
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : null,
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: accent.color,
+                  shape: BoxShape.circle,
+                  boxShadow: accent == selected
+                      ? [
+                          BoxShadow(color: palette.surface, spreadRadius: 3),
+                          BoxShadow(color: accent.color, spreadRadius: 5),
+                        ]
+                      : [BoxShadow(color: palette.shadow, blurRadius: 8)],
+                ),
+                child: accent == selected
+                    ? const Icon(Icons.check, color: Colors.white, size: 16)
+                    : null,
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

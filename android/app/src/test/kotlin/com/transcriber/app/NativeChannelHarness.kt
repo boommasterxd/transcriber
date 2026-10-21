@@ -3,8 +3,8 @@ package com.transcriber.app
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.StandardMethodCodec
-import java.nio.ByteBuffer
 import org.junit.Assert.assertEquals
+import java.nio.ByteBuffer
 
 /** Exercises the real platform channel codec against an in-memory transport. */
 internal class NativeChannelHarness : BinaryMessenger {

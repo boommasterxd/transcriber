@@ -1,10 +1,10 @@
-import javax.xml.XMLConstants
-import javax.xml.parsers.DocumentBuilderFactory
 import org.gradle.api.tasks.testing.Test
 import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.w3c.dom.Element
+import javax.xml.XMLConstants
+import javax.xml.parsers.DocumentBuilderFactory
 
 configure<JacocoPluginExtension> { toolVersion = "0.8.14" }
 

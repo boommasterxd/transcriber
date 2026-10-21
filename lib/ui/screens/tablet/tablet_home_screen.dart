@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../state/history_controller.dart';
 import '../../../state/providers.dart';
+import '../../../state/settings_controller.dart';
 import '../home/audio_import.dart';
 import '../home/widgets/tablet_empty_pane.dart';
 import '../home/widgets/tablet_sidebar.dart';
@@ -39,6 +40,7 @@ class _TabletHomeScreenState extends ConsumerState<TabletHomeScreen> {
                   onPickFile: () => startAudioImport(
                     context,
                     cacheManager: ref.read(audioCacheManagerProvider),
+                    strings: ref.read(stringsProvider),
                   ),
                 ),
               ),

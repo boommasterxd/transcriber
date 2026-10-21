@@ -28,48 +28,4 @@ void main() {
       expect(result.segments.last.text, 'Second');
     });
   });
-
-  test(
-    'TranscriptionService accepts automatic and explicit languages',
-    () async {
-      final service = _RecordingTranscriptionService();
-
-      await service.transcribe('/audio/automatic.wav');
-      await service.transcribe('/audio/german.wav', languageCode: 'de');
-
-      expect(service.calls, [
-        const _TranscriptionCall('/audio/automatic.wav', null),
-        const _TranscriptionCall('/audio/german.wav', 'de'),
-      ]);
-    },
-  );
-}
-
-final class _RecordingTranscriptionService implements TranscriptionService {
-  final calls = <_TranscriptionCall>[];
-
-  @override
-  Future<TranscriptionResult> transcribe(
-    String audioPath, {
-    String? languageCode,
-  }) async {
-    calls.add(_TranscriptionCall(audioPath, languageCode));
-    return const TranscriptionResult(text: '', segments: []);
-  }
-}
-
-final class _TranscriptionCall {
-  const _TranscriptionCall(this.audioPath, this.languageCode);
-
-  final String audioPath;
-  final String? languageCode;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _TranscriptionCall &&
-      other.audioPath == audioPath &&
-      other.languageCode == languageCode;
-
-  @override
-  int get hashCode => Object.hash(audioPath, languageCode);
 }

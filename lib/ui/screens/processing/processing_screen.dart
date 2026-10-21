@@ -8,7 +8,7 @@ import '../../../services/processing/processing_request.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/processing_controller.dart';
 import '../../../state/settings_controller.dart';
-import '../../navigation.dart';
+import '../../navigation_routes.dart';
 import '../detail/transcript_detail_screen.dart';
 import 'widgets/processing_controller_lifecycle.dart';
 import 'widgets/processing_error_view.dart';
@@ -50,10 +50,12 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
         knownDurationSec: widget.knownDurationSec,
       ),
       fileName: widget.fileName,
+      owner: processingOwner,
     );
   }
 
   void _onResult(TranscriptNote note) {
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => TranscriptDetailScreen(noteId: note.id),
@@ -76,11 +78,15 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
     );
 
     ref.listen(processingControllerProvider, (prev, next) {
-      if (next.result != null) _onResult(next.result!);
+      if (next.result != null &&
+          processingController.isOwnedBy(processingOwner)) {
+        _onResult(next.result!);
+      }
     });
 
+    final Widget content;
     if (state.hasError) {
-      return ProcessingErrorView(
+      content = ProcessingErrorView(
         presentation: ProcessingErrorPresentation.resolve(state.error!, t),
         actions: ProcessingErrorActions(
           onRetry: () {
@@ -88,27 +94,33 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
             startProcessing();
           },
           onClose: () => Navigator.of(context).pop(),
-          onOpenSettings: () => AppNavigator.openSettings(context),
+          onOpenSettings: () => openSettingsRoute(context),
         ),
       );
-    }
-
-    return Scaffold(
-      backgroundColor: palette.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 34),
-          child: Center(
-            child: ProcessingStatusContent(
-              presentation: presentation,
-              strings: t,
-              fileName: state.fileName.isEmpty
-                  ? (widget.fileName ?? '')
-                  : state.fileName,
+    } else {
+      content = Scaffold(
+        backgroundColor: palette.bg,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 34),
+            child: Center(
+              child: ProcessingStatusContent(
+                presentation: presentation,
+                strings: t,
+                fileName: state.fileName.isEmpty
+                    ? (widget.fileName ?? '')
+                    : state.fileName,
+              ),
             ),
           ),
         ),
-      ),
+      );
+    }
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) discardProcessing();
+      },
+      child: content,
     );
   }
 }

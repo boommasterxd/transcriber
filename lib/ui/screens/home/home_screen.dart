@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../state/providers.dart';
 import '../../../state/history_controller.dart';
+import '../../../state/settings_controller.dart';
 import 'audio_import.dart';
 import 'widgets/phone_home_view.dart';
 
@@ -19,6 +20,7 @@ class HomeScreen extends ConsumerWidget {
       onPickFile: () => startAudioImport(
         context,
         cacheManager: ref.read(audioCacheManagerProvider),
+        strings: ref.read(stringsProvider),
       ),
     );
   }
