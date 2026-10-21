@@ -41,11 +41,30 @@ function checksForPath(path) {
     'tool/ci/require-ci-success.cjs', 'test/tool/ci/require-ci-success.test.cjs',
     'test/tool/ci/gitleaks.integration.cjs',
     '.github/actions/setup-flutter/action.yml'].includes(path)) return CHECKS;
+  // Workflows define CI, release, build, and maintenance behavior. Any edit can
+  // change the effective project gates or artifact pipeline, so validate fully.
   if (/^\.github\/workflows\/[^/]+\.ya?ml$/.test(path)
-    || ['.github/dependabot.yml', '.github/release.yml'].includes(path)) return ['workflow'];
+    || ['.github/dependabot.yml', '.github/release.yml'].includes(path)) return CHECKS;
   if (['test/tool/ci/jvm-test-failure.integration.cjs',
-    'test/tool/ci/native-coverage.integration.cjs'].includes(path)) return ['workflow', 'jvm'];
+    'test/tool/ci/native-coverage.integration.cjs',
+    'test/tool/ci/jvm_fixture.cjs',
+    'test/tool/ci/kotlin-quality.integration.cjs'].includes(path)) return ['workflow', 'jvm'];
   if (/^(tool|test\/tool)\/ci\/[^/]+\.cjs$/.test(path)) return ['workflow'];
+  const native = nativeChecksForPath(path);
+  if (native) return native;
+  if (path === 'tool/quality/check_kotlin_quality.sh') return ['workflow', 'native'];
+  if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
+  // Native entrypoint names and channel payloads are runtime contracts.
+  if (['lib/main.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
+    'lib/services/dictation/dictation_platform.dart',
+    'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'build'];
+  if (/^lib\/.*\.dart$/.test(path)) return ['dart'];
+  if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
+  if (path.startsWith('assets/')) return ['dart', 'build'];
+  return CHECKS;
+}
+
+function nativeChecksForPath(path) {
   for (const name of JVM_CLASSES) {
     const classPath = name.replaceAll('.', '/');
     if (path === `android/app/src/test/kotlin/${classPath}Test.kt`) return ['jvm'];
@@ -57,16 +76,7 @@ function checksForPath(path) {
     return ['native'];
   }
   if (path.startsWith('android/')) return ['dart', 'native'];
-  if (path === 'tool/quality/check_kotlin_quality.sh') return ['workflow', 'native'];
-  if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
-  // Native entrypoint names and channel payloads are runtime contracts.
-  if (['lib/main.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
-    'lib/services/dictation/dictation_platform.dart',
-    'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'build'];
-  if (/^lib\/.*\.dart$/.test(path)) return ['dart'];
-  if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
-  if (path.startsWith('assets/')) return ['dart', 'build'];
-  return CHECKS;
+  return null;
 }
 
 function classifyPaths(paths) {
@@ -102,10 +112,31 @@ function detectDocsOnly(...arguments_) {
   return detectChangeScope(...arguments_).docs_only;
 }
 
-module.exports = { detectChangeScope, detectDocsOnly, classifyPaths, parseJvmClasses };
+function createChangePlan(event, baseSha, headSha, cwd = process.cwd()) {
+  const mergeSha = childProcess.execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+  const base = event === 'workflow_dispatch' ? mergeSha : baseSha;
+  const head = event === 'workflow_dispatch' ? mergeSha : headSha;
+  if (![base, head, mergeSha].every(isCommitSha)) {
+    throw new Error('The CI plan requires valid base, head and checkout revisions.');
+  }
+  return {
+    ...detectChangeScope(event, base, head, cwd),
+    base_sha: base, head_sha: head, merge_sha: mergeSha,
+  };
+}
+
+module.exports = { detectChangeScope, detectDocsOnly, classifyPaths, parseJvmClasses, createChangePlan };
 
 if (require.main === module) {
   const { CHANGE_EVENT, CHANGE_BASE_SHA, CHANGE_HEAD_SHA } = process.env;
-  const scope = detectChangeScope(CHANGE_EVENT, CHANGE_BASE_SHA, CHANGE_HEAD_SHA);
-  for (const [name, value] of Object.entries(scope)) console.log(`${name}=${value}`);
+  try {
+    const plan = createChangePlan(CHANGE_EVENT, CHANGE_BASE_SHA, CHANGE_HEAD_SHA);
+    for (const [name, value] of Object.entries(plan)) console.log(`${name}=${value}`);
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }

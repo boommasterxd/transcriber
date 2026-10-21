@@ -67,6 +67,17 @@ Future<Map<String, Object?>> _select(
     head,
     partOwners: checkout == head ? partOwners : null,
   );
+  if (before.keys.any(
+    (file) =>
+        file.startsWith('test/') &&
+        file.endsWith('_test.dart') &&
+        !after.containsKey(file),
+  )) {
+    return _fullPlan(
+      identity,
+      'A deleted or renamed test suite requires full production coverage.',
+    );
+  }
   final execution = checkout == head
       ? after
       : await snapshotGraph(git, checkout, partOwners: partOwners);

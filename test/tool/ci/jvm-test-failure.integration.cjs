@@ -3,32 +3,11 @@
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { jvmFixture } = require('./jvm_fixture.cjs');
 
-function fixture(context) {
-  const repository = path.resolve(__dirname, '../../..');
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'transcriber-jvm-regression-'));
-  context.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-  const project = path.join(fixture, 'tool/ci/jvm');
-  fs.mkdirSync(path.dirname(project), { recursive: true });
-  fs.cpSync(path.join(repository, 'tool/ci/jvm'), project, {
-    recursive: true,
-    filter: (file) => !file.split(path.sep).some((part) => ['build', '.gradle', '.kotlin'].includes(part)),
-  });
-  const classes = fs.readFileSync(path.join(project, 'sources.txt'), 'utf8').trim().split('\n');
-  for (const name of classes) {
-    const source = name.replaceAll('.', '/');
-    for (const [directory, suffix] of [['main', '.kt'], ['test', 'Test.kt']]) {
-      const relative = `android/app/src/${directory}/kotlin/${source}${suffix}`;
-      const target = path.join(fixture, relative);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.copyFileSync(path.join(repository, relative), target);
-    }
-  }
-  return { repository, root: fixture, project, classes };
-}
+const fixture = (context) => jvmFixture(context, 'transcriber-jvm-regression-');
 
 function runJvm({ repository, project }) {
   return childProcess.spawnSync(path.join(repository, 'android/gradlew'), [
