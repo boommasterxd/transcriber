@@ -257,6 +257,7 @@ Future<void> _testTranscription({
           jsonDecode((httpClient.requests[2] as http.Request).body)
               as Map<String, dynamic>;
       expect(interaction['model'], modelId);
+      expect(interaction['store'], isFalse);
       expect((interaction['input'] as List).single['type'], 'audio');
       expect(
         (interaction['input'] as List).single['mime_type'],
@@ -320,6 +321,7 @@ Future<void> _testMultimodalTranscription() async {
               as Map<String, dynamic>;
       final input = interaction['input'] as List;
 
+      expect(interaction['store'], isFalse);
       expect(input, hasLength(2));
       expect((input.first as Map)['type'], 'text');
       expect((input.first as Map)['text'], contains('language is en'));

@@ -124,6 +124,7 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
           ProviderModelCapabilities.usesGeminiNativeTranscription(modelId);
       final json = await _postJson('/interactions', {
         'model': modelId,
+        'store': false,
         'input': [
           if (!nativeTranscription)
             {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
