@@ -13,11 +13,6 @@
     "check": "npm run lint && npm run duplicates && npm test",
     "audit": "npm audit --audit-level=info"
   },
-  "overrides": {
-    "eslint": { "minimatch": "11.0.4" },
-    "@eslint/config-array": { "minimatch": "11.0.4" },
-    "eslint-plugin-sonarjs": { "minimatch": "11.0.4" }
-  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@stylistic/eslint-plugin": "5.10.0",
