@@ -2,6 +2,11 @@ name: Dependency audit
 
 on:
   workflow_call:
+    inputs:
+      npm-scope-validated:
+        description: Whether the caller already validated npm dependency groups.
+        type: boolean
+        default: false
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
@@ -9,6 +14,7 @@ on:
 jobs:
   npm-scope:
     name: Validate npm dependency groups
+    if: ${{ !inputs.npm-scope-validated }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -26,6 +32,9 @@ jobs:
   audit:
     name: OSV Scanner
     needs: npm-scope
+    if: >-
+      ${{ !cancelled() && (needs.npm-scope.result == 'success' ||
+          (inputs.npm-scope-validated && needs.npm-scope.result == 'skipped')) }}
     permissions:
       actions: read
       contents: read
