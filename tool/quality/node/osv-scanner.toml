@@ -1,0 +1,7 @@
+# Explicitly loaded by dependency-audit.yml so config errors fail the scan.
+# check-osv-npm-scope.cjs rejects OSV v2.7.0's ambiguous production groups first.
+[[PackageOverrides]]
+ecosystem = "npm"
+group = "dev"
+vulnerability.ignore = true
+reason = "Exclude npm development-only dependencies from the blocking CI audit."
