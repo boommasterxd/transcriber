@@ -1,22 +1,14 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { jvmFixture } = require('./jvm_fixture.cjs');
+const { jvmFixture, runJvmFixture } = require('./jvm_fixture.cjs');
 
 const fixture = (context) => jvmFixture(context, 'transcriber-jvm-regression-');
 
-function runJvm({ repository, project }) {
-  return childProcess.spawnSync(path.join(repository, 'android/gradlew'), [
-    '-p', project, 'test', '--offline', '--no-daemon', '--console=plain',
-  ], {
-    encoding: 'utf8', timeout: 180000, maxBuffer: 1024 * 1024,
-    env: { ...process.env, ANDROID_HOME: '/missing-android-sdk', ANDROID_SDK_ROOT: '/missing-android-sdk' },
-  });
-}
+const runJvm = (setup) => runJvmFixture(setup, ['test']);
 
 function ignoreTestClass(root, name) {
   const source = name.replaceAll('.', '/');

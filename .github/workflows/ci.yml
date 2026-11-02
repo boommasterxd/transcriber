@@ -46,6 +46,9 @@ jobs:
           CHANGE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CHANGE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node tool/ci/detect-change-scope.cjs >> "$GITHUB_OUTPUT"
+      - name: Reject ambiguous npm production groups
+        if: steps.scope.outputs.dependency_audit == 'true'
+        run: node tool/ci/check-osv-npm-scope.cjs
 
   workflow-lint:
     name: Workflow lint
@@ -299,6 +302,8 @@ jobs:
       contents: read
       security-events: write
     uses: ./.github/workflows/dependency-audit.yml
+    with:
+      npm-scope-validated: true
 
   CI:
     name: CI
