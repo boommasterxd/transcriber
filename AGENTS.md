@@ -4,7 +4,9 @@
 
 Transcriber is a Flutter Android application that records, imports, or receives shared audio and turns it into transcript notes with optional summaries. Transcription and summarization independently use OpenAI or Google Gemini with personal API keys.
 
-The supported toolchain is defined by `.fvmrc`, `pubspec.yaml`, and the Android Gradle configuration. Do not introduce another application platform, state-management system, persistence layer, or provider abstraction unless a current requirement justifies it.
+The application toolchain is defined by `.fvmrc`, `pubspec.yaml`, and the Android Gradle configuration. Do not introduce another application platform, state-management system, persistence layer, or provider abstraction unless a current requirement justifies it.
+
+Repository-owned Node.js tooling must use the newest officially released Node.js LTS line. The current reviewed baseline is Node.js 26.x (26.13.0 as of 2026-11-02). In each reviewed LTS upgrade, keep the tooling package's `engines.node`, CI `node-version` selectors, and Node tooling documentation aligned with the newest released LTS line. `check-latest: true` keeps a selector current within its configured major; it does not satisfy the policy after a newer LTS major is released, and must not be treated as a permanent exemption. Node.js is for repository tooling; Flutter, Dart, and Android remain the application toolchain.
 
 ## Architecture
 
