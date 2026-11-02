@@ -29,7 +29,7 @@ dependencies:
   package_info_plus: ^10.2.2
 
   # Persistence
-  drift: ^2.35.2
+  drift: ^2.35.3
   drift_flutter: ^0.3.1
   # Legacy read-only migration. Remove after the documented migration window.
   shared_preferences: ^2.5.6
@@ -47,8 +47,8 @@ dependencies:
 dev_dependencies:
   analyzer: ^13.0.0
   build_runner: ^2.16.1
-  dart_code_linter: ^4.4.2
-  drift_dev: ^2.35.1
+  dart_code_linter: ^4.4.4
+  drift_dev: ^2.35.2
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

@@ -4063,10 +4063,11 @@ class $$NotesTableTableTableManager
                   getPrefetchedDataCallback: (items) async {
                     return [
                       if (notePointsTableRefs)
-                        await $_getPrefetchedData<
+                        await $_getPrefetchedDataByColumns<
                           NotesTableData,
                           $NotesTableTable,
-                          NotePointsTableData
+                          NotePointsTableData,
+                          $NotePointsTableTable
                         >(
                           currentTable: table,
                           referencedTable: $$NotesTableTableReferences
@@ -4077,17 +4078,16 @@ class $$NotesTableTableTableManager
                                 table,
                                 p0,
                               ).notePointsTableRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
+                          currentColumn: 'id',
+                          referencedColumn: 'note_id',
                           typedResults: items,
                         ),
                       if (noteTodosTableRefs)
-                        await $_getPrefetchedData<
+                        await $_getPrefetchedDataByColumns<
                           NotesTableData,
                           $NotesTableTable,
-                          NoteTodosTableData
+                          NoteTodosTableData,
+                          $NoteTodosTableTable
                         >(
                           currentTable: table,
                           referencedTable: $$NotesTableTableReferences
@@ -4098,17 +4098,16 @@ class $$NotesTableTableTableManager
                                 table,
                                 p0,
                               ).noteTodosTableRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
+                          currentColumn: 'id',
+                          referencedColumn: 'note_id',
                           typedResults: items,
                         ),
                       if (transcriptSegmentsTableRefs)
-                        await $_getPrefetchedData<
+                        await $_getPrefetchedDataByColumns<
                           NotesTableData,
                           $NotesTableTable,
-                          TranscriptSegmentsTableData
+                          TranscriptSegmentsTableData,
+                          $TranscriptSegmentsTableTable
                         >(
                           currentTable: table,
                           referencedTable: $$NotesTableTableReferences
@@ -4119,10 +4118,8 @@ class $$NotesTableTableTableManager
                                 table,
                                 p0,
                               ).transcriptSegmentsTableRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
+                          currentColumn: 'id',
+                          referencedColumn: 'note_id',
                           typedResults: items,
                         ),
                     ];
