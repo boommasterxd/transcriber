@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "scripts": {
     "lint": "cd ../../.. && tool/quality/node/node_modules/.bin/eslint --config tool/quality/node/eslint.config.js --max-warnings 0 tool test/tool",
