@@ -99,6 +99,15 @@ JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test verifyNativeCoverag
 
 The independent build uses the existing Gradle wrapper, JDK 17, Kotlin 2.4.21, and JUnit 4.13.2, with committed dependency locks and SHA-256 verification metadata. Its sources reference the maintained files under `android/app/src/`. Refresh these locks and verification metadata deliberately when updating dependencies, and review the changed artifact hashes. The regular Android command above still runs every JVM test; it needs no exclusion property. Both builds share a JUnit-report guard requiring actual execution in every configured test class, including Android's complete maintained unit-test inventory.
 
+### Temporary security constraints
+
+Android unit-test dependencies constrain Guava to at least 33.7.2-jre for
+GHSA-xxph-c9ww-hj94. This is a Robolectric test-runtime dependency, not an
+application API migration. Remove the explicit constraint when Robolectric's
+resolved graph independently selects a fixed version. Regenerate the native
+lockfile with Gradle, then verify an ordinary locked test run.
+See the [Guava release](https://github.com/google/guava/releases/tag/v33.7.2).
+
 ### Native coverage
 
 Both builds use JaCoCo 0.8.14 and `tool/ci/jvm/native_coverage.gradle.kts`. The standalone report must exactly match `sources.txt`; Android must measure every maintained production Kotlin source without source exclusions. Missing or empty execution data, bytecode, reports, source records, or applicable metric denominators fail. The four blocking limits are LINE 85%, INSTRUCTION 85%, METHOD 85%, and BRANCH 80%. Bytecode instructions are the statement proxy and methods include constructors/getters; neither is an independent source-statement or source-function measurement.
