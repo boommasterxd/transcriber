@@ -4,7 +4,7 @@
 
 The supported versions are defined by `.fvmrc`, `pubspec.yaml`, `pubspec.lock`, and the Android Gradle configuration. Use the locked dependency graph and do not edit `pubspec.lock` manually.
 
-The CI duplication check uses the latest Node.js 26.x release with `node-version: "26.x"` and `check-latest: true`. Node.js is tooling only; the application toolchain remains Flutter, Dart, and Android Gradle.
+The CI duplication check currently uses Node.js 26.x (`node-version: "26.x"` and `check-latest: true`), the current reviewed LTS baseline. Align these settings with the newest officially released LTS line in each reviewed LTS upgrade. Node.js is tooling only; the application toolchain remains Flutter, Dart, and Android Gradle.
 
 ## Provider Defaults
 
