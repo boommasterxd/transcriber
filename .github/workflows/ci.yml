@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.x"
+          node-version: "26.x"
           check-latest: true
           package-manager-cache: false
       - name: Classify the complete pull request
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.x"
+          node-version: "26.x"
           check-latest: true
           package-manager-cache: false
           cache: npm
@@ -158,7 +158,7 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.x"
+          node-version: "26.x"
           check-latest: true
           package-manager-cache: false
       - name: Check Dart duplication
@@ -187,7 +187,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.x"
+          node-version: "26.x"
           check-latest: true
           package-manager-cache: false
       - name: Set up Java
@@ -230,7 +230,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.x"
+          node-version: "26.x"
           check-latest: true
           package-manager-cache: false
       - name: Set up Java
@@ -310,7 +310,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.x"
+          node-version: "26.x"
           check-latest: true
           package-manager-cache: false
       - name: Require every applicable CI job to succeed

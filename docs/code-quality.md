@@ -78,7 +78,7 @@ npm --prefix tool/quality/node run check
 npm --prefix tool/quality/node run audit
 ```
 
-The package requires Node.js 24.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately.
+The package requires Node.js 26.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately.
 
 Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and formatting plugin:
 
@@ -207,7 +207,7 @@ Only a nonempty, complete change set entirely below the root `docs/` directory t
 
 The active GitHub ruleset requires exactly `CI`, `gitleaks` and `Validate PR Title`, with an up-to-date branch. Only repository administrators retain an `always` bypass; that capability does not authorize its use. Actions must be pinned to complete commit SHAs. Dependabot's metadata-only automation has separate read and write jobs, verifies actor, author and repository identity, and only enables auto-merge for npm minor/patch updates. Only the isolated Node quality package uses npm dependencies; its minor/patch updates follow these guarded checks. Dependabot proposes Gradle updates for both `/android` and the independent `/tool/ci/jvm` project; Pub and Actions updates remain manual.
 
-Run the dependency-free CI helper regressions with Node.js 24.x:
+Run the dependency-free CI helper regressions with Node.js 26.x:
 
 ```bash
 node --test test/tool/ci/*.test.cjs
