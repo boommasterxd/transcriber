@@ -101,14 +101,6 @@ The independent build uses the existing Gradle wrapper, JDK 17, Kotlin 2.4.21, a
 
 ### Temporary security constraints
 
-The Node quality package scopes Minimatch 11.0.4 overrides to ESLint,
-`@eslint/config-array`, and SonarJS to fix GHSA-g3hv-75wg-m249. These consumers
-use the retained constructor/match/pattern APIs, rather than the removed
-`makeRe`, `AST`, or regex-set interfaces. The real CLI regression suite verifies
-file discovery and blocking rules. Remove each override when its consumer's
-declared dependency includes a fixed release; do not broaden it to other tools.
-See the [Minimatch changelog](https://github.com/isaacs/minimatch/blob/main/changelog.md).
-
 Android unit-test dependencies constrain Guava to at least 33.7.2-jre for
 GHSA-xxph-c9ww-hj94. This is a Robolectric test-runtime dependency, not an
 application API migration. Remove the explicit constraint when Robolectric's
