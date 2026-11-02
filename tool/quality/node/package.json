@@ -11,7 +11,7 @@
     "duplicates": "cd ../../.. && tool/quality/node/node_modules/.bin/jscpd --config tool/quality/node/jscpd.json --fail-on-empty tool test/tool",
     "test": "cd ../../.. && node --test test/tool/quality/node_quality.test.cjs",
     "check": "npm run lint && npm run duplicates && npm test",
-    "audit": "npm audit --audit-level=info"
+    "audit": "npm audit --omit=dev --audit-level=high"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

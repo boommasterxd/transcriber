@@ -67,6 +67,13 @@ Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pul
 
 Apply the mappings and conservative fallbacks in [`docs/ci-test-selection.md`](docs/ci-test-selection.md). Global CI, dependency, framework, security, or test-setup changes and empty, unknown, or unreliable impact require full checks. Pure changes under root `docs/` may skip application checks while receiving a real successful final `CI` check. Every other PR retains a fresh dependency audit; gitleaks and PR-title validation remain required. Keep inexpensive Dart gates repository-wide when Dart checks apply, and preserve every selected gate's thresholds. The final `CI` check must validate the complete plan and reject failed, cancelled, missing, or unexpectedly skipped work.
 
+The approved npm audit exception uses `npm audit --omit=dev --audit-level=high`
+and excludes npm dev-only findings from the separate OSV scan. High/critical npm
+production findings and audit execution errors remain blocking. Review the complete
+Node tooling graph locally with `npm --prefix tool/quality/node audit --include=dev`
+before merging; dev-only findings do not automatically block merging. Pub and Gradle
+retain their existing audit scope and thresholds. See [code quality](docs/code-quality.md).
+
 Commit `pubspec.lock` and update it only through Flutter or Dart package-manager commands. GitHub Actions and downloaded security tools must remain version-pinned. Do not weaken release signing or checksum verification.
 
 ## Testing Requirements

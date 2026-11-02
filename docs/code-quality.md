@@ -174,18 +174,31 @@ All Flutter jobs, including manual APK validation and releases, use `.github/act
 
 `.github/workflows/ci.yml` starts only jobs required by the complete change scope:
 
-- `Workflow lint` resolves locked Node quality tools, enforces Node static quality and duplication, audits those dependencies, runs the CI and release helper regressions, and verifies every GitHub Actions workflow and maintained shell script with pinned, checksum-verified linters. This substantive quality job uses a regular runner only when selected.
+- `Workflow lint` resolves locked Node quality tools, enforces Node static quality and duplication, runs `npm audit --omit=dev --audit-level=high` for production dependencies in the Node tooling package, runs the CI and release helper regressions, and verifies every GitHub Actions workflow and maintained shell script with pinned, checksum-verified linters. High/critical production findings and npm audit execution errors fail this job. This substantive quality job uses a regular runner only when selected.
 - `Dart quality, tests and bundle` shares one Flutter installation and locked dependency resolution across formatting, analysis, selected tests/coverage, size/complexity, unused-code/file detection, duplication, and the optional bundle build. Applicable independent checks still run after another check fails; the job remains failed.
 - `JVM quality and tests` runs the manifest-listed pure Kotlin tests without Flutter/Android, plus the existing Detekt and Kotlin/Gradle/shell file-length gates, only when the plan excludes Android. CI-tool changes additionally exercise real defect/skip fixtures; ordinary pure-test changes skip those fixtures.
 - `Android quality and tests` compiles Android consumers, runs every native JVM test, and compiles instrumented Android tests, with the same Detekt/file-length gates. Global/workflow changes also verify the independent JVM harness and its regression fixtures on this runner, without starting an additional JVM job. Local Android commands remain complete.
 - Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
 - Bundle verification runs for entrypoints, channel bridges, assets, dependencies, packaging/global configuration, and uncertainty. Ordinary Dart changes use analysis and selected test compilation. When Gradle already assembles the debug bundle, the native job verifies its kernel and asset manifest without a second bundle build on the Dart runner.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile`, its dependency verification metadata, and `tool/quality/node/package-lock.json` with the pinned OSV Scanner reusable workflow and fails on known vulnerabilities. Every non-documentation PR retains this gate because advisory data changes independently of the lockfile. The independent weekly and manual scans also remain available. `.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree. Its default detectors cover every path without test or Firebase-file allowlists. Before scanning, the checksum-verified binary must pass synthetic regressions for those paths and for a credential deleted from the final tree but retained in introduced history.
+`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile`, its dependency verification metadata, and `tool/quality/node/package-lock.json` with the pinned OSV Scanner reusable workflow. The explicitly loaded [npm override](../tool/quality/node/osv-scanner.toml) excludes the npm `dev` group, including transitive dev-only packages, from vulnerability blocking. Shared production/development packages remain scanned. Pub and Gradle scanning retain their existing scope and failure thresholds.
+
+The lightweight [npm scope preflight](../tool/ci/check-osv-npm-scope.cjs) must succeed before OSV starts. It rejects malformed lockfiles and classifications that the pinned scanner cannot safely distinguish, including `devOptional`, ambiguous shared optional/bundled identities, and unreviewed Git/link packages. Explicit `--config` loading makes configuration errors fail the scan instead of silently dropping the override. Scanner execution errors and known vulnerabilities in the retained scope remain blocking. Every non-documentation PR retains this gate because advisory data changes independently of the lockfile. Weekly and manual scans use the same policy.
+
+`.github/workflows/gitleaks.yml` scans both the merge working tree and every commit introduced by the PR, including secrets removed before the final tree. Its default detectors cover every path without test or Firebase-file allowlists. Before scanning, the checksum-verified binary must pass synthetic regressions for those paths and for a credential deleted from the final tree but retained in introduced history.
 
 The only historical exceptions are three commit/path/rule/line fingerprints in [`.gitleaksignore`](../.gitleaksignore), covering Google keys the project owner confirmed are no longer usable. Their rationale and limits are recorded in [security](security.md#historical-scanner-exceptions). Scanner regressions also prove that the same synthetic credential in a later commit remains blocked.
 
 Lightweight classification, final gates, scanning, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. Workflow/Node and Dart/native quality/build jobs and container-based OSV scanning retain regular runners. Actual hosted execution remains separate from local workflow validation; no savings are inferred from runner selection alone.
+
+### Local Node Dependency Review
+
+Before merging, run `npm --prefix tool/quality/node audit --include=dev` locally
+for the complete Node tooling dependency review. Dev-only npm findings do not
+automatically block merging, and development tools remain installed for quality
+checks. Both npm checks and OSV exclude npm dev-only vulnerability findings from
+their blocking scope. The separate Pub and Gradle scans retain their existing
+scope, including development dependencies.
 
 ### Native GitHub Scanning
 

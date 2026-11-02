@@ -7,8 +7,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  npm-scope:
+    name: Validate npm dependency groups
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Reject ambiguous npm production groups
+        run: node tool/ci/check-osv-npm-scope.cjs
+
   audit:
     name: OSV Scanner
+    needs: npm-scope
     permissions:
       actions: read
       contents: read
@@ -16,6 +33,7 @@ jobs:
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a96bc4d2b09685b6142bcfe25a3dc17cb2d7347 # v2.7.0 + fail-closed scan guard
     with:
       scan-args: |-
+        --config=tool/quality/node/osv-scanner.toml
         --lockfile=pubspec.lock
         --lockfile=android/app/gradle.lockfile
         --lockfile=tool/ci/jvm/gradle.lockfile
