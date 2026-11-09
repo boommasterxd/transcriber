@@ -64,6 +64,18 @@ JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
 
 For CI coverage-control changes, also run `JAVA_HOME=/path/to/jdk17 node --test test/tool/ci/native-coverage.integration.cjs`. Android unit coverage uses locked, offline-provided Robolectric SDKs and all maintained Kotlin sources; it does not replace the device checks above. Metric mappings and dependency-inventory updates are documented in [code quality](code-quality.md#native-coverage).
 
+## Android Gradle Migration
+
+Treat built-in Kotlin, the Android DSL, and Jetifier as separate compatibility decisions. Before an AGP 10 upgrade:
+
+1. Inspect the exact stable Flutter Gradle plugin and every resolved native plugin for legacy DSL/variant APIs and incompatible Kotlin plugin application. Preserve the current SDK, NDK, Android API, ABI, and signing requirements unless a separate supported change is approved.
+2. Replace legacy consumers through their supported upstream interfaces before removing `android.newDsl=false`. Do not patch a shared SDK or suppress warnings to claim compatibility. See [the current compatibility boundary](configuration.md#android-gradle-compatibility).
+3. Clean the affected application build output, regenerate dependency locks with Gradle when the graph changes, and run the ordinary locked native tests and strict coverage again. Ensure coverage reads the current Kotlin compiler output, rather than an old `tmp/kotlin-classes` directory.
+4. Build both debug and release APKs with the pinned Flutter SDK. For Jetifier removal, inspect both resolved runtime dependency graphs for legacy Support Library/Android Architecture artifacts and verify both builds without Jetifier.
+5. Verify recording, file import/recovery, and share/open-file flows on a supported Android device or emulator. Hosted JVM tests and instrumented-test compilation do not establish actual OS or Flutter-engine behavior.
+
+Use the existing native validation commands above. Do not publish a release merely to validate this migration. Keep the deferred AGP 10 migration open while upstream DSL consumers remain incompatible.
+
 ## Keyboard Dictation Verification
 
 Use non-production speech without personal information. Verify the complete matrix on at least one current Samsung device and one current Pixel device:

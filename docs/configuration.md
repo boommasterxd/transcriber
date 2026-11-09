@@ -6,6 +6,14 @@ The supported versions are defined by `.fvmrc`, `pubspec.yaml`, `pubspec.lock`, 
 
 The CI duplication check currently uses Node.js 26.x (`node-version: "26.x"` and `check-latest: true`), the current reviewed LTS baseline. Align these settings with the newest officially released LTS line in each reviewed LTS upgrade. Node.js is tooling only; the application toolchain remains Flutter, Dart, and Android Gradle.
 
+### Android Gradle Compatibility
+
+Flutter 3.47.9 and AGP 9.5.1 support built-in Kotlin, which the application enables explicitly with `android.builtInKotlin=true`. A settings buildscript classpath dependency preserves Kotlin 2.4.21 without applying the legacy Kotlin Android plugin. It must be available before AGP is loaded. Compiler options remain in the top-level `kotlin.compilerOptions` block. The legacy root workaround for the old `file_picker` Android module is no longer needed by the resolved `android_file_picker` implementation. See the official [Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers) and [Android migration guide](https://developer.android.com/build/migrate-to-built-in-kotlin).
+
+Jetifier is disabled by AGP's default: both resolved runtime graphs contain no legacy Support Library or Android Architecture artifacts, and debug/release APKs build without it. JVM-target validation uses the default strict behavior; no warning-only override is needed.
+
+The Kotlin migration and the Android DSL migration are separate. Keep `android.newDsl=false`: the pinned Flutter Gradle plugin still uses `AbstractAppExtension` and `applicationVariants`, and `android_file_picker` 2.1.3 still configures the legacy `LibraryExtension`. A configuration-only check with the new DSL fails while applying Flutter's plugin because its application-extension cast requires the legacy type. Removing the flag cannot replace these APIs. AGP 10 adoption remains blocked until a stable, verified Flutter/native-plugin combination supports the replacement DSL and variant APIs. The current preparation does not establish AGP 10 compatibility. Follow the [AGP roadmap](https://developer.android.com/build/releases/gradle-plugin-roadmap) and verify the actual released toolchain before changing it.
+
 ## Provider Defaults
 
 Transcription and summarization are independent settings.
