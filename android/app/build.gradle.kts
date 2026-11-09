@@ -87,7 +87,7 @@ android {
 
 dependencies {
     constraints {
-        testImplementation("com.google.guava:guava:33.7.2-jre") {
+        testImplementation("com.google.guava:guava:33.8.0-jre") {
             because("Fix GHSA-xxph-c9ww-hj94 in the Robolectric test runtime")
         }
     }
