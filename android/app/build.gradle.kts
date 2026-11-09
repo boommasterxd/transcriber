@@ -154,7 +154,10 @@ apply(from = rootProject.file("../tool/ci/jvm/require_executed_tests.gradle.kts"
 
 extra["coverageSources"] = fileTree("src/main/kotlin") { include("**/*.kt") }.files
 extra["coverageSourceRoot"] = file("src/main/kotlin")
-extra["coverageClassDirectories"] = files(layout.buildDirectory.dir("tmp/kotlin-classes/debug"))
+extra["coverageClassDirectories"] = files(
+    providers.provider { tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileDebugKotlin").get() }
+        .flatMap { it.destinationDirectory },
+)
 extra["coverageTestTask"] = "testDebugUnitTest"
 extra["coverageDeviceTask"] = "connectedDebugAndroidTest"
 apply(from = rootProject.file("../tool/ci/jvm/native_coverage.gradle.kts"))
