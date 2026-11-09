@@ -21,6 +21,7 @@ class HomeScreen extends ConsumerWidget {
         context,
         cacheManager: ref.read(audioCacheManagerProvider),
         strings: ref.read(stringsProvider),
+        picker: ref.read(audioImportPickerProvider).pick,
       ),
     );
   }

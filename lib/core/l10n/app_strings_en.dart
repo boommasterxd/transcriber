@@ -133,6 +133,10 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.errorTitle: 'Something went wrong',
   _StringKey.audioImportFailed:
       'Audio could not be imported. Check the format, size and access, then try again.',
+  _StringKey.recoveredAudioTitle: 'Audio selection recovered',
+  _StringKey.recoveredAudioBody:
+      'The app was closed during file selection. Would you like to process the selected audio now? This sends it to your selected cloud provider.',
+  _StringKey.recoveredAudioContinue: 'Process audio',
   _StringKey.retry: 'Retry',
   _StringKey.dismiss: 'Dismiss',
   _StringKey.goToSettings: 'Open settings',

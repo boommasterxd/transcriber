@@ -6,6 +6,7 @@ import '../data/models/remote_provider.dart';
 import '../data/models/transcript_note.dart';
 import '../data/repositories/notes_repository.dart';
 import '../data/repositories/settings_repository.dart';
+import '../services/audio/audio_import_picker.dart';
 import '../services/audio/audio_recorder_service.dart';
 import '../services/processing/processing_pipeline.dart';
 import '../services/remote/remote_client_factory.dart';
@@ -33,6 +34,10 @@ final initialNotesProvider = Provider<List<TranscriptNote>>((ref) {
 
 final audioCacheManagerProvider = Provider<AudioCacheManager>(
   (ref) => AudioCacheManager(),
+);
+
+final audioImportPickerProvider = Provider<AudioImportPickerService>(
+  (ref) => AudioImportPickerService(),
 );
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(

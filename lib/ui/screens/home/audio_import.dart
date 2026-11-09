@@ -1,36 +1,24 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/toast.dart';
+import '../../../data/models/audio_import_selection.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/storage/audio_cache_manager.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../navigation.dart';
 
-class AudioImportSelection {
-  const AudioImportSelection({required this.path, required this.fileName});
-
-  final String path;
-  final String fileName;
-}
+export '../../../data/models/audio_import_selection.dart';
 
 typedef AudioImportPicker = Future<AudioImportSelection?> Function();
 typedef AudioImportStarter =
     Future<void> Function(BuildContext context, AudioImportSelection selection);
 
-Future<AudioImportSelection?> pickAudioImport() async {
-  final file = await FilePicker.pickFile(type: FileType.audio);
-  final path = file?.path;
-  if (file == null || path == null) return null;
-  return AudioImportSelection(path: path, fileName: file.name);
-}
-
 Future<void> startAudioImport(
   BuildContext context, {
   required AudioCacheManager cacheManager,
   required AppStrings strings,
-  AudioImportPicker picker = pickAudioImport,
+  required AudioImportPicker picker,
   AudioImportStarter starter = _startProcessing,
 }) async {
   try {

@@ -10,6 +10,7 @@ import 'state/notes_controller.dart';
 import 'state/providers.dart';
 import 'state/settings_controller.dart';
 import 'ui/navigation.dart';
+import 'ui/screens/home/audio_import_recovery_gate.dart';
 import 'ui/screens/home/home_screen.dart';
 import 'ui/screens/onboarding/onboarding_screen.dart';
 import 'ui/screens/onboarding/widgets/onboarding_permissions_step.dart';
@@ -128,14 +129,17 @@ class _RootGateState extends ConsumerState<_RootGate>
     // and the home for an onboarded one, with no flicker in the common case.
     final needsSetup = !onboarded || _permissionsGranted == false;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // The setup wizard runs first on any device; afterwards wide screens use
-        // the split-view, narrow ones the phone home.
-        if (needsSetup) return const OnboardingScreen();
-        final isTablet = constraints.maxWidth >= 720;
-        return isTablet ? const TabletHomeScreen() : const HomeScreen();
-      },
+    return AudioImportRecoveryGate(
+      ready: onboarded && _permissionsGranted == true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // The setup wizard runs first on any device; afterwards wide screens use
+          // the split-view, narrow ones the phone home.
+          if (needsSetup) return const OnboardingScreen();
+          final isTablet = constraints.maxWidth >= 720;
+          return isTablet ? const TabletHomeScreen() : const HomeScreen();
+        },
+      ),
     );
   }
 }

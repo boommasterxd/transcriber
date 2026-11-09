@@ -156,6 +156,10 @@ class AppStrings {
   String get processingTitle => _string(_StringKey.processingTitle);
   String get errorTitle => _string(_StringKey.errorTitle);
   String get audioImportFailed => _string(_StringKey.audioImportFailed);
+  String get recoveredAudioTitle => _string(_StringKey.recoveredAudioTitle);
+  String get recoveredAudioBody => _string(_StringKey.recoveredAudioBody);
+  String get recoveredAudioContinue =>
+      _string(_StringKey.recoveredAudioContinue);
   String get retry => _string(_StringKey.retry);
   String get dismiss => _string(_StringKey.dismiss);
   String get goToSettings => _string(_StringKey.goToSettings);

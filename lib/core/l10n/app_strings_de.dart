@@ -136,6 +136,10 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.errorTitle: 'Etwas ist schiefgelaufen',
   _StringKey.audioImportFailed:
       'Audio konnte nicht importiert werden. Prüfe Format, Größe und Zugriff und versuche es erneut.',
+  _StringKey.recoveredAudioTitle: 'Audioauswahl wiederhergestellt',
+  _StringKey.recoveredAudioBody:
+      'Die App wurde während der Dateiauswahl beendet. Möchtest du das ausgewählte Audio jetzt verarbeiten? Dabei wird es an deinen gewählten Cloud-Anbieter gesendet.',
+  _StringKey.recoveredAudioContinue: 'Audio verarbeiten',
   _StringKey.retry: 'Erneut versuchen',
   _StringKey.dismiss: 'Schließen',
   _StringKey.goToSettings: 'Zu den Einstellungen',
