@@ -1,5 +1,11 @@
 # Operations
 
+## Interrupted Android Audio Selection
+
+When Android recreates the app during a file pick, the normal entry point offers the recovered audio after onboarding and microphone permission are ready. Confirming starts the normal validated import and cloud processing; cancelling or dismissing does not send audio. A new selection supersedes pending recovery. Recovery errors use the generic import error and permit a fresh selection.
+
+For device verification, open the audio picker with synthetic audio, destroy the app process while the external picker remains in the foreground, then select the file. Verify that returning to the recreated app offers exactly one confirmation, that cancellation sends no provider request, and that confirmation imports exactly once. Repeat with permission revoked and verify the offer waits until setup is ready. A force-stop is not equivalent to OS process recreation and can suppress result delivery. Unit/widget channel fixtures do not prove Android's result delivery after process destruction.
+
 ## Prerequisites
 
 - Flutter from `.fvmrc`

@@ -41,6 +41,7 @@ class _TabletHomeScreenState extends ConsumerState<TabletHomeScreen> {
                     context,
                     cacheManager: ref.read(audioCacheManagerProvider),
                     strings: ref.read(stringsProvider),
+                    picker: ref.read(audioImportPickerProvider).pick,
                   ),
                 ),
               ),
