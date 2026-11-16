@@ -24,8 +24,7 @@ void registerConfigurationTests() {
   ]) {
     test('honors an applicable Flutter configuration: $config', () async {
       await fixture.write({
-        'test/nested/first_test.dart':
-            "import 'package:test/test.dart'; import 'package:transcriber/first.dart';",
+        'test/nested/first_test.dart': "import 'package:test/test.dart'; import 'package:transcriber/first.dart';",
         config:
             "import 'package:transcriber/second.dart';\n"
             'Future<void> testExecutable(Future<void> Function() main) => main();',
@@ -146,9 +145,8 @@ void registerInventoryTests() {
 
 void registerPathBoundaryTests() {
   test('rejects a symbolic link in the discovered test inventory', () async {
-    await Link(
-      '${fixture.directory.path}/test/link_test.dart',
-    ).create('../lib/first.dart');
+    await Link('${fixture.directory.path}/test/link_test.dart')
+        .create('../lib/first.dart');
     expect(() => discoverTests(fixture.directory.path), throwsFormatException);
   });
 
@@ -158,9 +156,8 @@ void registerPathBoundaryTests() {
           "import 'package:test/test.dart'; import '../lib/first.dart';",
     });
     await fixture.remove('lib/first.dart');
-    await Link(
-      '${fixture.directory.path}/lib/first.dart',
-    ).create('second.dart');
+    await Link('${fixture.directory.path}/lib/first.dart')
+        .create('second.dart');
     await expectLater(
       TestRuntimes.classify(fixture.directory.path, ['test/first_test.dart']),
       throwsFormatException,
@@ -169,8 +166,7 @@ void registerPathBoundaryTests() {
 
   test('rejects parent traversal in an own-package dependency URI', () async {
     await fixture.write({
-      'test/first_test.dart':
-          "import 'package:test/test.dart'; import 'package:transcriber/../../escape.dart';",
+      'test/first_test.dart': "import 'package:test/test.dart'; import 'package:transcriber/../../escape.dart';",
     });
     await expectLater(
       TestRuntimes.classify(fixture.directory.path, ['test/first_test.dart']),
@@ -178,22 +174,23 @@ void registerPathBoundaryTests() {
     );
   });
 
-  test('rejects a dependency escaping through a symbolic link parent', () async {
-    await fixture.write({
-      'test/first_test.dart':
-          "import 'package:test/test.dart'; import '../lib/linked/escape.dart';",
-    });
-    final outside = await Directory.systemTemp.createTemp(
-      'outside-test-runtime-',
-    );
-    addTearDown(() => outside.delete(recursive: true));
-    await File(
-      '${outside.path}/escape.dart',
-    ).writeAsString('const secret = 1;');
-    await Link('${fixture.directory.path}/lib/linked').create(outside.path);
-    await expectLater(
-      TestRuntimes.classify(fixture.directory.path, ['test/first_test.dart']),
-      throwsFormatException,
-    );
-  });
+  test(
+    'rejects a dependency escaping through a symbolic link parent',
+    () async {
+      await fixture.write({
+        'test/first_test.dart': "import 'package:test/test.dart'; import '../lib/linked/escape.dart';",
+      });
+      final outside = await Directory.systemTemp.createTemp(
+        'outside-test-runtime-',
+      );
+      addTearDown(() => outside.delete(recursive: true));
+      await File('${outside.path}/escape.dart')
+          .writeAsString('const secret = 1;');
+      await Link('${fixture.directory.path}/lib/linked').create(outside.path);
+      await expectLater(
+        TestRuntimes.classify(fixture.directory.path, ['test/first_test.dart']),
+        throwsFormatException,
+      );
+    },
+  );
 }

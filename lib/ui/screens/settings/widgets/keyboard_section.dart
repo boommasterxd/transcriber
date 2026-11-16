@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_strings.dart';
@@ -19,8 +19,8 @@ class KeyboardSection extends ConsumerWidget {
 
   final KeyboardSettingsPlatform platform;
 
-  Future<void> _openSetup(BuildContext context) =>
-      Navigator.of(context).push<void>(
+  Future<void> _openSetup(BuildContext context) => Navigator.of(context)
+      .push<void>(
         MaterialPageRoute(
           builder: (_) => KeyboardOnboardingScreen(platform: platform),
         ),

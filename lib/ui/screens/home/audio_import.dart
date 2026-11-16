@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/toast.dart';
@@ -11,8 +11,10 @@ import '../../navigation.dart';
 export '../../../data/models/audio_import_selection.dart';
 
 typedef AudioImportPicker = Future<AudioImportSelection?> Function();
-typedef AudioImportStarter =
-    Future<void> Function(BuildContext context, AudioImportSelection selection);
+typedef AudioImportStarter = Future<void> Function(
+  BuildContext context,
+  AudioImportSelection selection,
+);
 
 Future<void> startAudioImport(
   BuildContext context, {

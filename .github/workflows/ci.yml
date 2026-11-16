@@ -164,12 +164,12 @@ jobs:
           node-version: "26.x"
           check-latest: true
           package-manager-cache: false
+      - name: Resolve locked Dart duplication tool
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
+        run: npm ci --prefix tool/quality/node --ignore-scripts --no-audit
       - name: Check Dart duplication
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
-        run: >-
-          npx --yes jscpd@5.0.16
-          --min-tokens 50 --threshold 0 --reporters console
-          --format dart --ignore "**/*.g.dart" lib test tool
+        run: npm --prefix tool/quality/node run duplicates:dart
       - name: Build Flutter asset bundle
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
         run: flutter build bundle --debug --no-pub

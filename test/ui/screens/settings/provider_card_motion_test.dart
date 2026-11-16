@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/ui/screens/onboarding/widgets/onboarding_cloud_step.dart';
@@ -165,9 +165,8 @@ Future<void> _pumpMotionApp(
     child: Scaffold(
       body: Builder(
         builder: (context) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(disableAnimations: disableAnimations),
+          data: MediaQuery.of(context)
+              .copyWith(disableAnimations: disableAnimations),
           child: SingleChildScrollView(
             child: Column(
               children: [

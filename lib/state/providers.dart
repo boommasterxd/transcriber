@@ -56,8 +56,10 @@ final pendingAudioDeletionRecoveryProvider =
       ),
     );
 
-typedef ProviderCredentialTester =
-    Future<void> Function(RemoteProviderId provider, String apiKey);
+typedef ProviderCredentialTester = Future<void> Function(
+  RemoteProviderId provider,
+  String apiKey,
+);
 
 final providerCredentialTesterProvider = Provider<ProviderCredentialTester>(
   (ref) => (provider, apiKey) async {

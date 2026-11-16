@@ -9,6 +9,7 @@
   "scripts": {
     "lint": "cd ../../.. && tool/quality/node/node_modules/.bin/eslint --config tool/quality/node/eslint.config.js --max-warnings 0 tool test/tool",
     "duplicates": "cd ../../.. && tool/quality/node/node_modules/.bin/jscpd --config tool/quality/node/jscpd.json --fail-on-empty tool test/tool",
+    "duplicates:dart": "cd ../../.. && tool/quality/node/node_modules/.bin/jscpd --config tool/quality/node/jscpd-dart.json --fail-on-empty lib test tool",
     "test": "cd ../../.. && node --test test/tool/quality/node_quality.test.cjs",
     "check": "npm run lint && npm run duplicates && npm test",
     "audit": "npm audit --omit=dev --audit-level=high"

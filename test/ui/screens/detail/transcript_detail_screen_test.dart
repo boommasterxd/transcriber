@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,9 +27,8 @@ void _registerSummaryFailureTest(AppStrings strings, String gist) {
     tester,
   ) async {
     await useTestSurface(tester, const Size(600, 1000));
-    final note = detailTestNote(
-      gist: gist,
-    ).copyWith(summaryError: '<Error> unavailable');
+    final note = detailTestNote(gist: gist)
+        .copyWith(summaryError: '<Error> unavailable');
     await tester.pumpWidget(
       detailTestApp(
         notes: DetailTestNotesController([note]),

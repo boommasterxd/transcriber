@@ -10,9 +10,8 @@ Map<String, String> parseGitFiles(Uint8List data, List<String> paths) {
       throw const FormatException('Incomplete Git object header.');
     }
     final header = ascii.decode(Uint8List.sublistView(data, offset, headerEnd));
-    final match = RegExp(
-      r'^(?:[a-f0-9]{40}|[a-f0-9]{64}) blob ([0-9]+)$',
-    ).firstMatch(header);
+    final match = RegExp(r'^(?:[a-f0-9]{40}|[a-f0-9]{64}) blob ([0-9]+)$')
+        .firstMatch(header);
     final size = int.tryParse(match?.group(1) ?? '');
     if (size == null || size > 2 * 1024 * 1024) {
       throw const FormatException('Invalid or oversized Git source object.');

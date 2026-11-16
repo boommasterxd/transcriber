@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
