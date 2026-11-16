@@ -165,9 +165,8 @@ Future<void> _pumpMotionApp(
     child: Scaffold(
       body: Builder(
         builder: (context) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(disableAnimations: disableAnimations),
+          data: MediaQuery.of(context)
+              .copyWith(disableAnimations: disableAnimations),
           child: SingleChildScrollView(
             child: Column(
               children: [

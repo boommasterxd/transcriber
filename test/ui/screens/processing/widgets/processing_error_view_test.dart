@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_error_view.dart';
+
 import 'processing_widget_test_support.dart';
 
 void main() {

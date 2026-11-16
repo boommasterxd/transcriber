@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/ui/screens/share/widgets/share_result_body.dart';
+
 import 'share_test_support.dart';
 import '../detail/widgets/summary_failure_test_support.dart';
 
@@ -16,9 +17,8 @@ void _registerSummaryFailureTest(String gist) {
   testWidgets('failed summary preview keeps accordion with gist "$gist"', (
     tester,
   ) async {
-    final note = shareTestNote(
-      gist: gist,
-    ).copyWith(summaryError: '<Error> unavailable');
+    final note = shareTestNote(gist: gist)
+        .copyWith(summaryError: '<Error> unavailable');
     await tester.pumpWidget(
       shareTestChildApp(
         child: ShareResultBody(

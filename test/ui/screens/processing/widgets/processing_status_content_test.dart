@@ -5,6 +5,7 @@ import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/processing/processing_profile.dart';
 import 'package:transcriber/state/processing_controller.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_status_content.dart';
+
 import 'processing_widget_test_support.dart';
 
 void main() {

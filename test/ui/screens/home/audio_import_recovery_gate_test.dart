@@ -272,9 +272,8 @@ Future<void> _pumpGate(
             AppAccent.blue,
           ),
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(largeText ? 2 : 1)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(largeText ? 2 : 1)),
             child: child!,
           ),
           home: ValueListenableBuilder<bool>(

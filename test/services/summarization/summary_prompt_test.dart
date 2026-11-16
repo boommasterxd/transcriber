@@ -104,8 +104,7 @@ void _registerStructuredParseTests() {
 
     test('extracts an object surrounded by prose and a code fence', () {
       _expectParsedSummary((
-        raw:
-            'Result:\n```json\n{"title":"T","gist":"G","points":[],"todos":[]}\n```\nDone',
+        raw: 'Result:\n```json\n{"title":"T","gist":"G","points":[],"todos":[]}\n```\nDone',
         title: 'T',
         gist: 'G',
         points: const [],

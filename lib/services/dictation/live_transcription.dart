@@ -96,5 +96,6 @@ abstract interface class LiveTranscriptionClient {
   Future<void> close();
 }
 
-typedef LiveTranscriptionClientFactory =
-    LiveTranscriptionClient Function(LiveTranscriptionConfig config);
+typedef LiveTranscriptionClientFactory = LiveTranscriptionClient Function(
+  LiveTranscriptionConfig config,
+);

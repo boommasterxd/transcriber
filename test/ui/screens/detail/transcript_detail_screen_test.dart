@@ -27,9 +27,8 @@ void _registerSummaryFailureTest(AppStrings strings, String gist) {
     tester,
   ) async {
     await useTestSurface(tester, const Size(600, 1000));
-    final note = detailTestNote(
-      gist: gist,
-    ).copyWith(summaryError: '<Error> unavailable');
+    final note = detailTestNote(gist: gist)
+        .copyWith(summaryError: '<Error> unavailable');
     await tester.pumpWidget(
       detailTestApp(
         notes: DetailTestNotesController([note]),

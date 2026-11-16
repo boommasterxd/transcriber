@@ -6,8 +6,10 @@ import 'package:transcriber/services/service_exceptions.dart';
 
 import 'http_test_client.dart';
 
-typedef AudioTranscription =
-    Future<Object?> Function(String audioPath, RecordingHttpClient httpClient);
+typedef AudioTranscription = Future<Object?> Function(
+  String audioPath,
+  RecordingHttpClient httpClient,
+);
 typedef AudioTestAction = Future<void> Function(File file);
 
 RecordingHttpClient scriptedHttpClient(List<http.StreamedResponse> responses) {

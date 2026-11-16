@@ -19,8 +19,8 @@ class KeyboardSection extends ConsumerWidget {
 
   final KeyboardSettingsPlatform platform;
 
-  Future<void> _openSetup(BuildContext context) =>
-      Navigator.of(context).push<void>(
+  Future<void> _openSetup(BuildContext context) => Navigator.of(context)
+      .push<void>(
         MaterialPageRoute(
           builder: (_) => KeyboardOnboardingScreen(platform: platform),
         ),

@@ -49,8 +49,7 @@ void main() {
 }
 
 String _parameters(int count, bool named) {
-  final parameters = [
-    for (var index = 0; index < count; index++) 'int p$index',
-  ].join(', ');
+  final parameters = [for (var index = 0; index < count; index++) 'int p$index']
+      .join(', ');
   return named ? '{$parameters}' : parameters;
 }

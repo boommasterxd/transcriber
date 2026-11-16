@@ -272,9 +272,8 @@ void _registerErrorTests() {
 
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.error,
-      ).copyWith(errorCode: 'configuration_rejected'),
+      _state(DictationPhase.error)
+          .copyWith(errorCode: 'configuration_rejected'),
     );
     expect(find.textContaining('Live-Konfiguration'), findsOneWidget);
 
