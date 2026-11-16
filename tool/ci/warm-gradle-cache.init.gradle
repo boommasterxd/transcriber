@@ -1,0 +1,27 @@
+// Resolve public dependency artifacts without compiling, testing or packaging.
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+
+gradle.projectsEvaluated {
+    rootProject.tasks.register('warmDependencyCache') {
+        doLast {
+            rootProject.allprojects.each { project ->
+                project.configurations.findAll { configuration ->
+                    configuration.canBeResolved && (
+                        configuration.name.toLowerCase().endsWith('compileclasspath') ||
+                        configuration.name.toLowerCase().endsWith('runtimeclasspath') ||
+                        configuration.name.startsWith('robolectricSdk') ||
+                        configuration.name.startsWith('kotlinCompiler') ||
+                        configuration.name == 'kotlinBuildToolsApiClasspath' ||
+                        configuration.name in ['jacocoAgent', 'jacocoAnt', 'lintClassPath']
+                    )
+                }.each { configuration ->
+                    logger.lifecycle("Warming ${project.path}:${configuration.name}")
+                    // Project outputs belong to the build, not the download store.
+                    configuration.incoming.artifactView {
+                        componentFilter { it instanceof ModuleComponentIdentifier }
+                    }.files.files
+                }
+            }
+        }
+    }
+}

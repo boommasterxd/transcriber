@@ -1,5 +1,5 @@
 name: Set up project Flutter
-description: Install the FVM-pinned SDK with SHA-pinned SDK and package caches.
+description: Install the FVM-pinned SDK using shared restore-only SDK and Pub stores.
 runs:
   using: composite
   steps:
@@ -9,11 +9,26 @@ runs:
       run: |
         version=$(jq -er '.flutter | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' .fvmrc)
         printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
-    - name: Install and cache Flutter
+    - uses: ./.github/actions/dependency-cache
+      with:
+        store: flutter-sdk
+    - uses: ./.github/actions/dependency-cache
+      with:
+        store: pub
+    - name: Discard an incomplete SDK restore
+      shell: bash
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        sdk="$RUNNER_TOOL_CACHE/flutter/$VERSION/stable"
+        if [[ -d "$sdk" && ( ! -x "$sdk/flutter/bin/flutter" || ! -x "$sdk/flutter/bin/cache/dart-sdk/bin/dart" ) ]]; then
+          echo 'Incomplete Flutter SDK restore; installing a fresh SDK.'
+          rm -rf -- "$sdk"
+        fi
+    - name: Install Flutter
       uses: flutter-actions/setup-flutter@6e2468fd827c4a7337cd4b835a6049b78bc0bd1f # v4.3 + SDK checksum verification
       with:
         version: ${{ steps.version.outputs.version }}
         channel: stable
-        cache: true
-        cache-sdk: true
-        cache-key: pub-${{ hashFiles('pubspec.lock') }}
+        cache: false
+        cache-sdk: false

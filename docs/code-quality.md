@@ -73,12 +73,12 @@ dart run dart_code_linter:metrics check-unused-files lib test tool
 Check Node tooling using its isolated, private npm package and generated lockfile:
 
 ```bash
-npm ci --prefix tool/quality/node --ignore-scripts
+npm ci --prefix tool/quality/node --ignore-scripts --no-audit --prefer-offline
 npm --prefix tool/quality/node run check
 npm --prefix tool/quality/node run audit
 ```
 
-The package requires Node.js 26.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately.
+The package requires Node.js 26.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately. CI restores the shared npm content store before every locked installation, including Dart duplication tooling; the independent blocking audit remains enabled. See [shared dependency stores](ci-test-selection.md#shared-dependency-stores).
 
 Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and formatting plugin:
 
@@ -169,7 +169,7 @@ test -d build/flutter_assets
 
 ## CI Jobs
 
-All Flutter jobs, including manual APK validation and releases, use `.github/actions/setup-flutter` to read the exact version from `.fvmrc`. It calls the MIT-licensed `flutter-actions/setup-flutter` at commit `6e2468fd827c4a7337cd4b835a6049b78bc0bd1f`, which pins both cache dependencies to full SHAs and verifies downloaded SDK archives against the official Flutter release checksum. SDK and lockfile-keyed package caches remain enabled. This replaces `subosito/flutter-action`, whose internally tagged cache dependency is incompatible with enforced SHA pinning.
+All Flutter jobs, including manual APK validation and releases, use `.github/actions/setup-flutter` to read the exact version from `.fvmrc`. It calls the MIT-licensed `flutter-actions/setup-flutter` at commit `6e2468fd827c4a7337cd4b835a6049b78bc0bd1f`, which pins both cache dependencies to full SHAs and verifies downloaded SDK archives against the official Flutter release checksum. Shared restore-only SDK and lockfile-keyed package stores are managed by `.github/actions/dependency-cache`, with the trusted `main` warmup as their producer. The upstream action's automatic caches are disabled to avoid duplicate transfers. This replaces `subosito/flutter-action`, whose internally tagged cache dependency is incompatible with enforced SHA pinning.
 
 `.github/workflows/ci.yml` starts only jobs required by the complete change scope:
 

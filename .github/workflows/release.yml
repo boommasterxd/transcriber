@@ -59,15 +59,10 @@ jobs:
           BUILD_VERSION: ${{ steps.ver.outputs.version }}
         run: bash tool/package/stamp_version.sh "$BUILD_VERSION" "$GITHUB_RUN_NUMBER"
 
-      - name: Cache Gradle
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore shared Gradle dependencies
+        uses: ./.github/actions/dependency-cache
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          store: gradle
 
       # Release keystore from secrets. Falls back to debug signing (the Verify
       # step below then fails the release, so a debug-signed APK never ships).
@@ -87,25 +82,8 @@ jobs:
             "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
           echo "Release signing configured."
 
-      # android/app/build.gradle.kts pins ndkVersion (28.2.x), which Flutter's
-      # Gradle tooling applies to every plugin module too - except AGP 9 also
-      # resolves its own default NDK (28.0.13004108) during project evaluation
-      # for reasons unrelated to any specific plugin (checked all four KGP
-      # plugins' build.gradle for a hardcoded ndkVersion, found none). Install
-      # both up front so neither triggers the on-demand download above.
-      - name: Pre-install NDK (with retry)
-        run: |
-          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          SDKMGR=$(find "$SDK/cmdline-tools" -name sdkmanager | sort -V | tail -1)
-          echo "Using $SDKMGR"
-          for NDK_VER in 28.0.13004108 28.2.13676358; do
-            for i in 1 2 3 4; do
-              rm -rf "$SDK/ndk/$NDK_VER"
-              if yes | "$SDKMGR" "ndk;$NDK_VER"; then echo "NDK $NDK_VER installed."; break; fi
-              echo "NDK $NDK_VER attempt $i failed; retrying in $((i*5))s"; sleep $((i*5))
-            done
-            test -d "$SDK/ndk/$NDK_VER"
-          done
+      - name: Reuse or install pinned Android NDKs
+        uses: ./.github/actions/setup-android-ndk
 
       - name: Build
         env:

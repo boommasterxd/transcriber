@@ -43,6 +43,7 @@ test('known paths request precisely their relevant checks', () => {
     ['tool/ci/check-osv-npm-scope.cjs', ['workflow']],
     ['test/tool/ci/check-osv-npm-scope.test.cjs', ['workflow']],
     ['test/tool/ci/jvm-test-failure.integration.cjs', ['workflow', 'jvm']],
+    ['test/tool/ci/gradle-cache.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/native-coverage.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/jvm_fixture.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/kotlin-quality.integration.cjs', ['workflow', 'jvm']],
