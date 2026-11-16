@@ -67,8 +67,10 @@ jobs:
         run: >-
           node --test --experimental-test-coverage
           --test-coverage-include='tool/ci/*.cjs'
+          --test-coverage-include='tool/ci/cache-lifecycle/*.cjs'
           --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80
           test/tool/ci/*.test.cjs
+          test/tool/ci/cache-lifecycle/*.test.cjs
       - name: Install workflow linters
         env:
           ACTIONLINT_VERSION: 1.7.12

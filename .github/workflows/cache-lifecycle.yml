@@ -1,0 +1,49 @@
+name: Cache lifecycle
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_run:
+    workflows:
+      - CI
+      - CodeQL
+      - Dependency cache warmup
+      - Build APK
+      - Commit Style Check
+      - Dependabot auto-merge
+      - Dependency audit
+      - Secret scan
+      - Release
+      - Update Flutter version
+      - Update gitleaks version
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: cache-lifecycle
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Retire inactive caches
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.x'
+          check-latest: true
+          package-manager-cache: false
+      - name: Revalidate metadata and prune eligible cache IDs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tool/ci/cache-lifecycle/run.cjs tool/ci/cache-lifecycle/policy.json

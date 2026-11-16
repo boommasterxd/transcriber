@@ -98,6 +98,31 @@ Consumers never save partial PR or release stores. A cache miss or cache-service
 
 Restore steps expose native exact/matched-key outcomes and write summaries distinguishing exact restores, compatible fallbacks, cold/error and unknown outcomes. For the optimization target, evaluate the first 30 days after a complete seed, counting each eligible unchanged-compatible-store PR installation as one opportunity. Target at least 95% confirmed successful restores: report exact and fallback counts separately, with cold, error and unknown outcomes retained in the denominator. Initial-seed and dependency-changing opportunities are separate. Compare restore/install durations with equivalent cold runs and include all warmup time, transfers and storage; a cache hit alone proves neither completeness nor time or monetary savings. This target is not a merge gate.
 
+
+The producer's follow-up cleanup runs after successful installation and cache post-save.
+It retires only older compatible main generations with a uniquely identified nonempty
+replacement. The metadata-only `cache-lifecycle.yml` also removes closed-PR caches once
+associated runs finish, and retires replaced CodeQL snapshots per configuration and tool version. Current keys, open PRs, active consumers,
+unknown families and unproven replacements remain protected. The project-owned policy
+and portable GitHub plugin runtime in `tool/ci/cache-lifecycle` recheck main, cache versions,
+PR state and active runs before deleting numeric cache IDs, cap each run at 100 deletions
+and verify the remaining inventory. API failures preserve uncertain caches.
+
+Deferred main rotation resumes on completion events using only a verified successful
+main producer and its exact run attempt. An earlier main revision is accepted only
+after a complete bounded ancestor comparison proves that all declared native key,
+setup and install-hook inputs remain unchanged, including rename sources. Producer
+input paths also trigger the warmup; completion triggers cover all existing non-cleanup
+workflows. Recovery considers at most 20 successful main runs, 100 commits and fewer
+than 300 changed files. Missing or expired proof preserves caches until another
+authorized warmup establishes a replacement. Its tiny
+`cache-lifecycle-receipts-<attempt>` artifact contains only `replacements.json`, retained
+for seven days and bounded to 64 KiB/20 identities. PR artifacts are never used.
+Cleanup installs no dependencies and repeats no quality pipeline. Existing required gates,
+cache retention/storage limits and the measurable 95% restore target remain independent.
+Native regression checks cover replacement proof, protected caches, PR/run races,
+CodeQL attempts where applicable, bounded metadata and recovery after concurrent runs.
+
 Graph snapshots read Git blobs in a single bounded `git cat-file --batch -z` process. The parser validates byte lengths, UTF-8, object type, complete framing, and resource limits. Each plan validation still reconstructs the complete graph; no previous graph or selection is trusted as a cache.
 
 Signed APK builds and releases retain their explicit workflows and signing/protection requirements. This optimization does not publish artifacts or deployments.

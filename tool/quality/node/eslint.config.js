@@ -28,4 +28,13 @@ export default [
       'no-unused-private-class-members': 'error',
     },
   },
+  {
+    files: [
+      'tool/ci/cache-lifecycle/*.cjs',
+      'test/tool/ci/cache-lifecycle/{register,recovery,io}.cjs',
+    ],
+    rules: {
+      '@stylistic/quotes': ['error', 'double', { avoidEscape: true }],
+    },
+  },
 ];

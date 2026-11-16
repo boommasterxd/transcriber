@@ -7,6 +7,13 @@ inputs:
   mode:
     description: Restore by default; save is restricted to the main warmup.
     default: restore
+outputs:
+  cache-key:
+    description: Exact native primary cache identity.
+    value: ${{ steps.identity.outputs.key }}
+  cache-prefix:
+    description: Compatible platform and runtime namespace across generations.
+    value: ${{ steps.identity.outputs.prefix }}
 runs:
   using: composite
   steps:
