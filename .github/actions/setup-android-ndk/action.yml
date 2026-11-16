@@ -11,6 +11,9 @@ outputs:
   cache-matched-key:
     description: Native restored cache identity, empty on a miss or service failure.
     value: ${{ steps.restore.outputs.cache-matched-key }}
+  cache-prefix:
+    description: Compatible Android NDK platform namespace across generations.
+    value: ${{ steps.identity.outputs.prefix }}
 runs:
   using: composite
   steps:
@@ -23,6 +26,7 @@ runs:
         CURRENT_EVENT: ${{ github.event_name }}
         CURRENT_WORKFLOW: ${{ github.workflow }}
         CACHE_KEY: android-ndk-v1-${{ runner.os }}-${{ runner.arch }}-28.0.13004108-28.2.13676358
+        CACHE_PREFIX: android-ndk-v1-${{ runner.os }}-${{ runner.arch }}-
       run: |
         if [[ "$SAVE_CACHE" != false && "$SAVE_CACHE" != true ]]; then
           echo 'save-cache must be true or false.' >&2
@@ -38,6 +42,7 @@ runs:
           exit 1
         fi
         printf 'sdk-root=%s\nkey=%s\n' "$sdk_root" "$CACHE_KEY" >> "$GITHUB_OUTPUT"
+        printf 'prefix=%s\n' "$CACHE_PREFIX" >> "$GITHUB_OUTPUT"
     - name: Restore shared NDK dependencies
       id: restore
       continue-on-error: true

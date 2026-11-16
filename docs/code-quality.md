@@ -207,7 +207,12 @@ Repository secret scanning and push protection are enabled, independently of req
 
 `.github/workflows/codeql.yml` defines one advanced configuration for Actions, JavaScript and manually compiled Kotlin, using the pinned Flutter SDK and JDK 17. It replaces default setup, whose automatic Kotlin build failed and excluded that language. Its substantive analysis jobs use regular runners with bounded timeouts. Kotlin compilation disables build-cache and up-to-date reuse so the extractor sees maintained sources. Local YAML validation and compilation do not establish hosted Kotlin extraction; inspect matching PR analysis results. CodeQL scans are distinct from application `CI` and do not add another required check or repeat its tests.
 
-The Kotlin CodeQL job enables the pinned action's native dependency cache. It restores and stores build dependencies while retaining a fresh traced compilation for analysis. Actions and JavaScript analysis do not enable that cache. Cache hits and any effect on hosted duration require evidence from a subsequent matching run; local validation does not establish a speedup.
+The Kotlin CodeQL job restores the shared Gradle dependency store through the same native
+interface as CI and releases; overlapping CodeQL dependency caching is disabled. Fresh
+traced compilation remains mandatory. CodeQL analysis database snapshots have their own
+lifecycle: only a successful current-main snapshot from the exact run attempt can retire
+older matching configuration/language/tool/cache-version snapshots. See
+[cache lifecycle](ci-test-selection.md#runner-work-and-caches) for metadata trust and recovery.
 
 The current [CodeQL language support table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) lists Kotlin through 2.4.20; the project uses 2.4.21. The first hosted traced build and analysis succeeded with CodeQL 2.27.2. Reverify the actual hosted bundle when changing this toolchain. Do not downgrade the project or exclude Kotlin merely to make the scan green.
 
