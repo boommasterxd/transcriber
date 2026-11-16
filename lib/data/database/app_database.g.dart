@@ -3401,48 +3401,46 @@ typedef $$AppSettingsTableTableProcessedTableManager =
       AppSettingsTableData,
       PrefetchHooks Function()
     >;
-typedef $$NotesTableTableCreateCompanionBuilder =
-    NotesTableCompanion Function({
-      required String id,
-      required String title,
-      Value<String> titleSearch,
-      required String speaker,
-      required String source,
-      required int durationSec,
-      required int createdAt,
-      required bool asrIsLocal,
-      required bool summaryIsLocal,
-      required String asrName,
-      required String asrSub,
-      required String llmName,
-      required String llmSub,
-      required String gist,
-      Value<String?> summaryError,
-      Value<String?> audioPath,
-      required String audioOwnership,
-      Value<int> rowid,
-    });
-typedef $$NotesTableTableUpdateCompanionBuilder =
-    NotesTableCompanion Function({
-      Value<String> id,
-      Value<String> title,
-      Value<String> titleSearch,
-      Value<String> speaker,
-      Value<String> source,
-      Value<int> durationSec,
-      Value<int> createdAt,
-      Value<bool> asrIsLocal,
-      Value<bool> summaryIsLocal,
-      Value<String> asrName,
-      Value<String> asrSub,
-      Value<String> llmName,
-      Value<String> llmSub,
-      Value<String> gist,
-      Value<String?> summaryError,
-      Value<String?> audioPath,
-      Value<String> audioOwnership,
-      Value<int> rowid,
-    });
+typedef $$NotesTableTableCreateCompanionBuilder = NotesTableCompanion Function({
+  required String id,
+  required String title,
+  Value<String> titleSearch,
+  required String speaker,
+  required String source,
+  required int durationSec,
+  required int createdAt,
+  required bool asrIsLocal,
+  required bool summaryIsLocal,
+  required String asrName,
+  required String asrSub,
+  required String llmName,
+  required String llmSub,
+  required String gist,
+  Value<String?> summaryError,
+  Value<String?> audioPath,
+  required String audioOwnership,
+  Value<int> rowid,
+});
+typedef $$NotesTableTableUpdateCompanionBuilder = NotesTableCompanion Function({
+  Value<String> id,
+  Value<String> title,
+  Value<String> titleSearch,
+  Value<String> speaker,
+  Value<String> source,
+  Value<int> durationSec,
+  Value<int> createdAt,
+  Value<bool> asrIsLocal,
+  Value<bool> summaryIsLocal,
+  Value<String> asrName,
+  Value<String> asrSub,
+  Value<String> llmName,
+  Value<String> llmSub,
+  Value<String> gist,
+  Value<String?> summaryError,
+  Value<String?> audioPath,
+  Value<String> audioOwnership,
+  Value<int> rowid,
+});
 
 final class $$NotesTableTableReferences
     extends BaseReferences<_$AppDatabase, $NotesTableTable, NotesTableData> {
@@ -4402,19 +4400,15 @@ class $$NotePointsTableTableTableManager
                     >
                   >(state) {
                     if (noteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.noteId,
-                                referencedTable:
-                                    $$NotePointsTableTableReferences
-                                        ._noteIdTable(db),
-                                referencedColumn:
-                                    $$NotePointsTableTableReferences
-                                        ._noteIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable: $$NotePointsTableTableReferences
+                            ._noteIdTable(db),
+                        referencedColumn: $$NotePointsTableTableReferences
+                            ._noteIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -4713,18 +4707,15 @@ class $$NoteTodosTableTableTableManager
                     >
                   >(state) {
                     if (noteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.noteId,
-                                referencedTable: $$NoteTodosTableTableReferences
-                                    ._noteIdTable(db),
-                                referencedColumn:
-                                    $$NoteTodosTableTableReferences
-                                        ._noteIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable: $$NoteTodosTableTableReferences
+                            ._noteIdTable(db),
+                        referencedColumn: $$NoteTodosTableTableReferences
+                            ._noteIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -5019,19 +5010,17 @@ class $$TranscriptSegmentsTableTableTableManager
                     >
                   >(state) {
                     if (noteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.noteId,
-                                referencedTable:
-                                    $$TranscriptSegmentsTableTableReferences
-                                        ._noteIdTable(db),
-                                referencedColumn:
-                                    $$TranscriptSegmentsTableTableReferences
-                                        ._noteIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable:
+                            $$TranscriptSegmentsTableTableReferences
+                                ._noteIdTable(db),
+                        referencedColumn:
+                            $$TranscriptSegmentsTableTableReferences
+                                ._noteIdTable(db)
+                                .id,
+                      ) as T;
                     }
 
                     return state;
@@ -5330,12 +5319,10 @@ class $$PendingAudioDeletionsTableTableTableManager
                 $db: db,
                 $table: table,
               ),
-          updateCompanionCallback:
-              ({
-                Value<String> path = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) =>
-                  PendingAudioDeletionsTableCompanion(path: path, rowid: rowid),
+          updateCompanionCallback: ({
+            Value<String> path = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => PendingAudioDeletionsTableCompanion(path: path, rowid: rowid),
           createCompanionCallback:
               ({
                 required String path,

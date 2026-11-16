@@ -113,12 +113,10 @@ void _registerFallbackTests() {
             (_) async => <String, Object?>{},
           );
 
-      final editor = await MethodChannelDictationPlatform(
-        methods: emptyChannel,
-      ).editorState();
-      final status = await const KeyboardSettingsPlatform(
-        channel: emptyChannel,
-      ).status();
+      final editor = await MethodChannelDictationPlatform(methods: emptyChannel)
+          .editorState();
+      final status = await const KeyboardSettingsPlatform(channel: emptyChannel)
+          .status();
 
       expect(editor.sessionId, isEmpty);
       expect(editor.visible, isFalse);

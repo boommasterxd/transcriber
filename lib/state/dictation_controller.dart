@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -80,9 +81,8 @@ final class DictationController extends ChangeNotifier {
     }
     try {
       final settings = await _settingsRepository.load();
-      final key = (await _settingsRepository.apiKey(
-        settings.asrProvider,
-      ))?.trim();
+      final key = (await _settingsRepository.apiKey(settings.asrProvider))
+          ?.trim();
       if (key == null || key.isEmpty) {
         _fail('api_key_missing');
         return;

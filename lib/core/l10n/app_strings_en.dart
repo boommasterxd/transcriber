@@ -22,10 +22,8 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.recLimit: 'Automatically stops at {duration}',
   _StringKey.recLimitWarning:
       'Recording limit approaching. Remaining: {duration}',
-  _StringKey.recLimitReached:
-      'Recording limit reached. Audio is preserved. Press Stop to continue or discard it.',
-  _StringKey.recFailure:
-      'Recording interrupted. Audio is preserved. Try Stop again or discard it.',
+  _StringKey.recLimitReached: 'Recording limit reached. Audio is preserved. Press Stop to continue or discard it.',
+  _StringKey.recFailure: 'Recording interrupted. Audio is preserved. Try Stop again or discard it.',
   _StringKey.recResume: 'Resume',
   _StringKey.recPause: 'Pause',
   _StringKey.recStopShort: 'Stop',
@@ -131,11 +129,9 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.justNow: 'just now',
   _StringKey.processingTitle: 'Processing',
   _StringKey.errorTitle: 'Something went wrong',
-  _StringKey.audioImportFailed:
-      'Audio could not be imported. Check the format, size and access, then try again.',
+  _StringKey.audioImportFailed: 'Audio could not be imported. Check the format, size and access, then try again.',
   _StringKey.recoveredAudioTitle: 'Audio selection recovered',
-  _StringKey.recoveredAudioBody:
-      'The app was closed during file selection. Would you like to process the selected audio now? This sends it to your selected cloud provider.',
+  _StringKey.recoveredAudioBody: 'The app was closed during file selection. Would you like to process the selected audio now? This sends it to your selected cloud provider.',
   _StringKey.recoveredAudioContinue: 'Process audio',
   _StringKey.retry: 'Retry',
   _StringKey.dismiss: 'Dismiss',
@@ -151,14 +147,11 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.audioDelSub: 'Automatically removed after processing',
   _StringKey.keyMissing: 'Key missing',
   _StringKey.cancel: 'Cancel',
-  _StringKey.privacyStatement:
-      'No telemetry or tracking. Audio is sent to the selected transcription provider, and transcript text is optionally sent to the selected summary provider. API keys remain in secure device storage.',
+  _StringKey.privacyStatement: 'No telemetry or tracking. Audio is sent to the selected transcription provider, and transcript text is optionally sent to the selected summary provider. API keys remain in secure device storage.',
   _StringKey.obModelsT: 'What comes from your audio?',
   _StringKey.obConnectStep: 'Connect a provider',
-  _StringKey.obConnectDescription:
-      'One provider covers transcription and summaries. You can also connect both.',
-  _StringKey.obSelectModelsDescription:
-      'Choose a model for each task. You can use a different provider for each.',
+  _StringKey.obConnectDescription: 'One provider covers transcription and summaries. You can also connect both.',
+  _StringKey.obSelectModelsDescription: 'Choose a model for each task. You can use a different provider for each.',
   _StringKey.obSelectModelsHint:
       'Choose an available model for each enabled task.',
   _StringKey.obNext: 'Next',
@@ -186,10 +179,8 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.obPermEnable: 'Enable',
   _StringKey.obPermGranted: 'All approved',
   _StringKey.obPermRequiredHint: 'Microphone access is required to continue.',
-  _StringKey.obPermDeniedNote:
-      "Without microphone access the app can't record voice notes. Please allow it to continue.",
-  _StringKey.obPermBlockedNote:
-      'You declined access. Enable "Microphone" in the app settings, then come back here.',
+  _StringKey.obPermDeniedNote: "Without microphone access the app can't record voice notes. Please allow it to continue.",
+  _StringKey.obPermBlockedNote: 'You declined access. Enable "Microphone" in the app settings, then come back here.',
   _StringKey.obPermOpenSettings: 'Open settings',
   _StringKey.obPermLocked: 'Please grant access to continue.',
   _StringKey.deleteNoteTitle: 'Delete transcript?',
@@ -202,8 +193,7 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.summaryFailedTitle: 'Summary failed',
   _StringKey.summaryFailedBody:
       'Your transcript was preserved. Expand it below to read it.',
-  _StringKey.autoDelNote:
-      'External originals remain untouched. Only the app-owned working copy is removed after successful processing.',
+  _StringKey.autoDelNote: 'External originals remain untouched. Only the app-owned working copy is removed after successful processing.',
   _StringKey.keyHelpTitleTemplate: '{name} API key',
   _StringKey.keyHelpNote: 'Note: cloud providers charge based on usage.',
   _StringKey.keyHelpOpenAiSteps: [
@@ -228,24 +218,18 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.dateMonthDayTemplate: '{m}/{d}',
   _StringKey.keyboardSection: 'Transcriber keyboard',
   _StringKey.keyboardTitle: 'Dictate anywhere, live',
-  _StringKey.keyboardDescription:
-      'Enable Transcriber as a keyboard and insert speech directly into the active text field.',
+  _StringKey.keyboardDescription: 'Enable Transcriber as a keyboard and insert speech directly into the active text field.',
   _StringKey.keyboardGuideTitle: 'How dictation works',
-  _StringKey.keyboardGuideBenefit:
-      'Write messages, emails and notes with your voice, directly in the app you are using.',
-  _StringKey.keyboardGuideEnable:
-      'Set up the Transcriber keyboard using the button above and select it as your keyboard.',
-  _StringKey.keyboardGuideDictate:
-      'Open a text field, start the microphone and speak. Your dictation appears directly as text.',
-  _StringKey.keyboardGuideFinish:
-      'Stop dictation, check the text, then edit or send it in the app you are using.',
+  _StringKey.keyboardGuideBenefit: 'Write messages, emails and notes with your voice, directly in the app you are using.',
+  _StringKey.keyboardGuideEnable: 'Set up the Transcriber keyboard using the button above and select it as your keyboard.',
+  _StringKey.keyboardGuideDictate: 'Open a text field, start the microphone and speak. Your dictation appears directly as text.',
+  _StringKey.keyboardGuideFinish: 'Stop dictation, check the text, then edit or send it in the app you are using.',
   _StringKey.keyboardEnabled: 'Enabled',
   _StringKey.keyboardDisabled: 'Not enabled',
   _StringKey.keyboardSelected: 'Currently selected',
   _StringKey.keyboardOpenSettings: 'Enable',
   _StringKey.keyboardChoose: 'Choose keyboard',
-  _StringKey.keyboardPrivacy:
-      'Live audio is sent to the selected cloud provider and is not stored. Usage charges may apply.',
+  _StringKey.keyboardPrivacy: 'Live audio is sent to the selected cloud provider and is not stored. Usage charges may apply.',
   _StringKey.keyboardReady: 'Ready for live dictation',
   _StringKey.keyboardConnect: 'Connecting…',
   _StringKey.keyboardRecording: 'Live dictation is running',
@@ -264,8 +248,7 @@ const Map<_StringKey, Object> _enStrings = {
       'The provider quota or billing does not currently allow live dictation.',
   _StringKey.keyboardModelError:
       'The live model is not available for this API key.',
-  _StringKey.keyboardConfigurationError:
-      'The provider rejected the live configuration. Update the app or check the language setting.',
+  _StringKey.keyboardConfigurationError: 'The provider rejected the live configuration. Update the app or check the language setting.',
   _StringKey.keyboardTimeoutError:
       'The provider is not responding. Check the connection and try again.',
   _StringKey.keyboardRetry: 'Reconnect',
@@ -280,8 +263,7 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.keyboardSetupSubtitle:
       'Three short steps, then you can dictate live in almost any text field.',
   _StringKey.keyboardConfiguredTitle: 'Keyboard is ready',
-  _StringKey.keyboardConfiguredBody:
-      'Transcriber is enabled in Android and currently selected as the keyboard.',
+  _StringKey.keyboardConfiguredBody: 'Transcriber is enabled in Android and currently selected as the keyboard.',
   _StringKey.keyboardSetupProviderTitle: 'Check the live provider',
   _StringKey.keyboardSetupProviderBody:
       'Transcriber uses your selected provider, API key, and language setting.',
@@ -289,8 +271,7 @@ const Map<_StringKey, Object> _enStrings = {
   _StringKey.keyboardSetupEnableBody:
       'Enable “Transcriber” once in Android keyboard settings.',
   _StringKey.keyboardSetupChooseTitle: 'Select the keyboard',
-  _StringKey.keyboardSetupChooseBody:
-      'Open the keyboard picker and tap “Transcriber”. You can switch back at any time.',
+  _StringKey.keyboardSetupChooseBody: 'Open the keyboard picker and tap “Transcriber”. You can switch back at any time.',
   _StringKey.keyboardSetupDone: 'Finish setup',
   _StringKey.keyboardDone: 'Done',
 };

@@ -20,9 +20,8 @@ class NotesRepository {
     bool previous = false,
     int limit = 50,
   }) => _database.transaction(
-    () => NotesHistoryQuery(
-      _database,
-    ).load(query: query, cursor: cursor, previous: previous, limit: limit),
+    () => NotesHistoryQuery(_database)
+        .load(query: query, cursor: cursor, previous: previous, limit: limit),
   );
 
   /// Explicit complete snapshots for imports and test fixtures only.

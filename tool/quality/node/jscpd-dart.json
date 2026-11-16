@@ -1,0 +1,7 @@
+{
+  "format": ["dart"],
+  "minTokens": 50,
+  "threshold": 0,
+  "reporters": ["console"],
+  "ignore": ["**/*.g.dart"]
+}
