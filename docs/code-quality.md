@@ -33,7 +33,7 @@ Maintained Node `.cjs`, `.js`, and `.mjs` sources and tests under `tool/` and `t
 
 Drift generates `lib/data/database/app_database.g.dart`. The file is checked into source control so builds do not depend on code generation, but it is excluded from direct analyzer, size, complexity, and duplication measurements only when it carries Drift's generated-code header. It remains compiled through `app_database.dart`. Maintained database declarations, queries, repositories, and migrations remain fully subject to every quality gate.
 
-The pinned Flutter SDK requires `test_api` 0.7.14, compatible with the Dart VM runner `test` 1.32.0. That test runner supports Analyzer 13 and 14; the project currently selects Analyzer 13.x and resolves Build Runner 2.16.1. Compiler-tool upgrades must preserve the repository-owned AST consumers, code generation, and all strict quality/coverage checks without dependency overrides.
+The pinned Flutter SDK requires `test_api` 0.7.14, compatible with the Dart VM runner `test` 1.32.0. The project resolves Analyzer 14.7.0 and Build Runner 2.17.1. Test 1.33.0 requires `test_api` 0.7.15 and cannot be adopted with the current SDK pin. Compiler-tool upgrades must preserve the repository-owned AST consumers, code generation, and all strict quality/coverage checks without dependency overrides.
 
 ## Local Commands
 
