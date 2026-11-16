@@ -239,9 +239,12 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+      - name: Verify shared Android dependency warmup
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: android/gradlew -p android -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache --no-daemon
       - name: Verify standalone JVM harness
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
-        run: android/gradlew -p tool/ci/jvm test verifyNativeCoverage --no-daemon
+        run: android/gradlew -p tool/ci/jvm -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache test verifyNativeCoverage --no-daemon
       - name: Prove JVM tests reject failures and skipped suites
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: >-

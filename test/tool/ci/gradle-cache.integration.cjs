@@ -19,6 +19,7 @@ test('warmup resolves external artifacts across projects without building projec
 </project>`);
   fs.writeFileSync(path.join(artifact, 'cache-fixture-1.0.jar'), 'synthetic artifact');
   fs.writeFileSync(path.join(root, 'settings.gradle'), "include 'plugin'\n");
+  fs.writeFileSync(path.join(root, 'gradle.properties'), 'org.gradle.parallel=true\n');
   fs.mkdirSync(path.join(root, 'plugin'));
   fs.writeFileSync(path.join(root, 'plugin/build.gradle'), `
 configurations { exported { canBeConsumed = true; canBeResolved = false } }
