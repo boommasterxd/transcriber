@@ -19,9 +19,8 @@ void main() {
       const source = "const title = 'Größe';\n";
       await fixture.write({name: source});
       final revision = await fixture.commit();
-      final files = await SelectionGit(
-        fixture.directory.path,
-      ).readFiles(revision, ['lib/second.dart', name, 'lib/first.dart']);
+      final files = await SelectionGit(fixture.directory.path)
+          .readFiles(revision, ['lib/second.dart', name, 'lib/first.dart']);
       expect(files.keys, ['lib/second.dart', name, 'lib/first.dart']);
       expect(files[name], source);
       expect(files['lib/first.dart'], fixtureSource('first', 1));
@@ -32,9 +31,8 @@ void main() {
     'bulk read rejects missing objects instead of returning partial data',
     () async {
       await expectLater(
-        SelectionGit(
-          fixture.directory.path,
-        ).readFiles(fixture.base, ['lib/first.dart', 'lib/missing.dart']),
+        SelectionGit(fixture.directory.path)
+            .readFiles(fixture.base, ['lib/first.dart', 'lib/missing.dart']),
         throwsFormatException,
       );
     },
@@ -49,9 +47,8 @@ void main() {
 
   test('bulk read rejects requests containing a null path separator', () async {
     await expectLater(
-      SelectionGit(
-        fixture.directory.path,
-      ).readFiles(fixture.base, ['bad\u0000path']),
+      SelectionGit(fixture.directory.path)
+          .readFiles(fixture.base, ['bad\u0000path']),
       throwsFormatException,
     );
   });

@@ -76,8 +76,8 @@ String fixtureSource(String name, int value) =>
     'int $name(bool condition) => condition ? $value : 0;\n';
 
 Future<String> flutterSdkPath() async {
-  final config =
-      jsonDecode(await File('.dart_tool/package_config.json').readAsString())
-          as Map<String, dynamic>;
+  final config = jsonDecode(
+    await File('.dart_tool/package_config.json').readAsString(),
+  ) as Map<String, dynamic>;
   return Uri.parse(config['flutterRoot'] as String).toFilePath();
 }

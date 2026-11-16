@@ -27,8 +27,10 @@ export 'processing_request.dart'
         ProcessingStep,
         ProcessingStepCallback;
 
-typedef ProviderClientBuilder =
-    RemoteProviderClient Function(RemoteProviderId provider, String apiKey);
+typedef ProviderClientBuilder = RemoteProviderClient Function(
+  RemoteProviderId provider,
+  String apiKey,
+);
 
 /// Orchestrates the independent cloud transcription and summary stages.
 final class ProcessingPipeline {

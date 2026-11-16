@@ -154,10 +154,7 @@ jobs:
         uses: ./.github/actions/setup-node-tools
       - name: Check Dart duplication
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
-        run: >-
-          tool/quality/node/node_modules/.bin/jscpd
-          --min-tokens 50 --threshold 0 --reporters console
-          --format dart --ignore "**/*.g.dart" lib test tool
+        run: npm --prefix tool/quality/node run duplicates:dart
       - name: Build Flutter asset bundle
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
         run: flutter build bundle --debug --no-pub

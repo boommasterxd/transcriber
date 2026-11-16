@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
@@ -272,9 +272,8 @@ void _registerErrorTests() {
 
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.error,
-      ).copyWith(errorCode: 'configuration_rejected'),
+      _state(DictationPhase.error)
+          .copyWith(errorCode: 'configuration_rejected'),
     );
     expect(find.textContaining('Live-Konfiguration'), findsOneWidget);
 

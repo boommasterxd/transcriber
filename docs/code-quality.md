@@ -33,7 +33,7 @@ Maintained Node `.cjs`, `.js`, and `.mjs` sources and tests under `tool/` and `t
 
 Drift generates `lib/data/database/app_database.g.dart`. The file is checked into source control so builds do not depend on code generation, but it is excluded from direct analyzer, size, complexity, and duplication measurements only when it carries Drift's generated-code header. It remains compiled through `app_database.dart`. Maintained database declarations, queries, repositories, and migrations remain fully subject to every quality gate.
 
-The pinned Flutter SDK requires `test_api` 0.7.12, compatible with the Dart VM runner `test` 1.31.1. That test runner excludes Analyzer 14; the project selects Analyzer 13.x and resolves Build Runner 2.16.1. Their declared constraints and generated lockfile intentionally preserve this compatibility, without dependency overrides. Revisit the combination when updating Flutter. Code generation and all strict quality/coverage checks must remain verified across such changes.
+The pinned Flutter SDK requires `test_api` 0.7.14, compatible with the Dart VM runner `test` 1.32.0. The project resolves Analyzer 14.7.0 and Build Runner 2.17.1. Test 1.33.0 requires `test_api` 0.7.15 and cannot be adopted with the current SDK pin. Compiler-tool upgrades must preserve the repository-owned AST consumers, code generation, and all strict quality/coverage checks without dependency overrides.
 
 ## Local Commands
 
@@ -151,16 +151,13 @@ dart run tool/quality/merge_coverage.dart --output coverage/lcov.info \
 
 One suite's report is not repository-wide coverage. A tool-only runtime explicitly measures no application coverage; an expected application report cannot be missing or empty. See [runtime selection and coverage merging](ci-test-selection.md#dart-and-flutter-test-runtimes).
 
-Check duplication with the pinned Dart-capable detector:
+Check Dart duplication with the same locked detector as the Node quality package.
+Install the package with the Node tooling command above before running this check.
+The Dart configuration preserves the 50-token minimum, zero duplication threshold,
+and generated Drift adapter exclusion, and rejects an empty scan:
 
 ```bash
-tool/quality/node/node_modules/.bin/jscpd \
-  --min-tokens 50 \
-  --threshold 0 \
-  --reporters console \
-  --format dart \
-  --ignore "**/*.g.dart" \
-  lib test tool
+npm --prefix tool/quality/node run duplicates:dart
 ```
 
 Build and verify the Flutter asset bundle:
@@ -172,7 +169,7 @@ test -d build/flutter_assets
 
 ## CI Jobs
 
-All Flutter jobs, including manual APK validation and releases, use `.github/actions/setup-flutter` to read the exact version from `.fvmrc`. It calls the MIT-licensed `flutter-actions/setup-flutter` at commit `6e2468fd827c4a7337cd4b835a6049b78bc0bd1f`, which pins both cache dependencies to full SHAs and verifies downloaded SDK archives against the official Flutter release checksum. SDK and lockfile-keyed package caches remain enabled. This replaces `subosito/flutter-action`, whose internally tagged cache dependency is incompatible with enforced SHA pinning.
+All Flutter jobs, including manual APK validation and releases, use `.github/actions/setup-flutter` to read the exact version from `.fvmrc`. It calls the MIT-licensed `flutter-actions/setup-flutter` at commit `6e2468fd827c4a7337cd4b835a6049b78bc0bd1f`, which pins both cache dependencies to full SHAs and verifies downloaded SDK archives against the official Flutter release checksum. Shared restore-only SDK and lockfile-keyed package stores are managed by `.github/actions/dependency-cache`, with the trusted `main` warmup as their producer. The upstream action's automatic caches are disabled to avoid duplicate transfers. This replaces `subosito/flutter-action`, whose internally tagged cache dependency is incompatible with enforced SHA pinning.
 
 `.github/workflows/ci.yml` starts only jobs required by the complete change scope:
 

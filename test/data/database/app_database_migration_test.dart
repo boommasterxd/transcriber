@@ -88,9 +88,8 @@ void main() {
       expect(note.todos.single.done, isTrue);
       expect(note.audioPath, '/external/recording.m4a');
 
-      await NotesRepository(
-        database,
-      ).saveAll([note.copyWith(summaryError: 'Summary failed')]);
+      await NotesRepository(database)
+          .saveAll([note.copyWith(summaryError: 'Summary failed')]);
       final restored = (await NotesRepository(database).load()).single;
       expect(restored.summaryError, 'Summary failed');
       expect(restored.fullTranscriptText, note.fullTranscriptText);
@@ -120,9 +119,10 @@ void _registerHistoryMigrationTests() {
       expect(page.entries.single.id, 'note-1');
       expect(page.entries.single.todoCount, 1);
       expect(
-        (await NotesRepository(
-          database,
-        ).loadHistoryPage(query: 'PRESERVED')).entries.single.id,
+        (await NotesRepository(database).loadHistoryPage(query: 'PRESERVED'))
+            .entries
+            .single
+            .id,
         'note-1',
       );
       final plan = await database
@@ -140,34 +140,30 @@ void _registerHistoryMigrationTests() {
     },
   );
 
-  test(
-    'title migration uses bounded batches and preserves Unicode search',
-    () async {
-      final database = AppDatabase(
-        NativeDatabase.memory(
-          setup: (sqlite) {
-            _seedV2Schema(sqlite.execute);
-            sqlite.execute('ALTER TABLE notes ADD COLUMN summary_error TEXT');
-            for (var index = 0; index < 130; index++) {
-              sqlite.execute(
-                "INSERT INTO notes SELECT 'bulk-$index', 'ÄPFEL', speaker, source, "
-                'duration_sec, created_at, asr_is_local, summary_is_local, asr_name, '
-                'asr_sub, llm_name, llm_sub, gist, audio_path, audio_ownership, '
-                "summary_error FROM notes WHERE id = 'note-1'",
-              );
-            }
-            sqlite.execute('PRAGMA user_version = 3');
-          },
-        ),
-      );
-      addTearDown(database.close);
-      final page = await NotesRepository(
-        database,
-      ).loadHistoryPage(query: 'äpfel');
-      expect(page.totalCount, 130);
-      expect(page.entries, hasLength(50));
-    },
-  );
+  test('title migration uses bounded batches and preserves Unicode search', () async {
+    final database = AppDatabase(
+      NativeDatabase.memory(
+        setup: (sqlite) {
+          _seedV2Schema(sqlite.execute);
+          sqlite.execute('ALTER TABLE notes ADD COLUMN summary_error TEXT');
+          for (var index = 0; index < 130; index++) {
+            sqlite.execute(
+              "INSERT INTO notes SELECT 'bulk-$index', 'ÄPFEL', speaker, source, "
+              'duration_sec, created_at, asr_is_local, summary_is_local, asr_name, '
+              'asr_sub, llm_name, llm_sub, gist, audio_path, audio_ownership, '
+              "summary_error FROM notes WHERE id = 'note-1'",
+            );
+          }
+          sqlite.execute('PRAGMA user_version = 3');
+        },
+      ),
+    );
+    addTearDown(database.close);
+    final page = await NotesRepository(database)
+        .loadHistoryPage(query: 'äpfel');
+    expect(page.totalCount, 130);
+    expect(page.entries, hasLength(50));
+  });
 }
 
 void _registerRecoveryMigrationTests() {
@@ -340,9 +336,8 @@ void _registerPartialMigrationTests() {
     );
     addTearDown(database.close);
 
-    final note = await NotesRepository(
-      database,
-    ).loadHistoryPage(query: 'preserved');
+    final note = await NotesRepository(database)
+        .loadHistoryPage(query: 'preserved');
     expect(note.entries.single.id, 'note-1');
     expect(database.schemaVersion, 5);
     expect(
