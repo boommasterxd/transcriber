@@ -1,0 +1,16 @@
+name: Set up locked Node tools
+description: Reuse the shared npm content store and always validate the locked install.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: "26.x"
+        check-latest: true
+        package-manager-cache: false
+    - uses: ./.github/actions/dependency-cache
+      with:
+        store: npm
+    - name: Resolve locked Node quality tools
+      shell: bash
+      run: npm ci --prefix tool/quality/node --ignore-scripts --no-audit --prefer-offline

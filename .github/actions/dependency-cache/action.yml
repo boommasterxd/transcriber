@@ -1,0 +1,88 @@
+name: Shared dependency store
+description: Restore shared public download stores or save a complete trusted seed.
+inputs:
+  store:
+    description: One of flutter-sdk, pub, npm or gradle.
+    required: true
+  mode:
+    description: Restore by default; save is restricted to the main warmup.
+    default: restore
+runs:
+  using: composite
+  steps:
+    - name: Resolve compatible store identity
+      id: identity
+      shell: bash
+      env:
+        STORE: ${{ inputs.store }}
+        MODE: ${{ inputs.mode }}
+        FLUTTER_INPUTS: ${{ hashFiles('.fvmrc') }}
+        PUB_INPUTS: ${{ hashFiles('pubspec.lock', 'pubspec.yaml') }}
+        NPM_INPUTS: ${{ hashFiles('tool/quality/node/package-lock.json', 'tool/quality/node/package.json', 'tool/quality/node/.npmrc') }}
+        GRADLE_RUNTIME: ${{ hashFiles('.fvmrc', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+        GRADLE_INPUTS: ${{ hashFiles('pubspec.lock', 'android/**/*.gradle.kts', 'android/gradle.properties', 'android/**/gradle.lockfile', 'android/**/verification-metadata.xml', 'tool/ci/jvm/*.gradle.kts', 'tool/ci/jvm/gradle.lockfile', 'tool/ci/jvm/gradle/verification-metadata.xml', 'tool/ci/warm-gradle-cache.init.gradle') }}
+      run: |
+        [[ "$MODE" == restore || "$MODE" == save ]]
+        prefix="deps-v1-${RUNNER_OS}-${RUNNER_ARCH}"
+        case "$STORE" in
+          flutter-sdk)
+            version=$(jq -er '.flutter | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' .fvmrc)
+            prefix="$prefix-flutter-$FLUTTER_INPUTS"
+            digest=android
+            paths="$RUNNER_TOOL_CACHE/flutter/$version/stable"
+            ;;
+          pub)
+            prefix="$prefix-pub-$FLUTTER_INPUTS"
+            digest="$PUB_INPUTS"
+            paths="$RUNNER_TEMP/flutter/pub-cache"
+            ;;
+          npm)
+            prefix="$prefix-npm-node26"
+            digest="$NPM_INPUTS"
+            paths="$HOME/.npm/_cacache"
+            ;;
+          gradle)
+            prefix="$prefix-gradle-java17-$GRADLE_RUNTIME"
+            digest="$GRADLE_INPUTS"
+            paths=$(printf '%s\n' "$HOME/.gradle/caches/modules-2" "$HOME/.gradle/wrapper")
+            ;;
+          *) echo 'Unsupported dependency store.' >&2; exit 1 ;;
+        esac
+        {
+          printf 'key=%s-%s\nprefix=%s-\n' "$prefix" "$digest" "$prefix"
+          printf 'paths<<CACHE_PATHS\n%s\nCACHE_PATHS\n' "$paths"
+        } >> "$GITHUB_OUTPUT"
+    - name: Restore download store
+      id: restore
+      if: inputs.mode == 'restore'
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.identity.outputs.paths }}
+        key: ${{ steps.identity.outputs.key }}
+        restore-keys: ${{ steps.identity.outputs.prefix }}
+    - name: Report restore opportunity
+      if: always() && inputs.mode == 'restore' && steps.identity.outcome == 'success'
+      shell: bash
+      env:
+        STORE: ${{ inputs.store }}
+        EXACT: ${{ steps.restore.outputs.cache-hit }}
+        MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+        OUTCOME: ${{ steps.restore.outcome }}
+      run: |
+        result=cold-or-error
+        if [[ "$EXACT" == true ]]; then result=exact;
+        elif [[ -n "$MATCHED" ]]; then result=fallback;
+        elif [[ "$OUTCOME" != success ]]; then result=unknown; fi
+        printf 'Dependency cache: %s = %s\n' "$STORE" "$result"
+        {
+          printf '\n| Dependency store | Restore outcome |\n| --- | --- |\n'
+          printf '| %s | %s |\n' "$STORE" "$result"
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Save complete trusted store
+      if: inputs.mode == 'save' && github.ref == 'refs/heads/main' && github.workflow == 'Dependency cache warmup' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.identity.outputs.paths }}
+        key: ${{ steps.identity.outputs.key }}

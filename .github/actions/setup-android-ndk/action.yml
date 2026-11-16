@@ -1,0 +1,76 @@
+name: Set up Android NDK dependencies
+description: Reuse validated pinned NDK installations with trusted main-only cache writes.
+inputs:
+  save-cache:
+    description: Allow a trusted main warmup to save complete NDK installations.
+    default: "false"
+outputs:
+  cache-key:
+    description: Compatible dependency identity requested from the cache service.
+    value: ${{ steps.identity.outputs.key }}
+  cache-matched-key:
+    description: Native restored cache identity, empty on a miss or service failure.
+    value: ${{ steps.restore.outputs.cache-matched-key }}
+runs:
+  using: composite
+  steps:
+    - name: Validate cache writer and locate Android SDK
+      id: identity
+      shell: bash
+      env:
+        SAVE_CACHE: ${{ inputs.save-cache }}
+        CURRENT_REF: ${{ github.ref }}
+        CURRENT_EVENT: ${{ github.event_name }}
+        CURRENT_WORKFLOW: ${{ github.workflow }}
+        CACHE_KEY: android-ndk-v1-${{ runner.os }}-${{ runner.arch }}-28.0.13004108-28.2.13676358
+      run: |
+        if [[ "$SAVE_CACHE" != false && "$SAVE_CACHE" != true ]]; then
+          echo 'save-cache must be true or false.' >&2
+          exit 1
+        fi
+        if [[ "$SAVE_CACHE" == true && ( "$CURRENT_REF" != refs/heads/main || "$CURRENT_WORKFLOW" != 'Dependency cache warmup' || ( "$CURRENT_EVENT" != push && "$CURRENT_EVENT" != workflow_dispatch ) ) ]]; then
+          echo 'Only trusted main warmups may write the NDK cache.' >&2
+          exit 1
+        fi
+        sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+        if [[ "$sdk_root" != /* || ! -d "$sdk_root" ]]; then
+          echo 'An existing absolute Android SDK root is required.' >&2
+          exit 1
+        fi
+        printf 'sdk-root=%s\nkey=%s\n' "$sdk_root" "$CACHE_KEY" >> "$GITHUB_OUTPUT"
+    - name: Restore shared NDK dependencies
+      id: restore
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.identity.outputs.sdk-root }}/ndk/28.0.13004108
+          ${{ steps.identity.outputs.sdk-root }}/ndk/28.2.13676358
+        key: ${{ steps.identity.outputs.key }}
+    - name: Validate or install pinned NDKs
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/../../../tool/ci/setup_android_ndk.sh"
+    - name: Report NDK cache restoration
+      if: ${{ always() && steps.identity.outcome == 'success' }}
+      shell: bash
+      env:
+        CACHE_KEY: ${{ steps.identity.outputs.key }}
+        MATCHED_KEY: ${{ steps.restore.outputs.cache-matched-key }}
+        RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+      run: |
+        printf 'NDK cache requested=%s matched=%s restore=%s\n' \
+          "$CACHE_KEY" "${MATCHED_KEY:-none}" "$RESTORE_OUTCOME"
+        {
+          printf '\n| Dependency store | Requested key | Matched key | Restore outcome |\n'
+          printf '| --- | --- | --- | --- |\n'
+          printf '| NDK | %s | %s | %s |\n' "$CACHE_KEY" "${MATCHED_KEY:-none}" "$RESTORE_OUTCOME"
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Save trusted complete NDK dependencies
+      if: inputs.save-cache == 'true' && steps.restore.outputs.cache-hit != 'true'
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.identity.outputs.sdk-root }}/ndk/28.0.13004108
+          ${{ steps.identity.outputs.sdk-root }}/ndk/28.2.13676358
+        key: ${{ steps.identity.outputs.key }}

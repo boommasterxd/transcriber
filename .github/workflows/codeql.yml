@@ -47,6 +47,14 @@ jobs:
       - name: Set up Flutter
         if: matrix.language == 'java-kotlin'
         uses: ./.github/actions/setup-flutter
+      - name: Restore shared Gradle dependencies
+        if: matrix.language == 'java-kotlin'
+        uses: ./.github/actions/dependency-cache
+        with:
+          store: gradle
+      - name: Reuse or install pinned Android NDKs
+        if: matrix.language == 'java-kotlin'
+        uses: ./.github/actions/setup-android-ndk
       - name: Prepare Android configuration
         if: matrix.language == 'java-kotlin'
         run: |
@@ -57,7 +65,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-          dependency-caching: ${{ matrix.language == 'java-kotlin' }}
+          dependency-caching: false
       - name: Compile Android sources for analysis
         if: matrix.language == 'java-kotlin'
         run: >-

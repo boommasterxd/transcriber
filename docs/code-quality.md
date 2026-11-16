@@ -73,12 +73,12 @@ dart run dart_code_linter:metrics check-unused-files lib test tool
 Check Node tooling using its isolated, private npm package and generated lockfile:
 
 ```bash
-npm ci --prefix tool/quality/node --ignore-scripts
+npm ci --prefix tool/quality/node --ignore-scripts --no-audit --prefer-offline
 npm --prefix tool/quality/node run check
 npm --prefix tool/quality/node run audit
 ```
 
-The package requires Node.js 26.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately.
+The package requires Node.js 26.x. ESLint, `@eslint/js`, `@stylistic/eslint-plugin`, globals and jscpd are MIT-licensed development tools; SonarJS is LGPL-3.0-only and supplies cognitive-complexity analysis. None is bundled into the Android application. The check runs real CLI regressions for blocking metrics, formatting, unused code, suppression resistance, and duplication. OSV also scans the npm lockfile; Dependabot maintains this package separately. CI restores the shared npm content store before every locked installation, including Dart duplication tooling; the independent blocking audit remains enabled. See [shared dependency stores](ci-test-selection.md#shared-dependency-stores).
 
 Check maintained Kotlin with the pinned, checksum-verified Detekt CLI and formatting plugin:
 
@@ -154,7 +154,7 @@ One suite's report is not repository-wide coverage. A tool-only runtime explicit
 Check duplication with the pinned Dart-capable detector:
 
 ```bash
-npx --yes jscpd@5.0.16 \
+tool/quality/node/node_modules/.bin/jscpd \
   --min-tokens 50 \
   --threshold 0 \
   --reporters console \

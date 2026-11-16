@@ -46,6 +46,7 @@ function checksForPath(path) {
   if (/^\.github\/workflows\/[^/]+\.ya?ml$/.test(path)
     || ['.github/dependabot.yml', '.github/release.yml'].includes(path)) return CHECKS;
   if (['test/tool/ci/jvm-test-failure.integration.cjs',
+    'test/tool/ci/gradle-cache.integration.cjs',
     'test/tool/ci/native-coverage.integration.cjs',
     'test/tool/ci/jvm_fixture.cjs',
     'test/tool/ci/kotlin-quality.integration.cjs'].includes(path)) return ['workflow', 'jvm'];

@@ -58,15 +58,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "26.x"
-          check-latest: true
-          package-manager-cache: false
-          cache: npm
-          cache-dependency-path: tool/quality/node/package-lock.json
-      - name: Resolve locked Node quality tools
-        run: npm ci --prefix tool/quality/node --ignore-scripts
+      - uses: ./.github/actions/setup-node-tools
       - name: Check Node quality and gate enforcement
         run: npm --prefix tool/quality/node run check
       - name: Audit Node quality dependencies
@@ -159,15 +151,11 @@ jobs:
         run: dart run dart_code_linter:metrics check-unused-files lib test tool
       - name: Set up Node.js
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "26.x"
-          check-latest: true
-          package-manager-cache: false
+        uses: ./.github/actions/setup-node-tools
       - name: Check Dart duplication
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: >-
-          npx --yes jscpd@5.0.16
+          tool/quality/node/node_modules/.bin/jscpd
           --min-tokens 50 --threshold 0 --reporters console
           --format dart --ignore "**/*.g.dart" lib test tool
       - name: Build Flutter asset bundle
@@ -185,8 +173,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Isolate JVM dependency cache
-        run: printf 'GRADLE_USER_HOME=%s/ci-jvm-gradle\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -198,15 +184,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Cache JVM dependencies and wrapper
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore shared Gradle dependencies
+        uses: ./.github/actions/dependency-cache
         with:
-          path: |
-            ${{ runner.temp }}/ci-jvm-gradle/caches/modules-2
-            ${{ runner.temp }}/ci-jvm-gradle/wrapper
-          key: ci-jvm-deps-v1-${{ runner.os }}-${{ hashFiles('tool/ci/jvm/**', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ci-jvm-deps-v1-${{ runner.os }}-
+          store: gradle
       - name: Check Kotlin quality
         run: bash tool/quality/check_kotlin_quality.sh
       - name: Enforce native and shell file length
@@ -219,6 +200,7 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: >-
           node --test test/tool/ci/jvm-test-failure.integration.cjs
+          test/tool/ci/gradle-cache.integration.cjs
           test/tool/ci/native-coverage.integration.cjs
           test/tool/ci/kotlin-quality.integration.cjs
 
@@ -241,19 +223,16 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Cache Gradle dependencies and wrapper
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore shared Gradle dependencies
+        uses: ./.github/actions/dependency-cache
         with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper
-          key: ci-gradle-deps-v2-${{ runner.os }}-${{ hashFiles('.fvmrc', 'pubspec.lock', 'android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'tool/ci/jvm/**') }}
-          restore-keys: |
-            ci-gradle-deps-v2-${{ runner.os }}-
+          store: gradle
       - name: Set up Flutter
         uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
+      - name: Reuse or install pinned Android NDKs
+        uses: ./.github/actions/setup-android-ndk
       - name: Check Kotlin quality
         run: bash tool/quality/check_kotlin_quality.sh
       - name: Enforce native and shell file length
@@ -270,6 +249,7 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: >-
           node --test test/tool/ci/jvm-test-failure.integration.cjs
+          test/tool/ci/gradle-cache.integration.cjs
           test/tool/ci/native-coverage.integration.cjs
           test/tool/ci/kotlin-quality.integration.cjs
       - name: Verify Flutter bundle assembled by native tests
