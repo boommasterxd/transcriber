@@ -253,9 +253,9 @@ Future<void> _testTranscription({
         expect(request.url.queryParameters, isEmpty);
         expect(request.headers['x-goog-api-key'], 'secret-key');
       }
-      final interaction =
-          jsonDecode((httpClient.requests[2] as http.Request).body)
-              as Map<String, dynamic>;
+      final interaction = jsonDecode(
+        (httpClient.requests[2] as http.Request).body,
+      ) as Map<String, dynamic>;
       expect(interaction['model'], modelId);
       expect(interaction['store'], isFalse);
       expect((interaction['input'] as List).single['type'], 'audio');
@@ -316,9 +316,9 @@ Future<void> _testMultimodalTranscription() async {
         modelId: 'gemini-3.7-flash',
         languageCode: 'en',
       );
-      final interaction =
-          jsonDecode((httpClient.requests[2] as http.Request).body)
-              as Map<String, dynamic>;
+      final interaction = jsonDecode(
+        (httpClient.requests[2] as http.Request).body,
+      ) as Map<String, dynamic>;
       final input = interaction['input'] as List;
 
       expect(interaction['store'], isFalse);

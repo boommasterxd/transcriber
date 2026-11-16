@@ -80,9 +80,8 @@ void main() {
           'Coverage fixture $runtime failed: ${results[0]} ${results[1]}',
         );
       }
-      return await File(
-        '${root.path}/coverage/$runtime/lcov.info',
-      ).readAsLines();
+      return await File('${root.path}/coverage/$runtime/lcov.info')
+          .readAsLines();
     } finally {
       timer.cancel();
     }

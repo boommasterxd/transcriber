@@ -9,8 +9,7 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.secWeek: 'Diese Woche',
   _StringKey.secEarlier: 'Früher',
   _StringKey.emptyTitle: 'Noch keine Transkripte',
-  _StringKey.emptySub:
-      'Teile eine Sprachnachricht, wähle eine Datei oder nimm direkt etwas auf.',
+  _StringKey.emptySub: 'Teile eine Sprachnachricht, wähle eine Datei oder nimm direkt etwas auf.',
   _StringKey.pickTitle: 'Audiodatei auswählen',
   _StringKey.pickSub: 'Aus deinen Dateien transkribieren',
   _StringKey.recTitle: 'Aufnahme',
@@ -22,10 +21,8 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.recLimit: 'Automatischer Stopp bei {duration}',
   _StringKey.recLimitWarning:
       'Aufnahmegrenze bald erreicht. Verbleibend: {duration}',
-  _StringKey.recLimitReached:
-      'Aufnahmegrenze erreicht. Audio bleibt erhalten. Mit Stopp fortfahren oder verwerfen.',
-  _StringKey.recFailure:
-      'Aufnahme unterbrochen. Audio bleibt erhalten. Stopp erneut versuchen oder verwerfen.',
+  _StringKey.recLimitReached: 'Aufnahmegrenze erreicht. Audio bleibt erhalten. Mit Stopp fortfahren oder verwerfen.',
+  _StringKey.recFailure: 'Aufnahme unterbrochen. Audio bleibt erhalten. Stopp erneut versuchen oder verwerfen.',
   _StringKey.recResume: 'Fortsetzen',
   _StringKey.recPause: 'Pause',
   _StringKey.recStopShort: 'Stoppen',
@@ -75,8 +72,7 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.testKey: 'Testen',
   _StringKey.replaceKey: 'Ersetzen',
   _StringKey.keyVerified: 'Schlüssel erfolgreich geprüft.',
-  _StringKey.keyCheckFailed:
-      'Der Schlüssel konnte nicht geprüft werden. Prüfe Schlüssel, Abrechnung und Netzwerk.',
+  _StringKey.keyCheckFailed: 'Der Schlüssel konnte nicht geprüft werden. Prüfe Schlüssel, Abrechnung und Netzwerk.',
   _StringKey.keyPlaceholder: 'sk-… Schlüssel einfügen',
   _StringKey.openAiKeyPlaceholder: 'sk-… OpenAI-Schlüssel einfügen',
   _StringKey.googleKeyPlaceholder: 'AIza… Gemini-Schlüssel einfügen',
@@ -106,8 +102,7 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.summaryModelTitle: 'Modell für Zusammenfassung',
   _StringKey.alwaysActive: 'Transkription · immer aktiv',
   _StringKey.optionalTask: 'Optional',
-  _StringKey.modelLoadFailed:
-      'Modelle konnten nicht geladen werden. Prüfe Verbindung und API-Schlüssel.',
+  _StringKey.modelLoadFailed: 'Modelle konnten nicht geladen werden. Prüfe Verbindung und API-Schlüssel.',
   _StringKey.modelsLoading: 'Modelle werden geladen …',
   _StringKey.refreshModels: 'Modelle aktualisieren',
   _StringKey.processedWith: 'Verarbeitet mit',
@@ -134,11 +129,9 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.justNow: 'gerade eben',
   _StringKey.processingTitle: 'Wird verarbeitet',
   _StringKey.errorTitle: 'Etwas ist schiefgelaufen',
-  _StringKey.audioImportFailed:
-      'Audio konnte nicht importiert werden. Prüfe Format, Größe und Zugriff und versuche es erneut.',
+  _StringKey.audioImportFailed: 'Audio konnte nicht importiert werden. Prüfe Format, Größe und Zugriff und versuche es erneut.',
   _StringKey.recoveredAudioTitle: 'Audioauswahl wiederhergestellt',
-  _StringKey.recoveredAudioBody:
-      'Die App wurde während der Dateiauswahl beendet. Möchtest du das ausgewählte Audio jetzt verarbeiten? Dabei wird es an deinen gewählten Cloud-Anbieter gesendet.',
+  _StringKey.recoveredAudioBody: 'Die App wurde während der Dateiauswahl beendet. Möchtest du das ausgewählte Audio jetzt verarbeiten? Dabei wird es an deinen gewählten Cloud-Anbieter gesendet.',
   _StringKey.recoveredAudioContinue: 'Audio verarbeiten',
   _StringKey.retry: 'Erneut versuchen',
   _StringKey.dismiss: 'Schließen',
@@ -154,21 +147,17 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.audioDelSub: 'Nach der Verarbeitung automatisch entfernt',
   _StringKey.keyMissing: 'Schlüssel fehlt',
   _StringKey.cancel: 'Abbrechen',
-  _StringKey.privacyStatement:
-      'Keine Telemetrie und kein Tracking. Audio wird zur Transkription, Transkripttext optional zur Zusammenfassung an den jeweils gewählten Anbieter gesendet. API-Schlüssel bleiben im sicheren Gerätespeicher.',
+  _StringKey.privacyStatement: 'Keine Telemetrie und kein Tracking. Audio wird zur Transkription, Transkripttext optional zur Zusammenfassung an den jeweils gewählten Anbieter gesendet. API-Schlüssel bleiben im sicheren Gerätespeicher.',
   _StringKey.obModelsT: 'Was wird aus deinem Audio?',
   _StringKey.obConnectStep: 'Anbieter verbinden',
-  _StringKey.obConnectDescription:
-      'Ein Anbieter reicht für Transkription und Zusammenfassung. Du kannst auch beide verbinden.',
-  _StringKey.obSelectModelsDescription:
-      'Wähle für jede Aufgabe ein Modell. Die Anbieter dürfen unterschiedlich sein.',
+  _StringKey.obConnectDescription: 'Ein Anbieter reicht für Transkription und Zusammenfassung. Du kannst auch beide verbinden.',
+  _StringKey.obSelectModelsDescription: 'Wähle für jede Aufgabe ein Modell. Die Anbieter dürfen unterschiedlich sein.',
   _StringKey.obSelectModelsHint:
       'Wähle für jede aktivierte Aufgabe ein verfügbares Modell.',
   _StringKey.obNext: 'Weiter',
   _StringKey.obStart: "Los geht's",
   _StringKey.obWelcomeT: 'Willkommen bei Transcriber',
-  _StringKey.obWelcomeS:
-      'Sprachnachrichten werden in Sekunden zu Text, Zusammenfassung und To-dos.',
+  _StringKey.obWelcomeS: 'Sprachnachrichten werden in Sekunden zu Text, Zusammenfassung und To-dos.',
   _StringKey.obHiw1T: 'Teilen oder aufnehmen',
   _StringKey.obHiw1S: 'Audio teilen, importieren oder direkt aufnehmen',
   _StringKey.obHiw2T: 'Transkribieren',
@@ -192,10 +181,8 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.obPermGranted: 'Alles freigegeben',
   _StringKey.obPermRequiredHint:
       'Die Mikrofonfreigabe ist nötig, um fortzufahren.',
-  _StringKey.obPermDeniedNote:
-      'Ohne Mikrofonfreigabe kann die App keine Sprachnachrichten aufnehmen. Bitte erlaube sie, um fortzufahren.',
-  _StringKey.obPermBlockedNote:
-      'Du hast die Freigabe abgelehnt. Aktiviere „Mikrofon" in den App-Einstellungen und kehre dann hierher zurück.',
+  _StringKey.obPermDeniedNote: 'Ohne Mikrofonfreigabe kann die App keine Sprachnachrichten aufnehmen. Bitte erlaube sie, um fortzufahren.',
+  _StringKey.obPermBlockedNote: 'Du hast die Freigabe abgelehnt. Aktiviere „Mikrofon" in den App-Einstellungen und kehre dann hierher zurück.',
   _StringKey.obPermOpenSettings: 'Einstellungen öffnen',
   _StringKey.obPermLocked: 'Bitte erlaube den Zugriff, um fortzufahren.',
   _StringKey.deleteNoteTitle: 'Transkript löschen?',
@@ -207,10 +194,8 @@ const Map<_StringKey, Object> _deStrings = {
       'Aus = nur das rohe Transkript, keine KI-Zusammenfassung',
   _StringKey.summaryOff: 'Keine Zusammenfassung',
   _StringKey.summaryFailedTitle: 'Zusammenfassung fehlgeschlagen',
-  _StringKey.summaryFailedBody:
-      'Dein Transkript ist erhalten geblieben. Klappe es unten auf, um es zu lesen.',
-  _StringKey.autoDelNote:
-      'Externe Originaldateien bleiben erhalten. Nur die app-eigene Arbeitskopie wird nach erfolgreicher Verarbeitung entfernt.',
+  _StringKey.summaryFailedBody: 'Dein Transkript ist erhalten geblieben. Klappe es unten auf, um es zu lesen.',
+  _StringKey.autoDelNote: 'Externe Originaldateien bleiben erhalten. Nur die app-eigene Arbeitskopie wird nach erfolgreicher Verarbeitung entfernt.',
   _StringKey.keyHelpTitleTemplate: 'API-Schlüssel von {name}',
   _StringKey.keyHelpNote: 'Hinweis: Cloud-Anbieter rechnen nach Nutzung ab.',
   _StringKey.keyHelpOpenAiSteps: [
@@ -236,24 +221,18 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.dateMonthDayTemplate: '{d}.{m}.',
   _StringKey.keyboardSection: 'Transcriber-Tastatur',
   _StringKey.keyboardTitle: 'Überall live diktieren',
-  _StringKey.keyboardDescription:
-      'Aktiviere Transcriber als Tastatur und füge Sprache direkt in das aktuelle Textfeld ein.',
+  _StringKey.keyboardDescription: 'Aktiviere Transcriber als Tastatur und füge Sprache direkt in das aktuelle Textfeld ein.',
   _StringKey.keyboardGuideTitle: 'So funktioniert das Diktieren',
-  _StringKey.keyboardGuideBenefit:
-      'Schreibe Nachrichten, E-Mails und Notizen mit deiner Stimme, direkt in der jeweiligen App.',
-  _StringKey.keyboardGuideEnable:
-      'Richte die Transcriber-Tastatur über den Button oben ein und wähle sie als Tastatur aus.',
-  _StringKey.keyboardGuideDictate:
-      'Öffne ein Textfeld, starte das Mikrofon und sprich. Dein Diktat erscheint direkt als Text.',
-  _StringKey.keyboardGuideFinish:
-      'Stoppe das Diktat, prüfe den Text und bearbeite oder sende ihn in der geöffneten App.',
+  _StringKey.keyboardGuideBenefit: 'Schreibe Nachrichten, E-Mails und Notizen mit deiner Stimme, direkt in der jeweiligen App.',
+  _StringKey.keyboardGuideEnable: 'Richte die Transcriber-Tastatur über den Button oben ein und wähle sie als Tastatur aus.',
+  _StringKey.keyboardGuideDictate: 'Öffne ein Textfeld, starte das Mikrofon und sprich. Dein Diktat erscheint direkt als Text.',
+  _StringKey.keyboardGuideFinish: 'Stoppe das Diktat, prüfe den Text und bearbeite oder sende ihn in der geöffneten App.',
   _StringKey.keyboardEnabled: 'Aktiviert',
   _StringKey.keyboardDisabled: 'Nicht aktiviert',
   _StringKey.keyboardSelected: 'Aktuell ausgewählt',
   _StringKey.keyboardOpenSettings: 'Aktivieren',
   _StringKey.keyboardChoose: 'Tastatur auswählen',
-  _StringKey.keyboardPrivacy:
-      'Live-Audio wird an den gewählten Cloud-Anbieter übertragen und nicht gespeichert. Es können nutzungsabhängige Kosten entstehen.',
+  _StringKey.keyboardPrivacy: 'Live-Audio wird an den gewählten Cloud-Anbieter übertragen und nicht gespeichert. Es können nutzungsabhängige Kosten entstehen.',
   _StringKey.keyboardReady: 'Bereit für Live-Diktat',
   _StringKey.keyboardConnect: 'Verbindung wird hergestellt…',
   _StringKey.keyboardRecording: 'Live-Diktat läuft',
@@ -266,18 +245,13 @@ const Map<_StringKey, Object> _deStrings = {
       'Erlaube den Mikrofonzugriff in den App-Einstellungen.',
   _StringKey.keyboardKeyMissing:
       'Für diesen Anbieter fehlt ein gültiger API-Schlüssel.',
-  _StringKey.keyboardConnectionError:
-      'Die Live-Verbindung wurde beendet. Prüfe Netzwerk, Schlüssel und Abrechnung.',
-  _StringKey.keyboardAuthenticationError:
-      'Der Anbieter hat den API-Schlüssel abgelehnt. Prüfe den Schlüssel in Transcriber.',
-  _StringKey.keyboardQuotaError:
-      'Kontingent oder Abrechnung des Anbieters erlauben gerade kein Live-Diktat.',
+  _StringKey.keyboardConnectionError: 'Die Live-Verbindung wurde beendet. Prüfe Netzwerk, Schlüssel und Abrechnung.',
+  _StringKey.keyboardAuthenticationError: 'Der Anbieter hat den API-Schlüssel abgelehnt. Prüfe den Schlüssel in Transcriber.',
+  _StringKey.keyboardQuotaError: 'Kontingent oder Abrechnung des Anbieters erlauben gerade kein Live-Diktat.',
   _StringKey.keyboardModelError:
       'Das Live-Modell ist für diesen API-Schlüssel nicht verfügbar.',
-  _StringKey.keyboardConfigurationError:
-      'Der Anbieter hat die Live-Konfiguration abgelehnt. Aktualisiere die App oder prüfe die Spracheinstellung.',
-  _StringKey.keyboardTimeoutError:
-      'Der Anbieter antwortet nicht. Prüfe die Verbindung und versuche es erneut.',
+  _StringKey.keyboardConfigurationError: 'Der Anbieter hat die Live-Konfiguration abgelehnt. Aktualisiere die App oder prüfe die Spracheinstellung.',
+  _StringKey.keyboardTimeoutError: 'Der Anbieter antwortet nicht. Prüfe die Verbindung und versuche es erneut.',
   _StringKey.keyboardRetry: 'Erneut verbinden',
   _StringKey.keyboardCancel: 'Abbrechen',
   _StringKey.keyboardStop: 'Stoppen',
@@ -287,20 +261,16 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.keyboardSetup: 'Einrichtung starten',
   _StringKey.keyboardManage: 'Tastatur verwalten',
   _StringKey.keyboardSetupTitle: 'Transcriber-Tastatur einrichten',
-  _StringKey.keyboardSetupSubtitle:
-      'Drei kurze Schritte, danach kannst du in fast jedem Textfeld live diktieren.',
+  _StringKey.keyboardSetupSubtitle: 'Drei kurze Schritte, danach kannst du in fast jedem Textfeld live diktieren.',
   _StringKey.keyboardConfiguredTitle: 'Tastatur ist eingerichtet',
-  _StringKey.keyboardConfiguredBody:
-      'Transcriber ist in Android aktiviert und aktuell als Tastatur ausgewählt.',
+  _StringKey.keyboardConfiguredBody: 'Transcriber ist in Android aktiviert und aktuell als Tastatur ausgewählt.',
   _StringKey.keyboardSetupProviderTitle: 'Live-Anbieter prüfen',
-  _StringKey.keyboardSetupProviderBody:
-      'Transcriber verwendet deinen gewählten Anbieter, API-Schlüssel und deine Spracheinstellung.',
+  _StringKey.keyboardSetupProviderBody: 'Transcriber verwendet deinen gewählten Anbieter, API-Schlüssel und deine Spracheinstellung.',
   _StringKey.keyboardSetupEnableTitle: 'In Android aktivieren',
   _StringKey.keyboardSetupEnableBody:
       'Aktiviere „Transcriber“ einmalig in den Android-Tastatureinstellungen.',
   _StringKey.keyboardSetupChooseTitle: 'Als Tastatur auswählen',
-  _StringKey.keyboardSetupChooseBody:
-      'Öffne die Tastaturauswahl und tippe auf „Transcriber“. Du kannst jederzeit zurückwechseln.',
+  _StringKey.keyboardSetupChooseBody: 'Öffne die Tastaturauswahl und tippe auf „Transcriber“. Du kannst jederzeit zurückwechseln.',
   _StringKey.keyboardSetupDone: 'Einrichtung abschließen',
   _StringKey.keyboardDone: 'Fertig',
 };

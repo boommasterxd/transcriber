@@ -107,9 +107,8 @@ void registerFileBoundaryTests() {
 
 void registerRealRuntimeTests() {
   test('rejects an actual Flutter all-skipped report', () async {
-    final work = await Directory(
-      '.dart_tool',
-    ).createTemp('flutter-execution-fixture-');
+    final work = await Directory('.dart_tool')
+        .createTemp('flutter-execution-fixture-');
     addTearDown(() => work.delete(recursive: true));
     final source = File('${work.path}/skipped_test.dart');
     await source.writeAsString(
@@ -131,9 +130,8 @@ void registerRealRuntimeTests() {
   });
   for (final mode in ['success', 'empty', 'skip', 'skip with setup']) {
     test('checks a real Dart reporter for $mode suites', () async {
-      final work = await Directory(
-        '.dart_tool',
-      ).createTemp('execution-fixture-');
+      final work = await Directory('.dart_tool')
+          .createTemp('execution-fixture-');
       addTearDown(() => work.delete(recursive: true));
       final source = File('${work.path}/example_test.dart');
       final body = switch (mode) {

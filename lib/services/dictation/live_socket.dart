@@ -14,8 +14,10 @@ abstract interface class LiveSocket {
   Future<void> close();
 }
 
-typedef LiveSocketConnector =
-    Future<LiveSocket> Function(Uri uri, Map<String, String> headers);
+typedef LiveSocketConnector = Future<LiveSocket> Function(
+  Uri uri,
+  Map<String, String> headers,
+);
 
 Future<LiveSocket> connectLiveSocket(
   Uri uri,
