@@ -151,16 +151,13 @@ dart run tool/quality/merge_coverage.dart --output coverage/lcov.info \
 
 One suite's report is not repository-wide coverage. A tool-only runtime explicitly measures no application coverage; an expected application report cannot be missing or empty. See [runtime selection and coverage merging](ci-test-selection.md#dart-and-flutter-test-runtimes).
 
-Check duplication with the pinned Dart-capable detector:
+Check Dart duplication with the same locked detector as the Node quality package.
+Install the package with the Node tooling command above before running this check.
+The Dart configuration preserves the 50-token minimum, zero duplication threshold,
+and generated Drift adapter exclusion, and rejects an empty scan:
 
 ```bash
-npx --yes jscpd@5.0.16 \
-  --min-tokens 50 \
-  --threshold 0 \
-  --reporters console \
-  --format dart \
-  --ignore "**/*.g.dart" \
-  lib test tool
+npm --prefix tool/quality/node run duplicates:dart
 ```
 
 Build and verify the Flutter asset bundle:

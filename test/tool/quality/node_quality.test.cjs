@@ -61,21 +61,27 @@ test('inline ESLint suppression cannot bypass the quality gate', () => {
   assert.ok(messages.some((message) => message.ruleId === 'no-unused-vars'));
 });
 
-test('the real duplication CLI rejects empty scope and repeated maintained JavaScript', (context) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'node-duplication-'));
-  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const source = [...Array(12).keys()].map((index) =>
-    `console.log('distinct operation ${index}', process.cwd());\n`).join('');
-  const scan = () => childProcess.spawnSync(path.join(quality, 'node_modules/.bin/jscpd'), [
-    '--config', path.join(quality, 'jscpd.json'), '--fail-on-empty', directory,
-  ], { cwd: repository, encoding: 'utf8', timeout: 10000 });
-  const empty = scan();
-  assert.equal(empty.status, 1, empty.stdout + empty.stderr);
-  fs.writeFileSync(path.join(directory, 'first.cjs'), source);
-  const clean = scan();
-  assert.equal(clean.status, 0, clean.stdout + clean.stderr);
-  fs.writeFileSync(path.join(directory, 'second.cjs'), source);
-  const duplicated = scan();
-  assert.equal(duplicated.status, 1, duplicated.stdout + duplicated.stderr);
-  assert.match(duplicated.stdout + duplicated.stderr, /too many duplicates/);
-});
+for (const [language, extension, config, source] of [
+  ['JavaScript', 'cjs', 'jscpd.json', [...Array(12).keys()].map((index) =>
+    `console.log('distinct operation ${index}', process.cwd());\n`).join('')],
+  ['Dart', 'dart', 'jscpd-dart.json', 'void main() {\n' + [...Array(20).keys()].map((index) =>
+    `  print('distinct operation ${index}');\n`).join('') + '}\n'],
+]) {
+  test(`the real duplication CLI rejects empty scope and repeated maintained ${language}`, (context) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'node-duplication-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const scan = () => childProcess.spawnSync(path.join(quality, 'node_modules/.bin/jscpd'), [
+      '--config', path.join(quality, config), '--fail-on-empty', directory,
+    ], { cwd: repository, encoding: 'utf8', timeout: 10000 });
+    const empty = scan();
+    assert.equal(empty.status, 1, empty.stdout + empty.stderr);
+    fs.writeFileSync(path.join(directory, `first.${extension}`), source);
+    if (language === 'Dart') fs.writeFileSync(path.join(directory, 'adapter.g.dart'), source);
+    const clean = scan();
+    assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    fs.writeFileSync(path.join(directory, `second.${extension}`), source);
+    const duplicated = scan();
+    assert.equal(duplicated.status, 1, duplicated.stdout + duplicated.stderr);
+    assert.match(duplicated.stdout + duplicated.stderr, /too many duplicates/);
+  });
+}
