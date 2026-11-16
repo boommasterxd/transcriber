@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../services/dictation/dictation_platform.dart';
 
@@ -8,12 +8,11 @@ typedef KeyboardStatusActions = ({
   Future<void> Function() choose,
 });
 
-typedef KeyboardStatusContentBuilder =
-    Widget Function(
-      BuildContext context,
-      KeyboardStatus? status,
-      KeyboardStatusActions actions,
-    );
+typedef KeyboardStatusContentBuilder = Widget Function(
+  BuildContext context,
+  KeyboardStatus? status,
+  KeyboardStatusActions actions,
+);
 
 /// Keeps Android input-method status current across system settings round trips.
 class KeyboardStatusLoader extends StatefulWidget {

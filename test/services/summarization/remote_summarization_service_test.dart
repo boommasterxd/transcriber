@@ -32,8 +32,7 @@ void main() {
     'sends German prompts to the configured model and parses the response',
     () async {
       final client = _RecordingSummaryClient(
-        response:
-            '{"title":"Titel","gist":"Kernaussage","points":["Punkt"],"todos":["Aufgabe"]}',
+        response: '{"title":"Titel","gist":"Kernaussage","points":["Punkt"],"todos":["Aufgabe"]}',
       );
       final service = RemoteSummarizationService(
         client: client,

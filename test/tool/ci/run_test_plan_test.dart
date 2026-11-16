@@ -221,9 +221,8 @@ void registerValidationTests() {
       final sentinel = File('${outside.path}/dart/sentinel.txt');
       await sentinel.parent.create(recursive: true);
       await sentinel.writeAsString('keep');
-      await Link(
-        '${runner.fixture.directory.path}/coverage',
-      ).create(outside.path);
+      await Link('${runner.fixture.directory.path}/coverage')
+          .create(outside.path);
       final result = await runner.run(plan);
       expect(result.exitCode, 1);
       expect(await runner.calls(), isEmpty);

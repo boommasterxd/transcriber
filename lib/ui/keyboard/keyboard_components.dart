@@ -333,9 +333,8 @@ class _Timer extends StatelessWidget {
       ),
       child: Text(
         '$minutes:$seconds',
-        style: AppTheme.mono(
-          color: context.palette.muted,
-        ).copyWith(fontSize: 11),
+        style: AppTheme.mono(color: context.palette.muted)
+            .copyWith(fontSize: 11),
       ),
     );
   }

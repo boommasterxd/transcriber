@@ -91,12 +91,10 @@ void _registerCoverageExpectationTests(CoverageFixture Function() getFixture) {
       ], root: fixture.directory.path),
       isTrue,
     );
-    File(
-      '${fixture.directory.path}/lib/fragment.dart',
-    ).writeAsStringSync('part of sample;\n');
-    File(
-      '${fixture.directory.path}/lib/contracts.dart',
-    ).writeAsStringSync('abstract interface class Port { void run(); }\n');
+    File('${fixture.directory.path}/lib/fragment.dart')
+        .writeAsStringSync('part of sample;\n');
+    File('${fixture.directory.path}/lib/contracts.dart')
+        .writeAsStringSync('abstract interface class Port { void run(); }\n');
     expect(
       hasExecutableAppSources([
         'lib/fragment.dart',
@@ -132,9 +130,8 @@ void _registerRuntimeIntegrationTest() {
         await fixture.collect('dart'),
         await fixture.collect('flutter'),
       ];
-      final source = File(
-        '${fixture.root.path}/lib/choice.dart',
-      ).resolveSymbolicLinksSync();
+      final source = File('${fixture.root.path}/lib/choice.dart')
+          .resolveSymbolicLinksSync();
       final sources = {source: 'lib/choice.dart'};
       for (final report in reports) {
         final single = CoverageReport.parse(

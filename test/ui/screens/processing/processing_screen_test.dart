@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
@@ -14,6 +14,7 @@ import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/screens/processing/processing_screen.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_status_content.dart';
 import 'package:transcriber/ui/screens/settings/settings_screen.dart';
+
 import '../../../support/app_test_fakes.dart';
 
 void main() {

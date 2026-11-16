@@ -1,9 +1,8 @@
 part of 'check_coverage.dart';
 
 bool hasExecutableAppSources(Iterable<String> sources, {String? root}) {
-  final directory = Directory(
-    root ?? Directory.current.path,
-  ).resolveSymbolicLinksSync();
+  final directory = Directory(root ?? Directory.current.path)
+      .resolveSymbolicLinksSync();
   var executable = false;
   for (final source in sources) {
     if (!source.startsWith('lib/')) {
@@ -61,9 +60,8 @@ String mergeLcovReports(List<List<String>> reports, {String? root}) {
   if (reports.isEmpty || reports.length > 2) {
     throw const FormatException('Expected one or two runtime reports.');
   }
-  final directory = Directory(
-    root ?? Directory.current.path,
-  ).resolveSymbolicLinksSync();
+  final directory = Directory(root ?? Directory.current.path)
+      .resolveSymbolicLinksSync();
   final merged = <String, _SourceCoverage>{};
   for (final report in reports) {
     final parsed = _parseRuntimeCoverage(report, directory);

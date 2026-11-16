@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/processing/processing_profile.dart';
 import 'package:transcriber/state/processing_controller.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_status_content.dart';
+
 import 'processing_widget_test_support.dart';
 
 void main() {

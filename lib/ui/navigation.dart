@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'navigation_routes.dart';
 import 'processing_navigation.dart';
@@ -22,9 +22,8 @@ class AppNavigator {
       Navigator.of(context).push(fadeSlideRoute(const RecordScreen()));
 
   static Future<void> openDetail(BuildContext context, String noteId) =>
-      Navigator.of(
-        context,
-      ).push(fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
+      Navigator.of(context)
+          .push(fadeSlideRoute(TranscriptDetailScreen(noteId: noteId)));
 
   /// Starts the processing [request]; the processing screen routes to the
   /// detail screen on success. When [replace] is true the current route is

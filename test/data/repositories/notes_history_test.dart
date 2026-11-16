@@ -132,9 +132,10 @@ void _registerQueryTests(_HistoryFixture fixture) {
       isEmpty,
     );
     expect(
-      (await fixture.repository.loadHistoryPage(
-        query: 'GRÖßE',
-      )).entries.single.id,
+      (await fixture.repository.loadHistoryPage(query: 'GRÖßE'))
+          .entries
+          .single
+          .id,
       'unicode',
     );
   });
