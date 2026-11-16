@@ -14,7 +14,7 @@ Flutter 3.50.0 and AGP 9.5.1 support built-in Kotlin, which the application enab
 
 Jetifier is disabled by AGP's default: both resolved runtime graphs contain no legacy Support Library or Android Architecture artifacts, and debug/release APKs build without it. JVM-target validation uses the default strict behavior; no warning-only override is needed.
 
-The Kotlin migration and the Android DSL migration are separate. Keep `android.newDsl=false` while the native plugin graph requires it: Flutter 3.50 uses the public application DSL, but the resolved `android_file_picker` 2.1.3 explicitly configures the legacy `com.android.build.gradle.LibraryExtension`. Removing the flag cannot replace a plugin's legacy APIs. AGP 10 adoption requires a stable, verified Flutter/native-plugin combination supporting the replacement DSL and variant APIs. Follow the [AGP roadmap](https://developer.android.com/build/releases/gradle-plugin-roadmap) and verify the actual released toolchain before changing it.
+The Kotlin migration and the Android DSL migration are separate. The application uses AGP's default public DSL with built-in Kotlin: Flutter 3.50 uses the public application extension and `android_file_picker` 2.1.6 uses the public library extension. No legacy-DSL opt-out is required. AGP 10 remains a roadmap release rather than a supported application baseline; adopt it only after a stable release and compatible Flutter/native-plugin support are available. Follow the [AGP roadmap](https://developer.android.com/build/releases/gradle-plugin-roadmap) and verify the actual released toolchain before changing it.
 
 ## Provider Defaults
 
