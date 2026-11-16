@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// App-wide messenger key so any layer can show a toast/snackbar without a
 /// local BuildContext, for example confirmations from nested screens.
