@@ -13,13 +13,13 @@ hosted_runner() {
   [[ "${GITHUB_ACTIONS:-}" == true && "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]
 }
 
-prepare_host_graphics() {
+prepare_host_runtime() {
   local package
   local -a missing=()
   command -v xvfb-run >/dev/null || missing+=(xvfb)
   command -v xauth >/dev/null || missing+=(xauth)
   command -v glxinfo >/dev/null || missing+=(mesa-utils)
-  for package in libgl1-mesa-dri libglx-mesa0; do
+  for package in libgl1-mesa-dri libglx-mesa0 libpulse0; do
     if [[ $(dpkg-query --show --showformat='${db:Status-Status}' "$package" 2>/dev/null) != installed ]]; then
       missing+=("$package")
     fi
@@ -64,10 +64,10 @@ if (( ${#packages[@]} )); then
   "$cmdline_tools/sdkmanager" --sdk_root="$sdk_root" "${packages[@]}"
 fi
 "$emulator" -accel-check
-"$emulator" -version | awk 'NR == 1'
 if hosted_runner; then
-  prepare_host_graphics
+  prepare_host_runtime
 fi
+"$emulator" -version | awk 'NR == 1'
 
 ANDROID_AVD_HOME=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/transcriber-avd.XXXXXX")
 export ANDROID_AVD_HOME
