@@ -1,4 +1,5 @@
 import '../../data/models/transcription_result.dart';
+import '../remote/remote_cancellation.dart';
 
 export '../../data/models/transcription_result.dart';
 
@@ -8,5 +9,6 @@ abstract interface class TranscriptionService {
   Future<TranscriptionResult> transcribe(
     String audioPath, {
     String? languageCode,
+    RemoteCancellation? cancellation,
   });
 }

@@ -3,7 +3,7 @@
 const REQUIRED_JOBS = [
   'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
 ];
-const FLAGS = ['docs_only', 'workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'];
+const FLAGS = ['docs_only', 'workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'];
 const REVISIONS = ['base_sha', 'head_sha', 'merge_sha'];
 
 function validateRevisionBinding(outputs, revisions) {
@@ -31,6 +31,9 @@ function jobPlan(outputs) {
   if (flags.native && !flags.jvm) {
     throw new Error('Android checks must include the JVM test scope.');
   }
+  if (flags.device && !flags.native) {
+    throw new Error('Android device tests require the Android quality job.');
+  }
   return {
     'workflow-lint': flags.workflow,
     'dart-quality': flags.dart || (flags.build && !flags.native),
@@ -54,6 +57,12 @@ function requireCiSuccess(needs, revisions) {
     const expected = plan[job] ? 'success' : 'skipped';
     if (needs[job]?.result !== expected) {
       throw new Error(`Required job ${job} must be ${expected}.`);
+    }
+  }
+  if (plan['kotlin-quality']) {
+    const expected = needs.changes.outputs.device === 'true' ? 'success' : 'skipped';
+    if (needs['kotlin-quality'].outputs?.device_tests !== expected) {
+      throw new Error(`Android device tests must be ${expected}.`);
     }
   }
 }

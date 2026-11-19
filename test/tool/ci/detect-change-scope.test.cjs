@@ -10,7 +10,7 @@ const { detectDocsOnly, detectChangeScope, classifyPaths, parseJvmClasses, creat
 
 function scope(...checks) {
   return { docs_only: checks.length === 0,
-    ...Object.fromEntries(['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit']
+    ...Object.fromEntries(['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit']
       .map((name) => [name, checks.includes(name)
         || (name === 'jvm' && checks.includes('native'))
         || (name === 'dependency_audit' && checks.length > 0)])) };
@@ -34,10 +34,10 @@ test('JVM mappings accept only a nonempty manifest of unique qualified classes',
 test('known paths request precisely their relevant checks', () => {
   const cases = [
     ['docs/nested/guide.md', []],
-    ['.github/workflows/release.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
-    ['.github/workflows/build-apk.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
-    ['.github/workflows/codeql.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
-    ['.github/dependabot.yml', ['workflow', 'dart', 'jvm', 'native', 'build']],
+    ['.github/workflows/release.yml', ['workflow', 'dart', 'jvm', 'native', 'device', 'build']],
+    ['.github/workflows/build-apk.yml', ['workflow', 'dart', 'jvm', 'native', 'device', 'build']],
+    ['.github/workflows/codeql.yml', ['workflow', 'dart', 'jvm', 'native', 'device', 'build']],
+    ['.github/dependabot.yml', ['workflow', 'dart', 'jvm', 'native', 'device', 'build']],
     ['tool/ci/check-native-file-length.cjs', ['workflow']],
     ['test/tool/ci/check-native-file-length.test.cjs', ['workflow']],
     ['tool/ci/check-osv-npm-scope.cjs', ['workflow']],
@@ -47,32 +47,40 @@ test('known paths request precisely their relevant checks', () => {
     ['test/tool/ci/native-coverage.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/jvm_fixture.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/kotlin-quality.integration.cjs', ['workflow', 'jvm']],
-    ['android/app/src/main/kotlin/Example.kt', ['dart', 'native']],
-    ['android/app/src/main/AndroidManifest.xml', ['dart', 'native']],
-    ['android/app/src/main/res/values/strings.xml', ['dart', 'native']],
-    ['android/app/build.gradle.kts', ['dart', 'native']],
+    ['test/tool/ci/android-picker-device.integration.cjs', ['workflow', 'native', 'device']],
+    ['android/app/src/main/kotlin/Example.kt', ['dart', 'native', 'device']],
+    ['android/app/src/main/AndroidManifest.xml', ['dart', 'native', 'device']],
+    ['android/app/src/main/res/values/strings.xml', ['dart', 'native', 'device']],
+    ['android/app/build.gradle.kts', ['dart', 'native', 'device']],
     ['android/app/src/test/kotlin/ExampleTest.kt', ['native']],
-    ['android/app/src/androidTest/kotlin/ExampleTest.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/EditorFieldPolicy.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['jvm', 'native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/ImeNavigationBarAppearance.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['jvm', 'native']],
+    ['android/app/src/androidTest/kotlin/ExampleTest.kt', ['native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorFieldPolicy.kt', ['native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['jvm', 'native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ImeNavigationBarAppearance.kt', ['native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['jvm', 'native', 'device']],
     ['android/app/src/test/kotlin/com/transcriber/app/EditorSessionGateTest.kt', ['jvm']],
     ['android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt', ['jvm']],
     ['android/app/src/test/kotlin/com/transcriber/app/NavigationBarAppearanceTest.kt', ['native']],
     ['android/app/src/test/kotlin/com/transcriber/app/EditorFieldPolicyTest.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/PcmAudioRecorder.kt', ['dart', 'native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/ImeMethodHandler.kt', ['dart', 'native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/ShareActivity.kt', ['dart', 'native']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/PcmAudioRecorder.kt', ['dart', 'native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ImeMethodHandler.kt', ['dart', 'native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareActivity.kt', ['dart', 'native', 'device']],
     ['config/detekt.yml', ['native']],
     ['tool/quality/check_kotlin_quality.sh', ['workflow', 'native']],
     ['tool/package/version.sh', ['workflow', 'dart', 'build']],
-    ['lib/main.dart', ['dart', 'native', 'build']],
-    ['lib/share_entrypoint.dart', ['dart', 'native', 'build']],
-    ['lib/keyboard_entrypoint.dart', ['dart', 'native', 'build']],
-    ['lib/services/dictation/dictation_platform.dart', ['dart', 'native', 'build']],
-    ['lib/services/audio/audio_recorder_service.dart', ['dart', 'native', 'build']],
+    ['lib/main.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/app.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/app_bootstrap.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/share_entrypoint.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/keyboard_entrypoint.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/services/dictation/dictation_platform.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/services/audio/audio_recorder_service.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/data/models/audio_import_selection.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/services/audio/audio_import_picker.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/screens/home/home_screen.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/screens/home/audio_import.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/screens/home/audio_import_recovery_gate.dart', ['dart', 'native', 'device', 'build']],
     ['lib/services/example.dart', ['dart']],
     ['test/services/example_test.dart', ['dart']],
     ['assets/images/example.png', ['dart', 'build']],
@@ -83,7 +91,7 @@ test('known paths request precisely their relevant checks', () => {
 });
 
 test('Dart CI and quality infrastructure requires every gate, including its regression tests', () => {
-  const full = scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit');
+  const full = scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit');
   for (const name of ['tool/ci/select_tests.dart', 'tool/ci/run_test_plan.dart',
     'tool/ci/selection_graph.dart', 'tool/ci/test_selection.dart', 'tool/ci/test_runtime.dart',
     'test/tool/ci/test_selection_test.dart', 'test/tool/ci/test_runtime_test.dart',
@@ -109,11 +117,11 @@ test('ordinary Dart edits never select Java, native tests, or packaging', () => 
   ]), scope('dart', 'native'));
   assert.deepEqual(classifyPaths([
     'lib/services/example.dart', 'lib/share_entrypoint.dart',
-  ]), scope('dart', 'native', 'build'));
+  ]), scope('dart', 'native', 'device', 'build'));
 });
 
 test('shared foundations, unknown paths and incomplete inputs require every check', () => {
-  const full = scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit');
+  const full = scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit');
   for (const name of ['pubspec.yaml', 'pubspec.lock', 'android/app/gradle.lockfile',
     '.fvmrc', 'analysis_options.yaml',
     'test/flutter_test_config.dart', 'test/nested/flutter_test_config.dart', '.github/workflows/ci.yml',
@@ -129,7 +137,7 @@ test('shared foundations, unknown paths and incomplete inputs require every chec
     assert.deepEqual(classifyPaths([name]), full, name);
   }
   assert.deepEqual(classifyPaths([]), full);
-  assert.deepEqual(classifyPaths(['docs/a.md', 'test/a_test.dart', 'android/a.kt']), scope('dart', 'native'));
+  assert.deepEqual(classifyPaths(['docs/a.md', 'test/a_test.dart', 'android/a.kt']), scope('dart', 'native', 'device'));
 });
 
 /** @param {string} cwd @param {string[]} args */
@@ -173,12 +181,12 @@ test('the complete Git range distinguishes pure JVM tests from production consum
   assert.deepEqual(detectChangeScope('pull_request', base, testHead, cwd), scope('jvm'));
   write(cwd, source, '// Updated helper API\n');
   const head = commit(cwd);
-  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native'));
+  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native', 'device'));
   write(cwd, 'docs/dirty-local.md', 'An uncommitted file cannot hide the PR changes.\n');
-  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native'));
+  assert.deepEqual(detectChangeScope('pull_request', base, head, cwd), scope('jvm', 'native', 'device'));
   for (const candidate of ['', 'f'.repeat(40), head]) {
     assert.deepEqual(detectChangeScope('pull_request', candidate, head, cwd),
-      scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'));
+      scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'));
   }
 });
 
@@ -328,7 +336,7 @@ test('every workflow and shared dependency configuration selects all applicable 
   for (const file of ['release.yml', 'build-apk.yml', 'codeql.yml', 'commit-style-check.yml',
     'dependabot-auto-merge.yml', 'update-flutter.yml', 'new-workflow.yaml']) {
     assert.deepEqual(classifyPaths([`.github/workflows/${file}`]),
-      scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'));
+      scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'));
   }
 });
 
@@ -340,7 +348,7 @@ test('plans carry the actual checkout and PR comparison revisions', (context) =>
   assert.deepEqual(plan, { ...scope(), base_sha: base, head_sha: head, merge_sha: head });
   const manual = createChangePlan('workflow_dispatch', undefined, undefined, cwd);
   assert.deepEqual(manual, {
-    ...scope('workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'),
+    ...scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'),
     base_sha: head, head_sha: head, merge_sha: head,
   });
   assert.throws(() => createChangePlan('pull_request', '', head, cwd), /valid.*revisions/);

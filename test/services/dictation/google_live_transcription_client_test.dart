@@ -144,12 +144,14 @@ void _registerConnectionLifecycleTests() {
     'bounds the socket handshake as part of the connection timeout',
     () async {
       final pendingSocket = Completer<LiveSocket>();
-      final stalledClient = _googleClient(
-        (_, _) => pendingSocket.future,
-        connectionTimeout: const Duration(milliseconds: 20),
-      );
+      var transportAborted = false;
+      final stalledClient = _googleClient((_, _, onCancellation) {
+        onCancellation(() => transportAborted = true);
+        return pendingSocket.future;
+      }, connectionTimeout: const Duration(milliseconds: 20));
 
       await _expectConnectionTimeout(stalledClient);
+      expect(transportAborted, isTrue);
       await stalledClient.close();
     },
   );
@@ -158,7 +160,7 @@ void _registerConnectionLifecycleTests() {
     final pendingSocket = Completer<LiveSocket>();
     final lateSocket = FakeLiveSocket();
     final stalledClient = _googleClient(
-      (_, _) => pendingSocket.future,
+      (_, _, _) => pendingSocket.future,
       connectionTimeout: const Duration(milliseconds: 20),
     );
 
@@ -173,7 +175,11 @@ void _registerConnectionLifecycleTests() {
 
   test('closing cancels an outstanding setup immediately', () async {
     final openSocket = FakeLiveSocket();
-    final pendingClient = _googleClient((_, _) async => openSocket);
+    var transportAborted = false;
+    final pendingClient = _googleClient((_, _, onCancellation) async {
+      onCancellation(() => transportAborted = true);
+      return openSocket;
+    });
     final connecting = pendingClient.connect();
     await pumpEventQueue();
     final cancelled = expectLater(
@@ -184,6 +190,7 @@ void _registerConnectionLifecycleTests() {
     await pendingClient.close();
 
     await cancelled;
+    expect(transportAborted, isTrue);
     expect(openSocket.closeCount, 1);
   });
 
@@ -191,7 +198,7 @@ void _registerConnectionLifecycleTests() {
     final openSocket = FakeLiveSocket();
     final closeGate = Completer<void>();
     openSocket.closeGate = closeGate;
-    final pendingClient = _googleClient((_, _) async => openSocket);
+    final pendingClient = _googleClient((_, _, _) async => openSocket);
     final connecting = pendingClient.connect();
     await pumpEventQueue();
     openSocket.controller.add(jsonEncode({'setupComplete': {}}));

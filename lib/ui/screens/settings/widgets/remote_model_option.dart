@@ -62,10 +62,10 @@ class _RemoteModelOptionState extends State<RemoteModelOption> {
                   borderRadius: BorderRadius.circular(8),
                   border: selected
                       ? null
-                      : Border.all(color: palette.accent, width: 2),
+                      : Border.all(color: palette.accentDeep, width: 2),
                 ),
                 child: selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 13)
+                    ? Icon(Icons.check, color: palette.onAccent, size: 13)
                     : null,
               ),
               const SizedBox(width: 16),

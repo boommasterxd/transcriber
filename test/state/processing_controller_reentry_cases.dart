@@ -162,7 +162,6 @@ void _registerCommitReentryTest() {
         owner: firstOwner,
         save: false,
       );
-      final retained = harness.retainedAudio;
       final second = await _newInput(harness, 'second.m4a');
       final gate = Completer<void>();
       final started = Completer<void>();
@@ -171,6 +170,7 @@ void _registerCommitReentryTest() {
         ..started = started;
       final commit = harness.controller.commit();
       await started.future;
+      final retained = File(harness.notesRepository.attempted!.audioPath!);
       final discard = harness.controller.discardCurrent(owner: firstOwner);
       final secondRun = harness.controller.run(second, owner: secondOwner);
       expect(harness.clientFactory.calls, hasLength(1));
@@ -198,7 +198,6 @@ void _registerPreviewCleanupReentryTest() {
     );
     addTearDown(harness.dispose);
     await harness.run(save: false);
-    final retained = harness.retainedAudio;
     final second = await _newInput(harness, 'second.m4a');
     paths.block = true;
     final discard = harness.controller.discardCurrent();
@@ -209,7 +208,6 @@ void _registerPreviewCleanupReentryTest() {
       ..resume.complete();
     await Future.wait([discard, secondRun]);
 
-    expect(await retained.exists(), isFalse);
     expect(await harness.staging.exists(), isFalse);
     expect(harness.state.result!.title, 'second.m4a');
     expect(harness.notesRepository.loaded.single.title, 'second.m4a');

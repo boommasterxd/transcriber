@@ -1,21 +1,16 @@
 package com.transcriber.app
 
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.BadParcelableException
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.Locale
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.SynchronousQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 
 /** Translucent share target with a bounded background import and deferred handoff. */
 class ShareActivity : FlutterActivity() {
@@ -28,23 +23,14 @@ class ShareActivity : FlutterActivity() {
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val handler = Handler(Looper.getMainLooper())
-        val control = ShareImportControl(cleanupWorker)
-        importCoordinator = ShareImportCoordinator(
-            importWorker,
-            { handler.post(it) },
-            { expire ->
-                val deadline = Runnable(expire)
-                handler.postDelayed(deadline, importDeadlineMillis)
-                val cancel: () -> Unit = { handler.removeCallbacks(deadline) }
-                cancel
-            },
-            control,
-        )
+        val control = BoundedAudioImports.createControl()
+        importCoordinator = BoundedAudioImports.createCoordinator(control)
         // Initialize the coordinator before Flutter can call the channel. Its
         // pending reply preserves the startup race fix without blocking startup.
         super.onCreate(savedInstanceState)
-        val uri = extractSharedUri(intent)
+        val uri = extractSharedUri(intent)?.takeIf {
+            intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0 && BoundedAudioImports.canRead(this, it)
+        }
         val mimeType = intent?.type
         val context = applicationContext
         val cache = ShareAudioCache(context.cacheDir, context.contentResolver, ::logShareFailure)
@@ -91,7 +77,9 @@ class ShareActivity : FlutterActivity() {
     private fun extractSharedUri(intent: Intent?): Uri? {
         if (intent == null || !isSupportedShareIntent(intent)) return null
         return try {
-            readSharedUri(intent)?.takeIf(::isSupportedUri)
+            readSharedUri(intent)?.takeIf {
+                it.scheme == ContentResolver.SCHEME_CONTENT && !it.authority.isNullOrBlank()
+            }
         } catch (error: BadParcelableException) {
             logShareFailure(error)
             null
@@ -119,34 +107,7 @@ class ShareActivity : FlutterActivity() {
             ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
     }
 
-    private fun isSupportedUri(uri: Uri): Boolean {
-        return when (uri.scheme?.lowercase(Locale.ROOT)) {
-            "content" -> !uri.authority.isNullOrBlank()
-            "file" -> !uri.path.isNullOrBlank()
-            else -> false
-        }
-    }
-
     private companion object {
-        const val importDeadlineMillis = 60_000L
-
-        // One import for the entire process; a provider ignoring cancellation
-        // occupies this slot instead of accumulating threads on repeated shares.
-        val importWorker = ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            SynchronousQueue(),
-        )
-        val cleanupWorker = ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            ArrayBlockingQueue(1),
-        )
-
         fun logShareFailure(error: Throwable) {
             val errorType = error::class.java.simpleName.ifEmpty { "UnknownError" }
             Log.w("ShareActivity", "Unable to import shared audio ($errorType)")

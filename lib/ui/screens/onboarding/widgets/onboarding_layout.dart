@@ -23,7 +23,7 @@ class OnboardingLayout extends StatelessWidget {
     super.key,
   });
 
-  static const stepCount = 6;
+  static const stepCount = 5;
 
   final PageController controller;
   final int step;
@@ -49,7 +49,7 @@ class OnboardingLayout extends StatelessWidget {
             children: [
               _ProgressBar(
                 step: step,
-                showBack: step > 0,
+                strings: strings,
                 onBack: navigation.back,
               ),
               Expanded(
@@ -115,24 +115,23 @@ class _StepViewport extends StatelessWidget {
 class _ProgressBar extends StatelessWidget {
   const _ProgressBar({
     required this.step,
-    required this.showBack,
+    required this.strings,
     required this.onBack,
   });
 
   final int step;
-  final bool showBack;
+  final AppStrings strings;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 640),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
         child: Row(
           children: [
-            if (showBack) ...[
+            if (step > 0) ...[
               IconCircleButton(
                 icon: Icons.arrow_back_ios_new_rounded,
                 size: 38,
@@ -141,32 +140,43 @@ class _ProgressBar extends StatelessWidget {
               const SizedBox(width: 14),
             ],
             Expanded(
-              child: Row(
-                children: [
-                  for (
-                    var index = 0;
-                    index < OnboardingLayout.stepCount;
-                    index++
-                  ) ...[
-                    if (index > 0) const SizedBox(width: 6),
-                    Expanded(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutCubic,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: index <= step ? palette.accent : palette.line2,
-                          borderRadius: BorderRadius.circular(9999),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              child: Semantics(
+                container: true,
+                liveRegion: true,
+                label: strings.onboardingProgress(
+                  step + 1,
+                  OnboardingLayout.stepCount,
+                ),
+                child: _segments(context),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _segments(BuildContext context) {
+    final palette = context.palette;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 300);
+    return Row(
+      spacing: 6,
+      children: [
+        for (var index = 0; index < OnboardingLayout.stepCount; index++)
+          Expanded(
+            child: AnimatedContainer(
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              height: 7,
+              decoration: BoxDecoration(
+                color: index <= step ? palette.accent : palette.line2,
+                borderRadius: BorderRadius.circular(9999),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -187,7 +197,6 @@ class _OnboardingFooter extends StatelessWidget {
   String _hint() => switch (gate.hint) {
     OnboardingGateHint.connectProvider => strings.obConnectHint,
     OnboardingGateHint.selectModels => strings.obSelectModelsHint,
-    OnboardingGateHint.grantPermissions => strings.obPermLocked,
     null => '',
   };
 

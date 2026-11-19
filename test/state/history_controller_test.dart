@@ -18,6 +18,26 @@ void main() {
   _registerFailureTest();
   _registerRaceTest();
   _registerConcurrentDeletionTest();
+  _registerDetailOnlyMutationTest();
+}
+
+void _registerDetailOnlyMutationTest() {
+  test('checking a to-do keeps the active history page', () async {
+    final fixture = await _fixture();
+    final container = fixture.container;
+    await container.read(historyControllerProvider.future);
+    await container.read(historyControllerProvider.notifier).next();
+    final page = container.read(historyControllerProvider).requireValue;
+    expect(page.hasPrevious, isTrue);
+    final noteId = page.entries.first.id;
+
+    final notes = container.read(notesControllerProvider.notifier);
+    await notes.toggleTodo(noteId, 0);
+    await container.pump();
+
+    expect(notes.byId(noteId)?.todos.single.done, isTrue);
+    expect(container.read(historyControllerProvider).requireValue, same(page));
+  });
 }
 
 void _registerPagingTest() {
@@ -194,6 +214,7 @@ Future<({ProviderContainer container})> _fixture() async {
         id: '$index',
         title: 'Note $index',
         createdAt: DateTime.fromMillisecondsSinceEpoch(index * 1000),
+        overrides: const TestNoteOverrides(todoCount: 1),
       ),
     ),
   );

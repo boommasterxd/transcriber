@@ -83,6 +83,10 @@ Future<void> expectOversizedAudioRejected({
   );
 }
 
+String googleUploadUrl(String session) =>
+    'https://generativelanguage.googleapis.com/upload/v1beta/files'
+    '?upload_id=$session&upload_protocol=resumable';
+
 List<http.StreamedResponse> googleTranscriptionFailureResponses({
   required String session,
   required String fileState,
@@ -92,10 +96,7 @@ List<http.StreamedResponse> googleTranscriptionFailureResponses({
       ? textResponse(failureBody)
       : jsonResponse(failureBody);
   return [
-    jsonResponse(
-      {},
-      headers: {'x-goog-upload-url': 'https://upload.test/$session'},
-    ),
+    jsonResponse({}, headers: {'x-goog-upload-url': googleUploadUrl(session)}),
     jsonResponse({
       'file': {
         'name': 'files/$session',

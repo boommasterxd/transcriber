@@ -12,11 +12,13 @@ class RemoteTranscriptionService implements TranscriptionService {
   Future<TranscriptionResult> transcribe(
     String audioPath, {
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) {
     return client.transcribe(
       audioPath,
       languageCode: languageCode,
       modelId: model,
+      cancellation: cancellation,
     );
   }
 }

@@ -6,9 +6,16 @@ import '../models/transcript_note.dart';
 
 /// Reads bounded metadata pages; child rows are counted only for page entries.
 final class NotesHistoryQuery {
-  const NotesHistoryQuery(this.database);
+  NotesHistoryQuery(this.database);
+
+  // Keep index-backed sorts bounded. For common terms the history index can
+  // usually provide the first full page directly in chronological order.
+  static const _indexedCandidateLimit = 512;
+  static const _titleMatches =
+      'SELECT rowid FROM notes_title_search WHERE notes_title_search MATCH ?';
 
   final AppDatabase database;
+  ({String filter, int revision, int total, bool useIndex})? _knownCount;
 
   Future<HistoryPage> load({
     String query = '',
@@ -22,26 +29,9 @@ final class NotesHistoryQuery {
     if (previous && cursor == null) {
       throw ArgumentError('Previous pages require a cursor');
     }
-    final filter = query.toLowerCase();
-    final variables = <Variable>[];
-    final clauses = <String>[];
-    if (filter.isNotEmpty) {
-      clauses.add("n.title_search LIKE ? ESCAPE '\\'");
-      final escaped = filter.replaceAllMapped(
-        RegExp(r'[\\%_]'),
-        (match) => '\\${match[0]}',
-      );
-      variables.add(Variable('%$escaped%'));
-    }
-    final filterClause = clauses.isEmpty
-        ? ''
-        : 'WHERE ${clauses.join(' AND ')}';
-    final count = await database
-        .customSelect(
-          'SELECT COUNT(*) AS total FROM notes n $filterClause',
-          variables: List.of(variables),
-        )
-        .getSingle();
+    final (count, clauses, variables) = await _prepareFilter(
+      query.toLowerCase(),
+    );
     if (cursor != null) {
       final comparison = previous ? '>' : '<';
       clauses.add('(n.created_at, n.id) $comparison (?, ?)');
@@ -50,7 +40,7 @@ final class NotesHistoryQuery {
         Variable(cursor.id),
       ]);
     }
-    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final where = _where(clauses);
     final direction = previous ? 'ASC' : 'DESC';
     final rows = await database
         .customSelect(
@@ -69,9 +59,89 @@ final class NotesHistoryQuery {
       entries: List.unmodifiable(previous ? entries.reversed : entries),
       hasNext: previous ? cursor != null : hasMore,
       hasPrevious: previous ? hasMore : cursor != null,
-      totalCount: count.read<int>('total'),
+      totalCount: count,
     );
   }
+
+  Future<(int, List<String>, List<Variable>)> _prepareFilter(
+    String filter,
+  ) async {
+    final snapshot = await database
+        .customSelect('SELECT revision, title_index FROM notes_history_state')
+        .getSingle();
+    final revision = snapshot.read<int>('revision');
+    final cached = _cachedCount(filter, revision);
+    final phrase = _indexPhrase(filter, snapshot.read<int>('title_index') == 1);
+    final useIndex = cached?.useIndex ?? await _shouldSearchIndex(phrase);
+    final (clauses, variables) = _titleFilter(filter, useIndex ? phrase : null);
+    final count = cached?.total ?? await _readTotal(clauses, variables);
+    _knownCount = (
+      filter: filter,
+      revision: revision,
+      total: count,
+      useIndex: useIndex,
+    );
+    return (count, clauses, variables);
+  }
+
+  ({String filter, int revision, int total, bool useIndex})? _cachedCount(
+    String filter,
+    int revision,
+  ) {
+    final cached = _knownCount;
+    return cached?.filter == filter && cached?.revision == revision
+        ? cached
+        : null;
+  }
+
+  Future<int> _readTotal(List<String> clauses, List<Variable> variables) async {
+    final row = await database
+        .customSelect(
+          'SELECT COUNT(*) AS total FROM notes n ${_where(clauses)}',
+          variables: variables,
+        )
+        .getSingle();
+    return row.read<int>('total');
+  }
+
+  String? _indexPhrase(String filter, bool indexed) {
+    final supported =
+        indexed &&
+        filter.runes.take(3).length == 3 &&
+        !filter.contains('\u0000');
+    return supported ? '"${filter.replaceAll('"', '""')}"' : null;
+  }
+
+  Future<bool> _shouldSearchIndex(String? phrase) async {
+    if (phrase == null) return false;
+    final row = await database
+        .customSelect(
+          'SELECT COUNT(*) AS candidates FROM ($_titleMatches LIMIT ?)',
+          variables: [
+            Variable(phrase),
+            const Variable(_indexedCandidateLimit + 1),
+          ],
+        )
+        .getSingle();
+    return row.read<int>('candidates') <= _indexedCandidateLimit;
+  }
+
+  (List<String>, List<Variable>) _titleFilter(String filter, String? phrase) {
+    if (filter.isEmpty) return ([], []);
+    final escaped = filter.replaceAllMapped(
+      RegExp(r'[\\%_]'),
+      (match) => '\\${match[0]}',
+    );
+    const literal = "n.title_search LIKE ? ESCAPE '\\'";
+    if (phrase == null) return ([literal], [Variable('%$escaped%')]);
+    return (
+      ['n.rowid IN ($_titleMatches)', literal],
+      [Variable(phrase), Variable('%$escaped%')],
+    );
+  }
+
+  String _where(List<String> clauses) =>
+      clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
 
   NoteHistoryEntry _entry(QueryRow row) => NoteHistoryEntry(
     metadata: NoteMetadata(

@@ -13,11 +13,13 @@ class PressableScale extends StatefulWidget {
     required this.child,
     required this.action,
     this.pressedScale = 0.96,
+    this.liveRegion = false,
   });
 
   final Widget child;
   final KeyboardAction action;
   final double pressedScale;
+  final bool liveRegion;
 
   @override
   State<PressableScale> createState() => _PressableScaleState();
@@ -34,12 +36,19 @@ class _PressableScaleState extends State<PressableScale> {
   Widget build(BuildContext context) {
     return KeyboardActionTarget(
       action: widget.action,
-      onTapDown: (_) => _set(true),
-      onTapUp: (_) => _set(false),
-      onTapCancel: () => _set(false),
+      liveRegion: widget.liveRegion,
+      pressFeedback: (
+        onDown: (_) => _set(true),
+        onUp: (_) => _set(false),
+        onCancel: () => _set(false),
+      ),
       child: AnimatedScale(
-        scale: _pressed ? widget.pressedScale : 1,
-        duration: const Duration(milliseconds: 120),
+        scale: _pressed && widget.action.onActivate != null
+            ? widget.pressedScale
+            : 1,
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: widget.child,
       ),
@@ -56,7 +65,8 @@ class PillButton extends StatelessWidget {
     this.icon,
     this.trailingIcon,
     this.height = 58,
-  }) : outlined = false;
+  }) : outlined = false,
+       liveRegion = false;
 
   const PillButton.outlined({
     super.key,
@@ -65,20 +75,39 @@ class PillButton extends StatelessWidget {
     this.icon,
     this.trailingIcon,
     this.height = 58,
-  }) : outlined = true;
+  }) : outlined = true,
+       liveRegion = false;
+
+  /// Announces label changes while an action is in progress.
+  const PillButton.status({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.height = 58,
+  }) : trailingIcon = null,
+       outlined = false,
+       liveRegion = true;
 
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final IconData? icon;
   final IconData? trailingIcon;
   final double height;
   final bool outlined;
+  final bool liveRegion;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final fg = outlined ? palette.accent : palette.onAccent;
+    final enabled = onTap != null;
+    final fg = enabled
+        ? outlined
+              ? palette.accentDeep
+              : palette.onAccent
+        : palette.muted;
     return PressableScale(
+      liveRegion: liveRegion,
       action: (
         label: label,
         onActivate: onTap,
@@ -87,14 +116,19 @@ class PillButton extends StatelessWidget {
         inMutuallyExclusiveGroup: false,
       ),
       child: Container(
-        height: height,
+        constraints: BoxConstraints(minHeight: height),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: outlined ? Colors.transparent : palette.accent,
+          color: enabled
+              ? outlined
+                    ? Colors.transparent
+                    : palette.accent
+              : palette.chip,
           borderRadius: BorderRadius.circular(9999),
           border: outlined
               ? Border.all(color: palette.line2, width: 1.5)
               : null,
-          boxShadow: outlined
+          boxShadow: outlined || !enabled
               ? null
               : [
                   BoxShadow(
@@ -114,7 +148,7 @@ class PillButton extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -175,21 +209,23 @@ class IconCircleButton extends StatelessWidget {
         inMutuallyExclusiveGroup: false,
       ),
       pressedScale: 0.9,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: palette.surface,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: palette.shadow,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+      child: _CircleTouchTarget(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: palette.surface,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: palette.shadow,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: size * 0.45, color: palette.body),
         ),
-        child: Icon(icon, size: size * 0.45, color: palette.body),
       ),
     );
   }
@@ -230,26 +266,43 @@ class AccentSwatches extends StatelessWidget {
                 selected: accent == selected,
                 inMutuallyExclusiveGroup: true,
               ),
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  color: accent.color,
-                  shape: BoxShape.circle,
-                  boxShadow: accent == selected
-                      ? [
-                          BoxShadow(color: palette.surface, spreadRadius: 3),
-                          BoxShadow(color: accent.color, spreadRadius: 5),
-                        ]
-                      : [BoxShadow(color: palette.shadow, blurRadius: 8)],
+              child: _CircleTouchTarget(
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    color: accent.color,
+                    shape: BoxShape.circle,
+                    boxShadow: accent == selected
+                        ? [
+                            BoxShadow(color: palette.surface, spreadRadius: 3),
+                            BoxShadow(color: accent.color, spreadRadius: 5),
+                          ]
+                        : [BoxShadow(color: palette.shadow, blurRadius: 8)],
+                  ),
+                  child: accent == selected
+                      ? Icon(Icons.check, color: palette.onAccent, size: 16)
+                      : null,
                 ),
-                child: accent == selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 16)
-                    : null,
               ),
             ),
         ],
       ),
     );
   }
+}
+
+class _CircleTouchTarget extends StatelessWidget {
+  const _CircleTouchTarget({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(
+      minWidth: kMinInteractiveDimension,
+      minHeight: kMinInteractiveDimension,
+    ),
+    child: Center(widthFactor: 1, heightFactor: 1, child: child),
+  );
 }

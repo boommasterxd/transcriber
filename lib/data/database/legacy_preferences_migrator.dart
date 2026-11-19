@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,61 +27,134 @@ class LegacyPreferencesMigrator {
   final FlutterSecureStorage secureStorage;
 
   static const marker = 'shared_preferences_v1';
+  static const rejectedNotesRecoveryKey = 'legacy_unimported_notes_v1';
+  static const _cleanupClassified = '${marker}_cleanup_classified';
+  static const _notesClassified = '${marker}_note_partition_classified';
+  static const _credentialsCleaned = '${marker}_credentials_cleaned';
   static const _settingsKey = 'app_settings';
   static const _notesKey = 'notes';
-  static const _hfTokenKey = 'hf_token';
-  static const _obsoleteProviderKeys = [
+  static const _pendingPreferenceMarkers = {
+    _settingsKey: '${marker}_cleanup_settings',
+    _notesKey: '${marker}_cleanup_notes',
+  };
+  static const _obsoleteCredentialKeys = [
+    'hf_token',
     'api_key_anthropic',
     'api_key_openrouter',
   ];
 
-  Future<void> migrate() async {
-    final imported = await database.transaction<_LegacyData?>(() async {
-      final existing = await (database.select(
+  /// Imports legacy data and returns whether deferred credential cleanup is due.
+  Future<bool> migrate() async {
+    final markers = await database.transaction(_classifyLegacyPreferences);
+
+    final removed = <String>[];
+    for (final entry in _pendingPreferenceMarkers.entries) {
+      if (markers.contains(entry.value) && await _removePreference(entry.key)) {
+        removed.add(entry.value);
+      }
+    }
+    if (removed.isNotEmpty) {
+      await (database.delete(
         database.migrationStateTable,
-      )..where((table) => table.key.equals(marker))).getSingleOrNull();
-      if (existing != null) return null;
+      )..where((row) => row.key.isIn(removed))).go();
+    }
+    return !markers.contains(_credentialsCleaned);
+  }
 
-      final imported = _readLegacyData();
-      await database
-          .into(database.migrationStateTable)
-          .insert(
-            MigrationStateTableCompanion.insert(
-              key: marker,
-              completedAt: DateTime.now().millisecondsSinceEpoch,
-            ),
-          );
-      await SettingsRepository(database).save(imported.settings);
-      await NotesRepository(database).replaceAllInTransaction(imported.notes);
-      return imported;
+  Future<Set<String>> _classifyLegacyPreferences() async {
+    final markers = await _readMarkers();
+    final checkSettings = !markers.contains(_cleanupClassified);
+    final checkNotes = !markers.contains(_notesClassified);
+    if (!checkSettings && !checkNotes) return markers;
+
+    final settings = checkSettings ? _readSettings() : null;
+    final notes = checkNotes ? _readNotes() : null;
+    final needsImport = !markers.contains(marker);
+    if (needsImport) {
+      await SettingsRepository(database).save(settings!.value);
+      await NotesRepository(database).replaceAllInTransaction(notes!.values);
+    }
+
+    final rejected = notes?.rejected;
+    final ready = rejected == null || await _storeRejectedNotes(rejected);
+    // The successful import marker is independent of platform cleanup. Once
+    // it commits, a retry only partitions and removes legacy preferences.
+    final added = [
+      if (needsImport) marker,
+      if (checkSettings) _cleanupClassified,
+      if (settings?.canRemove ?? false)
+        _pendingPreferenceMarkers[_settingsKey]!,
+      if (checkNotes && ready) _notesClassified,
+      if (rejected != null && ready) _pendingPreferenceMarkers[_notesKey]!,
+    ];
+    await _recordMarkers(added);
+    return markers..addAll(added);
+  }
+
+  Future<Set<String>> _readMarkers() async {
+    final table = database.migrationStateTable;
+    final query = database.selectOnly(table)
+      ..addColumns([table.key])
+      ..where(
+        table.key.isIn([
+          marker,
+          _cleanupClassified,
+          _notesClassified,
+          _credentialsCleaned,
+          ..._pendingPreferenceMarkers.values,
+        ]),
+      );
+    return {for (final row in await query.get()) row.read(table.key)!};
+  }
+
+  Future<void> _recordMarkers(Iterable<String> keys) async {
+    final completedAt = DateTime.now().millisecondsSinceEpoch;
+    await database.batch((batch) {
+      batch.insertAll(database.migrationStateTable, [
+        for (final key in keys)
+          MigrationStateTableCompanion.insert(
+            key: key,
+            completedAt: completedAt,
+          ),
+      ], mode: InsertMode.insertOrIgnore);
     });
+  }
 
-    if (imported?.settingsCanBeRemoved ?? false) {
-      await preferences.remove(_settingsKey);
-    }
-    if (imported?.notesCanBeRemoved ?? false) {
-      await preferences.remove(_notesKey);
-    }
-    await secureStorage.delete(key: _hfTokenKey);
-    for (final key in _obsoleteProviderKeys) {
-      await secureStorage.delete(key: key);
+  Future<bool> _removePreference(String key) async {
+    try {
+      return await preferences.remove(key);
+    } catch (_) {
+      return false;
     }
   }
 
-  _LegacyData _readLegacyData() => _LegacyData(
-    settings: _readSettings(),
-    notes: _readNotes(),
-    settingsCanBeRemoved: _settingsCanBeRemoved,
-    notesCanBeRemoved: _notesCanBeRemoved,
-  );
-
-  bool _settingsCanBeRemoved = true;
-  bool _notesCanBeRemoved = true;
-
-  AppSettings _readSettings() {
-    final raw = preferences.getString(_settingsKey);
-    if (raw == null) return AppSettings.initial();
+  /// Removes obsolete keys after bootstrap and retries on a later startup.
+  Future<void> cleanupObsoleteCredentials() async {
     try {
+      if ((await _readMarkers()).contains(_credentialsCleaned)) return;
+      var allRemoved = true;
+      for (final key in _obsoleteCredentialKeys) {
+        if (!await _removeCredential(key)) allRemoved = false;
+      }
+      if (allRemoved) await _recordMarkers([_credentialsCleaned]);
+    } catch (_) {
+      // A failed cleanup or marker write must not interrupt an active app.
+    }
+  }
+
+  Future<bool> _removeCredential(String key) async {
+    try {
+      await secureStorage.delete(key: key);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  _LegacyValue<AppSettings> _readSettings() {
+    try {
+      final raw = preferences.getString(_settingsKey);
+      if (raw == null) return _LegacyValue(AppSettings.initial());
       final decoded = jsonDecode(raw);
       if (decoded is! Map) throw const FormatException('settings object');
       final json = decoded.cast<String, dynamic>();
@@ -92,7 +166,7 @@ class LegacyPreferencesMigrator {
         json['summaryProvider'],
         RemoteProviderId.google,
       );
-      return AppSettings(
+      final settings = AppSettings(
         appearance: AppearanceSettings(
           themeMode: _themeMode(json),
           accent: AppAccent.fromId(json['accent'] as String?),
@@ -113,31 +187,73 @@ class LegacyPreferencesMigrator {
         autoDeleteAudio: json['autoDeleteAudio'] as bool? ?? false,
         onboarded: json['onboarded'] as bool? ?? false,
       );
+      return _LegacyValue(settings, canRemove: true);
     } catch (_) {
-      _settingsCanBeRemoved = false;
-      return AppSettings.initial();
+      return _LegacyValue(AppSettings.initial());
     }
   }
 
-  List<TranscriptNote> _readNotes() {
-    final raw = preferences.getString(_notesKey);
-    if (raw == null) return const [];
+  _LegacyNotes _readNotes() {
     try {
+      final raw = preferences.getString(_notesKey);
+      if (raw == null) return (values: const [], rejected: null);
       final decoded = jsonDecode(raw);
       if (decoded is! List) throw const FormatException('notes list');
       final result = <TranscriptNote>[];
+      final rejected = <Object?>[];
       final ids = <String>{};
       for (final value in decoded) {
         final note = _tryReadNote(value, ids);
-        if (note == null) continue;
-        result.add(note);
+        if (note == null) {
+          rejected.add(value);
+        } else {
+          result.add(note);
+        }
       }
       result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return result;
+      return (
+        values: result,
+        rejected: result.isEmpty && rejected.isNotEmpty ? null : rejected,
+      );
     } catch (_) {
-      _notesCanBeRemoved = false;
-      return const [];
+      return (values: const [], rejected: null);
     }
+  }
+
+  Future<bool> _storeRejectedNotes(List<Object?> rejected) async {
+    if (rejected.isEmpty) return true;
+    try {
+      // Another engine may already have written the recovery preference.
+      await preferences.reload();
+      final current = preferences.get(rejectedNotesRecoveryKey);
+      final existing = _readRecoveryRecords(current);
+      final seen = existing.map(jsonEncode).toSet();
+      final additions = rejected.where(
+        (record) => seen.add(jsonEncode(record)),
+      );
+      // Commit a readable recovery copy before marking the original removable.
+      return await preferences.setString(
+        rejectedNotesRecoveryKey,
+        jsonEncode([...existing, ...additions]),
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  List<Object?> _readRecoveryRecords(Object? value) {
+    if (value == null) return [];
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) return decoded;
+      } on FormatException {
+        // Preserve unfamiliar prior recovery data as a separate record.
+      }
+    }
+    return [
+      {'unparsedRecoveryValue': value.toString()},
+    ];
   }
 
   TranscriptNote? _tryReadNote(Object? value, Set<String> ids) {
@@ -147,7 +263,6 @@ class LegacyPreferencesMigrator {
       if (!ids.add(note.id)) throw const FormatException('duplicate note id');
       return note;
     } catch (_) {
-      _notesCanBeRemoved = false;
       return null;
     }
   }
@@ -196,16 +311,11 @@ class LegacyPreferencesMigrator {
   }
 }
 
-final class _LegacyData {
-  const _LegacyData({
-    required this.settings,
-    required this.notes,
-    required this.settingsCanBeRemoved,
-    required this.notesCanBeRemoved,
-  });
+final class _LegacyValue<T> {
+  const _LegacyValue(this.value, {this.canRemove = false});
 
-  final AppSettings settings;
-  final List<TranscriptNote> notes;
-  final bool settingsCanBeRemoved;
-  final bool notesCanBeRemoved;
+  final T value;
+  final bool canRemove;
 }
+
+typedef _LegacyNotes = ({List<TranscriptNote> values, List<Object?>? rejected});

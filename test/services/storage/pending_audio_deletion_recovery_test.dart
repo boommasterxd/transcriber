@@ -18,10 +18,54 @@ void main() {
     setUp(() async => fixture = await _RecoveryFixture.create());
     tearDown(() => fixture.close());
     _registerQueuedFileRecoveryTest(() => fixture);
+    _registerStagedPromotionRecoveryTest(() => fixture);
     _registerBatchBudgetTest(() => fixture);
     _registerFailureRotationTest(() => fixture);
     _registerSharedReferenceProtectionTest(() => fixture);
     _registerActivePathRetryTest(() => fixture);
+  });
+}
+
+void _registerStagedPromotionRecoveryTest(_RecoveryFixture Function() fixture) {
+  test('failed note commit leaves promoted audio recoverable', () async {
+    final recovery = fixture();
+    final retained = await recovery.paths.retainedAudioDir();
+    final staging = await recovery.paths.recordingCacheDir();
+    final target = File(p.join(retained.path, 'target.wav'));
+    final staged = File(p.join(staging.path, 'staged.wav'));
+    final note = _note('new-note', target.path);
+    Future<void> promote() async {
+      await staged.rename(target.path);
+    }
+
+    await staged.writeAsBytes([1, 2, 3]);
+    await recovery.database.customStatement(
+      "CREATE TRIGGER reject_new_note BEFORE INSERT ON notes "
+      "BEGIN SELECT RAISE(ABORT, 'synthetic write failure'); END",
+    );
+    await expectLater(
+      recovery.repository.addWithStagedAudio(note, promote),
+      throwsA(isA<SqliteException>()),
+    );
+    await recovery.reopen();
+    expect(await recovery.repository.findById(note.id), isNull);
+    expect(await recovery.repository.pendingAudioDeletionPaths(), [
+      target.path,
+    ]);
+    expect(await target.exists(), isTrue);
+    await recovery.recovery.recover();
+    expect(await target.exists(), isFalse);
+
+    await recovery.database.customStatement('DROP TRIGGER reject_new_note');
+    await staged.writeAsBytes([1, 2, 3]);
+    await recovery.repository.addWithStagedAudio(note, promote);
+    expect(
+      (await recovery.repository.findById(note.id))?.audioPath,
+      target.path,
+    );
+    expect(await recovery.repository.pendingAudioDeletionPaths(), isEmpty);
+    await recovery.recovery.recover();
+    expect(await target.readAsBytes(), [1, 2, 3]);
   });
 }
 

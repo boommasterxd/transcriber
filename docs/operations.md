@@ -2,9 +2,9 @@
 
 ## Interrupted Android Audio Selection
 
-When Android recreates the app during a file pick, the normal entry point offers the recovered audio after onboarding and microphone permission are ready. Confirming starts the normal validated import and cloud processing; cancelling or dismissing does not send audio. A new selection supersedes pending recovery. Recovery errors use the generic import error and permit a fresh selection.
+When Android recreates the app while the system document picker is open, the normal entry point offers the recovered audio once onboarding is complete. Confirming starts processing the validated app-owned copy. Cancelling or dismissing the offer removes that copy and leaves the original with its document provider. A new selection supersedes pending recovery. Recovery errors use the generic import error and permit a fresh selection.
 
-For device verification, open the audio picker with synthetic audio, destroy the app process while the external picker remains in the foreground, then select the file. Verify that returning to the recreated app offers exactly one confirmation, that cancellation sends no provider request, and that confirmation imports exactly once. Repeat with permission revoked and verify the offer waits until setup is ready. A force-stop is not equivalent to OS process recreation and can suppress result delivery. Unit/widget channel fixtures do not prove Android's result delivery after process destruction.
+For device verification, open the system picker with synthetic audio and simulate OS process recreation while the picker remains in the foreground. Then select the file and verify that the recreated app offers exactly one confirmation. Verify that cancellation sends no provider request and confirmation processes once. Repeat with microphone permission revoked to verify the picker and recovery remain usable. Use OS process recreation because a force-stop can suppress result delivery.
 
 ## Prerequisites
 
@@ -22,9 +22,11 @@ flutter pub get --enforce-lockfile
 flutter run
 ```
 
-On first launch, expand a provider row on **Connect a provider** to connect OpenAI and/or Google Gemini. Each provider key is shared by both tasks and is saved only after its provider accepts an authenticated model-list request. The next screen shows **Speech to text** and optional **Summary** task cards. Tap a card's model row to open its available API models, choose a connected provider when needed, then tap a model to save it immediately and close the picker. Back, backdrop dismissal, or dragging the handle down without choosing a model preserves the saved selection. Pull the model list down to refresh it without changing settings; F5 or the screen-reader refresh action offers the same operation. Continue after choosing available models, then configure appearance and microphone access for recording. Later, **Settings > Model selection** offers the same cards without the wizard. Open its **Providers & API keys** entry to manage credentials. **Settings > General** combines language and region, appearance, and privacy. The overview footer shows the installed app version and build number.
+On first launch, expand a provider row on **Connect a provider** to connect OpenAI or Google Gemini. Each provider key is shared by both tasks and is saved after its provider accepts an authenticated model-list request. The next screen shows **Speech to text** and optional **Summary** task cards. Tap a card's model row to open its available API models, choose a connected provider when needed, then tap a model to save it immediately and close the picker. Back, backdrop dismissal, or dragging the handle down without choosing a model preserves the saved selection. Pull the model list down to refresh it. F5 and the screen-reader refresh action offer the same operation. Continue after choosing available models and configuring appearance. The recording screen requests microphone access when you choose to record. File import and share remain available with microphone access denied. Later, **Settings > Model selection** offers the same cards without the wizard. Open its **Providers & API keys** entry to manage credentials. **Settings > General** combines language and region, appearance, and privacy. The overview footer shows the installed app version and build number.
 
-To enable keyboard dictation, open **Settings > Transcriber keyboard** and select **Start setup** in the keyboard card. The dedicated setup screen shows the effective live provider and guides the user through **Enable in Android** and **Select the keyboard**. It finishes only after Android reports Transcriber as the selected input method. Completed setup is shown as **Manage keyboard** instead of another setup prompt. Android controls the system keyboard switcher shown by Samsung Keyboard and Gboard.
+To enable keyboard dictation, open **Settings > Transcriber keyboard** and select **Start setup**. The setup screen shows the live provider and guides you through **Enable in Android** and **Select the keyboard**. Android owns the keyboard switcher shown by Samsung Keyboard and Gboard. Once selected, use the microphone permission control in keyboard setup to enable dictation. Return through **Manage keyboard** to review that permission later.
+
+When another app sends audio to Transcriber, check the audio and transcript recipients on the confirmation sheet before starting. If you change processing settings after an error, check the updated recipients and confirm again. Save the finished note when you want to keep it, or dismiss the sheet to discard the result.
 
 ## Validation
 
@@ -37,7 +39,7 @@ flutter test --coverage --branch-coverage
 flutter build bundle --debug
 ```
 
-For CI automation changes, also run `node --test test/tool/ci/*.test.cjs test/tool/ci/cache-lifecycle/*.test.cjs` with Node.js 26.x, the Dart regressions under `test/tool/ci/` and `test/tool/quality/`, and validate workflows with the pinned actionlint/ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge; no duplicate quality or secret scan is expected on the resulting `main` commit. See [CI test selection](ci-test-selection.md) for impacted-test selection, local selection commands, coverage boundaries, and the documentation-only path.
+For CI automation changes, also run the [Node CI helper coverage check](code-quality.md#ci-helper-regressions) and the Dart regressions under `test/tool/ci/` and `test/tool/quality/`. Validate workflows with the pinned actionlint and ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge. See [CI test selection](ci-test-selection.md) for impacted-test selection, local selection commands, coverage boundaries, and the documentation-only path.
 
 The CI plan runner selects Dart VM or Flutter per suite and merges application coverage before checking the unchanged limits. The complete local Flutter command above still runs all Dart and widget suites. Individual runtime and merge commands are documented in [code quality](code-quality.md#local-commands).
 
@@ -46,7 +48,8 @@ Run Android quality checks separately:
 ```bash
 bash tool/quality/check_kotlin_quality.sh
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
-  :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+  :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest \
+  :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
 ```
 
 For only the manifest-listed pure Kotlin tests, Flutter and an Android SDK are unnecessary:
@@ -55,26 +58,28 @@ For only the manifest-listed pure Kotlin tests, Flutter and an Android SDK are u
 JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test verifyNativeCoverage
 ```
 
-Run instrumented Android tests on an attached device or emulator:
+Run instrumented Android tests on an attached Android device or emulator with API 29 or later and `arm64-v8a` support:
 
 ```bash
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:connectedDebugAndroidTest
 ```
 
+The CI device runner creates a disposable, offline emulator for instrumentation and process-death recovery. The picker fixture installs the debug APK and clears its own test package data before and after the scenario. Use the manual recovery procedure above on an ordinary device.
+
 For CI coverage-control changes, also run `JAVA_HOME=/path/to/jdk17 node --test test/tool/ci/native-coverage.integration.cjs`. Android unit coverage uses locked, offline-provided Robolectric SDKs and all maintained Kotlin sources; it does not replace the device checks above. Metric mappings and dependency-inventory updates are documented in [code quality](code-quality.md#native-coverage).
 
 ## Android Gradle Migration
 
-Treat built-in Kotlin, the Android DSL, and Jetifier as separate compatibility decisions. Before an AGP 10 upgrade:
+The current build uses built-in Kotlin and pins `android.newDsl=false` to match Flutter's compatibility migration. Jetifier is disabled. See [Android Gradle compatibility](configuration.md#android-gradle-compatibility). Before an AGP 10 upgrade:
 
 1. Inspect the exact stable Flutter Gradle plugin and every resolved native plugin for legacy DSL/variant APIs and incompatible Kotlin plugin application. Preserve the current SDK, NDK, Android API, ABI, and signing requirements unless a separate supported change is approved.
-2. Replace legacy consumers through their supported upstream interfaces before removing `android.newDsl=false`. Do not patch a shared SDK or suppress warnings to claim compatibility. See [the current compatibility boundary](configuration.md#android-gradle-compatibility).
+2. Resolve any incompatible consumers through supported upstream releases or interfaces. Once the pinned Flutter release and resolved plugins support the public DSL together, verify an ordinary Flutter build with the public DSL before removing the compatibility flag. Leave shared SDK files and compiler warning settings intact.
 3. Clean the affected application build output, regenerate dependency locks with Gradle when the graph changes, and run the ordinary locked native tests and strict coverage again. Ensure coverage reads the current Kotlin compiler output, rather than an old `tmp/kotlin-classes` directory.
-4. Build both debug and release APKs with the pinned Flutter SDK. For Jetifier removal, inspect both resolved runtime dependency graphs for legacy Support Library/Android Architecture artifacts and verify both builds without Jetifier.
+4. Build both debug and release APKs with the pinned Flutter SDK. Verify both resolved runtime dependency graphs use AndroidX and both builds succeed with Jetifier disabled.
 5. Verify recording, file import/recovery, and share/open-file flows on a supported Android device or emulator. Hosted JVM tests and instrumented-test compilation do not establish actual OS or Flutter-engine behavior.
 
-Use the existing native validation commands above. Do not publish a release merely to validate this migration. Keep the deferred AGP 10 migration open while upstream DSL consumers remain incompatible.
+Use the existing local native validation commands above. Adopt AGP 10 after the stable release and compatible versions of Flutter and its native plugins are available.
 
 ## Keyboard Dictation Verification
 
@@ -85,7 +90,7 @@ Use non-production speech without personal information. Verify the complete matr
 - use Samsung Keyboard and Gboard as the previous keyboard;
 - dictate in WhatsApp, a browser text field, and a multiline editor;
 - verify partial and finalized segments remain one composing transcript without duplication until stop commits it once;
-- discard after multiple finalized segments and confirm the complete current dictation disappears while pre-existing editor text remains;
+- discard after multiple finalized segments and confirm the editor clears the confirmed composing region while pre-existing text remains. Check editors that delay or omit composition updates for unexplained changes to surrounding text;
 - tap backspace to delete one code point, delete a selected range, and hold it to verify accelerated repeat deletion stops immediately on release;
 - pause and resume dictation, confirming the timer and waveform freeze, no paused audio is sent, and the existing live session continues;
 - block network access before starting and confirm the keyboard leaves the connecting state with a timeout message within the bounded connection deadline;
@@ -126,7 +131,7 @@ Use non-production audio without personal information. Test all selected combina
 
 Also test summary disabled, key replacement failure, provider throttling, network timeout, malformed provider responses, cancellation, and retry.
 
-Force a summary failure after successful transcription and verify that the regular screen saves a transcript-only note with a visible warning and expandable transcript. In the share popup, verify both explicit save and discard. Reopen a saved note and confirm that the warning and sanitized diagnostic remain, summary sections are hidden, and the full transcript is readable. Check phone and tablet layouts, keyboard operation, and TalkBack. Transcription failures must still show the processing error screen without creating a note.
+Force a summary failure after successful transcription and verify that the regular screen saves a transcript-only note with a visible warning and expandable transcript. In the share popup, verify both explicit save and discard. Reopen a saved note and confirm that the warning and sanitized diagnostic remain, summary sections are hidden, and the full transcript is readable. Check phone and tablet layouts, keyboard operation, and TalkBack. With long transcript text and task lists, verify scrolling and full-text copy. For retained audio, verify play, pause and seeking with touch, keyboard and TalkBack. Transcription failures must still show the processing error screen without creating a note.
 
 ## Troubleshooting
 
@@ -139,6 +144,7 @@ Force a summary failure after successful transcription and verify that the regul
 - Keyboard recording does not start: confirm microphone permission, a valid key for the selected transcription provider, and a normal non-sensitive text field.
 - The keyboard does not appear in the picker: use the Transcriber settings card to open Android's input-method settings and enable it first.
 - Live setup is rejected: follow the keyboard's specific authentication, quota, model-access, configuration, or timeout message. Gemini language hints must use supported BCP-47 values such as `de-DE` and `en-US`; OpenAI live transcription may require billing or model access beyond basic key validation.
+- Live setup cannot connect on a proxy-only network: the keyboard uses a direct TLS connection to its provider. Try a network that permits that connection.
 - Live text stops updating: stop the session and retry on a stable network. Switching fields or hiding the keyboard intentionally terminates the current session.
 - Migration fails: preserve the original SharedPreferences payload and inspect the database transaction error before retrying.
 
@@ -146,26 +152,26 @@ Force a summary failure after successful transcription and verify that the regul
 
 ### Signing prerequisites
 
-The [Release workflow](../.github/workflows/release.yml) and the separate [Build APK workflow](../.github/workflows/build-apk.yml) read four GitHub Actions secrets for the established Android release key:
+The [Release workflow](../.github/workflows/release.yml) builds an unsigned APK, signs it in `release-signing`, and publishes it in `release`. Configure both GitHub environments to accept only the `main` branch and require reviewer approval. Store the established Android signing key only in the `release-signing` environment using these secrets.
 
 | Secret | Value |
 |---|---|
-| `ANDROID_KEYSTORE_BASE64` | Base64-encoded release keystore. |
-| `ANDROID_KEYSTORE_PASSWORD` | Keystore password. |
-| `ANDROID_KEY_PASSWORD` | Password for the signing key. |
-| `ANDROID_KEY_ALIAS` | Alias of the signing key in the keystore. |
+| `RELEASE_KEYSTORE_BASE64` | Base64-encoded release keystore. |
+| `RELEASE_KEYSTORE_PASSWORD` | Keystore password. |
+| `RELEASE_KEY_PASSWORD` | Password for the signing key. |
+| `RELEASE_KEY_ALIAS` | Alias of the signing key in the keystore. |
 
-Keep their values out of source, logs, screenshots, and issue reports. The jobs write temporary keystore/signing configuration files and run `apksigner verify --print-certs` against the built APK. A failed verification or an Android Debug certificate stops the job before artifact upload. Missing signing configuration can fall back to debug signing during compilation, but that result cannot pass this publication check. Keep the established signing key for installable updates. The release-publication job targets the GitHub environment `release`; its configured environment protections apply separately from the build job.
+Keep secret values out of source, logs, screenshots, and issue reports. The signing job writes the keystore to a restricted temporary directory, aligns and signs the APK, and removes its temporary files. It checks the `com.transcriber.app` package ID and the exact established certificate's SHA-256 fingerprint. Use the established signing key so the public APK can update existing installations. After completing the protected environment migration, retire the former repository-wide `ANDROID_*` signing secrets.
 
 ### Version and source selection
 
-Release starts on a tag push matching `v*`, or manually through **Actions > Release > Run workflow** with a required `version` input. Choose the intended source ref for a manual run. The version resolver accepts SemVer such as `1.2.3` or `1.2.3-rc.1`, with an optional leading `v` and without build metadata. Invalid versions stop before packaging; the workflow run number supplies the Android build number.
+Release starts only through manual dispatch on protected `main`. Open **Actions > Release > Run workflow**, select `main`, and enter the required `version`. The version resolver accepts values such as `1.2.3`, `v1.2.3`, or `1.2.3-rc.1`. The Android version code adds 1,000 to the Release workflow run number, with Android's 2.1-billion limit enforced. This puts public releases above earlier test builds that shared the public package ID. See the [source guard](../tool/package/verify_release_source.sh) and [version code calculator](../tool/package/android_release_version_code.sh).
 
 Publication jobs are serialized by the normalized version without interrupting an active publisher. The job uses the exact checked-out build commit when creating a new release tag. Existing lightweight or annotated remote tags must resolve to that same commit, and a failed remote query prevents publication. Advancing `main` during a manual build therefore does not change the release's source revision. See the [version resolver](../tool/package/version.sh) and [release-tag guard](../tool/package/verify_release_tag.sh).
 
 ### Artifacts and verification
 
-Release builds `transcriber-<version>-android.apk` and uploads it as the temporary Actions artifact `android`, with three-day retention. The publisher generates `SHA256SUMS` and attaches both files to the GitHub Release `v<version>`, with generated release notes. After publication it deletes the intermediate Actions artifact; the release assets remain available separately.
+The unsigned APK passes to the signing job in the `android-unsigned` Actions artifact. The signing job produces exactly `transcriber-<version>-android.apk` and its `SHA256SUMS` in `android-signed`. The publication job verifies the exact file set and checksum before attaching both files to GitHub Release `v<version>` with generated release notes. The two intermediate Actions artifacts have three-day retention and are deleted after publication.
 
 Download the APK and `SHA256SUMS` from the same release into one directory. From that directory, verify the download before installing:
 
@@ -173,8 +179,17 @@ Download the APK and `SHA256SUMS` from the same release into one directory. From
 sha256sum --check SHA256SUMS
 ```
 
-The workflow generates the checksums; the command above verifies the downloaded files. APK signature verification is a separate check performed by the build job. Before release acceptance, install or upgrade on an arm64 Android device and complete the device checks above; successful host checks alone do not establish that behavior.
+The checksum verifies the downloaded file. The protected signing job verifies the APK's package and certificate. Before release acceptance, install or upgrade on an arm64 Android device and complete the device checks above.
 
-For an unpublished test build, the manual **Build APK** workflow produces `app-release.apk` in the Actions artifact `transcriber-android`, also retained for three days. It checks signing but creates neither a GitHub Release nor `SHA256SUMS`.
+Run the isolated package and signing regressions with Node.js 26.x, JDK 17 `keytool`, Android platform 36 and Android build tools 36.0.0. These checks use a synthetic signing key.
 
-The Android package remains arm64-only. Preserve release signing, checksum verification, and minimal Android permissions. The main activity is exported for the launcher. The exported share activity accepts audio `VIEW`, `SEND`, and `SEND_MULTIPLE` intents and copies them through bounded, sanitized app-private storage; explicit media intents to the main activity are forwarded there. The exported input-method service must remain protected by `android.permission.BIND_INPUT_METHOD`.
+```bash
+ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0" \
+  node --test test/tool/ci/release-package.test.cjs test/tool/ci/apk-signing.integration.cjs
+```
+
+### Preview APK
+
+The manual [Build APK workflow](../.github/workflows/build-apk.yml) builds an AOT release-mode preview with `TRANSCRIBER_TEST_APK=true`. Download `transcriber-preview-android.apk` from the three-day `transcriber-preview-android` Actions artifact. It installs alongside the public app as `Transcriber Test` with the separate package ID `com.transcriber.app.preview` and its own local data. It is signed with the runner's debug key. The workflow checks the package ID and validates the APK signature. If another run uses a different debug key, reinstall the preview to test that build. The public package uses the protected Release workflow.
+
+The Android package remains arm64-only. Preserve release signing, checksum verification, and minimal Android permissions. The main activity is exported for the launcher. The exported share activity imports one URI from audio `VIEW`, `SEND`, and `SEND_MULTIPLE` intents into bounded, sanitized app-private storage. `SEND_MULTIPLE` uses the first URI, so share each file separately to process every file. Explicit media intents to the main activity are forwarded to the share activity. The exported input-method service requires `android.permission.BIND_INPUT_METHOD`.

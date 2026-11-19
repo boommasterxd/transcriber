@@ -1,8 +1,10 @@
 import '../../data/models/transcription_result.dart';
 import 'provider_model_catalog.dart';
+import 'remote_cancellation.dart';
 import 'remote_model_info.dart';
 
 export 'provider_model_catalog.dart';
+export 'remote_cancellation.dart';
 export 'remote_model_info.dart';
 
 /// Provider boundary for audio transcription.
@@ -11,6 +13,7 @@ abstract interface class TranscriptionProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   });
 }
 
@@ -20,6 +23,7 @@ abstract interface class SummaryProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   });
 }
 

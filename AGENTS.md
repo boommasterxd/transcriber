@@ -60,21 +60,16 @@ Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pul
 - Detekt metrics, formatting, and unused-private-code checks for maintained Kotlin;
 - ESLint correctness, formatting, unused-code and size/complexity limits for maintained Node tooling, with locked development dependencies and jscpd at 50 tokens and at most 5% duplication;
 - unused Dart declarations and files as the Dart equivalent of `knip`;
-- tests with strict line, statement, function, and branch coverage thresholds;
+- tests with strict line, statement, function, and branch coverage thresholds, plus executed instrumentation for affected Android device contracts;
 - `jscpd` for Dart with `minTokens: 50` and zero accepted duplication;
 - workflow syntax and embedded shell checks with pinned `actionlint`;
-- OSV dependency vulnerability scanning;
-- a Flutter asset-bundle build and artifact existence check;
+- OSV dependency vulnerability scanning, including the locked Android release and test runtime graphs;
+- a Flutter asset-bundle build and nonempty kernel and asset manifest checks;
 - the existing gitleaks workflow for secret scanning.
 
 Apply the mappings and conservative fallbacks in [`docs/ci-test-selection.md`](docs/ci-test-selection.md). Global CI, dependency, framework, security, or test-setup changes and empty, unknown, or unreliable impact require full checks. Pure changes under root `docs/` may skip application checks while receiving a real successful final `CI` check. Every other PR retains a fresh dependency audit; gitleaks and PR-title validation remain required. Keep inexpensive Dart gates repository-wide when Dart checks apply, and preserve every selected gate's thresholds. The final `CI` check must validate the complete plan and reject failed, cancelled, missing, or unexpectedly skipped work.
 
-The approved npm audit exception uses `npm audit --omit=dev --audit-level=high`
-and excludes npm dev-only findings from the separate OSV scan. High/critical npm
-production findings and audit execution errors remain blocking. Review the complete
-Node tooling graph locally with `npm --prefix tool/quality/node audit --include=dev`
-before merging; dev-only findings do not automatically block merging. Pub and Gradle
-retain their existing audit scope and thresholds. See [code quality](docs/code-quality.md).
+The approved npm audit exception limits the blocking check to production dependencies. Every non-documentation PR runs `npm audit --omit=dev --audit-level=high --package-lock-only` and excludes npm dev-only findings from the separate OSV scan. High and critical npm production findings and audit execution errors remain blocking. Before merging, review the complete Node tooling graph locally with `npm --prefix tool/quality/node audit --include=dev`. Dev-only findings do not automatically block merging. Pub and Gradle retain their thresholds and include test and development dependencies. See [code quality](docs/code-quality.md).
 
 Commit `pubspec.lock` and update it only through Flutter or Dart package-manager commands. GitHub Actions and downloaded security tools must remain version-pinned. Do not weaken release signing or checksum verification.
 
@@ -120,11 +115,12 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Describes application layers, entry points, processing flows, and integration boundaries. |
 | [`docs/cache-lifecycle.md`](docs/cache-lifecycle.md) | Defines audio ownership, managed directories, cleanup, TTL, and quota behavior. |
-| [`docs/ci-test-selection.md`](docs/ci-test-selection.md) | Explains impacted-test selection, conservative fallbacks, runner reuse, and measured CI timings. |
+| [`docs/ci-test-selection.md`](docs/ci-test-selection.md) | Explains impacted-test selection, conservative fallbacks, runner reuse, and dependency-cache policy. |
 | [`docs/code-quality.md`](docs/code-quality.md) | Defines strict quality gates, commands, Flutter coverage mappings, and CI behavior. |
 | [`docs/configuration.md`](docs/configuration.md) | Documents supported toolchains, runtime settings, external services, and secret handling. |
 | [`docs/decisions/bounded-native-recording.md`](docs/decisions/bounded-native-recording.md) | Explains native WAV byte limits, capture ownership, and lifecycle synchronization. |
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |
 | [`docs/operations.md`](docs/operations.md) | Provides local development, validation, build, and release operating procedures. |
+| [`docs/privacy-policy.md`](docs/privacy-policy.md) | Contains the German privacy policy for Transcriber. |
 | [`docs/provider-setup.md`](docs/provider-setup.md) | Explains how to create and safely configure OpenAI and Gemini API keys. |
 | [`docs/security.md`](docs/security.md) | Describes protected assets, trust boundaries, controls, assumptions, and residual risks. |

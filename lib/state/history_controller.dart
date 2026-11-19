@@ -14,7 +14,7 @@ class HistoryController extends AsyncNotifier<HistoryPage> {
 
   @override
   Future<HistoryPage> build() {
-    ref.watch(notesControllerProvider);
+    ref.watch(notesHistoryRevisionProvider);
     _generation++;
     return ref.read(notesRepositoryProvider).loadHistoryPage(query: _query);
   }

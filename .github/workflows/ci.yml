@@ -25,6 +25,7 @@ jobs:
       dart: ${{ steps.scope.outputs.dart }}
       jvm: ${{ steps.scope.outputs.jvm }}
       native: ${{ steps.scope.outputs.native }}
+      device: ${{ steps.scope.outputs.device }}
       build: ${{ steps.scope.outputs.build }}
       dependency_audit: ${{ steps.scope.outputs.dependency_audit }}
       base_sha: ${{ steps.scope.outputs.base_sha }}
@@ -49,6 +50,9 @@ jobs:
       - name: Reject ambiguous npm production groups
         if: steps.scope.outputs.dependency_audit == 'true'
         run: node tool/ci/check-osv-npm-scope.cjs
+      - name: Audit locked npm production dependencies
+        if: steps.scope.outputs.dependency_audit == 'true'
+        run: npm --prefix tool/quality/node run audit -- --package-lock-only
 
   workflow-lint:
     name: Workflow lint
@@ -61,8 +65,6 @@ jobs:
       - uses: ./.github/actions/setup-node-tools
       - name: Check Node quality and gate enforcement
         run: npm --prefix tool/quality/node run check
-      - name: Audit Node quality dependencies
-        run: npm --prefix tool/quality/node run audit
       - name: Test CI classification and final gate
         run: >-
           node --test --experimental-test-coverage
@@ -71,6 +73,8 @@ jobs:
           --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80
           test/tool/ci/*.test.cjs
           test/tool/ci/cache-lifecycle/*.test.cjs
+      - name: Verify APK signing and publication guards
+        run: ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0" node --test test/tool/ci/apk-signing.integration.cjs
       - name: Install workflow linters
         env:
           ACTIONLINT_VERSION: 1.7.12
@@ -84,18 +88,24 @@ jobs:
           printf '%s  %s\n' "$ACTIONLINT_SHA256" "$actionlint_archive" | sha256sum --check
           tar -xzf "$actionlint_archive" -C "$RUNNER_TEMP" actionlint
 
-          shellcheck_archive="$RUNNER_TEMP/shellcheck.tar.gz"
-          shellcheck_url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.gz"
-          curl --fail --silent --show-error --location "$shellcheck_url" --output "$shellcheck_archive"
-          printf '%s  %s\n' "$SHELLCHECK_SHA256" "$shellcheck_archive" | sha256sum --check
-          tar -xzf "$shellcheck_archive" -C "$RUNNER_TEMP"
-          mv "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" "$RUNNER_TEMP/shellcheck"
+          if command -v shellcheck >/dev/null &&
+            shellcheck --version | grep --fixed-strings --line-regexp "version: $SHELLCHECK_VERSION"; then
+            shellcheck_path="$(command -v shellcheck)"
+          else
+            shellcheck_archive="$RUNNER_TEMP/shellcheck.tar.gz"
+            shellcheck_url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.gz"
+            curl --fail --silent --show-error --location "$shellcheck_url" --output "$shellcheck_archive"
+            printf '%s  %s\n' "$SHELLCHECK_SHA256" "$shellcheck_archive" | sha256sum --check
+            tar -xzf "$shellcheck_archive" -C "$RUNNER_TEMP"
+            shellcheck_path="$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          fi
+          printf 'SHELLCHECK_PATH=%s\n' "$shellcheck_path" >> "$GITHUB_ENV"
       - name: Check workflows
         run: |
-          "$RUNNER_TEMP/actionlint" -color=false -shellcheck="$RUNNER_TEMP/shellcheck"
+          "$RUNNER_TEMP/actionlint" -color=false -shellcheck="$SHELLCHECK_PATH"
       - name: Check shell scripts
         run: |
-          "$RUNNER_TEMP/shellcheck" tool/package/*.sh tool/quality/*.sh
+          "$SHELLCHECK_PATH" tool/package/*.sh tool/quality/*.sh tool/ci/*.sh
 
   dart-quality:
     name: Dart quality, tests and bundle
@@ -162,7 +172,9 @@ jobs:
         run: flutter build bundle --debug --no-pub
       - name: Verify bundle
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
-        run: test -d build/flutter_assets
+        run: |
+          test -s build/flutter_assets/kernel_blob.bin
+          test -s build/flutter_assets/AssetManifest.bin
 
   jvm-quality:
     name: JVM quality and tests
@@ -209,6 +221,8 @@ jobs:
     if: needs.changes.outputs.native == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    outputs:
+      device_tests: ${{ steps.device-tests.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Node.js
@@ -240,7 +254,11 @@ jobs:
       - name: Run native unit tests and compile device tests
         if: ${{ !cancelled() }}
         working-directory: android
-        run: ./gradlew :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+        run: ./gradlew :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+      - name: Run instrumentation on an Android device
+        id: device-tests
+        if: needs.changes.outputs.device == 'true'
+        run: bash tool/ci/run_android_device_tests.sh
       - name: Verify shared Android dependency warmup
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: android/gradlew -p android -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache --no-daemon
@@ -285,7 +303,7 @@ jobs:
       security-events: write
     uses: ./.github/workflows/dependency-audit.yml
     with:
-      npm-scope-validated: true
+      npm-preflight-passed: true
 
   CI:
     name: CI

@@ -131,6 +131,8 @@ class OnboardingPermissionChannel {
 
   PermissionStatus microphone = PermissionStatus.denied;
   PermissionStatus requestedMicrophone = PermissionStatus.denied;
+  Future<PermissionStatus>? pendingRequest;
+  int statusCalls = 0;
   int requestCalls = 0;
   int settingsCalls = 0;
 
@@ -145,10 +147,16 @@ class OnboardingPermissionChannel {
   }
 
   Future<Object?> _handle(MethodCall call) async {
-    if (call.method == 'checkPermissionStatus') return microphone.index;
+    if (call.method == 'checkPermissionStatus') {
+      statusCalls++;
+      // Android reports permanent denial only on request, not on status.
+      return microphone.isPermanentlyDenied
+          ? PermissionStatus.denied.index
+          : microphone.index;
+    }
     if (call.method == 'requestPermissions') {
       requestCalls++;
-      microphone = requestedMicrophone;
+      microphone = await pendingRequest ?? requestedMicrophone;
       return {
         for (final permission in (call.arguments as List).cast<int>())
           permission: microphone.index,
@@ -160,16 +168,6 @@ class OnboardingPermissionChannel {
     }
     return null;
   }
-}
-
-void useGrantedOnboardingPermissions() {
-  late OnboardingPermissionChannel permissions;
-  setUp(() {
-    permissions = OnboardingPermissionChannel()
-      ..microphone = PermissionStatus.granted
-      ..install();
-  });
-  tearDown(() => permissions.uninstall());
 }
 
 class OnboardingTestConfig {

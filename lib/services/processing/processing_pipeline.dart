@@ -10,7 +10,6 @@ import '../remote/remote_client_factory.dart';
 import '../remote/remote_http.dart';
 import '../service_exceptions.dart';
 import '../storage/audio_cache_manager.dart';
-import '../storage/managed_audio_file.dart';
 import '../summarization/remote_summarization_service.dart';
 import '../summarization/summary_result.dart';
 import '../transcription/remote_transcription_service.dart';
@@ -20,7 +19,6 @@ import 'processing_request.dart';
 export 'processing_request.dart'
     show
         ProcessingCallbacks,
-        ProcessingCancelledException,
         ProcessingCredentials,
         ProcessingInput,
         ProcessingRequest,
@@ -66,15 +64,9 @@ final class ProcessingPipeline {
           request.input.knownDurationSec ??
           await _metadata.durationSeconds(request.input.audioPath);
       callbacks.throwIfCancelled();
-      final note = await _process(
+      return await _process(
         request.withKnownDuration(duration),
         callbacks: callbacks,
-      );
-      callbacks.throwIfCancelled();
-      final retained = await _retainedAudio(request);
-      return note.copyWith(
-        audioPath: retained?.path,
-        audioOwnership: retained?.ownership ?? AudioOwnership.external,
       );
     } finally {
       _cacheManager.markInactive(request.input.audio);
@@ -98,7 +90,7 @@ final class ProcessingPipeline {
     final fallbackTitle = _fallbackTitle(request);
     callbacks.onStep?.call(ProcessingStep.transcribing);
     callbacks.throwIfCancelled();
-    final transcription = await _transcribe(request);
+    final transcription = await _transcribe(request, callbacks.cancellation);
     callbacks.throwIfCancelled();
     late SummaryResult summary;
     String? summaryError;
@@ -120,12 +112,7 @@ final class ProcessingPipeline {
       summaryError = _summaryError(error, request);
     }
     callbacks.throwIfCancelled();
-    final note = await _assembleNote(
-      request,
-      transcription,
-      summary,
-      fallbackTitle,
-    );
+    final note = _assembleNote(request, transcription, summary, fallbackTitle);
     return note.copyWith(summaryError: summaryError);
   }
 
@@ -142,7 +129,10 @@ final class ProcessingPipeline {
     );
   }
 
-  Future<TranscriptionResult> _transcribe(ProcessingRequest request) async {
+  Future<TranscriptionResult> _transcribe(
+    ProcessingRequest request,
+    RemoteCancellation? cancellation,
+  ) async {
     final settings = request.settings;
     final client = _clientBuilder(
       settings.asrProvider,
@@ -155,6 +145,7 @@ final class ProcessingPipeline {
       ).transcribe(
         request.input.audioPath,
         languageCode: settings.transcriptionLanguage.code,
+        cancellation: cancellation,
       );
     } finally {
       client.close();
@@ -189,18 +180,22 @@ final class ProcessingPipeline {
         client: client,
         apiModelId: settings.summaryModelId(settings.summaryProvider),
         fallbackTitle: fallbackTitle,
-      ).summarize(transcript, german: settings.language == AppLanguage.de);
+      ).summarize(
+        transcript,
+        german: settings.language == AppLanguage.de,
+        cancellation: callbacks.cancellation,
+      );
     } finally {
       client.close();
     }
   }
 
-  Future<TranscriptNote> _assembleNote(
+  TranscriptNote _assembleNote(
     ProcessingRequest request,
     TranscriptionResult transcription,
     SummaryResult summary,
     String fallbackTitle,
-  ) async {
+  ) {
     final settings = request.settings;
     final profile = ProcessingProfile.resolve(settings);
     final noSummary = !settings.summarizeEnabled;
@@ -227,16 +222,6 @@ final class ProcessingPipeline {
         todos: summary.todos.map((text) => TodoItem(text: text)).toList(),
         transcript: transcription.segments,
       ),
-      audioPath: null,
-      audioOwnership: AudioOwnership.external,
-    );
-  }
-
-  Future<ManagedAudioFile?> _retainedAudio(ProcessingRequest request) async {
-    if (request.settings.autoDeleteAudio) return null;
-    return _cacheManager.retain(
-      request.input.audio,
-      deleteTemporarySource: false,
     );
   }
 

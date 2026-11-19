@@ -23,30 +23,33 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
-  test(
-    'creates the four managed audio directories below their roots',
-    () async {
-      final importDirectory = await paths.importCacheDir();
-      final sharedDirectory = await paths.sharedCacheDir();
-      final recordingDirectory = await paths.recordingCacheDir();
-      final retainedDirectory = await paths.retainedAudioDir();
+  test('creates managed audio directories below their roots', () async {
+    final importDirectory = await paths.importCacheDir();
+    final sharedDirectory = await paths.sharedCacheDir();
+    final recordingDirectory = await paths.recordingCacheDir();
+    final stagingDirectory = await paths.retentionStagingDir();
+    final retainedDirectory = await paths.retainedAudioDir();
 
-      expect(importDirectory.path, p.join(cacheRoot.path, 'audio', 'import'));
-      expect(sharedDirectory.path, p.join(cacheRoot.path, 'shared'));
-      expect(
-        recordingDirectory.path,
-        p.join(cacheRoot.path, 'audio', 'recording'),
-      );
-      expect(
-        retainedDirectory.path,
-        p.join(supportRoot.path, 'audio', 'retained'),
-      );
-      expect(await importDirectory.exists(), isTrue);
-      expect(await sharedDirectory.exists(), isTrue);
-      expect(await recordingDirectory.exists(), isTrue);
-      expect(await retainedDirectory.exists(), isTrue);
-    },
-  );
+    expect(importDirectory.path, p.join(cacheRoot.path, 'audio', 'import'));
+    expect(sharedDirectory.path, p.join(cacheRoot.path, 'shared'));
+    expect(
+      recordingDirectory.path,
+      p.join(cacheRoot.path, 'audio', 'recording'),
+    );
+    expect(
+      stagingDirectory.path,
+      p.join(cacheRoot.path, 'audio', 'retention-staging'),
+    );
+    expect(
+      retainedDirectory.path,
+      p.join(supportRoot.path, 'audio', 'retained'),
+    );
+    expect(await importDirectory.exists(), isTrue);
+    expect(await sharedDirectory.exists(), isTrue);
+    expect(await recordingDirectory.exists(), isTrue);
+    expect(await stagingDirectory.exists(), isTrue);
+    expect(await retainedDirectory.exists(), isTrue);
+  });
 
   test('rejects a file where a managed directory is expected', () async {
     final conflict = File(p.join(cacheRoot.path, 'shared'));

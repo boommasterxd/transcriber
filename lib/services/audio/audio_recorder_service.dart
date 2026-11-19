@@ -49,7 +49,7 @@ class AudioRecorderService {
 
   Stream<RecordingProgress> get progressStream => _progress.stream;
 
-  Future<bool> hasPermission() => _recorder.hasPermission();
+  Future<bool> hasPermission() => _recorder.hasPermission(request: false);
 
   /// Starts a new recording and returns the destination path.
   Future<String> start({int maxBytes = maxRemoteAudioBytes}) async {

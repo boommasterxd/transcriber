@@ -7,9 +7,8 @@ import '../../../state/remote_models_provider.dart';
 import '../../../state/settings_controller.dart';
 import 'onboarding_step_gate.dart';
 import 'widgets/onboarding_layout.dart';
-import 'widgets/onboarding_permissions_step.dart';
 
-/// First-run setup wizard for providers, appearance, permissions, and completion.
+/// First-run setup wizard for providers, models, and appearance.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -63,7 +62,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return evaluateOnboardingStepGate(
       step: _step,
       hasConnectedProvider: connections.values.any((connected) => connected),
-      permissionsReady: ref.watch(onboardingPermissionsReadyProvider),
       asrReady:
           _step == 2 &&
           _modelReady(

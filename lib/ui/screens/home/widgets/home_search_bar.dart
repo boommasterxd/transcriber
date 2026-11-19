@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_palette.dart';
@@ -25,11 +27,19 @@ class HomeSearchBar extends StatefulWidget {
 
 class _HomeSearchBarState extends State<HomeSearchBar> {
   late final _controller = TextEditingController(text: widget.query);
+  Timer? _pendingSearch;
+  String? _forwardedQuery;
 
   @override
   void didUpdateWidget(HomeSearchBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.query == widget.query) return;
+    if (widget.query == _forwardedQuery) {
+      _forwardedQuery = null;
+      return;
+    }
     if (_controller.text != widget.query) {
+      _pendingSearch?.cancel();
       _controller.value = TextEditingValue(
         text: widget.query,
         selection: TextSelection.collapsed(offset: widget.query.length),
@@ -39,8 +49,23 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
 
   @override
   void dispose() {
+    _pendingSearch?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _scheduleSearch(String query) {
+    _pendingSearch?.cancel();
+    _pendingSearch = Timer(
+      const Duration(milliseconds: 180),
+      () => _submitSearch(query),
+    );
+  }
+
+  void _submitSearch(String query) {
+    _pendingSearch?.cancel();
+    _forwardedQuery = query;
+    widget.onChanged(query);
   }
 
   @override
@@ -74,7 +99,8 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
           Expanded(
             child: TextField(
               controller: _controller,
-              onChanged: widget.onChanged,
+              onChanged: _scheduleSearch,
+              onSubmitted: _submitSearch,
               style: TextStyle(fontSize: tablet ? 14 : 15, color: palette.ink),
               cursorColor: palette.accent,
               decoration: InputDecoration(

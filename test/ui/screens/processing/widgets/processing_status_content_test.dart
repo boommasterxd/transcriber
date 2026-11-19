@@ -47,6 +47,7 @@ void main() {
   testWidgets('shows summary cloud metadata and completed first step', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final presentation = ProcessingStatusPresentation.forScreen(
       strings: strings,
       state: const ProcessingState(step: ProcessingStep.summarizing),
@@ -64,6 +65,11 @@ void main() {
     expect(find.text('gpt-5.6-luna · OpenAI'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    final status = tester.semantics.find(
+      find.bySemanticsLabel(strings.shSummarize),
+    );
+    expect(status.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+    semantics.dispose();
   });
 
   testWidgets('does not render an empty file chip', (tester) async {

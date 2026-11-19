@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
@@ -12,6 +11,7 @@ import '../../navigation_routes.dart';
 import '../detail/transcript_detail_screen.dart';
 import 'widgets/processing_controller_lifecycle.dart';
 import 'widgets/processing_error_view.dart';
+import 'widgets/processing_screen_frame.dart';
 import 'widgets/processing_status_content.dart';
 
 /// Full-screen processing view. Runs the pipeline and, on success, replaces
@@ -65,7 +65,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final state = ref.watch(processingControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
@@ -98,21 +97,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
         ),
       );
     } else {
-      content = Scaffold(
-        backgroundColor: palette.bg,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 34),
-            child: Center(
-              child: ProcessingStatusContent(
-                presentation: presentation,
-                strings: t,
-                fileName: state.fileName.isEmpty
-                    ? (widget.fileName ?? '')
-                    : state.fileName,
-              ),
-            ),
-          ),
+      content = ProcessingScreenFrame(
+        child: ProcessingStatusContent(
+          presentation: presentation,
+          strings: t,
+          fileName: state.fileName.isEmpty
+              ? (widget.fileName ?? '')
+              : state.fileName,
         ),
       );
     }

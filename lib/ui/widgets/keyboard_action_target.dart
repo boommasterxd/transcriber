@@ -5,10 +5,16 @@ import '../../core/theme/app_palette.dart';
 
 typedef KeyboardAction = ({
   String label,
-  VoidCallback onActivate,
+  VoidCallback? onActivate,
   BorderRadius focusBorderRadius,
   bool? selected,
   bool inMutuallyExclusiveGroup,
+});
+
+typedef PressFeedback = ({
+  GestureTapDownCallback onDown,
+  GestureTapUpCallback onUp,
+  GestureTapCancelCallback onCancel,
 });
 
 /// Adds keyboard activation, semantics and a visible focus indicator to a hit
@@ -18,16 +24,14 @@ class KeyboardActionTarget extends StatefulWidget {
     super.key,
     required this.child,
     required this.action,
-    this.onTapDown,
-    this.onTapUp,
-    this.onTapCancel,
+    this.liveRegion = false,
+    this.pressFeedback,
   });
 
   final Widget child;
   final KeyboardAction action;
-  final GestureTapDownCallback? onTapDown;
-  final GestureTapUpCallback? onTapUp;
-  final GestureTapCancelCallback? onTapCancel;
+  final bool liveRegion;
+  final PressFeedback? pressFeedback;
 
   @override
   State<KeyboardActionTarget> createState() => _KeyboardActionTargetState();
@@ -35,6 +39,7 @@ class KeyboardActionTarget extends StatefulWidget {
 
 class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
   bool _showFocusHighlight = false;
+  bool get _enabled => widget.action.onActivate != null;
 
   void _setFocusHighlight(bool value) {
     if (_showFocusHighlight != value) {
@@ -44,6 +49,7 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
 
   @override
   Widget build(BuildContext context) => FocusableActionDetector(
+    enabled: _enabled,
     onShowFocusHighlight: _setFocusHighlight,
     shortcuts: const <ShortcutActivator, Intent>{
       SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -52,7 +58,7 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
     actions: <Type, Action<Intent>>{
       ActivateIntent: CallbackAction<ActivateIntent>(
         onInvoke: (_) {
-          widget.action.onActivate();
+          widget.action.onActivate?.call();
           return null;
         },
       ),
@@ -63,6 +69,8 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
   Widget _semantics(BuildContext context) => Semantics(
     container: true,
     button: true,
+    enabled: _enabled,
+    liveRegion: widget.liveRegion,
     label: widget.action.label,
     selected: widget.action.selected,
     inMutuallyExclusiveGroup: widget.action.inMutuallyExclusiveGroup,
@@ -73,9 +81,9 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
   Widget _gesture(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTap: widget.action.onActivate,
-    onTapDown: widget.onTapDown,
-    onTapUp: widget.onTapUp,
-    onTapCancel: widget.onTapCancel,
+    onTapDown: _enabled ? widget.pressFeedback?.onDown : null,
+    onTapUp: _enabled ? widget.pressFeedback?.onUp : null,
+    onTapCancel: _enabled ? widget.pressFeedback?.onCancel : null,
     child: DecoratedBox(
       position: DecorationPosition.foreground,
       decoration: _focusDecoration(context),
@@ -85,7 +93,7 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
 
   BoxDecoration _focusDecoration(BuildContext context) => BoxDecoration(
     borderRadius: widget.action.focusBorderRadius,
-    boxShadow: _showFocusHighlight
+    boxShadow: _enabled && _showFocusHighlight
         ? [
             for (
               var index = 0;

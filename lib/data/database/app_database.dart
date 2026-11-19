@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import 'database_error_boundary.dart';
+import 'history_search_schema.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -19,8 +21,11 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
+  AppDatabase.sanitized(DatabaseConnection connection)
+    : super(connection.interceptWith(DatabaseErrorBoundary()));
+
   AppDatabase.defaults()
-    : super(
+    : this.sanitized(
         driftDatabase(
           name: 'transcriber',
           native: const DriftNativeOptions(shareAcrossIsolates: true),
@@ -28,12 +33,13 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => transaction(() async {
       await migrator.createAll();
+      await createHistorySearchSchema(this);
       await customStatement('PRAGMA user_version = $schemaVersion');
     }),
     onUpgrade: (migrator, from, to) async {
@@ -67,6 +73,9 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'CREATE INDEX IF NOT EXISTS notes_audio_path ON notes (audio_path)',
       );
+    }
+    if (from < 6) {
+      await createHistorySearchSchema(this);
     }
     // Drift writes this again after onUpgrade returns. Keeping it inside the
     // transaction makes schema changes and the version marker atomic.

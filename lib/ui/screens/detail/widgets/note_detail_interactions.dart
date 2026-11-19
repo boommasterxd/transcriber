@@ -5,9 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/toast.dart';
 import '../../../../data/models/transcript_note.dart';
+import '../../../../services/share/note_share_payload.dart';
 import '../../../../state/note_detail_provider.dart';
+import '../../../../state/settings_controller.dart';
 import '../../../widgets/note_actions.dart';
+
+const _clipboardChannel = MethodChannel('app/clipboard');
 
 mixin NoteDetailInteractionState<T extends ConsumerStatefulWidget>
     on ConsumerState<T> {
@@ -29,8 +34,19 @@ mixin NoteDetailInteractionState<T extends ConsumerStatefulWidget>
     setState(() => transcriptOpen = !transcriptOpen);
   }
 
-  void copyNote(TranscriptNote note) {
-    Clipboard.setData(ClipboardData(text: note.fullTranscriptText));
+  Future<void> copyNote(TranscriptNote note) async {
+    try {
+      await _clipboardChannel.invokeMethod<void>(
+        'setSensitiveText',
+        note.fullTranscriptText,
+      );
+    } on Exception {
+      if (mounted) {
+        showAppToast(ref.read(stringsProvider).copyFailed, isError: true);
+      }
+      return;
+    }
+    if (!mounted) return;
     setState(() => copied = true);
     _copyTimer?.cancel();
     _copyTimer = Timer(const Duration(milliseconds: 1600), () {
@@ -39,7 +55,7 @@ mixin NoteDetailInteractionState<T extends ConsumerStatefulWidget>
   }
 
   void shareNote(TranscriptNote note) {
-    final body = '${note.title}\n\n${note.gist}\n\n${note.fullTranscriptText}';
+    final body = noteShareText(note, ref.read(stringsProvider));
     SharePlus.instance.share(ShareParams(text: body, subject: note.title));
   }
 

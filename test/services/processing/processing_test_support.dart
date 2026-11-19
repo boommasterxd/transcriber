@@ -145,6 +145,7 @@ final class RecordingProviderClient implements RemoteProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) async {
     transcriptionCalls++;
     this.audioPath = audioPath;
@@ -162,6 +163,7 @@ final class RecordingProviderClient implements RemoteProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
     summaryCalls++;
     transcript = userPrompt;

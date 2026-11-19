@@ -1,14 +1,17 @@
 import 'dart:io';
 
+import 'package:drift/isolate.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/database/app_database.dart';
+import 'package:transcriber/data/database/database_error_boundary.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
 
 import '../../support/note_test_fixtures.dart';
 
 void main() {
+  _registerSafeErrors();
   test(
     'new databases reject orphaned children for every note relation',
     () async {
@@ -89,6 +92,41 @@ void main() {
       expect(
         await reopened.customSelect('PRAGMA foreign_key_check').get(),
         isEmpty,
+      );
+    },
+  );
+}
+
+void _registerSafeErrors() {
+  test(
+    'production error boundary discards bindings after isolate write failure',
+    () async {
+      final isolate = await DriftIsolate.spawn(() => NativeDatabase.memory());
+      final database = AppDatabase.sanitized(
+        await isolate.connect(singleClientMode: true),
+      );
+      addTearDown(database.close);
+      await database.customStatement(
+        "CREATE TRIGGER reject_segment BEFORE INSERT ON transcript_segments "
+        "BEGIN SELECT RAISE(ABORT, 'synthetic write failure'); END",
+      );
+
+      final repository = NotesRepository(database);
+      await expectLater(
+        repository.add(_noteWithChildren()),
+        throwsA(
+          isA<DatabaseOperationException>().having(
+            (error) => error.toString(),
+            'message',
+            'The database operation failed.',
+          ),
+        ),
+      );
+      expect(await repository.findById('parent'), isNull);
+      await database.customStatement('DROP TRIGGER reject_segment');
+      expect(
+        (await repository.add(_noteWithChildren())).fullTranscriptText,
+        'Transcript',
       );
     },
   );

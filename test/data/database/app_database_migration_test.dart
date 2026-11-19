@@ -7,7 +7,7 @@ import 'package:transcriber/data/repositories/notes_repository.dart';
 
 void main() {
   test(
-    'v1 to v5 removes segment timestamps without losing note content',
+    'v1 to v6 removes segment timestamps without losing note content',
     () async {
       final database = AppDatabase(
         NativeDatabase.memory(
@@ -29,7 +29,7 @@ void main() {
           .customSelect('PRAGMA table_info(transcript_segments)')
           .get();
 
-      expect(database.schemaVersion, 5);
+      expect(database.schemaVersion, 6);
       expect(note.read<String>('id'), 'note-1');
       expect(note.read<String>('title'), 'Preserved note');
       expect(
@@ -66,7 +66,7 @@ void main() {
   );
 
   test(
-    'v2 to v5 preserves notes and defaults summary errors to null',
+    'v2 to v6 preserves notes and defaults summary errors to null',
     () async {
       final database = AppDatabase(
         NativeDatabase.memory(
@@ -77,7 +77,7 @@ void main() {
 
       final note = (await NotesRepository(database).load()).single;
 
-      expect(database.schemaVersion, 5);
+      expect(database.schemaVersion, 6);
       expect(note.id, 'note-1');
       expect(note.title, 'Preserved note');
       expect(note.summaryError, isNull);
@@ -167,18 +167,11 @@ void _registerHistoryMigrationTests() {
 }
 
 void _registerRecoveryMigrationTests() {
-  test('v4 to v5 creates the durable audio-deletion queue', () async {
+  test('v4 to v6 creates the durable audio-deletion queue', () async {
     final database = AppDatabase(
       NativeDatabase.memory(
         setup: (sqlite) {
-          _seedV2Schema(sqlite.execute);
-          sqlite.execute('ALTER TABLE notes ADD COLUMN summary_error TEXT');
-          sqlite.execute(
-            "ALTER TABLE notes ADD COLUMN title_search TEXT NOT NULL DEFAULT ''",
-          );
-          sqlite.execute(
-            'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
-          );
+          _seedV4Schema(sqlite.execute);
           sqlite.execute('PRAGMA user_version = 4');
         },
       ),
@@ -204,9 +197,46 @@ void _registerRecoveryMigrationTests() {
     expect(
       (await database.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      5,
+      6,
     );
   });
+
+  test('v5 to v6 indexes existing titles and retains queued audio', () async {
+    final database = AppDatabase(
+      NativeDatabase.memory(
+        setup: (sqlite) {
+          _seedV4Schema(sqlite.execute);
+          sqlite.execute('CREATE INDEX notes_audio_path ON notes (audio_path)');
+          sqlite.execute(
+            'CREATE TABLE pending_audio_deletions (path TEXT NOT NULL PRIMARY KEY)',
+          );
+          sqlite.execute(
+            "INSERT INTO pending_audio_deletions VALUES ('queued.wav')",
+          );
+          sqlite.execute('PRAGMA user_version = 5');
+        },
+      ),
+    );
+    addTearDown(database.close);
+    final repository = NotesRepository(database);
+    final page = await repository.loadHistoryPage(query: 'PRESERVED');
+    expect(page.entries.single.id, 'note-1');
+    expect(await repository.pendingAudioDeletionPaths(), ['queued.wav']);
+    expect(
+      (await repository.findById('note-1'))?.fullTranscriptText,
+      'Original transcript',
+    );
+  });
+}
+
+void _seedV4Schema(void Function(String) execute) {
+  _seedV2Schema(execute);
+  execute('ALTER TABLE notes ADD COLUMN summary_error TEXT');
+  execute("ALTER TABLE notes ADD COLUMN title_search TEXT NOT NULL DEFAULT ''");
+  execute("UPDATE notes SET title_search = 'preserved note'");
+  execute(
+    'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
+  );
 }
 
 void _registerFailureMigrationTests() {
@@ -278,7 +308,7 @@ void _registerBackfillRollbackTest() {
     expect(note?.points, ['Original point']);
     expect(note?.todos.single.text, 'Original todo');
     expect(note?.fullTranscriptText, 'Original transcript');
-    expect(restarted.schemaVersion, 5);
+    expect(restarted.schemaVersion, 6);
     expect(
       (await restarted.customSelect('PRAGMA foreign_keys').getSingle())
           .read<int>('foreign_keys'),
@@ -287,7 +317,7 @@ void _registerBackfillRollbackTest() {
     expect(
       (await restarted.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      5,
+      6,
     );
   });
 }
@@ -313,7 +343,7 @@ void _registerPartialMigrationTests() {
     expect(
       (await database.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      5,
+      6,
     );
   });
 
@@ -339,7 +369,7 @@ void _registerPartialMigrationTests() {
     final note = await NotesRepository(database)
         .loadHistoryPage(query: 'preserved');
     expect(note.entries.single.id, 'note-1');
-    expect(database.schemaVersion, 5);
+    expect(database.schemaVersion, 6);
     expect(
       await database
           .customSelect('SELECT path FROM pending_audio_deletions')

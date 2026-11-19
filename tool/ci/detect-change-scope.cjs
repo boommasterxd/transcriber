@@ -10,7 +10,7 @@ function isCommitSha(value) {
     && !/^0+$/.test(value);
 }
 
-const CHECKS = ['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'];
+const CHECKS = ['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'];
 
 function parseJvmClasses(source) {
   const names = source.split(/\r?\n/).filter((name) => name.length > 0);
@@ -50,15 +50,19 @@ function checksForPath(path) {
     'test/tool/ci/native-coverage.integration.cjs',
     'test/tool/ci/jvm_fixture.cjs',
     'test/tool/ci/kotlin-quality.integration.cjs'].includes(path)) return ['workflow', 'jvm'];
+  if (path === 'test/tool/ci/android-picker-device.integration.cjs') return ['workflow', 'native', 'device'];
   if (/^(tool|test\/tool)\/ci\/[^/]+\.cjs$/.test(path)) return ['workflow'];
   const native = nativeChecksForPath(path);
   if (native) return native;
   if (path === 'tool/quality/check_kotlin_quality.sh') return ['workflow', 'native'];
   if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
-  // Native entrypoint names and channel payloads are runtime contracts.
-  if (['lib/main.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
+  // Native entrypoints, channel payloads and the picker recovery journey require an actual Android runtime.
+  if (['lib/main.dart', 'lib/app.dart', 'lib/app_bootstrap.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
     'lib/services/dictation/dictation_platform.dart',
-    'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'build'];
+    'lib/data/models/audio_import_selection.dart', 'lib/services/audio/audio_import_picker.dart',
+    'lib/ui/screens/home/home_screen.dart', 'lib/ui/screens/home/audio_import.dart',
+    'lib/ui/screens/home/audio_import_recovery_gate.dart',
+    'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'device', 'build'];
   if (/^lib\/.*\.dart$/.test(path)) return ['dart'];
   if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
   if (path.startsWith('assets/')) return ['dart', 'build'];
@@ -69,14 +73,15 @@ function nativeChecksForPath(path) {
   for (const name of JVM_CLASSES) {
     const classPath = name.replaceAll('.', '/');
     if (path === `android/app/src/test/kotlin/${classPath}Test.kt`) return ['jvm'];
-    if (path === `android/app/src/main/kotlin/${classPath}.kt`) return ['jvm', 'native'];
+    if (path === `android/app/src/main/kotlin/${classPath}.kt`) return ['jvm', 'native', 'device'];
   }
-  if (/^android\/app\/src\/(test|androidTest)\//.test(path)
+  if (path.startsWith('android/app/src/androidTest/')) return ['native', 'device'];
+  if (path.startsWith('android/app/src/test/')
     || path === 'config/detekt.yml') return ['native'];
   if (/^android\/app\/src\/main\/kotlin\/com\/transcriber\/app\/(EditorFieldPolicy|ImeNavigationBarAppearance|ShareFileNamePolicy)\.kt$/.test(path)) {
-    return ['native'];
+    return ['native', 'device'];
   }
-  if (path.startsWith('android/')) return ['dart', 'native'];
+  if (path.startsWith('android/')) return ['dart', 'native', 'device'];
   return null;
 }
 

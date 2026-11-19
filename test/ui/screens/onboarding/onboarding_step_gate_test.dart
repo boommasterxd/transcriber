@@ -3,7 +3,7 @@ import 'package:transcriber/ui/screens/onboarding/onboarding_step_gate.dart';
 
 void main() {
   test('welcome, appearance and completion need no readiness condition', () {
-    for (final step in [0, 3, 5]) {
+    for (final step in [0, 3, 4]) {
       expect(_gate(step: step).ready, isTrue);
       expect(_gate(step: step).hint, isNull);
     }
@@ -25,19 +25,6 @@ void main() {
     expect(_gate(step: 2, asrReady: true, summaryReady: true).ready, isTrue);
     expect(_gate(step: 2, asrReady: true, summaryEnabled: false).ready, isTrue);
   });
-  test('permissions screen requires microphone permission', () {
-    expect(_gate(step: 4).hint, OnboardingGateHint.grantPermissions);
-    final ready = evaluateOnboardingStepGate(
-      step: 4,
-      hasConnectedProvider: false,
-      permissionsReady: true,
-      asrReady: false,
-      summaryEnabled: true,
-      summaryReady: false,
-    );
-    expect(ready.ready, isTrue);
-    expect(ready.hint, isNull);
-  });
 }
 
 OnboardingStepGate _gate({
@@ -49,7 +36,6 @@ OnboardingStepGate _gate({
 }) => evaluateOnboardingStepGate(
   step: step,
   hasConnectedProvider: connected,
-  permissionsReady: false,
   asrReady: asrReady,
   summaryEnabled: summaryEnabled,
   summaryReady: summaryReady,

@@ -7,7 +7,6 @@ import '../../settings/widgets/appearance_section.dart';
 import '../../settings/widgets/language_section.dart';
 import 'onboarding_cloud_step.dart';
 import 'onboarding_models_step.dart';
-import 'onboarding_permissions_step.dart';
 
 class OnboardingStepContent extends StatelessWidget {
   const OnboardingStepContent({
@@ -42,11 +41,6 @@ class OnboardingStepContent extends StatelessWidget {
           AppearanceSection(),
         ],
       ),
-    ),
-    4 => _StepBody(
-      title: strings.obPermsT,
-      subtitle: strings.obPermsS,
-      child: const OnboardingPermissionsStep(),
     ),
     _ => _ReadyBanner(strings: strings),
   };

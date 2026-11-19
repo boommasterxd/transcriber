@@ -8,9 +8,6 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/ui/screens/home/audio_import.dart';
-import 'package:uuid/data.dart';
-import 'package:uuid/rng.dart';
-import 'package:uuid/uuid.dart';
 
 import 'home_test_helpers.dart';
 
@@ -31,7 +28,7 @@ void _registerSelectedFileTest() {
 
     final selection = fixture.started.single;
     expect(selection.fileName, 'meeting.m4a');
-    expect(selection.path, isNot(fixture.source.path));
+    expect(selection.path, fixture.source.path);
     expect(await tester.runAsync(() => File(selection.path).readAsBytes()), [
       1,
       2,
@@ -53,20 +50,22 @@ void _registerCancellationTest() {
 }
 
 void _registerUnmountedContextTest() {
-  testWidgets('selection is ignored after its screen is unmounted', (
-    tester,
-  ) async {
+  testWidgets('unmounting releases a selected cache file', (tester) async {
     final fixture = await _createFixture(tester);
-    final picker = Completer<AudioImportSelection?>();
     late BuildContext context;
     await tester.pumpWidget(captureBuildContext((value) => context = value));
-    final operation = fixture.startImport(context, picker: () => picker.future);
+    final picker = Completer<AudioImportSelection?>();
+    late Future<void> operation;
+    await tester.runAsync(() async {
+      operation = fixture.startImport(context, picker: () => picker.future);
+    });
 
     await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-    picker.complete(
-      const AudioImportSelection(path: '/tmp/note.wav', fileName: 'note.wav'),
-    );
-    await operation;
+    await tester.runAsync(() async {
+      picker.complete(fixture.selection);
+      await operation;
+      expect(await fixture.source.exists(), isFalse);
+    });
 
     expect(fixture.started, isEmpty);
   });
@@ -105,6 +104,25 @@ void _registerImportFailures() {
     expect(find.text(_strings.audioImportFailed), findsOneWidget);
     expect(fixture.started, isEmpty);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an unrelated file cannot be handed off or deleted', (
+    tester,
+  ) async {
+    final fixture = await _createFixture(tester);
+    final outside = File(p.join(fixture.root.path, 'outside.m4a'));
+    await tester.runAsync(() => outside.writeAsBytes([1, 2, 3]));
+    await _pumpImportAction(
+      tester,
+      fixture,
+      picker: () async =>
+          AudioImportSelection(path: outside.path, fileName: 'outside.m4a'),
+    );
+    await _tapImport(tester, fixture);
+
+    expect(fixture.started, isEmpty);
+    expect(await tester.runAsync(outside.exists), isTrue);
+    expect(find.text(_strings.audioImportFailed), findsOneWidget);
   });
 
   _registerNavigationFailure();
@@ -150,7 +168,7 @@ void _registerNavigationFailure() {
 
     expect(copyPath, isNotNull);
     expect(await tester.runAsync(() => File(copyPath!).exists()), isFalse);
-    expect(await tester.runAsync(fixture.source.exists), isTrue);
+    expect(copyPath, fixture.source.path);
     expect(find.text(_strings.audioImportFailed), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -210,6 +228,9 @@ final class _AudioImportFixture {
   Future<void>? operation;
   final started = <AudioImportSelection>[];
 
+  AudioImportSelection get selection =>
+      AudioImportSelection(path: source.path, fileName: 'meeting.m4a');
+
   Future<void> startImport(
     BuildContext context, {
     AudioImportPicker? picker,
@@ -218,10 +239,7 @@ final class _AudioImportFixture {
     context,
     cacheManager: manager,
     strings: _strings,
-    picker:
-        picker ??
-        () async =>
-            AudioImportSelection(path: source.path, fileName: 'meeting.m4a'),
+    picker: picker ?? () async => selection,
     starter: starter ?? (_, selection) async => started.add(selection),
   );
 
@@ -231,7 +249,8 @@ final class _AudioImportFixture {
     final cache = Directory(p.join(root.path, 'cache'));
     await support.create();
     await cache.create();
-    final source = File(p.join(root.path, 'meeting.m4a'));
+    final source = File(p.join(cache.path, 'shared', 'meeting.m4a'));
+    await source.parent.create();
     await source.writeAsBytes([1, 2, 3]);
     return _AudioImportFixture(
       root: root,
@@ -240,7 +259,6 @@ final class _AudioImportFixture {
         paths: Future.value(
           StoragePaths(supportRoot: support, cacheRoot: cache),
         ),
-        uuid: Uuid(goptions: GlobalOptions(MathRNG(seed: 9))),
       ),
     );
   }

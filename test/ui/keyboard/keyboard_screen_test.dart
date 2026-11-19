@@ -8,13 +8,12 @@ import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/dictation_state.dart';
 import 'package:transcriber/ui/keyboard/keyboard_screen.dart';
 import 'package:transcriber/ui/widgets/recording_controls.dart';
-import 'package:transcriber/ui/widgets/provider_logo.dart';
 import 'package:transcriber/ui/widgets/waveforms.dart';
 
 void main() {
   _registerInteractionTests();
   _registerDeletionTests();
-  _registerBrandingTests();
+  _registerProviderSwitchTest();
   _registerAccessibilityAndRecoveryTests();
   _registerErrorTests();
 }
@@ -32,10 +31,6 @@ void _registerInteractionTests() {
 
     expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('gpt-live-transcribe'), findsOneWidget);
-    expect(
-      tester.widget<ProviderLogo>(find.byType(ProviderLogo)).provider,
-      RemoteProviderId.openai,
-    );
     expect(find.text('Bereit für Live-Diktat'), findsNWidgets(2));
     await tester.tap(find.byIcon(Icons.mic_rounded));
     expect(starts, 1);
@@ -60,9 +55,11 @@ void _registerInteractionTests() {
       brightness: Brightness.dark,
       size: const Size(360, 312),
       actions: _KeyboardActions(
-        stop: () => stops++,
-        cancel: () => cancels++,
-        togglePause: () => pauses++,
+        recording: RecordingActions(
+          stop: () => stops++,
+          cancel: () => cancels++,
+          togglePause: () => pauses++,
+        ),
         deleteBackward: () => deletes++,
       ),
     );
@@ -91,7 +88,9 @@ void _registerInteractionTests() {
           elapsed: Duration(seconds: 12),
         ),
       ),
-      actions: _KeyboardActions(togglePause: () => resumes++),
+      actions: _KeyboardActions(
+        recording: RecordingActions(togglePause: () => resumes++),
+      ),
     );
 
     expect(find.text('Pausiert'), findsOneWidget);
@@ -127,25 +126,28 @@ void _registerDeletionTests() {
   });
 }
 
-void _registerBrandingTests() {
-  testWidgets('uses the selected Google provider logo in the switch action', (
-    tester,
-  ) async {
-    await _pumpKeyboard(
-      tester,
-      _state(DictationPhase.ready).copyWith(
-        selection: const DictationModelSelection(
-          provider: RemoteProviderId.google,
-          modelId: 'gpt-live-transcribe',
+void _registerProviderSwitchTest() {
+  testWidgets(
+    'shows the Google live model and switches to the previous keyboard',
+    (tester) async {
+      var switches = 0;
+      await _pumpKeyboard(
+        tester,
+        _state(DictationPhase.ready).copyWith(
+          selection: const DictationModelSelection(
+            provider: RemoteProviderId.google,
+            modelId: 'gemini-3.5-transcribe-live',
+          ),
         ),
-      ),
-    );
+        actions: _KeyboardActions(switchBack: () => switches++),
+      );
 
-    expect(
-      tester.widget<ProviderLogo>(find.byType(ProviderLogo)).provider,
-      RemoteProviderId.google,
-    );
-  });
+      expect(find.text('Google Gemini'), findsOneWidget);
+      expect(find.text('gemini-3.5-transcribe-live'), findsOneWidget);
+      await tester.tap(find.byTooltip('Vorherige Tastatur'));
+      expect(switches, 1);
+    },
+  );
 }
 
 void _registerAccessibilityAndRecoveryTests() {
@@ -157,7 +159,9 @@ void _registerAccessibilityAndRecoveryTests() {
       _state(DictationPhase.connecting),
       textScale: 1.6,
       size: const Size(360, 280),
-      actions: _KeyboardActions(cancel: () => cancels++),
+      actions: _KeyboardActions(
+        recording: RecordingActions(cancel: () => cancels++),
+      ),
     );
 
     expect(find.text(strings.keyboardConnect), findsOneWidget);
@@ -332,12 +336,12 @@ Future<void> _pumpKeyboard(
           actions: KeyboardActions(
             start: actions.start ?? _noOp,
             recording: RecordingActions(
-              stop: actions.stop ?? _noOp,
-              togglePause: actions.togglePause ?? _noOp,
-              cancel: actions.cancel ?? _noOp,
+              stop: actions.recording.stop ?? _noOp,
+              togglePause: actions.recording.togglePause ?? _noOp,
+              cancel: actions.recording.cancel ?? _noOp,
             ),
             deleteBackward: actions.deleteBackward ?? _noOp,
-            switchBack: _noOp,
+            switchBack: actions.switchBack ?? _noOp,
             openAppSettings: actions.openAppSettings ?? _noOp,
           ),
         ),
@@ -351,17 +355,15 @@ void _noOp() {}
 class _KeyboardActions {
   const _KeyboardActions({
     this.start,
-    this.stop,
-    this.cancel,
-    this.togglePause,
+    this.recording = const RecordingActions(),
     this.deleteBackward,
+    this.switchBack,
     this.openAppSettings,
   });
 
   final VoidCallback? start;
-  final VoidCallback? stop;
-  final VoidCallback? cancel;
-  final VoidCallback? togglePause;
+  final RecordingActions recording;
   final VoidCallback? deleteBackward;
+  final VoidCallback? switchBack;
   final VoidCallback? openAppSettings;
 }

@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
@@ -58,6 +59,41 @@ void main() {
     await tester.pump();
     expect(controller.state.summarizeEnabled, isFalse);
     expect(find.text(strings.connectFirst), findsNothing);
+  });
+
+  testWidgets('opens the privacy policy externally and reports failure', (
+    tester,
+  ) async {
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final launches = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      launches.add(call);
+      return false;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    await tester.pumpWidget(
+      _settingsApp(
+        child: const PrivacySection(),
+        controller: _TestSettingsController(),
+      ),
+    );
+    expect(launches, isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    final launch = launches.single;
+    expect(launch.method, 'launch');
+    expect(
+      launch.arguments['url'],
+      'https://github.com/boommasterxd/transcriber/blob/main/docs/privacy-policy.md',
+    );
+    expect(launch.arguments['useWebView'], isFalse);
+    expect(find.text(strings.openPrivacyPolicyFailed), findsOneWidget);
   });
 }
 

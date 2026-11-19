@@ -26,6 +26,38 @@ void main() {
   }
   _registerResponsiveTest();
   _registerAccordionTest();
+  _registerDeferredCredentialTest(strings);
+}
+
+void _registerDeferredCredentialTest(AppStrings strings) {
+  testWidgets('only opens the stored credential while its editor is expanded', (
+    tester,
+  ) async {
+    const provider = RemoteProviderId.openai;
+    final saved = {provider: 'synthetic-stored-key'};
+    final controller = _FakeConnectionsController(
+      initial: {provider: true},
+      storedKeys: saved,
+    );
+    await _pumpCard(tester, provider, controller, expand: false);
+    expect(find.text(strings.connected), findsOneWidget);
+    expect(controller.keyReads, isEmpty);
+
+    final tile = find.byType(ListTile);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField);
+    expect(tester.widget<TextField>(field).controller!.text, saved[provider]);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    saved[provider] = 'synthetic-updated-key';
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).controller!.text, saved[provider]);
+    expect(controller.keyReads, [provider, provider]);
+  });
 }
 
 void _registerExpansionTests(RemoteProviderId provider, AppStrings strings) {
@@ -324,6 +356,7 @@ class _FakeConnectionsController extends ConnectionsController {
   final List<(RemoteProviderId, String)> connectCalls = [];
   final List<RemoteProviderId> testCalls = [];
   final List<RemoteProviderId> disconnectCalls = [];
+  final List<RemoteProviderId> keyReads = [];
   bool failConnect = false;
   bool failTest = false;
   bool failDisconnect = false;
@@ -354,6 +387,8 @@ class _FakeConnectionsController extends ConnectionsController {
   }
 
   @override
-  Future<String> apiKey(RemoteProviderId provider) async =>
-      storedKeys[provider] ?? '';
+  Future<String> apiKey(RemoteProviderId provider) async {
+    keyReads.add(provider);
+    return storedKeys[provider] ?? '';
+  }
 }

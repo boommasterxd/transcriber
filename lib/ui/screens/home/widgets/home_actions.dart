@@ -136,7 +136,7 @@ class RecordFab extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.mic_rounded, color: Colors.white, size: 28),
+        child: Icon(Icons.mic_rounded, color: palette.onAccent, size: 28),
       ),
     );
   }

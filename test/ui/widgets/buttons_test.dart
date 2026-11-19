@@ -110,21 +110,25 @@ void _registerIconCircleTest() {
     var tapped = false;
     await tester.pumpWidget(
       themed(
-        IconCircleButton(
-          icon: Icons.close,
-          size: 50,
-          onTap: () => tapped = true,
+        Center(
+          child: IconCircleButton(
+            icon: Icons.close,
+            size: 38,
+            onTap: () => tapped = true,
+          ),
         ),
       ),
     );
 
     expect(find.byIcon(Icons.close), findsOneWidget);
-    final semantics = tester.semantics
-        .find(find.bySemanticsLabel('Close'))
-        .getSemanticsData();
+    final node = tester.semantics.find(find.bySemanticsLabel('Close'));
+    final semantics = node.getSemanticsData();
     expect(semantics.label, 'Close');
     expect(semantics.hasAction(SemanticsAction.tap), isTrue);
-    await tester.tap(find.byIcon(Icons.close));
+    expect(node.rect.size, const Size(48, 48));
+    await tester.tapAt(
+      tester.getCenter(find.byIcon(Icons.close)) + const Offset(22, 0),
+    );
     expect(tapped, isTrue);
   });
 }
@@ -201,6 +205,8 @@ void _registerSwatchTest() {
         .find(find.byType(AccentSwatches))
         .getSemanticsData();
     expect(violet.label, 'Accent color');
+    final swatch = tester.semantics.find(find.bySemanticsLabel('Violet'));
+    expect(swatch.rect.size, const Size(48, 48));
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);

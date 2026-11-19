@@ -11,16 +11,19 @@ mixin ProcessingControllerLifecycle<T extends ConsumerStatefulWidget>
   late final ProcessingController processingController;
   final processingOwner = Object();
 
-  /// Starts the processing run after the first frame has been rendered.
+  bool get startsProcessingOnMount => true;
+
   void startProcessing();
 
   @override
   void initState() {
     super.initState();
     processingController = ref.read(processingControllerProvider.notifier);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) startProcessing();
-    });
+    if (startsProcessingOnMount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) startProcessing();
+      });
+    }
   }
 
   @override

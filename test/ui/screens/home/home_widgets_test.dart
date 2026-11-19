@@ -19,21 +19,63 @@ void main() {
 }
 
 void _registerSearchBarTest() {
-  testWidgets('search bar forwards entered text', (tester) async {
-    String? query;
+  testWidgets('typing batches searches and keyboard submission is immediate', (
+    tester,
+  ) async {
+    final queries = <String>[];
     final strings = AppStrings.of(AppLanguage.en);
     await tester.pumpWidget(
       wrapHomeWidget(
-        HomeSearchBar(
-          hint: strings.search,
-          onChanged: (value) => query = value,
-        ),
+        HomeSearchBar(hint: strings.search, onChanged: queries.add),
       ),
     );
 
-    await tester.enterText(find.byType(TextField), 'Weekly');
+    final field = find.byType(TextField);
+    await tester.enterText(field, 'We');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.enterText(field, 'Weekly');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(queries, isEmpty);
 
-    expect(query, 'Weekly');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(queries, ['Weekly']);
+
+    await tester.enterText(field, 'Weekly planning');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    expect(queries, ['Weekly', 'Weekly planning']);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(queries, ['Weekly', 'Weekly planning']);
+  });
+
+  testWidgets('a completed search leaves newer typing intact', (tester) async {
+    final searches = <String>[];
+    var applied = '';
+    late StateSetter update;
+    await tester.pumpWidget(
+      wrapHomeWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return HomeSearchBar(
+              hint: 'Search',
+              query: applied,
+              onChanged: searches.add,
+            );
+          },
+        ),
+      ),
+    );
+    final field = find.byType(TextField);
+    await tester.enterText(field, 'First');
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(searches, ['First']);
+
+    await tester.enterText(field, 'First and second');
+    update(() => applied = 'First');
+    await tester.pump();
+    expect(find.text('First and second'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(searches, ['First', 'First and second']);
   });
 }
 

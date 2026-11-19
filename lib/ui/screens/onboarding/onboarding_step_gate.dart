@@ -1,4 +1,4 @@
-enum OnboardingGateHint { connectProvider, selectModels, grantPermissions }
+enum OnboardingGateHint { connectProvider, selectModels }
 
 class OnboardingStepGate {
   const OnboardingStepGate({required this.ready, this.hint});
@@ -10,17 +10,10 @@ class OnboardingStepGate {
 OnboardingStepGate evaluateOnboardingStepGate({
   required int step,
   required bool hasConnectedProvider,
-  required bool permissionsReady,
   required bool asrReady,
   required bool summaryEnabled,
   required bool summaryReady,
 }) {
-  if (step == 4) {
-    return OnboardingStepGate(
-      ready: permissionsReady,
-      hint: permissionsReady ? null : OnboardingGateHint.grantPermissions,
-    );
-  }
   if (step == 1) {
     return OnboardingStepGate(
       ready: hasConnectedProvider,

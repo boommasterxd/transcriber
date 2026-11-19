@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/services/processing/processing_profile.dart';
 import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/state/processing_controller.dart';
@@ -36,7 +37,7 @@ void _registerPreviewCommitTest() {
           ),
         ),
       );
-      await tester.pump();
+      await _confirmShare(tester);
       await tester.tap(find.text(shareTestStrings.shSave));
       await tester.pump();
       expect(tester.takeException(), isNull);
@@ -68,10 +69,29 @@ void _registerPreviewCommitTest() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 400));
+    expect(controller.runCalls, 0);
+    expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
+    final settings = shareTestSettings();
+    final profile = ProcessingProfile.resolve(settings);
+    expect(
+      find.text(shareTestStrings.shareAudioRecipient(profile.asr.providerName)),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        shareTestStrings.shareTranscriptRecipient(profile.summary.providerName),
+      ),
+      findsOneWidget,
+    );
+    await _confirmShare(tester);
 
     expect(controller.lastSave, isFalse);
     expect(controller.lastInput?.audio.ownership, AudioOwnership.temporary);
+    expect(controller.lastInput?.settings?.asrProvider, settings.asrProvider);
+    expect(
+      controller.lastInput?.settings?.summaryProvider,
+      settings.summaryProvider,
+    );
     expect(find.text(note.title), findsOneWidget);
 
     await tester.tap(find.text(shareTestStrings.shSave));
@@ -98,7 +118,7 @@ void _registerDismissTest() {
         ),
       ),
     );
-    await tester.pump();
+    await _confirmShare(tester);
 
     expect(find.text(shareTestStrings.errorTitle), findsOneWidget);
     await tester.tap(find.text(shareTestStrings.dismiss));
@@ -124,7 +144,7 @@ void _registerRetryTest() {
         ),
       ),
     );
-    await tester.pump();
+    await _confirmShare(tester);
 
     await tester.tap(find.text(shareTestStrings.retry));
     await tester.pump();
@@ -135,7 +155,7 @@ void _registerRetryTest() {
 }
 
 void _registerSettingsTest() {
-  testWidgets('missing API key opens local settings and retries on return', (
+  testWidgets('returning from settings requires a new upload confirmation', (
     tester,
   ) async {
     var finished = false;
@@ -154,7 +174,7 @@ void _registerSettingsTest() {
         ),
       ),
     );
-    await tester.pump();
+    await _confirmShare(tester);
 
     await tester.tap(find.text(shareTestStrings.goToSettings));
     await tester.pumpAndSettle();
@@ -167,10 +187,18 @@ void _registerSettingsTest() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    expect(controller.runCalls, 1);
+    expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
+    await _confirmShare(tester);
     expect(controller.runCalls, 2);
     expect(find.text('Recovered after connecting'), findsOneWidget);
     expect(finished, isFalse);
   });
+}
+
+Future<void> _confirmShare(WidgetTester tester) async {
+  await tester.tap(find.text(shareTestStrings.shareConfirmAction));
+  await tester.pump();
 }
 
 Widget _shareApp({

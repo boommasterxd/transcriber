@@ -5,13 +5,19 @@ void _registerRunningDiscardTests() {
     test('discard during $stage skips later work and removes audio', () async {
       final harness = await _Harness.create();
       addTearDown(harness.dispose);
-      final gate = _pauseStage(harness, stage);
+      final started = Completer<void>();
+      harness.clientFactory.beforeStage = (step, cancellation) async {
+        if (step != stage) return;
+        final cancelled = Completer<void>();
+        cancellation!.listen(cancelled.complete);
+        started.complete();
+        await cancelled.future;
+        cancellation.throwIfCancelled();
+      };
 
       final run = harness.run(save: true);
-      await gate.started.future;
+      await started.future;
       await harness.controller.discardCurrent();
-      expect(await harness.staging.exists(), isTrue);
-      gate.resume.complete();
       await run;
 
       await _expectDiscardedRun(harness);
@@ -82,7 +88,7 @@ void _registerRunningDiscardTests() {
 ) {
   final started = Completer<void>();
   final resume = Completer<void>();
-  harness.clientFactory.beforeStage = (stage) async {
+  harness.clientFactory.beforeStage = (stage, _) async {
     if (stage != target) return;
     started.complete();
     await resume.future;

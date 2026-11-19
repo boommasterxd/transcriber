@@ -32,13 +32,23 @@ void main() {
     state.reset();
   });
 
-  test('forwards the microphone permission result', () async {
-    final service = AudioRecorderService();
-    expect(await service.hasPermission(), isTrue);
-    state.permission = false;
-    expect(await service.hasPermission(), isFalse);
-    await service.dispose();
-  });
+  test(
+    'checks microphone access without asking the platform to prompt',
+    () async {
+      final service = AudioRecorderService();
+      expect(await service.hasPermission(), isTrue);
+      state.permission = false;
+      expect(await service.hasPermission(), isFalse);
+      final checks = state.calls.where(
+        (call) => call.method == 'hasPermission',
+      );
+      expect(checks.map((call) => (call.arguments as Map)['request']), [
+        false,
+        false,
+      ]);
+      await service.dispose();
+    },
+  );
 
   test(
     'starts a mono 16 kHz WAV recording in the managed audio directory',

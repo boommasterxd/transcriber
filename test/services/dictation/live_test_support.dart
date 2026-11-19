@@ -50,7 +50,11 @@ final class CapturingConnector {
   Uri? uri;
   Map<String, String>? headers;
 
-  Future<LiveSocket> call(Uri value, Map<String, String> requestHeaders) async {
+  Future<LiveSocket> call(
+    Uri value,
+    Map<String, String> requestHeaders,
+    void Function(void Function()) _,
+  ) async {
     uri = value;
     headers = requestHeaders;
     return socket;

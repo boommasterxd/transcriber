@@ -50,8 +50,8 @@ class AppStrings {
   String get recPause => _string(_StringKey.recPause);
   String get recStopShort => _string(_StringKey.recStopShort);
   String get recCancel => _string(_StringKey.recCancel);
-  String get micPermissionTitle => _string(_StringKey.micPermissionTitle);
   String get micPermissionBody => _string(_StringKey.micPermissionBody);
+  String get micPermissionSettings => _string(_StringKey.micPermissionSettings);
   String get setTitle => _string(_StringKey.setTitle);
   String get setModels => _string(_StringKey.setModels);
   String get setGeneral => _string(_StringKey.setGeneral);
@@ -102,6 +102,7 @@ class AppStrings {
   String get openAiKeyPlaceholder => _string(_StringKey.openAiKeyPlaceholder);
   String get googleKeyPlaceholder => _string(_StringKey.googleKeyPlaceholder);
   String get keyHint => _string(_StringKey.keyHint);
+  String get geminiRequirements => _string(_StringKey.geminiRequirements);
   String get remoteModel => _string(_StringKey.remoteModel);
   String get showModels => _string(_StringKey.showModels);
   String get hideModels => _string(_StringKey.hideModels);
@@ -140,6 +141,10 @@ class AppStrings {
   String get shStep2 => _string(_StringKey.shStep2);
   String get shFrom => _string(_StringKey.shFrom);
   String get shSummary => _string(_StringKey.shSummary);
+  String get aiGeneratedSummary => _string(_StringKey.aiGeneratedSummary);
+  String get unknownSummaryOrigin =>
+      _string(_StringKey.unknownSummaryOrigin)
+          .replaceAll('{summary}', shSummary);
   String get shPoints => _string(_StringKey.shPoints);
   String get shActions => _string(_StringKey.shActions);
   String get shShow => _string(_StringKey.shShow);
@@ -149,12 +154,23 @@ class AppStrings {
   String get shCopied => _string(_StringKey.shCopied);
   String get shShare => _string(_StringKey.shShare);
   String get shSave => _string(_StringKey.shSave);
+  String get shareConfirmTitle => _string(_StringKey.shareConfirmTitle);
+  String get shareConfirmAction => _string(_StringKey.shareConfirmAction);
+  String shareAudioRecipient(String provider) =>
+      _string(_StringKey.shareAudioRecipient)
+          .replaceAll('{provider}', provider);
+  String shareTranscriptRecipient(String provider) =>
+      _string(_StringKey.shareTranscriptRecipient)
+          .replaceAll('{provider}', provider);
+  String get shareSaving => _string(_StringKey.shareSaving);
+  String get copyFailed => _string(_StringKey.copyFailed);
   String get mSpkTemplate => _string(_StringKey.mSpkTemplate);
   String get voiceNote => _string(_StringKey.voiceNote);
   String get recordingLabel => _string(_StringKey.recordingLabel);
   String get justNow => _string(_StringKey.justNow);
   String get processingTitle => _string(_StringKey.processingTitle);
   String get errorTitle => _string(_StringKey.errorTitle);
+  String get processingFailedBody => _string(_StringKey.processingFailedBody);
   String get audioImportFailed => _string(_StringKey.audioImportFailed);
   String get recoveredAudioTitle => _string(_StringKey.recoveredAudioTitle);
   String get recoveredAudioBody => _string(_StringKey.recoveredAudioBody);
@@ -174,6 +190,9 @@ class AppStrings {
   String get keyMissing => _string(_StringKey.keyMissing);
   String get cancel => _string(_StringKey.cancel);
   String get privacyStatement => _string(_StringKey.privacyStatement);
+  String get privacyPolicy => _string(_StringKey.privacyPolicy);
+  String get openPrivacyPolicyFailed =>
+      _string(_StringKey.openPrivacyPolicyFailed);
   String get obModelsT => _string(_StringKey.obModelsT);
   String get obConnectStep => _string(_StringKey.obConnectStep);
   String get obConnectDescription => _string(_StringKey.obConnectDescription);
@@ -196,17 +215,10 @@ class AppStrings {
   String get obPrivacyS => _string(_StringKey.obPrivacyS);
   String get obReadyT => _string(_StringKey.obReadyT);
   String get obReadyS => _string(_StringKey.obReadyS);
-  String get obPermsT => _string(_StringKey.obPermsT);
-  String get obPermsS => _string(_StringKey.obPermsS);
-  String get obPermMicT => _string(_StringKey.obPermMicT);
-  String get obPermMicS => _string(_StringKey.obPermMicS);
-  String get obPermEnable => _string(_StringKey.obPermEnable);
-  String get obPermGranted => _string(_StringKey.obPermGranted);
-  String get obPermRequiredHint => _string(_StringKey.obPermRequiredHint);
-  String get obPermDeniedNote => _string(_StringKey.obPermDeniedNote);
-  String get obPermBlockedNote => _string(_StringKey.obPermBlockedNote);
-  String get obPermOpenSettings => _string(_StringKey.obPermOpenSettings);
-  String get obPermLocked => _string(_StringKey.obPermLocked);
+  String onboardingProgress(int current, int total) =>
+      _string(_StringKey.onboardingProgress)
+          .replaceAll('{current}', '$current')
+          .replaceAll('{total}', '$total');
   String get deleteNoteTitle => _string(_StringKey.deleteNoteTitle);
   String get deleteNoteBody => _string(_StringKey.deleteNoteBody);
   String get noteDeleted => _string(_StringKey.noteDeleted);
@@ -253,6 +265,10 @@ class AppStrings {
   String get keyboardSensitiveField =>
       _string(_StringKey.keyboardSensitiveField);
   String get keyboardMicMissing => _string(_StringKey.keyboardMicMissing);
+  String get keyboardMicTitle => _string(_StringKey.keyboardMicTitle);
+  String get keyboardMicEnable => _string(_StringKey.keyboardMicEnable);
+  String get keyboardMicGranted => _string(_StringKey.keyboardMicGranted);
+  String get keyboardMicDenied => _string(_StringKey.keyboardMicDenied);
   String get keyboardKeyMissing => _string(_StringKey.keyboardKeyMissing);
   String get keyboardConnectionError =>
       _string(_StringKey.keyboardConnectionError);
@@ -292,6 +308,13 @@ class AppStrings {
       _string(_StringKey.keyboardSetupChooseBody);
   String get keyboardSetupDone => _string(_StringKey.keyboardSetupDone);
   String get keyboardDone => _string(_StringKey.keyboardDone);
+  String get audioPlay => _string(_StringKey.audioPlay);
+  String get audioPause => _string(_StringKey.audioPause);
+  String get audioPosition => _string(_StringKey.audioPosition);
+  String audioPositionValue(String current, String total) =>
+      _string(_StringKey.audioPositionValue)
+          .replaceAll('{current}', current)
+          .replaceAll('{total}', total);
 
   List<String> get weekdaysShort =>
       _values[_StringKey.weekdaysShort]! as List<String>;

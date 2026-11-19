@@ -34,51 +34,84 @@ class ProviderConnectCard extends ConsumerStatefulWidget {
 }
 
 class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
-  final TextEditingController _keyController = TextEditingController();
+  TextEditingController? _keyController;
+  String? _loadedKey;
   bool _busy = false;
   bool _verified = false;
   bool _failed = false;
   bool _expanded = false;
   int _keyLoadGeneration = 0;
 
+  bool get _isExpanded => widget.expanded ?? _expanded;
+
   @override
   void initState() {
     super.initState();
-    unawaited(_loadStoredKey());
+    if (_isExpanded) _openEditor();
   }
 
   @override
   void didUpdateWidget(covariant ProviderConnectCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.provider == widget.provider) return;
-    _keyLoadGeneration++;
-    _keyController.clear();
-    _verified = false;
-    _failed = false;
-    unawaited(_loadStoredKey());
+    if (oldWidget.provider != widget.provider) {
+      _closeEditor(discardDraft: true);
+      _busy = false;
+      _verified = false;
+      _failed = false;
+      if (_isExpanded) _openEditor();
+    } else if ((oldWidget.expanded ?? _expanded) != _isExpanded) {
+      _syncEditor();
+    }
   }
 
   @override
   void dispose() {
     _keyLoadGeneration++;
-    _keyController.clear();
-    _keyController.dispose();
+    _keyController?.dispose();
     super.dispose();
   }
 
-  Future<void> _loadStoredKey() async {
+  void _syncEditor() {
+    if (_isExpanded) {
+      _openEditor();
+    } else {
+      _closeEditor();
+    }
+  }
+
+  void _openEditor() {
+    final controller = _keyController ??= TextEditingController();
+    if (controller.text.isEmpty &&
+        ref.read(connectionsControllerProvider)[widget.provider] == true) {
+      unawaited(_loadStoredKey(controller));
+    }
+  }
+
+  void _closeEditor({bool discardDraft = false}) {
+    _keyLoadGeneration++;
+    final controller = _keyController;
+    if (controller != null &&
+        (discardDraft ||
+            controller.text.isEmpty ||
+            controller.text == _loadedKey)) {
+      _keyController = null;
+      // The collapsing field can still use its controller until it unmounts.
+      WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    }
+    _loadedKey = null;
+  }
+
+  Future<void> _loadStoredKey(TextEditingController controller) async {
     final provider = widget.provider;
     final generation = ++_keyLoadGeneration;
     try {
       final key = await ref
           .read(connectionsControllerProvider.notifier)
           .apiKey(provider);
-      if (!mounted ||
-          generation != _keyLoadGeneration ||
-          provider != widget.provider) {
-        return;
-      }
-      _keyController.text = key;
+      if (!mounted || generation != _keyLoadGeneration) return;
+      if (controller.text.isNotEmpty) return;
+      _loadedKey = key;
+      controller.text = key;
     } catch (_) {
       if (!mounted || generation != _keyLoadGeneration) return;
       setState(() => _failed = true);
@@ -86,10 +119,17 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
   }
 
   Future<void> _connect() async {
+    final controller = _keyController;
+    if (controller == null) return;
+    final candidate = controller.text;
     await _run(() async {
       await ref
           .read(connectionsControllerProvider.notifier)
-          .connect(widget.provider, _keyController.text);
+          .connect(widget.provider, candidate);
+      if (!mounted || !identical(_keyController, controller)) return;
+      if (controller.text != candidate) return;
+      _loadedKey = candidate;
+      if (!_isExpanded) _closeEditor();
     });
   }
 
@@ -99,15 +139,13 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
   );
 
   Future<void> _disconnect() => _run(() async {
-    await ref
-        .read(connectionsControllerProvider.notifier)
-        .disconnect(widget.provider);
-    _keyLoadGeneration++;
-    _keyController.clear();
+    final provider = widget.provider;
+    await ref.read(connectionsControllerProvider.notifier).disconnect(provider);
   });
 
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
+    final provider = widget.provider;
     setState(() {
       _busy = true;
       _verified = false;
@@ -115,13 +153,13 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
     });
     try {
       await action();
-      if (!mounted) return;
+      if (!mounted || provider != widget.provider) return;
       setState(() => _verified = true);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || provider != widget.provider) return;
       setState(() => _failed = true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && provider == widget.provider) setState(() => _busy = false);
     }
   }
 
@@ -145,8 +183,13 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
   }
 
   void _toggleExpanded() {
-    final expanded = !(widget.expanded ?? _expanded);
-    if (widget.expanded == null) setState(() => _expanded = expanded);
+    final expanded = !_isExpanded;
+    if (widget.expanded == null) {
+      setState(() {
+        _expanded = expanded;
+        _syncEditor();
+      });
+    }
     widget.onExpansionChanged?.call(expanded);
   }
 
@@ -155,7 +198,7 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
     final connected =
         ref.watch(connectionsControllerProvider)[widget.provider] ?? false;
     final strings = ref.watch(stringsProvider);
-    final expanded = widget.expanded ?? _expanded;
+    final expanded = _isExpanded;
     ref.listen<bool>(
       connectionsControllerProvider.select(
         (connections) => connections[widget.provider] ?? false,
@@ -163,9 +206,10 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
       (previous, next) {
         if (!next) {
           _keyLoadGeneration++;
-          _keyController.clear();
-        } else if (previous != next) {
-          unawaited(_loadStoredKey());
+          _loadedKey = null;
+          _keyController?.clear();
+        } else if (previous != next && _isExpanded) {
+          _openEditor();
         }
       },
     );
@@ -188,7 +232,7 @@ class _ProviderConnectCardState extends ConsumerState<ProviderConnectCard> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: ProviderCredentialForm(
               provider: widget.provider,
-              controller: _keyController,
+              controller: _keyController!,
               status: CredentialFormStatus(
                 busy: _busy,
                 connected: connected,

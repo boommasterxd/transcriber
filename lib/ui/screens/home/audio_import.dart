@@ -25,20 +25,14 @@ Future<void> startAudioImport(
 }) async {
   try {
     final selection = await picker();
-    if (selection == null || !context.mounted) return;
-    final imported = await cacheManager.importExternal(
-      selection.path,
-      displayName: selection.fileName,
-    );
+    if (selection == null) return;
+    final imported = await cacheManager.registerShared(selection.path);
     if (!context.mounted) {
       await cacheManager.discard(imported);
       return;
     }
     try {
-      await starter(
-        context,
-        AudioImportSelection(path: imported.path, fileName: selection.fileName),
-      );
+      await starter(context, selection);
     } catch (_) {
       await cacheManager.discard(imported);
       rethrow;
@@ -50,6 +44,19 @@ Future<void> startAudioImport(
       isError: true,
       messenger: ScaffoldMessenger.maybeOf(context),
     );
+  }
+}
+
+Future<void> discardPickedAudio(
+  AudioCacheManager cacheManager,
+  AudioImportSelection selection,
+) async {
+  try {
+    await cacheManager.discard(
+      await cacheManager.registerShared(selection.path),
+    );
+  } on Object {
+    // A missing or unverified path cannot be deleted as a picker file.
   }
 }
 

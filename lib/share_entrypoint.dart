@@ -19,6 +19,7 @@ Future<void> runShareEntrypoint({
   app: const _ShareApp(),
   loadBootstrap: loadBootstrap,
   recoverPendingAudioDeletes: false,
+  enforceAudioCacheQuota: false,
 );
 
 class _ShareApp extends StatelessWidget {

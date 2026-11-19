@@ -88,7 +88,6 @@ Future<void> _expectGoogleFailure({
       final client = GoogleClient(
         apiKey: 'key',
         pollInterval: Duration.zero,
-        delay: (_) async {},
         httpClient: httpClient,
       );
 

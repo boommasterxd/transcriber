@@ -22,6 +22,9 @@ final class StoragePaths {
   Future<Directory> recordingCacheDir() =>
       _ensure(cacheRoot, 'audio/recording');
 
+  Future<Directory> retentionStagingDir() =>
+      _ensure(cacheRoot, 'audio/retention-staging');
+
   Future<Directory> retainedAudioDir() =>
       _ensure(supportRoot, 'audio/retained');
 

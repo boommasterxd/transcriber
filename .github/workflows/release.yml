@@ -3,40 +3,55 @@
 # storage quota, so this is how versions are kept long-term (build-apk.yml stays
 # for throwaway test builds with 3-day retention).
 #
-# Triggered by pushing a tag like v1.2.3, or manually via workflow_dispatch with
-# a required `version` input (the publish job then creates the tag). The publish
-# job is gated on the `release` environment.
+# Dispatch from protected main with a release version. The publisher creates
+# the tag. Signing and publishing use separate protected environments.
 name: Release
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
         description: >-
-          Release version, e.g. 1.0.0 (no leading "v"). When set, the run
-          creates the tag v<version> and publishes a GitHub Release for it.
+          Release version, e.g. 1.0.0. The workflow creates the tag v<version>
+          and publishes a GitHub Release for it.
         type: string
         required: true
 
 permissions:
   contents: read
 
-# Lets version.sh pick up the manual dispatch version; empty on tag pushes.
 env:
   RELEASE_VERSION: ${{ inputs.version }}
 
 jobs:
   android:
-    name: Android APK
-    runs-on: ubuntu-latest
+    name: Build unsigned Android APK
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       version: ${{ steps.ver.outputs.version }}
       commit: ${{ steps.ver.outputs.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify release source
+        env:
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: bash tool/package/verify_release_source.sh "$GITHUB_EVENT_NAME" "$GITHUB_REF" "$REF_PROTECTED"
+
+      - name: Resolve version
+        id: ver
+        run: |
+          version=$(bash tool/package/version.sh)
+          build_number=$(bash tool/package/android_release_version_code.sh "$GITHUB_RUN_NUMBER")
+          {
+            echo "version=$version"
+            echo "build-number=$build_number"
+            echo "commit=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Java
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
@@ -47,40 +62,16 @@ jobs:
       - name: Set up Flutter
         uses: ./.github/actions/setup-flutter
 
-      - name: Resolve version
-        id: ver
-        run: |
-          version=$(bash tool/package/version.sh)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
       - name: Stamp version into pubspec
         env:
           BUILD_VERSION: ${{ steps.ver.outputs.version }}
-        run: bash tool/package/stamp_version.sh "$BUILD_VERSION" "$GITHUB_RUN_NUMBER"
+          BUILD_NUMBER: ${{ steps.ver.outputs.build-number }}
+        run: bash tool/package/stamp_version.sh "$BUILD_VERSION" "$BUILD_NUMBER"
 
       - name: Restore shared Gradle dependencies
         uses: ./.github/actions/dependency-cache
         with:
           store: gradle
-
-      # Release keystore from secrets. Falls back to debug signing (the Verify
-      # step below then fails the release, so a debug-signed APK never ships).
-      - name: Configure release signing
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "::warning title=Android signing::ANDROID_KEYSTORE_BASE64 is not set, building DEBUG-signed; the release will fail at the Verify step."
-            exit 0
-          fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload.jks
-          printf 'storeFile=upload.jks\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n' \
-            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
-          echo "Release signing configured."
 
       - name: Reuse or install pinned Android NDKs
         uses: ./.github/actions/setup-android-ndk
@@ -88,48 +79,63 @@ jobs:
       - name: Build
         env:
           BUILD_VERSION: ${{ steps.ver.outputs.version }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.build-number }}
         run: |
           flutter pub get --enforce-lockfile
           flutter build apk --release \
             --no-pub \
             --build-name="$BUILD_VERSION" \
-            --build-number="$GITHUB_RUN_NUMBER"
-
-      - name: Rename APK
-        env:
-          BUILD_VERSION: ${{ steps.ver.outputs.version }}
-        run: |
-          cp build/app/outputs/flutter-apk/app-release.apk \
-            "transcriber-$BUILD_VERSION-android.apk"
-
-      # Fail the release if signing fell back to the debug key.
-      - name: Verify signature
-        env:
-          BUILD_VERSION: ${{ steps.ver.outputs.version }}
-        run: |
-          APK="transcriber-$BUILD_VERSION-android.apk"
-          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner | sort -V | tail -1)
-          CERTS=$("$APKSIGNER" verify --print-certs "$APK")
-          echo "$CERTS"
-          if echo "$CERTS" | grep -qi "CN=Android Debug"; then
-            echo "::error::APK is debug-signed, configure the Android signing secrets before releasing."
-            exit 1
-          fi
-          echo "APK is release-signed."
+            --build-number="$BUILD_NUMBER"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: android
-          path: transcriber-*-android.apk
+          name: android-unsigned
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 3
+
+  sign:
+    name: Sign Android APK
+    needs: android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release-signing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.android.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-unsigned
+          path: unsigned
+
+      - name: Sign and verify APK
+        env:
+          BUILD_VERSION: ${{ needs.android.outputs.version }}
+          RELEASE_SIGNER_SHA256: b7577635cc8d1a994551ab4849dfaf155a0e02ab81caf731adbc51996bced005
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          export ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          bash tool/package/sign_release_apk.sh \
+            "$BUILD_VERSION" unsigned/app-release.apk signed "$RELEASE_SIGNER_SHA256"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-signed
+          path: signed/
+          if-no-files-found: error
           retention-days: 3
 
   release:
     name: Publish GitHub Release
-    needs: [android]
+    needs: [android, sign]
     concurrency:
       group: release-${{ needs.android.outputs.version }}
       cancel-in-progress: false
-    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-slim
     timeout-minutes: 10
     environment: release
@@ -140,19 +146,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.android.outputs.commit }}
+          persist-credentials: false
 
-      - name: Download all artifacts
+      - name: Download signed release artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          name: android-signed
           path: dist
-          merge-multiple: true
 
-      - name: Generate SHA256 checksums
-        working-directory: dist
-        run: |
-          find . -type f -name 'transcriber-*' ! -name 'SHA256SUMS' \
-            | sed 's|^\./||' | sort | xargs -r sha256sum > SHA256SUMS
-          cat SHA256SUMS
+      - name: Verify exact release assets
+        env:
+          BUILD_VERSION: ${{ needs.android.outputs.version }}
+        run: bash tool/package/verify_release_assets.sh "$BUILD_VERSION" dist
 
       - name: Verify release tag against built commit
         id: tag
@@ -170,14 +175,13 @@ jobs:
           target_commitish: ${{ needs.android.outputs.commit }}
           name: ${{ steps.tag.outputs.name }}
           files: |
-            dist/transcriber-*
+            dist/transcriber-${{ needs.android.outputs.version }}-android.apk
             dist/SHA256SUMS
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
           generate_release_notes: true
 
       - name: Delete build artifacts (now published on the release)
-        # android only existed to hand the APK to this job; it is on the
-        # GitHub Release now, so drop the workflow artifact immediately
+        # The intermediates only hand the APK between jobs. Drop them
         # instead of waiting out retention-days.
         env:
           GH_TOKEN: ${{ github.token }}

@@ -158,16 +158,16 @@ void _registerTranscriptionTest() {
     'presents Opus as supported OGG without converting its bytes',
     () => _testTranscription(
       fileName: 'whatsapp-voice.opus',
-      expectedUploadName: 'whatsapp-voice.ogg',
+      expectedUploadName: 'audio.ogg',
       expectedContentType: 'audio/ogg',
     ),
   );
 }
 
 Future<void> _testTranscription({
-  String fileName = 'voice.wav',
-  String? expectedUploadName,
-  String? expectedContentType,
+  String fileName = 'private-conversation.WAV',
+  String expectedUploadName = 'audio.wav',
+  String expectedContentType = 'audio/wav',
   String modelId = 'gpt-transcribe',
 }) async {
   await withTemporaryAudio(
@@ -202,13 +202,9 @@ Future<void> _testTranscription({
         if (modelId.contains('diarize')) 'chunking_strategy': 'auto',
         'language': 'de',
       });
-      expect(captured.files.single.filename, expectedUploadName ?? fileName);
-      if (expectedContentType != null) {
-        expect(
-          captured.files.single.contentType.toString(),
-          expectedContentType,
-        );
-      }
+      expect(captured.followRedirects, isFalse);
+      expect(captured.files.single.filename, expectedUploadName);
+      expect(captured.files.single.contentType.toString(), expectedContentType);
       expect(result.text, 'result');
       expect(result.segments.single.text, 'result');
     },

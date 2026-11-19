@@ -4,6 +4,7 @@ import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/ui/screens/detail/widgets/detail_transcript_block.dart';
 import 'package:transcriber/ui/screens/detail/widgets/note_content_widgets.dart';
 import 'package:transcriber/ui/screens/detail/widgets/note_summary_metadata_widgets.dart';
 
@@ -18,14 +19,14 @@ void main() {
       _themed(
         ListView(
           children: [
-            NoteSummaryCard(gist: note.gist, label: strings.shSummary),
+            NoteSummaryCard(note: note, strings: strings),
             NoteMetadataChips(note: note, strings: strings),
           ],
         ),
       ),
     );
 
-    expect(find.text(strings.shSummary.toUpperCase()), findsOneWidget);
+    expect(find.text(strings.aiGeneratedSummary.toUpperCase()), findsOneWidget);
     expect(find.text(note.gist), findsOneWidget);
     expect(find.text('1:05'), findsOneWidget);
     expect(
@@ -41,10 +42,10 @@ void main() {
     final note = _note();
     await tester.pumpWidget(
       _themed(
-        ListView(
-          children: [
-            NoteKeyPoints(points: note.points),
-            NoteTodoHeader(count: note.todos.length, label: strings.shActions),
+        CustomScrollView(
+          slivers: [
+            NoteKeyPoints(points: note.points, label: strings.shPoints),
+            NoteTodos.preview(todos: note.todos, strings: strings),
             TranscriptRows(lines: note.transcript, bottomPadding: 14),
           ],
         ),
@@ -58,21 +59,40 @@ void main() {
     expect(find.text('Transcript text'), findsOneWidget);
   });
 
-  testWidgets('renders empty note collections without placeholder content', (
+  testWidgets('renders an empty transcript without placeholder content', (
     tester,
   ) async {
     await tester.pumpWidget(
+      _themed(const CustomScrollView(slivers: [TranscriptRows(lines: [])])),
+    );
+
+    expect(find.byType(Text), findsNothing);
+  });
+
+  testWidgets('splits long transcript display only at complete characters', (
+    tester,
+  ) async {
+    final spansCluster = '${'x' * 639}👩🏽‍💻suffix';
+    final keepsWord = '${'a' * 500} ${'b' * 150}';
+    await tester.pumpWidget(
       _themed(
-        const Column(
-          children: [
-            NoteKeyPoints(points: []),
-            TranscriptRows(lines: []),
+        CustomScrollView(
+          slivers: [
+            TranscriptRows(
+              lines: [
+                TranscriptLine(text: spansCluster),
+                TranscriptLine(text: keepsWord),
+              ],
+            ),
           ],
         ),
       ),
     );
 
-    expect(find.byType(Text), findsNothing);
+    expect(find.text('${'x' * 639}👩🏽‍💻'), findsOneWidget);
+    expect(find.text('suffix'), findsOneWidget);
+    expect(find.text('${'a' * 500} '), findsOneWidget);
+    expect(find.text('b' * 150), findsOneWidget);
   });
 }
 

@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:android_file_picker/android_file_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,10 +22,9 @@ import 'package:transcriber/ui/screens/processing/processing_screen.dart';
 
 import '../../../support/app_test_fakes.dart';
 
-const _channel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
+const _channel = MethodChannel('app/audio_import');
 final _strings = AppStrings.of(AppLanguage.de);
 
-late FilePickerPlatform original;
 late AudioImportPickerService picker;
 late Completer<Object?> recovery;
 late List<String> calls;
@@ -37,15 +34,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    original = FilePickerPlatform.instance;
-    FilePickerAndroid.registerWith();
     picker = AudioImportPickerService();
     calls = [];
     processingPushed = Completer<void>();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, (call) {
           calls.add(call.method);
-          return call.method == 'retrieveLostData'
+          return call.method == 'recoverInterruptedPick'
               ? recovery.future
               : Future.value(null);
         });
@@ -54,7 +49,6 @@ void main() {
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, null);
-    FilePickerPlatform.instance = original;
   });
 
   _registerDialogTests();
@@ -70,7 +64,7 @@ void _registerDialogTests() {
     final ready = ValueNotifier(false);
     addTearDown(ready.dispose);
     await _pumpGate(tester, picker, ready);
-    expect(calls, ['retrieveLostData']);
+    expect(calls, ['recoverInterruptedPick']);
     recovery.complete(_result('/tmp/recovered.wav'));
     await tester.pump();
     await tester.pump();
@@ -89,7 +83,7 @@ void _registerDialogTests() {
     await tester.pumpAndSettle();
     expect(find.text(_strings.recoveredAudioTitle), findsNothing);
     expect(find.byType(ProcessingScreen), findsNothing);
-    expect(calls, ['retrieveLostData']);
+    expect(calls, ['recoverInterruptedPick']);
   });
 
   testWidgets('Escape dismisses the dialog in dark mode at large text', (
@@ -106,7 +100,7 @@ void _registerDialogTests() {
     await tester.pumpAndSettle();
     expect(find.text(_strings.recoveredAudioTitle), findsNothing);
     expect(find.byType(ProcessingScreen), findsNothing);
-    expect(calls, ['retrieveLostData']);
+    expect(calls, ['recoverInterruptedPick']);
     expect(tester.takeException(), isNull);
   });
 
@@ -117,8 +111,11 @@ void _registerDialogTests() {
       () => Directory.systemTemp.createTemp('recovery-test-'),
     );
     addTearDown(() => tester.runAsync(() => root!.delete(recursive: true)));
-    final source = File('${root!.path}/voice.wav');
-    await tester.runAsync(() => source.writeAsBytes([1, 2, 3]));
+    final source = File('${root!.path}/cache/shared/voice.wav');
+    await tester.runAsync(() async {
+      await source.parent.create(recursive: true);
+      await source.writeAsBytes([1, 2, 3]);
+    });
     recovery = Completer<Object?>();
     final manager = await tester.runAsync(
       () async => AudioCacheManager(
@@ -142,13 +139,13 @@ void _registerDialogTests() {
       find.byType(ProcessingScreen),
     );
     expect(screen.fileName, 'voice.wav');
-    expect(screen.audioPath, isNot(source.path));
+    expect(screen.audioPath, source.path);
     expect(await tester.runAsync(() => File(screen.audioPath).readAsBytes()), [
       1,
       2,
       3,
     ]);
-    expect(calls, ['retrieveLostData']);
+    expect(calls, ['recoverInterruptedPick']);
   });
 }
 
@@ -200,7 +197,7 @@ void _registerRecoveryTests() {
 }
 
 void _registerStartupTest() {
-  testWidgets('startup defers recovery until microphone access returns', (
+  testWidgets('startup offers recovery without microphone access', (
     tester,
   ) async {
     recovery = Completer<Object?>();
@@ -222,24 +219,18 @@ void _registerStartupTest() {
     recovery.complete(_result('/tmp/recovered.wav'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text(_strings.recoveredAudioTitle), findsNothing);
-    permissions.granted = true;
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text(_strings.recoveredAudioTitle), findsOneWidget);
     await tester.tap(find.text(_strings.cancel));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ProcessingScreen), findsNothing);
-    expect(calls, ['retrieveLostData']);
+    expect(calls, ['recoverInterruptedPick']);
   });
 }
 
 Map<String, Object?> _result(String path) => {
-  'files': [
-    {'path': path, 'name': path.split('/').last},
-  ],
+  'path': path,
+  'fileName': path.split('/').last,
 };
 
 Future<void> _pumpGate(

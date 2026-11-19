@@ -20,11 +20,13 @@ class RemoteSummarizationService implements SummarizationService {
   Future<SummaryResult> summarize(
     String transcript, {
     required bool german,
+    RemoteCancellation? cancellation,
   }) async {
     final raw = await client.summarize(
       systemPrompt: SummaryPrompt.system(german),
       userPrompt: SummaryPrompt.user(transcript, german: german),
       modelId: apiModelId,
+      cancellation: cancellation,
     );
     if (raw.trim().isEmpty) {
       throw const RemoteApiException('The provider returned an empty summary.');

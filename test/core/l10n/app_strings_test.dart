@@ -89,11 +89,11 @@ void _registerByokInputTest(AppStrings german, AppStrings english) {
     expect(german.keyPlaceholder, contains('Schlüssel einfügen'));
     expect(german.openAiKeyPlaceholder, contains('OpenAI'));
     expect(german.googleKeyPlaceholder, contains('Gemini'));
-    expect(german.keyHint, contains('nur lokal'));
+    expect(german.keyHint, contains('zur Authentifizierung an den Anbieter'));
     expect(english.keyPlaceholder, contains('paste key'));
     expect(english.openAiKeyPlaceholder, contains('OpenAI'));
     expect(english.googleKeyPlaceholder, contains('Gemini'));
-    expect(english.keyHint, contains('locally on device only'));
+    expect(english.keyHint, contains('sends the key to the provider'));
     expect(german.keyMissing, isNotEmpty);
     expect(english.keyMissing, isNotEmpty);
   });
@@ -148,22 +148,12 @@ void _registerMicrophoneTests() {
     final german = AppStrings.of(AppLanguage.de);
     final english = AppStrings.of(AppLanguage.en);
 
-    test(
-      'explains that microphone access is only needed for in-app recording',
-      () {
-        expect(german.micPermissionBody, contains('Mikrofon'));
-        expect(german.obPermMicS, contains('direkt in der App'));
-        expect(german.obPermsS, contains('nur für Aufnahmen'));
-        expect(
-          german.obPermsS.toLowerCase(),
-          isNot(contains('benachrichtigung')),
-        );
-        expect(english.micPermissionBody, contains('microphone'));
-        expect(english.obPermMicS, contains('right inside the app'));
-        expect(english.obPermsS, contains('only required for recordings'));
-        expect(english.obPermsS.toLowerCase(), isNot(contains('notification')));
-      },
-    );
+    test('explains the recording and dictation permission separately', () {
+      expect(german.micPermissionBody, contains('Mikrofon'));
+      expect(german.keyboardMicDenied, contains('Diktate'));
+      expect(english.micPermissionBody, contains('microphone'));
+      expect(english.keyboardMicDenied, contains('dictate'));
+    });
   });
 }
 
@@ -260,6 +250,10 @@ List<String> _catalogKeyboardValues(AppStrings strings) => [
   strings.keyboardStopping,
   strings.keyboardSensitiveField,
   strings.keyboardMicMissing,
+  strings.keyboardMicTitle,
+  strings.keyboardMicEnable,
+  strings.keyboardMicGranted,
+  strings.keyboardMicDenied,
   strings.keyboardKeyMissing,
   strings.keyboardConnectionError,
   strings.keyboardAuthenticationError,
@@ -312,8 +306,8 @@ List<String> _catalogHomeValues(AppStrings strings) => [
 ];
 
 List<String> _catalogSettingsValues(AppStrings strings) => [
-  strings.micPermissionTitle,
   strings.micPermissionBody,
+  strings.micPermissionSettings,
   strings.setTitle,
   strings.setModels,
   strings.setGeneral,
@@ -374,6 +368,8 @@ List<String> _catalogShareValues(AppStrings strings) => [
   strings.shStep2,
   strings.shFrom,
   strings.shSummary,
+  strings.aiGeneratedSummary,
+  strings.unknownSummaryOrigin,
   strings.shPoints,
   strings.shActions,
   strings.shShow,
@@ -383,6 +379,12 @@ List<String> _catalogShareValues(AppStrings strings) => [
   strings.shCopied,
   strings.shShare,
   strings.shSave,
+  strings.shareConfirmTitle,
+  strings.shareConfirmAction,
+  strings.shareAudioRecipient('OpenAI'),
+  strings.shareTranscriptRecipient('Google Gemini'),
+  strings.shareSaving,
+  strings.copyFailed,
 ];
 
 List<String> _catalogNoteValues(AppStrings strings) => [
@@ -392,6 +394,7 @@ List<String> _catalogNoteValues(AppStrings strings) => [
   strings.justNow,
   strings.processingTitle,
   strings.errorTitle,
+  strings.processingFailedBody,
   strings.retry,
   strings.dismiss,
   strings.goToSettings,
@@ -430,17 +433,11 @@ List<String> _catalogOnboardingValues(AppStrings strings) => [
   strings.obPrivacyS,
   strings.obReadyT,
   strings.obReadyS,
-  strings.obPermsT,
-  strings.obPermsS,
-  strings.obPermMicT,
-  strings.obPermMicS,
-  strings.obPermEnable,
-  strings.obPermGranted,
-  strings.obPermRequiredHint,
-  strings.obPermDeniedNote,
-  strings.obPermBlockedNote,
-  strings.obPermOpenSettings,
-  strings.obPermLocked,
+  strings.onboardingProgress(1, 5),
+  strings.audioPlay,
+  strings.audioPause,
+  strings.audioPosition,
+  strings.audioPositionValue('0:30', '1:00'),
 ];
 
 List<String> _catalogActionValues(AppStrings strings) => [
