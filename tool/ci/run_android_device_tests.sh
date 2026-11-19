@@ -13,6 +13,24 @@ hosted_runner() {
   [[ "${GITHUB_ACTIONS:-}" == true && "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]
 }
 
+prepare_host_graphics() {
+  local package
+  local -a missing=()
+  command -v xvfb-run >/dev/null || missing+=(xvfb)
+  command -v xauth >/dev/null || missing+=(xauth)
+  command -v glxinfo >/dev/null || missing+=(mesa-utils)
+  for package in libgl1-mesa-dri libglx-mesa0; do
+    if [[ $(dpkg-query --show --showformat='${db:Status-Status}' "$package" 2>/dev/null) != installed ]]; then
+      missing+=("$package")
+    fi
+  done
+  if (( ${#missing[@]} )); then
+    sudo apt-get -o Acquire::Retries=2 update
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 \
+      install --yes --no-install-recommends "${missing[@]}"
+  fi
+}
+
 test -c /dev/kvm
 if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
   if ! hosted_runner; then
@@ -46,6 +64,10 @@ if (( ${#packages[@]} )); then
   "$cmdline_tools/sdkmanager" --sdk_root="$sdk_root" "${packages[@]}"
 fi
 "$emulator" -accel-check
+"$emulator" -version | awk 'NR == 1'
+if hosted_runner; then
+  prepare_host_graphics
+fi
 
 ANDROID_AVD_HOME=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/transcriber-avd.XXXXXX")
 export ANDROID_AVD_HOME
@@ -58,7 +80,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-report_boot_failure() {
+report_device_failure() {
   df -hP "$ANDROID_AVD_HOME" "$sdk_root" | awk '
     NR == 2 { print "Free space in the AVD workspace: " $4 }
     NR == 3 { print "Free space in the Android SDK: " $4 }
@@ -66,21 +88,28 @@ report_boot_failure() {
   LC_ALL=C awk -v home="${HOME:-}" -v host="${HOSTNAME:-}" '
     {
       lower = tolower($0)
-      if (lower !~ /error|fatal|failed|segmentation|missing|not enough|no space|xauth|xcb|glx/) next
+      if (lower !~ /error|fatal|failed|segmentation|missing|not enough|no space|permission denied|display|xauth|xcb|glx/) next
       if (lower ~ /key|authenticat|@/ || (home != "" && index($0, home)) || (host != "" && index($0, host))) next
       gsub(/[[:cntrl:]]/, "")
       printf "Emulator: %.300s\n", $0
     }
-  ' "$ANDROID_AVD_HOME/emulator.log" | tail -20 >&2 || true
+  ' "$@" | tail -20 >&2 || true
 }
 
-launch=("$emulator" -no-window -gpu swangle)
-if ! hosted_runner; then
-  launch=(xvfb-run --auto-servernum "$emulator" -gpu host)
+export LIBGL_ALWAYS_SOFTWARE=1
+graphics_log="$ANDROID_AVD_HOME/graphics.log"
+emulator_log="$ANDROID_AVD_HOME/emulator.log"
+if ! timeout 20 xvfb-run --auto-servernum --error-file /dev/stderr glxinfo -B > "$graphics_log" 2>&1 ||
+  ! awk '/^OpenGL renderer string:.*(llvmpipe|softpipe)/ { print; found = 1 } END { exit !found }' "$graphics_log"; then
+  echo "Xvfb did not provide a Mesa software GLX renderer." >&2
+  report_device_failure "$graphics_log"
+  exit 1
 fi
+
 printf 'no\n' | "$cmdline_tools/avdmanager" create avd --name "$avd" --package "$image"
-"${launch[@]}" -avd "$avd" -port 5554 -no-audio -no-snapshot -no-boot-anim \
-  -feature -Vulkan -accel on > "$ANDROID_AVD_HOME/emulator.log" 2>&1 &
+xvfb-run --auto-servernum --error-file /dev/stderr "$emulator" \
+  -avd "$avd" -port 5554 -no-audio -no-snapshot -no-boot-anim \
+  -gpu host -feature -Vulkan -accel on > "$emulator_log" 2>&1 &
 emulator_pid=$!
 deadline=$((SECONDS + 180))
 while :; do
@@ -89,7 +118,7 @@ while :; do
   fi
   if (( SECONDS >= deadline )) || ! kill -0 "$emulator_pid" 2>/dev/null; then
     echo "The Android test device did not finish booting." >&2
-    report_boot_failure
+    report_device_failure "$emulator_log"
     exit 1
   fi
   sleep 2
@@ -103,7 +132,11 @@ fi
 "$adb" -s "$serial" shell wm dismiss-keyguard
 "$adb" -s "$serial" shell cmd connectivity airplane-mode enable
 "$adb" -s "$serial" shell svc wifi disable
-android/gradlew -p android :app:connectedDebugAndroidTest
+android/gradlew -p android :app:connectedDebugAndroidTest || {
+  status=$?
+  report_device_failure "$emulator_log"
+  exit "$status"
+}
 
 apk=''
 for candidate in build/app/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/app-debug.apk; do
@@ -120,4 +153,8 @@ if [[ -z "$apk" ]]; then
   exit 1
 fi
 ANDROID_SERIAL="$serial" TRANSCRIBER_TEST_AVD="$avd" TRANSCRIBER_TEST_APK="$apk" \
-  node --test test/tool/ci/android-picker-device.integration.cjs
+  node --test test/tool/ci/android-picker-device.integration.cjs || {
+  status=$?
+  report_device_failure "$emulator_log"
+  exit "$status"
+}
