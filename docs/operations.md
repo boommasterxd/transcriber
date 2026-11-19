@@ -152,7 +152,7 @@ Force a summary failure after successful transcription and verify that the regul
 
 ### Signing prerequisites
 
-The [Release workflow](../.github/workflows/release.yml) builds an unsigned APK, signs it in `release-signing`, and publishes it in `release`. Configure both GitHub environments to accept only the `main` branch and require reviewer approval. Store the established Android signing key only in the `release-signing` environment using these secrets.
+The [Release workflow](../.github/workflows/release.yml) builds an unsigned APK, signs it in `release-signing`, and publishes it in `release`. Configure both GitHub environments to accept only the `main` branch. Keep repository write access exclusive to the owner so GitHub restricts manual workflow dispatch and direct release creation to that account. With this access policy, configure both environments without required reviewers so signing and publication proceed automatically. Store the established Android signing key only in the `release-signing` environment using these secrets.
 
 | Secret | Value |
 |---|---|
@@ -165,7 +165,7 @@ Keep secret values out of source, logs, screenshots, and issue reports. The sign
 
 ### Version and source selection
 
-Release starts only through manual dispatch on protected `main`. Open **Actions > Release > Run workflow**, select `main`, and enter the required `version`. The version resolver accepts values such as `1.2.3`, `v1.2.3`, or `1.2.3-rc.1`. The Android version code adds 1,000 to the Release workflow run number, with Android's 2.1-billion limit enforced. This puts public releases above earlier test builds that shared the public package ID. See the [source guard](../tool/package/verify_release_source.sh) and [version code calculator](../tool/package/android_release_version_code.sh).
+Release starts only through manual dispatch from `boommasterxd` on protected `main`. The workflow checks the original account ID and the account requesting any rerun. Open **Actions > Release > Run workflow**, select `main`, and enter the required `version`. The version resolver accepts values such as `1.2.3`, `v1.2.3`, or `1.2.3-rc.1`. The Android version code adds 1,000 to the Release workflow run number, with Android's 2.1-billion limit enforced. This puts public releases above earlier test builds that shared the public package ID. See the [source guard](../tool/package/verify_release_source.sh) and [version code calculator](../tool/package/android_release_version_code.sh).
 
 Publication jobs are serialized by the normalized version without interrupting an active publisher. The job uses the exact checked-out build commit when creating a new release tag. Existing lightweight or annotated remote tags must resolve to that same commit, and a failed remote query prevents publication. Advancing `main` during a manual build therefore does not change the release's source revision. See the [version resolver](../tool/package/version.sh) and [release-tag guard](../tool/package/verify_release_tag.sh).
 
@@ -190,6 +190,6 @@ ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0" \
 
 ### Preview APK
 
-The manual [Build APK workflow](../.github/workflows/build-apk.yml) builds an AOT release-mode preview with `TRANSCRIBER_TEST_APK=true`. Download `transcriber-preview-android.apk` from the three-day `transcriber-preview-android` Actions artifact. It installs alongside the public app as `Transcriber Test` with the separate package ID `com.transcriber.app.preview` and its own local data. It is signed with the runner's debug key. The workflow checks the package ID and validates the APK signature. If another run uses a different debug key, reinstall the preview to test that build. The public package uses the protected Release workflow.
+The manual [Build APK workflow](../.github/workflows/build-apk.yml) builds an AOT release-mode preview with `TRANSCRIBER_TEST_APK=true`. Like Release, it checks the original `boommasterxd` account ID and the account requesting any rerun. Download `transcriber-preview-android.apk` from the three-day `transcriber-preview-android` Actions artifact. It installs alongside the public app as `Transcriber Test` with the separate package ID `com.transcriber.app.preview` and its own local data. It is signed with the runner's debug key. The workflow checks the package ID and validates the APK signature. If another run uses a different debug key, reinstall the preview to test that build. The public package uses the protected Release workflow.
 
 The Android package remains arm64-only. Preserve release signing, checksum verification, and minimal Android permissions. The main activity is exported for the launcher. The exported share activity imports one URI from audio `VIEW`, `SEND`, and `SEND_MULTIPLE` intents into bounded, sanitized app-private storage. `SEND_MULTIPLE` uses the first URI, so share each file separately to process every file. Explicit media intents to the main activity are forwarded to the share activity. The exported input-method service requires `android.permission.BIND_INPUT_METHOD`.

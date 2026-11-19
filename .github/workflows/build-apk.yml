@@ -10,6 +10,11 @@ permissions:
 jobs:
   android:
     name: Android Preview APK
+    # GitHub keeps the original actor on reruns, so also check who requested the rerun.
+    if: >-
+      github.repository == 'boommasterxd/transcriber' &&
+      github.actor_id == '62777283' &&
+      github.triggering_actor == 'boommasterxd'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
