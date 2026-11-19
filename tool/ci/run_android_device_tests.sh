@@ -98,16 +98,20 @@ report_device_failure() {
 
 export LIBGL_ALWAYS_SOFTWARE=1
 graphics_log="$ANDROID_AVD_HOME/graphics.log"
+graphics_xvfb_log="$ANDROID_AVD_HOME/graphics-xvfb.log"
 emulator_log="$ANDROID_AVD_HOME/emulator.log"
-if ! timeout 20 xvfb-run --auto-servernum --error-file /dev/stderr glxinfo -B > "$graphics_log" 2>&1 ||
+emulator_xvfb_log="$ANDROID_AVD_HOME/emulator-xvfb.log"
+: > "$graphics_xvfb_log"
+: > "$emulator_xvfb_log"
+if ! timeout 20 xvfb-run --auto-servernum --error-file "$graphics_xvfb_log" glxinfo -B > "$graphics_log" 2>&1 ||
   ! awk '/^OpenGL renderer string:.*(llvmpipe|softpipe)/ { print; found = 1 } END { exit !found }' "$graphics_log"; then
   echo "Xvfb did not provide a Mesa software GLX renderer." >&2
-  report_device_failure "$graphics_log"
+  report_device_failure "$graphics_log" "$graphics_xvfb_log"
   exit 1
 fi
 
 printf 'no\n' | "$cmdline_tools/avdmanager" create avd --name "$avd" --package "$image"
-xvfb-run --auto-servernum --error-file /dev/stderr "$emulator" \
+xvfb-run --auto-servernum --error-file "$emulator_xvfb_log" "$emulator" \
   -avd "$avd" -port 5554 -no-audio -no-snapshot -no-boot-anim \
   -gpu host -feature -Vulkan -accel on > "$emulator_log" 2>&1 &
 emulator_pid=$!
@@ -118,7 +122,7 @@ while :; do
   fi
   if (( SECONDS >= deadline )) || ! kill -0 "$emulator_pid" 2>/dev/null; then
     echo "The Android test device did not finish booting." >&2
-    report_device_failure "$emulator_log"
+    report_device_failure "$emulator_log" "$emulator_xvfb_log"
     exit 1
   fi
   sleep 2
@@ -134,7 +138,7 @@ fi
 "$adb" -s "$serial" shell svc wifi disable
 android/gradlew -p android :app:connectedDebugAndroidTest || {
   status=$?
-  report_device_failure "$emulator_log"
+  report_device_failure "$emulator_log" "$emulator_xvfb_log"
   exit "$status"
 }
 
@@ -155,6 +159,6 @@ fi
 ANDROID_SERIAL="$serial" TRANSCRIBER_TEST_AVD="$avd" TRANSCRIBER_TEST_APK="$apk" \
   node --test test/tool/ci/android-picker-device.integration.cjs || {
   status=$?
-  report_device_failure "$emulator_log"
+  report_device_failure "$emulator_log" "$emulator_xvfb_log"
   exit "$status"
 }
