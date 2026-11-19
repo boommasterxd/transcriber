@@ -10,6 +10,26 @@ const test = require('node:test');
 
 const scripts = path.resolve(__dirname, '../../../tool/package');
 
+test('APK build, signing and publication jobs require the owner on dispatch and reruns', () => {
+  for (const file of ['release.yml', 'build-apk.yml']) {
+    const workflow = fs.readFileSync(path.join(__dirname, '../../../.github/workflows', file), 'utf8');
+    const buildJob = workflow.split('\n  android:\n')[1].split(/^ {2}\S/m)[0];
+    const condition = buildJob.match(/^ {4}if: (?:&owner_dispatch )?>-\n((?: {6}.+\n)+)/m)?.[1];
+    assert.equal(condition?.trim().split(/\n\s+/).join(' '), [
+      "github.repository == 'boommasterxd/transcriber'",
+      "github.actor_id == '62777283'",
+      "github.triggering_actor == 'boommasterxd'",
+    ].join(' && '), file);
+    if (file === 'release.yml') {
+      assert.match(buildJob, /^ {4}if: &owner_dispatch >-$/m);
+      for (const job of ['sign', 'release']) {
+        const jobSource = workflow.split(`\n  ${job}:\n`)[1].split(/^ {2}\S/m)[0];
+        assert.match(jobSource, /^ {4}if: \*owner_dispatch$/m, job);
+      }
+    }
+  }
+});
+
 function runScript(name, args = [], options = {}) {
   return spawnSync('bash', [path.join(scripts, name), ...args], {
     encoding: 'utf8', timeout: 10000, ...options,

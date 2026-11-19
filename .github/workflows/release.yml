@@ -26,6 +26,11 @@ env:
 jobs:
   android:
     name: Build unsigned Android APK
+    # GitHub keeps the original actor on reruns, so also check who requested the rerun.
+    if: &owner_dispatch >-
+      github.repository == 'boommasterxd/transcriber' &&
+      github.actor_id == '62777283' &&
+      github.triggering_actor == 'boommasterxd'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
@@ -97,6 +102,7 @@ jobs:
   sign:
     name: Sign Android APK
     needs: android
+    if: *owner_dispatch
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: release-signing
@@ -133,6 +139,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [android, sign]
+    if: *owner_dispatch
     concurrency:
       group: release-${{ needs.android.outputs.version }}
       cancel-in-progress: false
