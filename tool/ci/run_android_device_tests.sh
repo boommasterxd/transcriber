@@ -58,9 +58,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
+report_boot_failure() {
+  df -hP "$ANDROID_AVD_HOME" "$sdk_root" | awk '
+    NR == 2 { print "Free space in the AVD workspace: " $4 }
+    NR == 3 { print "Free space in the Android SDK: " $4 }
+  ' >&2 || true
+  LC_ALL=C awk -v home="${HOME:-}" -v host="${HOSTNAME:-}" '
+    {
+      lower = tolower($0)
+      if (lower !~ /error|fatal|failed|segmentation|missing|not enough|no space|xauth|xcb|glx/) next
+      if (lower ~ /key|authenticat|@/ || (home != "" && index($0, home)) || (host != "" && index($0, host))) next
+      gsub(/[[:cntrl:]]/, "")
+      printf "Emulator: %.300s\n", $0
+    }
+  ' "$ANDROID_AVD_HOME/emulator.log" | tail -20 >&2 || true
+}
+
+launch=("$emulator" -no-window -gpu swangle)
+if ! hosted_runner; then
+  launch=(xvfb-run --auto-servernum "$emulator" -gpu host)
+fi
 printf 'no\n' | "$cmdline_tools/avdmanager" create avd --name "$avd" --package "$image"
-xvfb-run --auto-servernum "$emulator" -avd "$avd" -port 5554 -no-audio -no-snapshot -no-boot-anim \
-  -gpu host -feature -Vulkan -accel on > "$ANDROID_AVD_HOME/emulator.log" 2>&1 &
+"${launch[@]}" -avd "$avd" -port 5554 -no-audio -no-snapshot -no-boot-anim \
+  -feature -Vulkan -accel on > "$ANDROID_AVD_HOME/emulator.log" 2>&1 &
 emulator_pid=$!
 deadline=$((SECONDS + 180))
 while :; do
@@ -69,6 +89,7 @@ while :; do
   fi
   if (( SECONDS >= deadline )) || ! kill -0 "$emulator_pid" 2>/dev/null; then
     echo "The Android test device did not finish booting." >&2
+    report_boot_failure
     exit 1
   fi
   sleep 2
