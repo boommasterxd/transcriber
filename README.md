@@ -34,7 +34,7 @@
 1. Download the Android APK from the [latest release](https://github.com/boommasterxd/transcriber/releases/latest). The latest release also includes a `SHA256SUMS` file for checksum verification.
 2. Install it on an **Android 8.0+ arm64-v8a** device. Android may ask you to allow installation from your browser or file manager.
 3. Connect an OpenAI or Google Gemini API key during onboarding, choose a transcription model, and enable summaries if you want them.
-4. Record, import, or share audio into Transcriber.
+4. Record or import audio in Transcriber, or share one audio file at a time from another app and confirm its processing recipients.
 
 For live dictation, open **Settings > Transcriber keyboard** and follow the Android keyboard setup. Dictation uses the selected transcription provider and a separate compatible live model.
 
@@ -44,9 +44,9 @@ See [provider key setup](docs/provider-setup.md) for credential instructions and
 
 **Processing requires an internet connection and your own API access.** Audio goes to the selected transcription provider. When summaries are enabled, transcript text goes to the separately selected summary provider. Live dictation streams microphone audio to its provider.
 
-Notes and settings are stored locally in SQLite through Drift. API keys use Android-backed `FlutterSecureStorage`. The note database is **not encrypted by the app**. Audio retention is configurable, and external original files are never deleted by Transcriber.
+Notes and settings are stored locally in SQLite through Drift. API keys use Android-backed `FlutterSecureStorage`. The note database is **not encrypted by the app**. App data is excluded from Android cloud backup and device transfer. Audio retention is configurable, and external original files are never deleted by Transcriber.
 
-Provider billing, quotas, and data handling follow your provider account and terms. See [provider setup](docs/provider-setup.md), [security and privacy](docs/security.md), and [audio lifecycle](docs/cache-lifecycle.md) for details. Review AI-generated transcripts and summaries before relying on them.
+Provider billing, quotas, and data handling follow your provider account and terms. Review AI-generated transcripts and summaries before relying on them. See the [privacy policy (German)](docs/privacy-policy.md), [provider setup](docs/provider-setup.md), [security and privacy](docs/security.md), and [audio lifecycle](docs/cache-lifecycle.md).
 
 ## Development
 

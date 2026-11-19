@@ -5,6 +5,30 @@ import 'package:transcriber/ui/widgets/effects.dart';
 import 'widget_test_helpers.dart';
 
 void main() {
+  testWidgets('PulseRingHero follows changes to reduced motion', (
+    tester,
+  ) async {
+    final dispatcher = tester.platformDispatcher;
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
+    addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(themed(const Center(child: PulseRingHero())));
+    await tester.pump();
+    expect(find.byType(PulseRingHero), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
+
+    dispatcher.clearAccessibilityFeaturesTestValue();
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, greaterThanOrEqualTo(2));
+
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 0);
+  });
+
   testWidgets('StepIndicator shows spinner and pending second step initially', (
     tester,
   ) async {

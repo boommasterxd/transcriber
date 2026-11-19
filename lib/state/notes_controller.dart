@@ -13,17 +13,33 @@ class NotesController extends Notifier<List<TranscriptNote>> {
       ref.watch(initialNotesProvider).take(8).toList();
 
   /// Invalidates detail and history consumers after another engine writes.
-  Future<void> refresh() => _enqueue(() async => _publish(<TranscriptNote>[]));
+  Future<void> refresh() => _enqueue(() async {
+    _publish(<TranscriptNote>[]);
+    _invalidateHistory();
+  });
 
-  Future<void> add(TranscriptNote note) => _enqueue(
-    () async => _cache(await ref.read(notesRepositoryProvider).add(note)),
-  );
+  Future<void> add(TranscriptNote note) => _enqueue(() async {
+    _cache(await ref.read(notesRepositoryProvider).add(note));
+    _invalidateHistory();
+  });
+
+  Future<void> addWithStagedAudio(
+    TranscriptNote note,
+    Future<void> Function() promoteAudio,
+  ) => _enqueue(() async {
+    final saved = await ref
+        .read(notesRepositoryProvider)
+        .addWithStagedAudio(note, promoteAudio);
+    _cache(saved);
+    _invalidateHistory();
+  });
 
   Future<void> delete(String id, {bool deleteAudio = true}) =>
       _enqueue(() async {
         final result = await ref.read(notesRepositoryProvider).remove(id);
         _evict(id);
         final note = result.deleted;
+        if (note != null) _invalidateHistory();
         if (deleteAudio &&
             note?.audioOwnership == AudioOwnership.retained &&
             note?.audioPath != null &&
@@ -36,6 +52,10 @@ class NotesController extends Notifier<List<TranscriptNote>> {
 
   void _publish(List<TranscriptNote> notes) {
     if (ref.mounted) state = notes;
+  }
+
+  void _invalidateHistory() {
+    if (ref.mounted) ref.invalidate(notesHistoryRevisionProvider);
   }
 
   void _cache(TranscriptNote note) {
@@ -83,3 +103,5 @@ final notesControllerProvider =
     NotifierProvider<NotesController, List<TranscriptNote>>(
       NotesController.new,
     );
+
+final notesHistoryRevisionProvider = Provider<Object>((ref) => Object());

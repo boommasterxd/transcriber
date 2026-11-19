@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/data/models/app_settings.dart';
@@ -13,11 +14,44 @@ import 'onboarding_test_support.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
-  useGrantedOnboardingPermissions();
   _registerConnections(strings);
   _registerIndependentStages(strings);
   _registerDisconnect(strings);
   _registerCompactLayout(strings);
+  _registerPrivacyPolicy();
+}
+
+void _registerPrivacyPolicy() {
+  testWidgets('opens the privacy policy before connecting an account', (
+    tester,
+  ) async {
+    const launcher = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    String? openedUrl;
+    messenger.setMockMethodCallHandler(launcher, (call) async {
+      openedUrl = (call.arguments as Map)['url'] as String;
+      return true;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(launcher, null));
+    await openOnboardingStep(tester, 1);
+
+    const label = 'Datenschutzerklärung';
+    final link = find.text(label);
+    final semantics = tester.semantics.find(find.bySemanticsLabel(label));
+    expect(semantics.getSemanticsData().flagsCollection.isLink, isTrue);
+    expect(
+      tester.getTopLeft(link).dy,
+      lessThan(tester.getTopLeft(_card(RemoteProviderId.openai)).dy),
+    );
+    expect(openedUrl, isNull);
+
+    await tapOnboardingText(tester, label);
+
+    expect(
+      openedUrl,
+      'https://github.com/boommasterxd/transcriber/blob/main/docs/privacy-policy.md',
+    );
+  });
 }
 
 void _registerConnections(AppStrings strings) {

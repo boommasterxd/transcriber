@@ -39,6 +39,11 @@ internal class ShareImportCoordinator(
         return true
     }
 
+    fun takePath(reply: (String?) -> Unit): Boolean = awaitPath { imported ->
+        path = null
+        reply(imported)
+    }
+
     fun cancel() {
         path = null
         control.cancel()

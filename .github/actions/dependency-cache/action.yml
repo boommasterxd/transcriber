@@ -17,6 +17,9 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Verify the Gradle Wrapper JAR
+      if: inputs.store == 'gradle' && inputs.mode == 'restore'
+      uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
     - name: Resolve compatible store identity
       id: identity
       shell: bash

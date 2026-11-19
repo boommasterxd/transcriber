@@ -34,7 +34,7 @@ class ActiveModelPill extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: context.palette.faint,
+                color: context.palette.muted,
               ),
             ),
           ],

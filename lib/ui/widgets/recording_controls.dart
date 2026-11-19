@@ -95,7 +95,7 @@ class RecordStartControl extends StatelessWidget {
         shadow: true,
         child: Icon(
           Icons.mic_rounded,
-          color: Colors.white,
+          color: context.palette.onAccent,
           size: dimensions.stopIconSize,
         ),
       ),
@@ -126,7 +126,7 @@ class _RecordStopAction extends StatelessWidget {
         width: dimensions.stopIconSize,
         height: dimensions.stopIconSize,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.palette.onAccent,
           borderRadius: BorderRadius.circular(dimensions.stopIconSize / 4),
         ),
       ),
@@ -223,7 +223,9 @@ class _CircularAction extends StatelessWidget {
                   style: TextStyle(
                     fontSize: labelSize,
                     fontWeight: FontWeight.w700,
-                    color: shadow ? color : context.palette.muted,
+                    color: shadow
+                        ? context.palette.accentDeep
+                        : context.palette.muted,
                   ),
                 ),
               ],

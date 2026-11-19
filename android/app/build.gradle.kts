@@ -1,4 +1,5 @@
-import java.io.FileInputStream
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.dsl.LockMode
 import java.util.Properties
 
 plugins {
@@ -7,13 +8,16 @@ plugins {
     jacoco
 }
 
-// Release signing is read from android/key.properties when present (created in
-// CI from GitHub Secrets). Without it, the build falls back to debug signing.
+val testApk = providers.environmentVariable("TRANSCRIBER_TEST_APK").orNull == "true"
+val androidTestResults = layout.buildDirectory.dir("outputs/androidTest-results").get().asFile
+
+// Only a local canonical release may use a configured release keystore.
+// The release workflow builds unsigned and signs outside Gradle.
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
-val hasReleaseSigning = keystorePropertiesFile.exists()
+val hasReleaseSigning = !testApk && keystorePropertiesFile.isFile
 if (hasReleaseSigning) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
 android {
@@ -27,6 +31,7 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        resultsDir = androidTestResults.absolutePath
     }
 
     testCoverage {
@@ -40,6 +45,7 @@ android {
 
     defaultConfig {
         applicationId = "com.transcriber.app"
+        manifestPlaceholders["transcriberLabel"] = "Transcriber"
         // minSdk 26 for adaptive icons and the supported Android plugins.
         minSdk = 26
         targetSdk = 36
@@ -74,10 +80,14 @@ android {
             enableAndroidTestCoverage = true
         }
         release {
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (testApk) {
+                applicationIdSuffix = ".preview"
+                manifestPlaceholders["transcriberLabel"] = "Transcriber Test"
+            }
+            signingConfig = when {
+                testApk -> signingConfigs.getByName("debug")
+                hasReleaseSigning -> signingConfigs.getByName("release")
+                else -> null
             }
             isMinifyEnabled = false
             isShrinkResources = false
@@ -87,6 +97,9 @@ android {
 
 dependencies {
     constraints {
+        implementation("com.google.guava:guava:33.8.0-android") {
+            because("Fix GHSA-xxph-c9ww-hj94 in the Android application runtime")
+        }
         testImplementation("com.google.guava:guava:33.8.0-jre") {
             because("Fix GHSA-xxph-c9ww-hj94 in the Robolectric test runtime")
         }
@@ -95,14 +108,22 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("org.mockito:mockito-core:5.24.0")
     // Keep Kotlin's runtime lock graph stable (Gradle issue 21396).
-    testRuntimeOnly("org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21")
+    runtimeOnly("org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }
 
-// Keep the complete native unit-test graph reviewable and available to OSV.
-configurations.matching {
-    it.name in setOf("debugUnitTestCompileClasspath", "debugUnitTestRuntimeClasspath")
-}.configureEach {
+// The release and test graphs share one lockfile consumed by OSV.
+val auditedClasspaths = setOf(
+    "releaseRuntimeClasspath",
+    "debugAndroidTestRuntimeClasspath",
+    "debugUnitTestCompileClasspath",
+    "debugUnitTestRuntimeClasspath",
+)
+dependencyLocking {
+    lockMode.set(LockMode.STRICT)
+}
+configurations.matching { it.name in auditedClasspaths }.configureEach {
     resolutionStrategy.activateDependencyLocking()
 }
 
@@ -118,6 +139,18 @@ val robolectricSdks = listOf(
         resolutionStrategy.activateDependencyLocking()
     }.also {
         dependencies.add(it.name, "org.robolectric:android-all-instrumented:$version")
+    }
+}
+tasks.register("verifyAuditedAndroidDependencies") {
+    group = "verification"
+    description = "Resolve each Android dependency graph scanned by OSV."
+    doLast {
+        (auditedClasspaths.map(configurations::getByName) + robolectricSdks).forEach { configuration ->
+            configuration.incoming.artifactView {
+                // Verify external artifacts without building the dependent projects.
+                componentFilter { it is ModuleComponentIdentifier }
+            }.files.files
+        }
     }
 }
 val sandboxDirectory = layout.buildDirectory.dir("robolectric-sdks")
@@ -150,6 +183,8 @@ extra["requiredTestSourceRoot"] = file("src/test/kotlin")
 extra["requiredTestSourceFiles"] = fileTree("src/test/kotlin") {
     include("**/*Test.kt")
 }.files
+extra["requiredConnectedTestSourceRoot"] = file("src/androidTest/kotlin")
+extra["requiredConnectedTestResults"] = androidTestResults.resolve("connected/debug")
 apply(from = rootProject.file("../tool/ci/jvm/require_executed_tests.gradle.kts"))
 
 extra["coverageSources"] = fileTree("src/main/kotlin") { include("**/*.kt") }.files

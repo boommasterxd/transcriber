@@ -10,7 +10,7 @@ const { classifyPaths } = require('../../../tool/ci/detect-change-scope.cjs');
 const jobs = [
   'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
 ];
-const flags = ['workflow', 'dart', 'jvm', 'native', 'build', 'dependency_audit'];
+const flags = ['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'];
 const revisions = { base_sha: 'a'.repeat(40), head_sha: 'b'.repeat(40), merge_sha: 'c'.repeat(40) };
 
 function prerequisites(docsOnly = 'false') {
@@ -19,6 +19,7 @@ function prerequisites(docsOnly = 'false') {
       ...Object.fromEntries(flags.map((flag) => [flag, docsOnly === 'true' ? 'false' : 'true'])) } },
     ...Object.fromEntries(jobs.map((job) => [job, {
       result: docsOnly === 'true' || job === 'jvm-quality' ? 'skipped' : 'success',
+      ...(job === 'kotlin-quality' ? { outputs: { device_tests: docsOnly === 'true' ? 'skipped' : 'success' } } : {}),
     }])),
   };
 }
@@ -78,6 +79,7 @@ test('scoped plans require only their exact jobs, and every other job must be sk
     for (const flag of selected) needs.changes.outputs[flag] = 'true';
     needs.changes.outputs.dependency_audit = 'true';
     needs['dependency-audit'].result = 'success';
+    needs['kotlin-quality'].outputs.device_tests = selected.includes('device') ? 'success' : 'skipped';
     for (const job of required) needs[job].result = 'success';
     assert.doesNotThrow(() => requireCiSuccess(needs, revisions));
     for (const job of jobs) {
@@ -98,6 +100,20 @@ test('Android owns the JVM scope when both are selected', () => {
   assert.doesNotThrow(() => requireCiSuccess(needs, revisions));
   needs.changes.outputs.jvm = 'false';
   assert.throws(() => requireCiSuccess(needs, revisions), /JVM test scope/);
+});
+
+test('selected Android device tests need an actual successful step result', () => {
+  for (const result of ['failure', 'skipped', 'cancelled', '', undefined]) {
+    const needs = prerequisites();
+    needs['kotlin-quality'].outputs.device_tests = result;
+    assert.throws(() => requireCiSuccess(needs, revisions), /device tests must be success/);
+  }
+  const needs = prerequisites();
+  needs.changes.outputs.native = 'false';
+  assert.throws(() => requireCiSuccess(needs, revisions), /device tests require the Android quality job/);
+  needs.changes.outputs.native = 'true';
+  needs.changes.outputs.device = 'false';
+  assert.throws(() => requireCiSuccess(needs, revisions), /device tests must be skipped/);
 });
 
 test('a non-documentation plan cannot intentionally skip fresh dependency advisories', () => {

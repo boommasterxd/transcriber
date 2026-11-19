@@ -24,9 +24,14 @@ class ProviderCredentialForm extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final strings = ref.watch(stringsProvider);
+    final hintStyle = TextStyle(fontSize: 12, color: palette.muted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (provider == RemoteProviderId.google) ...[
+          Text(strings.geminiRequirements, style: hintStyle),
+          const SizedBox(height: 9),
+        ],
         _ProviderApiKeyInput(
           provider: provider,
           controller: controller,
@@ -40,15 +45,12 @@ class ProviderCredentialForm extends ConsumerWidget {
             status.verified ? strings.keyVerified : strings.keyCheckFailed,
             style: TextStyle(
               fontSize: 12,
-              color: status.verified ? palette.mint : palette.coralInk,
+              color: status.verified ? palette.mintInk : palette.coralInk,
             ),
           ),
         ],
         const SizedBox(height: 9),
-        Text(
-          strings.keyHint,
-          style: TextStyle(fontSize: 12, color: palette.faint),
-        ),
+        Text(strings.keyHint, style: hintStyle),
         const SizedBox(height: 4),
         Align(
           alignment: Alignment.centerLeft,

@@ -124,11 +124,7 @@ Future<void> verifyTranscriptCopy(
 ) async {
   await tester.tap(find.text(strings.shCopy));
   await tester.pump();
-  expect(
-    (clipboard.callNamed('Clipboard.setData')?.arguments
-        as Map<Object?, Object?>?)?['text'],
-    expectedText,
-  );
+  expect(clipboard.callNamed('setSensitiveText')?.arguments, expectedText);
   expect(find.text(strings.shCopied), findsOneWidget);
   await tester.pump(const Duration(milliseconds: 1601));
   expect(find.text(strings.shCopy), findsOneWidget);

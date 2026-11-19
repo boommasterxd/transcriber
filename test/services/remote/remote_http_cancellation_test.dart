@@ -13,6 +13,65 @@ void main() {
   _registerSuccessfulResponseTest();
   _registerOversizedResponseTest();
   _registerFailureTests();
+  _registerUserCancellationTests();
+}
+
+void _registerUserCancellationTests() {
+  test('an already cancelled run sends no HTTP request', () async {
+    final cancellation = RemoteCancellation()..cancel();
+    final client = RecordingHttpClient((_) async => textResponse('unexpected'));
+    await expectLater(
+      sendRemoteRequest(
+        client,
+        http.Request('POST', _url),
+        timeout: const Duration(seconds: 1),
+        cancellation: cancellation,
+      ),
+      throwsA(isA<RemoteRequestCancelledException>()),
+    );
+    expect(client.requests, isEmpty);
+  });
+
+  test(
+    'user cancellation aborts active transport and response consumption',
+    () async {
+      final cancellation = RemoteCancellation();
+      final listening = Completer<void>();
+      final transportAborted = Completer<void>();
+      final responseCancelled = Completer<void>();
+      final body = StreamController<List<int>>(
+        onListen: listening.complete,
+        onCancel: responseCancelled.complete,
+      );
+      final client = RecordingHttpClient((request) async {
+        unawaited(
+          (request as http.Abortable).abortTrigger!.then(
+            (_) => transportAborted.complete(),
+          ),
+        );
+        return http.StreamedResponse(body.stream, 200);
+      });
+      final result = sendRemoteRequest(
+        client,
+        http.Request('POST', _url),
+        timeout: const Duration(seconds: 5),
+        cancellation: cancellation,
+      );
+      final terminal = expectLater(
+        result,
+        throwsA(isA<RemoteRequestCancelledException>()),
+      );
+      await listening.future;
+      cancellation.cancel();
+      await Future.wait([
+        terminal,
+        transportAborted.future,
+        responseCancelled.future,
+      ]);
+      await body.close();
+      expect(client.closeCalls, 0);
+    },
+  );
 }
 
 void _registerDeadlineTests() {

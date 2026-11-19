@@ -69,6 +69,7 @@ final class _RecordingTranscriptionClient
     String audioPath, {
     String? languageCode,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
     transcribeCalls++;
     this.audioPath = audioPath;

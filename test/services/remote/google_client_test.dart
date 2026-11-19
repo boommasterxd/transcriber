@@ -206,7 +206,7 @@ Future<void> _testTranscription({
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/session'},
+          headers: {'x-goog-upload-url': googleUploadUrl('session')},
         ),
         jsonResponse({
           'file': {
@@ -242,16 +242,20 @@ Future<void> _testTranscription({
         httpClient.requests[0].headers['X-Goog-Upload-Header-Content-Type'],
         expectedMimeType,
       );
-      expect(
-        httpClient.requests[1].url.toString(),
-        'https://upload.test/session',
-      );
+      expect(httpClient.requests[1].url.toString(), googleUploadUrl('session'));
       expect(httpClient.requests[1].headers['Content-Type'], expectedMimeType);
       expect(httpClient.requests[2].url.path, '/v1beta/interactions');
       expect(httpClient.requests[3].method, 'DELETE');
       for (final request in httpClient.requests) {
-        expect(request.url.queryParameters, isEmpty);
-        expect(request.headers['x-goog-api-key'], 'secret-key');
+        final uploadsBytes = request.url.queryParameters.containsKey(
+          'upload_id',
+        );
+        expect(request.url.queryParameters.containsKey('key'), isFalse);
+        expect(
+          request.headers['x-goog-api-key'],
+          uploadsBytes ? isNull : 'secret-key',
+        );
+        expect(request.followRedirects, isFalse);
       }
       final interaction = jsonDecode(
         (httpClient.requests[2] as http.Request).body,
@@ -287,7 +291,7 @@ Future<void> _testMultimodalTranscription() async {
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/multimodal'},
+          headers: {'x-goog-upload-url': googleUploadUrl('multimodal')},
         ),
         jsonResponse({
           'file': {
@@ -344,7 +348,7 @@ Future<void> _testPolling() async {
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/poll'},
+          headers: {'x-goog-upload-url': googleUploadUrl('poll')},
         ),
         jsonResponse({
           'file': {
@@ -370,7 +374,6 @@ Future<void> _testPolling() async {
       final client = GoogleClient(
         apiKey: 'key',
         pollInterval: Duration.zero,
-        delay: (_) async {},
         httpClient: httpClient,
       );
 
@@ -394,7 +397,7 @@ Future<void> _testProviderError() async {
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/error'},
+          headers: {'x-goog-upload-url': googleUploadUrl('error')},
         ),
         jsonResponse({
           'file': {

@@ -12,16 +12,13 @@ class NoteSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
-          color: context.palette.ink,
-        ),
+    return Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.4,
+        color: context.palette.ink,
       ),
     );
   }
@@ -31,11 +28,13 @@ class NoteKeyPoints extends StatelessWidget {
   const NoteKeyPoints({
     super.key,
     required this.points,
+    required this.label,
     this.bottomPadding = 15,
     this.fontSize = 14.5,
   });
 
   final List<String> points;
+  final String label;
   final double bottomPadding;
   final double fontSize;
 
@@ -48,11 +47,13 @@ class NoteKeyPoints extends StatelessWidget {
       gap: 11,
       lineHeight: 1.45,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final point in points)
-          _NoteTextRow(
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(child: NoteSectionLabel(label)),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverList.builder(
+          itemCount: points.length,
+          itemBuilder: (context, index) => _NoteTextRow(
             leading: Container(
               width: 7,
               height: 7,
@@ -62,9 +63,10 @@ class NoteKeyPoints extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            text: point,
+            text: points[index],
             style: style,
           ),
+        ),
       ],
     );
   }
@@ -79,25 +81,28 @@ class NoteTodoHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         NoteSectionLabel(label),
-        const SizedBox(width: 8),
         Container(
-          constraints: const BoxConstraints(minWidth: 20),
-          height: 20,
+          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
           padding: const EdgeInsets.symmetric(horizontal: 5),
           decoration: BoxDecoration(
-            color: palette.coral,
+            color: palette.coralSoft,
             borderRadius: BorderRadius.circular(9999),
           ),
           child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
             child: Text(
               '$count',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: palette.coralInk,
               ),
             ),
           ),
@@ -107,78 +112,72 @@ class NoteTodoHeader extends StatelessWidget {
   }
 }
 
-class EditableNoteTodos extends StatelessWidget {
-  const EditableNoteTodos.phone({
+class NoteTodos extends StatelessWidget {
+  const NoteTodos.phone({
     super.key,
     required this.todos,
     required this.strings,
     required this.onToggle,
   }) : bottomPadding = 10;
 
-  const EditableNoteTodos.tablet({
+  const NoteTodos.tablet({
     super.key,
     required this.todos,
     required this.strings,
     required this.onToggle,
   }) : bottomPadding = 9;
 
+  const NoteTodos.preview({
+    super.key,
+    required this.todos,
+    required this.strings,
+  }) : onToggle = null,
+       bottomPadding = 12;
+
   final List<TodoItem> todos;
   final AppStrings strings;
-  final ValueChanged<int> onToggle;
+  final ValueChanged<int>? onToggle;
   final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        NoteTodoHeader(count: todos.length, label: strings.shActions),
-        const SizedBox(height: 12),
-        for (var index = 0; index < todos.length; index++)
-          Padding(
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: TodoTile(
-              text: todos[index].text,
-              done: todos[index].done,
-              onToggle: () => onToggle(index),
-            ),
-          ),
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: NoteTodoHeader(count: todos.length, label: strings.shActions),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverList.builder(itemCount: todos.length, itemBuilder: _buildTodo),
       ],
     );
   }
-}
 
-class TranscriptRows extends StatelessWidget {
-  const TranscriptRows({
-    super.key,
-    required this.lines,
-    this.bottomPadding = 15,
-    this.fontSize = 14.5,
-  });
-
-  final List<TranscriptLine> lines;
-  final double bottomPadding;
-  final double fontSize;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final line in lines)
-          Padding(
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: Text(
-              line.text,
-              style: TextStyle(
-                fontSize: fontSize,
-                height: 1.5,
-                color: palette.body,
-              ),
-            ),
-          ),
-      ],
+  Widget _buildTodo(BuildContext context, int index) {
+    final todo = todos[index];
+    final toggle = onToggle;
+    if (toggle == null) {
+      return _NoteTextRow(
+        leading: Icon(
+          Icons.check_circle_outline_rounded,
+          size: 18,
+          color: context.palette.coral,
+        ),
+        text: todo.text,
+        style: const _NoteRowStyle(
+          bottomPadding: 12,
+          fontSize: 14.5,
+          gap: 11,
+          lineHeight: 1.45,
+        ),
+      );
+    }
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: TodoTile(
+        text: todo.text,
+        done: todo.done,
+        onToggle: () => toggle(index),
+      ),
     );
   }
 }

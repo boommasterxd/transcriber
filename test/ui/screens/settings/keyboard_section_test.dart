@@ -35,7 +35,22 @@ void main() {
 
     expect(find.text('Aktuell ausgewählt'), findsOneWidget);
     expect(find.textContaining('gemini-3.5-transcribe-live'), findsOneWidget);
-    expect(find.textContaining('nicht gespeichert'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'an den gewählten Cloud-Anbieter und speichert auf dem Gerät keine Audiodatei',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'Aufbewahrung und Kosten richten sich nach deinem Anbieterkonto',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Der erkannte Text erscheint in der geöffneten App'),
+      findsOneWidget,
+    );
     expect(find.text('Einrichtung starten'), findsNothing);
     await tester.tap(find.text('Tastatur verwalten'));
     await tester.pumpAndSettle();

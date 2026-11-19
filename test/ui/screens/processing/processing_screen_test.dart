@@ -19,7 +19,12 @@ import '../../../support/app_test_fakes.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
+  _registerStatusTests(strings);
+  _registerProcessingNavigationTests(strings);
+  _registerReentryNavigationTest();
+}
 
+void _registerStatusTests(AppStrings strings) {
   testWidgets('renders a running transcription with cloud metadata', (
     tester,
   ) async {
@@ -37,9 +42,13 @@ void main() {
     expect(controller.lastFileName, 'meeting.m4a');
   });
 
-  testWidgets('renders cloud summarization status and both steps', (
+  testWidgets('cloud summarization remains readable in landscape at 200%', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(640, 320));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final controller = _FakeProcessingController(
       const ProcessingState(running: true, step: ProcessingStep.summarizing),
     );
@@ -49,8 +58,17 @@ void main() {
     expect(find.text('gemini-3.7-flash · Google Gemini'), findsOneWidget);
     expect(find.text(strings.shStep1), findsOneWidget);
     expect(find.text(strings.shStep2), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text(strings.shStep2));
+    await tester.pump();
+    expect(
+      tester.getBottomLeft(find.text(strings.shStep2)).dy,
+      lessThanOrEqualTo(320),
+    );
   });
+}
 
+void _registerProcessingNavigationTests(AppStrings strings) {
   testWidgets('dismisses a normal processing error', (tester) async {
     final controller = _FakeProcessingController(
       const ProcessingState(error: RemoteApiException('Provider unavailable')),
@@ -113,8 +131,6 @@ void main() {
     );
     expect(detail.noteId, 'note-42');
   });
-
-  _registerReentryNavigationTest();
 }
 
 void _registerReentryNavigationTest() {

@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { spawnSync, execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -123,4 +124,57 @@ test('stamping preserves the validated version and build number for packaging', 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.readFileSync(pubspec, 'utf8'), 'name: fixture\nversion: 1.2.3-rc.1+42\n');
   assert.equal(fs.existsSync(`${pubspec}.bak`), false);
+});
+
+test('release source requires a manual dispatch from protected main with reachable code', (t) => {
+  const { root, git, built, current } = releaseRepository(t);
+  const verify = (...args) => runScript('verify_release_source.sh', args, { cwd: root });
+  git('update-ref', 'refs/remotes/origin/main', built);
+  assert.match(verify('workflow_dispatch', 'refs/heads/main', 'true').stderr, /reachable from main/);
+
+  git('update-ref', 'refs/remotes/origin/main', current);
+  const approved = verify('workflow_dispatch', 'refs/heads/main', 'true');
+  assert.equal(approved.status, 0, approved.stderr);
+  for (const args of [
+    ['workflow_dispatch', 'refs/heads/main', 'false'],
+    ['workflow_dispatch', 'refs/heads/feature', 'true'],
+    ['workflow_dispatch', 'refs/tags/v2.0.0', 'true'],
+    ['push', 'refs/tags/v2.0.0', 'true'],
+  ]) {
+    const rejected = verify(...args);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /manual dispatch from protected main/);
+  }
+});
+
+test('release version code supersedes old APKs and stays within Android bounds', () => {
+  const first = runScript('android_release_version_code.sh', ['1']);
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(first.stdout, '1001\n');
+  const last = runScript('android_release_version_code.sh', ['2099999000']);
+  assert.equal(last.status, 0, last.stderr);
+  assert.equal(last.stdout, '2100000000\n');
+  for (const input of ['0', '08', '2099999001', '9223372036854775808']) {
+    assert.notEqual(runScript('android_release_version_code.sh', [input]).status, 0);
+  }
+});
+
+test('publisher accepts exactly the expected APK and its verified checksum', (t) => {
+  const artifact = fs.mkdtempSync(path.join(os.tmpdir(), 'transcriber-artifact-'));
+  t.after(() => fs.rmSync(artifact, { recursive: true, force: true }));
+  const apk = 'transcriber-2.0.0-android.apk';
+  const contents = 'APK fixture bytes';
+  const checksum = createHash('sha256').update(contents).digest('hex');
+  const verify = () => runScript('verify_release_assets.sh', ['2.0.0', artifact]);
+  fs.writeFileSync(path.join(artifact, 'SHA256SUMS'), `${checksum}  ${apk}\n`);
+  assert.notEqual(verify().status, 0, 'reject checksum-only artifact');
+
+  fs.writeFileSync(path.join(artifact, apk), 'different bytes');
+  assert.notEqual(verify().status, 0, 'reject checksum mismatch');
+  fs.writeFileSync(path.join(artifact, apk), contents);
+  const correct = verify();
+  assert.equal(correct.status, 0, correct.stderr);
+
+  fs.writeFileSync(path.join(artifact, 'unexpected.apk'), contents);
+  assert.notEqual(verify().status, 0, 'reject extra APKs');
 });

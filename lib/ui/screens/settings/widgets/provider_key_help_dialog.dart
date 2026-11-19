@@ -48,7 +48,7 @@ class ProviderKeyHelpDialog extends ConsumerWidget {
           child: Text(
             t.openPage,
             style: TextStyle(
-              color: palette.accent,
+              color: palette.accentDeep,
               fontWeight: FontWeight.w700,
             ),
           ),

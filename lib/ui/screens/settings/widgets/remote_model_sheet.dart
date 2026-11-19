@@ -12,7 +12,7 @@ import '../../../../state/connections_controller.dart';
 import '../../../../state/remote_models_provider.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/surfaces.dart';
-import 'model_sheet_frame.dart';
+import '../../../widgets/app_bottom_sheet.dart';
 import 'remote_model_options.dart';
 import 'remote_stage.dart';
 
@@ -24,17 +24,9 @@ Future<RemoteModelSelection?> showRemoteModelSheet(
   required List<RemoteProviderId> allowedProviders,
 }) {
   FocusManager.instance.primaryFocus?.unfocus();
-  return showModalBottomSheet<RemoteModelSelection>(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
+  return showAppBottomSheet<RemoteModelSelection>(
+    context,
     useSafeArea: true,
-    showDragHandle: false,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
-    constraints: MediaQuery.sizeOf(context).width >= 720
-        ? const BoxConstraints(maxWidth: 600)
-        : null,
     builder: (_) => RemoteModelSheet(
       stage: stage,
       selection: selection,
@@ -214,7 +206,10 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
     final catalog = providers.isEmpty
         ? null
         : ref.watch(remoteModelsProvider(_query));
-    return ModelSheetFrame(child: _catalogBody(strings, providers, catalog));
+    return AppBottomSheetFrame(
+      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+      child: _catalogBody(strings, providers, catalog),
+    );
   }
 }
 
@@ -249,7 +244,7 @@ class _ProviderChoices extends StatelessWidget {
               style: TextButton.styleFrom(
                 minimumSize: const Size(48, 48),
                 foregroundColor: provider == selected
-                    ? context.palette.accent
+                    ? context.palette.accentDeep
                     : context.palette.body,
                 backgroundColor: provider == selected
                     ? context.palette.accentSoft

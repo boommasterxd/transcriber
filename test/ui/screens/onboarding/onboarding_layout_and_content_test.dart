@@ -11,7 +11,6 @@ import 'onboarding_test_support.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
-  useGrantedOnboardingPermissions();
   _registerCloudStepTests(strings);
   _registerLayoutTests(strings);
 }
@@ -64,7 +63,10 @@ void _registerLayoutTests(AppStrings strings) {
   testWidgets('layout forwards back and labels the final action', (
     tester,
   ) async {
-    final controller = PageController(initialPage: 5);
+    final semantics = tester.ensureSemantics();
+    final controller = PageController(
+      initialPage: OnboardingLayout.stepCount - 1,
+    );
     addTearDown(controller.dispose);
     var backCalls = 0;
     var nextCalls = 0;
@@ -72,7 +74,7 @@ void _registerLayoutTests(AppStrings strings) {
       tester,
       child: OnboardingLayout(
         controller: controller,
-        step: 5,
+        step: OnboardingLayout.stepCount - 1,
         strings: strings,
         gate: const OnboardingStepGate(ready: true),
         navigation: (
@@ -87,6 +89,12 @@ void _registerLayoutTests(AppStrings strings) {
     await tester.tap(find.text(strings.obStart));
     expect(backCalls, 1);
     expect(nextCalls, 1);
+    const step = OnboardingLayout.stepCount;
+    final progress = tester.semantics.find(
+      find.bySemanticsLabel(strings.onboardingProgress(step, step)),
+    );
+    expect(progress.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+    semantics.dispose();
   });
 
   testWidgets('layout replaces a blocked action with each gate hint', (
@@ -95,7 +103,6 @@ void _registerLayoutTests(AppStrings strings) {
     final hints = <OnboardingGateHint, String>{
       OnboardingGateHint.connectProvider: strings.obConnectHint,
       OnboardingGateHint.selectModels: strings.obSelectModelsHint,
-      OnboardingGateHint.grantPermissions: strings.obPermLocked,
     };
     for (final entry in hints.entries) {
       final controller = PageController(initialPage: 1);

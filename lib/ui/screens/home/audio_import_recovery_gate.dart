@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/toast.dart';
+import '../../../services/storage/audio_cache_manager.dart';
 import '../../../state/providers.dart';
 import '../../../state/settings_controller.dart';
 import 'audio_import.dart';
@@ -26,6 +27,7 @@ class AudioImportRecoveryGate extends ConsumerStatefulWidget {
 
 class _AudioImportRecoveryGateState
     extends ConsumerState<AudioImportRecoveryGate> {
+  late final AudioCacheManager _cacheManager;
   AudioImportSelection? _selection;
   bool _failed = false;
   bool _scheduled = false;
@@ -33,14 +35,27 @@ class _AudioImportRecoveryGateState
   @override
   void initState() {
     super.initState();
+    _cacheManager = ref.read(audioCacheManagerProvider);
     unawaited(_recover());
   }
 
+  @override
+  void dispose() {
+    if (_selection case final selection?) {
+      unawaited(discardPickedAudio(_cacheManager, selection));
+    }
+    super.dispose();
+  }
+
   Future<void> _recover() async {
+    final picker = ref.read(audioImportPickerProvider);
     try {
-      _selection = await ref
-          .read(audioImportPickerProvider)
-          .recoverInterruptedPick();
+      final selection = await picker.recoverInterruptedPick();
+      if (selection != null && (!mounted || picker.recoverySuperseded)) {
+        await discardPickedAudio(_cacheManager, selection);
+        return;
+      }
+      _selection = selection;
     } on Object {
       _failed = true;
     }
@@ -66,9 +81,11 @@ class _AudioImportRecoveryGateState
   Future<void> _offer() async {
     final selection = _selection;
     _selection = null;
-    if (ref.read(audioImportPickerProvider).recoverySuperseded ||
+    final picker = ref.read(audioImportPickerProvider);
+    if (picker.recoverySuperseded ||
         ModalRoute.of(context)?.isCurrent != true) {
       _failed = false;
+      if (selection != null) await discardPickedAudio(_cacheManager, selection);
       return;
     }
     final strings = ref.read(stringsProvider);
@@ -95,10 +112,16 @@ class _AudioImportRecoveryGateState
         ],
       ),
     );
-    if (accepted != true || !mounted || !widget.ready) return;
+    if (accepted != true ||
+        !mounted ||
+        !widget.ready ||
+        picker.recoverySuperseded) {
+      await discardPickedAudio(_cacheManager, selection);
+      return;
+    }
     await startAudioImport(
       context,
-      cacheManager: ref.read(audioCacheManagerProvider),
+      cacheManager: _cacheManager,
       strings: ref.read(stringsProvider),
       picker: () async => selection,
     );

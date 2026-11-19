@@ -144,12 +144,14 @@ internal class ShareAudioCache(
         return supportedMimeExtensions[normalizedMimeType]?.let { "$name.$it" }
     }
 
-    private companion object {
-        const val maximumAudioBytes = 250L * 1024L * 1024L
-        val supportedExtensions = setOf(
+    companion object {
+        fun displayNameFromPath(path: String): String = File(path).name.split('_', limit = 3).last()
+
+        private const val maximumAudioBytes = 250L * 1024L * 1024L
+        private val supportedExtensions = setOf(
             "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm",
         )
-        val supportedMimeExtensions = mapOf(
+        private val supportedMimeExtensions = mapOf(
             "audio/flac" to "flac",
             "audio/m4a" to "m4a",
             "audio/mp3" to "mp3",

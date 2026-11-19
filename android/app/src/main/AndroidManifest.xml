@@ -4,7 +4,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
-        android:label="Transcriber"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:label="${transcriberLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -38,7 +41,7 @@
             android:launchMode="standard"
             android:taskAffinity=""
             android:excludeFromRecents="true"
-            android:label="Transcriber"
+            android:label="${transcriberLabel}"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -61,7 +64,7 @@
         <service
             android:name=".TranscriberInputMethodService"
             android:exported="true"
-            android:label="Transcriber"
+            android:label="${transcriberLabel}"
             android:permission="android.permission.BIND_INPUT_METHOD">
             <intent-filter>
                 <action android:name="android.view.InputMethod" />

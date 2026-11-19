@@ -118,6 +118,7 @@ final class _RecordingSummaryClient implements SummaryProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
     chatCalls++;
     system = systemPrompt;

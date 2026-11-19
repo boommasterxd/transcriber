@@ -17,6 +17,9 @@ void main() {
   _registerQueryTests(fixture);
   _registerProjectionTests(fixture);
   _registerCursorPlanTest(fixture);
+  _registerIndexedSearchTest(fixture);
+  _registerCommonSearchTest(fixture);
+  _registerCountReuseTest(fixture);
   _registerMutationTests(fixture);
 }
 
@@ -197,22 +200,93 @@ void _registerProjectionTests(_HistoryFixture fixture) {
       ]) {
         expect(statements, isNot(contains(excluded)));
       }
-      expect(fixture.trace.selects, hasLength(2));
+      expect(fixture.trace.selects, hasLength(3));
       final historyQuery = fixture.trace.selects.last;
       expect(historyQuery.$2.last, 3);
-      final plans = await fixture.database
-          .customSelect(
-            'EXPLAIN QUERY PLAN ${historyQuery.$1}',
-            variables: historyQuery.$2.map(Variable.new).toList(),
-          )
-          .get();
-      final details = plans.map((row) => row.read<String>('detail')).join('\n');
+      final details = await fixture.explain(historyQuery);
       expect(details, contains('notes_history_order'));
       expect(details, contains('SEARCH t USING COVERING INDEX'));
       expect(details, isNot(contains('TEMP B-TREE')));
       expect(details, isNot(contains('SCAN t')));
     },
   );
+}
+
+void _registerIndexedSearchTest(_HistoryFixture fixture) {
+  test(
+    'literal indexed search uses the virtual table and supports short text',
+    () async {
+      final repository = fixture.repository;
+      await repository.add(_note('quoted', title: '💡ÄÖ "plan"'));
+      fixture.trace.selects.clear();
+      expect(
+        (await repository.loadHistoryPage(query: 'ÄÖ "')).entries.single.id,
+        'quoted',
+      );
+      for (final statement in fixture.trace.selects.skip(1).toList()) {
+        expect(
+          await fixture.explain(statement),
+          contains('VIRTUAL TABLE INDEX'),
+        );
+      }
+      expect(
+        (await repository.loadHistoryPage(query: '💡ä')).entries.single.id,
+        'quoted',
+      );
+      await repository.remove('quoted');
+      expect(
+        (await repository.loadHistoryPage(query: '"plan"')).entries,
+        isEmpty,
+      );
+    },
+  );
+}
+
+void _registerCountReuseTest(_HistoryFixture fixture) {
+  test('stable history pages reuse the exact total until another writer changes it', () async {
+    final repository = fixture.repository;
+    final first = await repository.loadHistoryPage(query: 'Note', limit: 2);
+    fixture.trace.selects.clear();
+    final cursor = HistoryCursor.fromEntry(first.entries.last);
+    final next = await repository.loadHistoryPage(
+      query: 'NOTE',
+      cursor: cursor,
+      limit: 2,
+    );
+    expect(next.totalCount, 5);
+    expect(fixture.trace.selects, hasLength(2));
+    expect(
+      fixture.trace.selects.map((entry) => entry.$1).join(),
+      isNot(contains('AS total FROM notes')),
+    );
+
+    await NotesRepository(fixture.database).remove('a');
+    fixture.trace.selects.clear();
+    final changed = await repository.loadHistoryPage(
+      query: 'note',
+      cursor: cursor,
+    );
+    expect(changed.totalCount, 4);
+    expect(changed.entries.map((entry) => entry.id), ['c', 'b']);
+    expect(fixture.trace.selects, hasLength(4));
+  });
+}
+
+void _registerCommonSearchTest(_HistoryFixture fixture) {
+  test('common title matches keep using chronological keyset order', () async {
+    final repository = fixture.repository;
+    await repository.saveAll([
+      for (var index = 0; index < 520; index++)
+        _note('$index', title: 'Common title $index'),
+    ]);
+    fixture.trace.selects.clear();
+    final page = await repository.loadHistoryPage(query: 'common');
+    expect(page.totalCount, 520);
+    expect(page.entries, hasLength(50));
+    final plan = await fixture.explain(fixture.trace.selects.last);
+    expect(plan, contains('notes_history_order'));
+    expect(plan, isNot(contains('TEMP B-TREE')));
+  });
 }
 
 void _registerMutationTests(_HistoryFixture fixture) {
@@ -266,17 +340,9 @@ void _registerCursorPlanTest(_HistoryFixture fixture) {
           previous: previous,
           limit: 2,
         );
-        final (sql, args) = fixture.trace.selects.last;
-        expect(sql, isNot(contains('OFFSET')));
-        final plan = await fixture.database
-            .customSelect(
-              'EXPLAIN QUERY PLAN $sql',
-              variables: args.map(Variable.new).toList(),
-            )
-            .get();
-        final details = plan
-            .map((row) => row.read<String>('detail'))
-            .join('\n');
+        final statement = fixture.trace.selects.last;
+        expect(statement.$1, isNot(contains('OFFSET')));
+        final details = await fixture.explain(statement);
         expect(details, contains('SEARCH n USING INDEX notes_history_order'));
         expect(details, isNot(contains('TEMP B-TREE')));
         expect(details, isNot(contains('SCAN t')));
@@ -289,6 +355,17 @@ final class _HistoryFixture {
   late AppDatabase database;
   late NotesRepository repository;
   late DatabaseQueryTrace trace;
+
+  Future<String> explain((String, List<Object?>) statement) async {
+    final (sql, args) = statement;
+    final plan = await database
+        .customSelect(
+          'EXPLAIN QUERY PLAN $sql',
+          variables: args.map(Variable.new).toList(),
+        )
+        .get();
+    return plan.map((row) => row.read<String>('detail')).join('\n');
+  }
 
   Future<void> setUp() async {
     trace = DatabaseQueryTrace();

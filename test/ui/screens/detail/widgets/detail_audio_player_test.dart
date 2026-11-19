@@ -1,10 +1,17 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show SemanticsAction;
 
-import 'package:material_ui/material_ui.dart';
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show GlobalCupertinoLocalizations;
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'
+    show GlobalWidgetsLocalizations;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/core/theme/app_palette.dart';
+import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/ui/screens/detail/widgets/detail_audio_player.dart';
 import 'package:transcriber/ui/widgets/waveforms.dart';
 
@@ -14,6 +21,7 @@ void main() {
   tearDown(fixture.dispose);
   _registerAvailabilityTests(fixture);
   _registerInteractionTests(fixture);
+  _registerCompletionTests(fixture);
   _registerPositionTests(fixture);
   _registerLifecycleTests(fixture);
 }
@@ -34,7 +42,7 @@ void _registerAvailabilityTests(_AudioFileFixture fixture) {
     );
 
     expect(factoryCalls, 0);
-    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    _expectDisabledControls(tester);
     expect(find.text('0:00 / 0:42'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.play_arrow));
@@ -90,30 +98,78 @@ void _registerInteractionTests(_AudioFileFixture fixture) {
     );
 
     expect(find.text('0:00 / 0:08'), findsOneWidget);
-    final waveform = tester.widget<PlayerWave>(find.byType(PlayerWave));
-    waveform.onSeek!(-0.25);
-    waveform.onSeek!(1.25);
-
-    expect(player.seekPositions, [Duration.zero, const Duration(seconds: 8)]);
+    await tester.tap(find.byType(Slider));
+    expect(player.seekPositions, [const Duration(seconds: 4)]);
   });
 
-  testWidgets('toggles play and pause from reported playback state', (
-    tester,
-  ) async {
-    final player = _FakePlayer(loadedDuration: const Duration(seconds: 10));
+  testWidgets('plays, pauses and seeks with a keyboard', (tester) async {
+    final player = _FakePlayer(loadedDuration: const Duration(seconds: 120));
     await _pumpPlayer(tester, audioPath: fixture.audioPath, player: player);
 
-    await tester.tap(find.byIcon(Icons.play_arrow));
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     expect(player.playCalls, 1);
 
     player.emitPlayback(playing: true);
     await tester.pump();
-    expect(find.byIcon(Icons.pause), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.pause));
+    expect(
+      find.byTooltip(AppStrings.of(AppLanguage.en).audioPause),
+      findsOneWidget,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
     expect(player.pauseCalls, 1);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(player.seekPositions, [const Duration(seconds: 6)]);
   });
 
+  testWidgets('exposes the localized playback and adjustable position', (
+    tester,
+  ) async {
+    tester.platformDispatcher.localesTestValue = const [Locale('de')];
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(240, 640);
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final player = _FakePlayer(loadedDuration: const Duration(seconds: 120));
+    await _pumpPlayer(
+      tester,
+      audioPath: fixture.audioPath,
+      player: player,
+      brightness: Brightness.dark,
+    );
+    player.emitPosition(const Duration(minutes: 1));
+    await tester.pump();
+
+    final strings = AppStrings.of(AppLanguage.de);
+    final button = find.byType(IconButton);
+    final playback = tester.getSemantics(button).getSemanticsData();
+    expect(playback.tooltip, strings.audioPlay);
+    expect(playback.hasAction(SemanticsAction.tap), isTrue);
+    expect(tester.getSize(button).shortestSide, greaterThanOrEqualTo(48));
+
+    final position = tester.getSemantics(
+      find.bySemanticsLabel(strings.audioPosition),
+    );
+    final data = position.getSemanticsData();
+    expect(data.flagsCollection.isSlider, isTrue);
+    expect(data.value, strings.audioPositionValue('1:00', '2:00'));
+    expect(data.hasAction(SemanticsAction.increase), isTrue);
+    expect(data.hasAction(SemanticsAction.decrease), isTrue);
+    expect(position.rect.shortestSide, greaterThanOrEqualTo(48));
+    position.owner!.performAction(position.id, SemanticsAction.decrease);
+    expect(player.seekPositions, [const Duration(seconds: 54)]);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+void _registerCompletionTests(_AudioFileFixture fixture) {
   testWidgets('resets and pauses completed playback', (tester) async {
     final player = _FakePlayer(loadedDuration: const Duration(seconds: 10));
     await _pumpPlayer(tester, audioPath: fixture.audioPath, player: player);
@@ -187,6 +243,7 @@ void _registerLifecycleTests(_AudioFileFixture fixture) {
     final loadCompleter = Completer<Duration?>();
     final player = _FakePlayer(loadCompleter: loadCompleter);
     await _pumpPlayer(tester, audioPath: fixture.audioPath, player: player);
+    _expectDisabledControls(tester);
 
     await tester.pumpWidget(const SizedBox());
     loadCompleter.complete(const Duration(seconds: 10));
@@ -197,6 +254,11 @@ void _registerLifecycleTests(_AudioFileFixture fixture) {
     expect(player.hasPlaybackListener, isFalse);
     expect(tester.takeException(), isNull);
   });
+}
+
+void _expectDisabledControls(WidgetTester tester) {
+  expect(tester.widget<IconButton>(find.byType(IconButton)).onPressed, isNull);
+  expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
 }
 
 class _AudioFileFixture {
@@ -222,13 +284,18 @@ Future<void> _pumpPlayer(
   int durationSec = 30,
   _FakePlayer? player,
   DetailAudioPlayerFactory? playerFactory,
+  Brightness brightness = Brightness.light,
 }) async {
   final resolvedPlayer = player ?? _FakePlayer();
   await tester.pumpWidget(
     MaterialApp(
-      theme: ThemeData(
-        extensions: <ThemeExtension<dynamic>>[AppPalette.light(AppAccent.blue)],
-      ),
+      theme: AppTheme.build(brightness, AppAccent.blue),
+      supportedLocales: const [Locale('en'), Locale('de')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: Scaffold(
         body: DetailAudioPlayer(
           key: UniqueKey(),

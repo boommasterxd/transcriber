@@ -97,6 +97,39 @@ class PcmAudioRecorderTest {
     }
 
     @Test
+    fun rejectedPcmDeliveryReleasesCaptureAndAllowsAnotherStart() {
+        allowMicrophone()
+        val released = CountDownLatch(2)
+        val offers = java.util.concurrent.atomic.AtomicInteger()
+        audioMinimum(320).use {
+            mockConstruction(AudioRecord::class.java) { record, _ ->
+                `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
+                `when`(record.read(any(ByteArray::class.java), anyInt(), anyInt(), anyInt())).thenReturn(2)
+                doAnswer {
+                    released.countDown()
+                    null
+                }.`when`(record).release()
+            }.use {
+                val recorder = PcmAudioRecorder(context) {
+                    PcmCaptureEvents(
+                        offer = { _, _ ->
+                            offers.incrementAndGet()
+                            false
+                        },
+                        fail = { error(it) },
+                    )
+                }
+                assertTrue(recorder.start(16_000))
+                val stopped = org.mockito.Mockito.timeout(5_000)
+                verify(it.constructed().single(), stopped).release()
+                assertTrue(recorder.start(16_000))
+                assertTrue(released.await(5, TimeUnit.SECONDS))
+                assertEquals(2, offers.get())
+            }
+        }
+    }
+
+    @Test
     fun pauseStopsCaptureAndResumeUsesThePreviousRateWithoutLeakingTheWorker() {
         allowMicrophone()
         val reading = CountDownLatch(1)

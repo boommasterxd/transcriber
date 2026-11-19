@@ -122,6 +122,10 @@ void _registerSettingsHostTest(
           _bootstrap(currentDatabase(), cacheManager: fixture.cacheManager),
     );
     await tester.pumpAndSettle();
+    expect(find.text(strings.shareConfirmTitle), findsOneWidget);
+    expect(find.text(strings.goToSettings), findsNothing);
+    await tester.tap(find.text(strings.shareConfirmAction));
+    await tester.pumpAndSettle();
     expect(find.text(strings.goToSettings), findsOneWidget);
 
     await tester.tap(find.text(strings.goToSettings));
@@ -133,7 +137,7 @@ void _registerSettingsHostTest(
 
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    expect(find.text(strings.goToSettings), findsOneWidget);
+    expect(find.text(strings.shareConfirmTitle), findsOneWidget);
     expect(channel.calls, ['getInitialSharedPath']);
     expect(await tester.runAsync(fixture.audio.exists), isTrue);
 

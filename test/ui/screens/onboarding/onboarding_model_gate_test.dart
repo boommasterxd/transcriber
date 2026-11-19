@@ -16,7 +16,6 @@ import 'onboarding_test_support.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
-  useGrantedOnboardingPermissions();
   _registerUnavailableCatalogs(strings);
   _registerModelSelection(strings);
   _registerOptionalSummary(strings);

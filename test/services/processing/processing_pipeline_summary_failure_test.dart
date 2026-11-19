@@ -41,8 +41,7 @@ void main() {
       expect(client.closeCalls, provider == RemoteProviderId.openai ? 2 : 1);
       expect(clients.clients[RemoteProviderId.openai]!.transcriptionCalls, 1);
       expect(steps, [ProcessingStep.transcribing, ProcessingStep.summarizing]);
-      expect(note.audioOwnership, AudioOwnership.retained);
-      expect(await File(note.audioPath!).readAsBytes(), [1, 2, 3]);
+      expect(note.audioPath, isNull);
       expect(await File(audio.path).exists(), isTrue);
     });
   }

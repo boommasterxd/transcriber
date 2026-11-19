@@ -16,6 +16,7 @@ import 'package:transcriber/state/dictation_state.dart';
 import 'dictation_test_support.dart';
 
 part 'dictation_controller_session_cases.dart';
+part 'dictation_controller_race_cases.dart';
 
 late AppDatabase database;
 late SettingsRepository repository;
@@ -80,6 +81,7 @@ void main() {
   _registerRecoveryTests();
   _registerEditorActionTests();
   _registerResourceLifecycleTests();
+  _registerSessionRaceTests();
 }
 
 void _registerStartupAndEditingTests() {

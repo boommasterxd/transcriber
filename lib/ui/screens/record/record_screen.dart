@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
@@ -22,6 +23,7 @@ class RecordScreen extends ConsumerStatefulWidget {
 
 class _RecordScreenState extends ConsumerState<RecordScreen> {
   bool _busy = false;
+  bool _cancelling = false;
 
   @override
   void initState() {
@@ -30,11 +32,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _begin() async {
+    if (!mounted || _cancelling) return;
     try {
+      final permission = await Permission.microphone.request();
+      if (!mounted || _cancelling) return;
+      if (!permission.isGranted) {
+        _showPermissionError(openSettings: permission.isPermanentlyDenied);
+        return;
+      }
       final ok = await ref.read(recordingControllerProvider.notifier).start();
-      if (!ok && mounted) _showPermissionError();
+      if (!ok && mounted && !_cancelling) _showPermissionError();
     } catch (_) {
-      if (mounted) _showRecordingError();
+      if (mounted && !_cancelling) _showRecordingError();
     }
   }
 
@@ -44,18 +53,25 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     );
   }
 
-  void _showPermissionError() {
+  void _showPermissionError({bool openSettings = false}) {
     final t = ref.read(stringsProvider);
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
-        content: Text('${t.micPermissionTitle}: ${t.micPermissionBody}'),
+        content: Text(t.micPermissionBody),
+        action: openSettings
+            ? SnackBarAction(
+                label: t.micPermissionSettings,
+                onPressed: openAppSettings,
+              )
+            : null,
       ),
     );
   }
 
   Future<void> _stop() async {
-    if (_busy) return;
+    if (_busy || _cancelling) return;
     setState(() => _busy = true);
     try {
       await _finishRecording();
@@ -89,16 +105,19 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _cancel() async {
-    if (_busy) return;
+    if (_busy || _cancelling) return;
+    _cancelling = true;
     try {
       await ref.read(recordingControllerProvider.notifier).cancel();
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
+      _cancelling = false;
       if (mounted) _showRecordingError();
     }
   }
 
   Future<void> _togglePause() async {
+    if (_cancelling) return;
     try {
       await ref.read(recordingControllerProvider.notifier).togglePause();
     } catch (_) {
@@ -116,6 +135,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     final active = ref.watch(
       recordingControllerProvider.select((state) => state.active),
     );
+    final captured = ref.watch(
+      recordingControllerProvider.select((state) => state.path != null),
+    );
 
     return PopScope(
       canPop: false,
@@ -129,14 +151,16 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
             children: [
               RecordHeader(title: strings.recTitle, onCancel: _cancel),
               Expanded(
-                child: RecordBody(paused: paused, strings: strings),
+                child: captured
+                    ? RecordBody(paused: paused, strings: strings)
+                    : const SizedBox.shrink(),
               ),
               RecordControls(
                 paused: paused,
                 strings: strings,
                 actions: RecordingActions(
                   cancel: _busy ? null : _cancel,
-                  stop: _busy ? null : _stop,
+                  stop: captured && !_busy ? _stop : null,
                   togglePause: active && !_busy ? _togglePause : null,
                 ),
               ),

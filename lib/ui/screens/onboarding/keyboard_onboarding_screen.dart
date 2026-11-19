@@ -9,6 +9,7 @@ import '../../../services/dictation/live_transcription.dart';
 import '../../../state/settings_controller.dart';
 import '../../keyboard/keyboard_status_loader.dart';
 import '../../widgets/surfaces.dart';
+import 'widgets/keyboard_microphone_step.dart';
 
 /// Optional guided setup for enabling and selecting the Android input method.
 class KeyboardOnboardingScreen extends ConsumerWidget {
@@ -92,6 +93,8 @@ class _SetupContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        KeyboardMicrophoneStep(strings: strings),
+        const SizedBox(height: 14),
         Text(
           strings.keyboardPrivacy,
           style: TextStyle(color: context.palette.muted),
@@ -152,6 +155,8 @@ class _SetupContent extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 14),
+        KeyboardMicrophoneStep(strings: strings),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -268,7 +273,7 @@ class _SetupStep extends StatelessWidget {
                   Text(
                     value,
                     style: TextStyle(
-                      color: context.palette.accent,
+                      color: context.palette.accentDeep,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -296,7 +301,7 @@ class _StepBadge extends StatelessWidget {
   Widget build(BuildContext context) => CircleAvatar(
     radius: 16,
     backgroundColor: complete ? context.palette.mint : context.palette.chip,
-    foregroundColor: complete ? Colors.white : context.palette.ink,
+    foregroundColor: complete ? Colors.black : context.palette.ink,
     child: complete
         ? const Icon(Icons.check_rounded, size: 18)
         : Text('$number', style: const TextStyle(fontWeight: FontWeight.w800)),

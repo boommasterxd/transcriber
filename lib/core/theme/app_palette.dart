@@ -16,30 +16,39 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Contrasting outline colors for keyboard focus on accent-colored controls.
   List<Color> get focusIndicatorColors => isDark ? [surface, ink] : [ink];
 
-  Color get accentDeep => mixSrgb(accent, const Color(0xFF000000), 0.80);
+  /// Accent foreground for text and state indicators on neutral or tinted surfaces.
+  Color get accentDeep => isDark
+      ? mixSrgb(accent, const Color(0xFFFFFFFF), 0.58)
+      : mixSrgb(accent, const Color(0xFF000000), 0.65);
   Color get accentSoft => isDark
       ? mixSrgb(accent, const Color(0xFF1B1828), 0.24)
       : mixSrgb(accent, const Color(0xFFFFFFFF), 0.11);
   Color get accentSoft2 => isDark
       ? mixSrgb(accent, const Color(0xFF1B1828), 0.15)
       : mixSrgb(accent, const Color(0xFFFFFFFF), 0.06);
-  Color get onAccent => const Color(0xFFFFFFFF);
+
+  /// Chooses the higher-contrast monochrome foreground for the accent fill.
+  Color get onAccent => accent.computeLuminance() <= 0.179
+      ? const Color(0xFFFFFFFF)
+      : const Color(0xFF000000);
   Color get bg => isDark ? const Color(0xFF100E18) : const Color(0xFFF7F6FB);
   Color get surface =>
       isDark ? const Color(0xFF1B1828) : const Color(0xFFFFFFFF);
   Color get ink => isDark ? const Color(0xFFF3F1FA) : const Color(0xFF16131F);
   Color get body => isDark ? const Color(0xFFC4C0D2) : const Color(0xFF3A3645);
-  Color get muted => isDark ? const Color(0xFF837F92) : const Color(0xFF8C889A);
-  Color get faint => isDark ? const Color(0xFF5A566C) : const Color(0xFFB6B2C2);
+  Color get muted => isDark ? const Color(0xFFADA9BC) : const Color(0xFF615D72);
+  Color get faint => isDark ? const Color(0xFF9A96AC) : const Color(0xFF6B677A);
   Color get line => isDark ? const Color(0xFF262234) : const Color(0xFFF1EFF6);
   Color get line2 => isDark ? const Color(0xFF322E42) : const Color(0xFFE4E1EE);
   Color get chip => isDark ? const Color(0xFF272338) : const Color(0xFFF2F0F7);
   Color get coral => const Color(0xFFFF6B57);
   Color get coralInk =>
-      isDark ? const Color(0xFFFF8B79) : const Color(0xFFE8543C);
+      isDark ? const Color(0xFFFF8B79) : const Color(0xFFB63824);
   Color get coralSoft =>
       isDark ? const Color(0xFF33232E) : const Color(0xFFFFF4F1);
   Color get mint => const Color(0xFF12B886);
+  Color get mintInk =>
+      isDark ? const Color(0xFF64DDB3) : const Color(0xFF116D50);
   Color get mintSoft =>
       isDark ? const Color(0xFF14302A) : const Color(0xFFE6FAF1);
   Color get skel1 => isDark ? const Color(0xFF262234) : const Color(0xFFECEAF5);

@@ -1,68 +1,48 @@
-import 'package:android_file_picker/android_file_picker.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 import '../../data/models/audio_import_selection.dart';
 
 class AudioImportPickerService {
+  static const _channel = MethodChannel('app/audio_import');
+
   bool _recoveryAttempted = false;
   bool _liveRequested = false;
-  Future<AudioImportSelection?>? _recovery;
-  Future<AudioImportSelection?>? _livePick;
+  bool _picking = false;
 
   bool get recoverySuperseded => _liveRequested;
 
-  Future<AudioImportSelection?> recoverInterruptedPick() {
-    if (_recoveryAttempted) return Future.value(null);
+  Future<AudioImportSelection?> recoverInterruptedPick() async {
+    if (_recoveryAttempted || _liveRequested) return null;
     _recoveryAttempted = true;
-    if (_livePick != null) return Future.value(null);
-    return _recovery = _recover();
-  }
-
-  Future<AudioImportSelection?> _recover() async {
-    if (FilePickerPlatform.instance case final FilePickerAndroid android) {
-      try {
-        final result = await android.retrieveLostData().timeout(
-          const Duration(seconds: 60),
-        );
-        if (_liveRequested || result == null) return null;
-        if (result.exception case final exception?) throw exception;
-        if (result.files.length > 1) {
-          throw const FormatException('Expected a single audio file');
-        }
-        return _selection(result.files.firstOrNull);
-      } catch (_) {
-        if (_liveRequested) return null;
-        rethrow;
-      }
-    }
-    return null;
-  }
-
-  Future<AudioImportSelection?> pick() {
-    if (_livePick != null) return Future.value(null);
-    _liveRequested = true;
-    final pending = _pick();
-    _livePick = pending;
-    return pending.whenComplete(() => _livePick = null);
-  }
-
-  Future<AudioImportSelection?> _pick() async {
     try {
-      await _recovery;
-    } catch (_) {
-      // A failed recovery must not prevent a new selection.
-    }
-    return _selection(await FilePicker.pickFile(type: FileType.audio));
-  }
-
-  AudioImportSelection? _selection(PlatformFile? file) {
-    final path = file?.path;
-    if (file == null ||
-        path == null ||
-        path.trim().isEmpty ||
-        file.name.trim().isEmpty) {
+      return await _select('recoverInterruptedPick');
+    } on MissingPluginException {
       return null;
     }
-    return AudioImportSelection(path: path, fileName: file.name);
+  }
+
+  Future<AudioImportSelection?> pick() async {
+    if (_picking) return null;
+    _liveRequested = true;
+    _picking = true;
+    try {
+      return await _select('pick');
+    } finally {
+      _picking = false;
+    }
+  }
+
+  Future<AudioImportSelection?> _select(String method) async {
+    final result = await _channel.invokeMethod<Object?>(method);
+    if (result == null) return null;
+    if (result case {'path': final String path, 'fileName': final String name}
+        when p.isAbsolute(path) &&
+            name.trim().isNotEmpty &&
+            name == p.basename(name) &&
+            !name.contains('\\')) {
+      return AudioImportSelection(path: path, fileName: name);
+    }
+    throw const FormatException('Invalid cached audio selection');
   }
 }

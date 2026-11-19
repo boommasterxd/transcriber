@@ -9,6 +9,7 @@ import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
+import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/screens/home/home_screen.dart';
 import 'package:transcriber/ui/screens/onboarding/onboarding_screen.dart';
 import 'package:transcriber/ui/screens/share/widgets/transcriber_app_shell.dart';
@@ -90,27 +91,38 @@ void main() {
     expect(find.byType(HomeScreen), findsNothing);
   });
 
-  testWidgets('revoked permission gates an onboarded user back to onboarding', (
+  _registerRevokedMicrophoneTest(() => permissions);
+  _registerResumeRefreshTest();
+  _registerResponsiveSearchTest();
+}
+
+void _registerRevokedMicrophoneTest(
+  TestPermissionChannel Function() currentPermissions,
+) {
+  testWidgets('revoked microphone access preserves access to existing notes', (
     tester,
   ) async {
+    final database = testDatabase();
+    await NotesRepository(database).saveAll([_sharedNote()]);
     await _pumpApp(
       tester,
       AppSettings.initial().copyWith(onboarded: true),
       textScale: 0.7,
+      database: database,
     );
     expect(find.byType(HomeScreen), findsOneWidget);
 
-    permissions.granted = false;
+    currentPermissions().granted = false;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(OnboardingScreen), findsOneWidget);
+    expect(find.byType(OnboardingScreen), findsNothing);
+    await tester.tap(find.text('Shared WhatsApp audio'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TranscriptDetailScreen), findsOneWidget);
   });
-
-  _registerResumeRefreshTest();
-  _registerResponsiveSearchTest();
 }
 
 void _registerResponsiveSearchTest() {

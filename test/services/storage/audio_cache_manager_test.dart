@@ -23,7 +23,43 @@ void main() {
   _registerExternalImportTests(() => harness);
   _registerOwnershipTests(() => harness);
   _registerRetentionTests(() => harness);
+  _registerStagedRetentionTest(() => harness);
   _registerCleanupTests(() => harness);
+}
+
+void _registerStagedRetentionTest(_HarnessGetter getHarness) {
+  test(
+    'publishes only when promoted and restages after rollback recovery',
+    () async {
+      final harness = getHarness();
+      final source = await _writeAudio(harness.externalRoot, 'meeting.wav', 6);
+      final audio = ManagedAudioFile(
+        path: source.path,
+        ownership: AudioOwnership.external,
+      );
+      final staged = await harness.manager.stageRetention(audio);
+      final destination = File(staged.destination.path);
+      final staging = await harness.paths.retentionStagingDir();
+      expect(staged.destination.ownership, AudioOwnership.retained);
+      expect(await destination.exists(), isFalse);
+      expect(await _files(staging), hasLength(1));
+
+      await staged.discardStage();
+      expect(await _files(staging), isEmpty);
+      await staged.prepare();
+      await staged.promote();
+      await staged.promote();
+      expect(await destination.readAsBytes(), await source.readAsBytes());
+      expect(await _files(staging), isEmpty);
+
+      await destination.delete();
+      await staged.prepare();
+      await staged.promote();
+      expect(await destination.readAsBytes(), await source.readAsBytes());
+      await harness.manager.discard(audio);
+      expect(await source.exists(), isTrue);
+    },
+  );
 }
 
 final class _AudioCacheTestHarness {
@@ -284,49 +320,8 @@ void _registerRecordingOwnershipTest(_HarnessGetter getHarness) {
 
 void _registerRetentionTests(_HarnessGetter getHarness) {
   group('retention and discard', () {
-    _registerTemporaryRetentionTest(getHarness);
-    _registerExternalRetentionTest(getHarness);
     _registerOwnedDiscardTest(getHarness);
   });
-}
-
-void _registerTemporaryRetentionTest(_HarnessGetter getHarness) {
-  test('retains a temporary copy and discards its staging file', () async {
-    final harness = getHarness();
-    final source = await _writeAudio(harness.externalRoot, 'source.m4a', 6);
-    final temporary = await harness.manager.importExternal(source.path);
-
-    final retained = await harness.manager.retain(temporary);
-
-    expect(retained.ownership, AudioOwnership.retained);
-    expect(
-      p.isWithin((await harness.paths.retainedAudioDir()).path, retained.path),
-      isTrue,
-    );
-    expect(await File(retained.path).exists(), isTrue);
-    expect(await File(temporary.path).exists(), isFalse);
-    expect(await source.exists(), isTrue);
-  });
-}
-
-void _registerExternalRetentionTest(_HarnessGetter getHarness) {
-  test(
-    'retains an external original by copying it, never deleting it',
-    () async {
-      final harness = getHarness();
-      final source = await _writeAudio(harness.externalRoot, 'source.wav', 6);
-      final retained = await harness.manager.retain(
-        ManagedAudioFile(path: source.path, ownership: AudioOwnership.external),
-      );
-
-      expect(retained.ownership, AudioOwnership.retained);
-      expect(await source.exists(), isTrue);
-      await harness.manager.discard(
-        ManagedAudioFile(path: source.path, ownership: AudioOwnership.external),
-      );
-      expect(await source.exists(), isTrue);
-    },
-  );
 }
 
 void _registerOwnedDiscardTest(_HarnessGetter getHarness) {
@@ -336,10 +331,11 @@ void _registerOwnedDiscardTest(_HarnessGetter getHarness) {
       final harness = getHarness();
       final source = await _writeAudio(harness.externalRoot, 'source.m4a', 4);
       final temporary = await harness.manager.importExternal(source.path);
-      final retained = await harness.manager.retain(temporary);
+      final stage = await harness.manager.stageRetention(temporary);
+      await stage.promote();
 
-      await harness.manager.discard(retained);
-      expect(await File(retained.path).exists(), isFalse);
+      await harness.manager.discard(stage.destination);
+      expect(await File(stage.destination.path).exists(), isFalse);
       expect(await source.exists(), isTrue);
 
       final outside = await _writeAudio(harness.externalRoot, 'outside.m4a', 4);
@@ -360,7 +356,31 @@ void _registerCleanupTests(_HarnessGetter getHarness) {
     _registerQuotaCleanupTest(getHarness);
     _registerActiveCleanupTest(getHarness);
     _registerRetainedQuotaTest(getHarness);
+    _registerShareExpiryTest(getHarness);
   });
+}
+
+void _registerShareExpiryTest(_HarnessGetter getHarness) {
+  test(
+    'share startup expires abandoned stages without evicting fresh copies',
+    () async {
+      final harness = getHarness();
+      final shared = await harness.paths.sharedCacheDir();
+      final first = await _writeAudio(shared, 'first.wav', 6);
+      final second = await _writeAudio(shared, 'second.wav', 6);
+      final staging = await harness.paths.retentionStagingDir();
+      final abandoned = await _writeFile(staging, 'abandoned.wav.partial', 4);
+      await abandoned.setLastModified(
+        harness.now.subtract(const Duration(days: 2)),
+      );
+
+      await harness.manager.cleanup(enforceQuota: false);
+
+      expect(await first.exists(), isTrue);
+      expect(await second.exists(), isTrue);
+      expect(await abandoned.exists(), isFalse);
+    },
+  );
 }
 
 void _registerExpiryCleanupTest(_HarnessGetter getHarness) {
@@ -432,9 +452,10 @@ void _registerRetainedQuotaTest(_HarnessGetter getHarness) {
   test('does not count retained audio against temporary cache quota', () async {
     final harness = getHarness();
     final source = await _writeAudio(harness.externalRoot, 'source.m4a', 6);
-    final retained = await harness.manager.retain(
+    final stage = await harness.manager.stageRetention(
       ManagedAudioFile(path: source.path, ownership: AudioOwnership.external),
     );
+    await stage.promote();
     final temporary = await _writeAudio(
       await harness.paths.importCacheDir(),
       'temporary.m4a',
@@ -443,7 +464,7 @@ void _registerRetainedQuotaTest(_HarnessGetter getHarness) {
 
     await harness.manager.cleanup();
 
-    expect(await File(retained.path).exists(), isTrue);
+    expect(await File(stage.destination.path).exists(), isTrue);
     expect(await temporary.exists(), isTrue);
   });
 }

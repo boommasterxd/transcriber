@@ -24,7 +24,7 @@ import org.robolectric.annotation.Implements
 @Config(sdk = [35], manifest = Config.NONE, shadows = [MainActivityTest.FlutterHostShadow::class])
 class MainActivityTest {
     @Test
-    fun configuringAProvidedEngineRegistersTheNativeSettingsChannel() {
+    fun configuringAProvidedEngineRegistersNativeSettingsAndAudioRecovery() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).get()
         val delegateType = Class.forName("io.flutter.embedding.android.FlutterActivityAndFragmentDelegate")
         val delegate = mock(delegateType)
@@ -39,6 +39,7 @@ class MainActivityTest {
         `when`(engine.dartExecutor.binaryMessenger).thenReturn(transport)
         activity.configureFlutterEngine(engine)
         assertEquals(null, transport.call("app/keyboard/settings", "unknown"))
+        assertNull(transport.call("app/audio_import", "recoverInterruptedPick"))
     }
 
     @Test

@@ -10,11 +10,11 @@ The CI duplication check currently uses Node.js 26.x (`node-version: "26.x"` and
 
 ### Android Gradle Compatibility
 
-Flutter 3.50.0 and AGP 9.5.1 support built-in Kotlin, which the application enables explicitly with `android.builtInKotlin=true`. A settings buildscript classpath dependency preserves Kotlin 2.4.21 without applying the legacy Kotlin Android plugin. It must be available before AGP is loaded. Compiler options remain in the top-level `kotlin.compilerOptions` block. The legacy root workaround for the old `file_picker` Android module is no longer needed by the resolved `android_file_picker` implementation. See the official [Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers) and [Android migration guide](https://developer.android.com/build/migrate-to-built-in-kotlin).
+Flutter 3.50.0 and AGP 9.5.1 support built-in Kotlin, which the application enables explicitly with `android.builtInKotlin=true`. The settings buildscript classpath provides Kotlin 2.4.21 before AGP loads. Compiler options remain in the top-level `kotlin.compilerOptions` block. See the official [Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers) and [Android migration guide](https://developer.android.com/build/migrate-to-built-in-kotlin).
 
 Jetifier is disabled by AGP's default: both resolved runtime graphs contain no legacy Support Library or Android Architecture artifacts, and debug/release APKs build without it. JVM-target validation uses the default strict behavior; no warning-only override is needed.
 
-The Kotlin migration and the Android DSL migration are separate. The application uses AGP's default public DSL with built-in Kotlin: Flutter 3.50 uses the public application extension and `android_file_picker` 2.1.6 uses the public library extension. No legacy-DSL opt-out is required. AGP 10 remains a roadmap release rather than a supported application baseline; adopt it only after a stable release and compatible Flutter/native-plugin support are available. Follow the [AGP roadmap](https://developer.android.com/build/releases/gradle-plugin-roadmap) and verify the actual released toolchain before changing it.
+Built-in Kotlin and the Android DSL are configured independently. `android.newDsl=false` matches Flutter 3.50.0's compatibility migration and keeps ordinary Flutter builds from rewriting the checked-in Gradle properties. Keep the setting until the pinned Flutter release and native plugins support the public DSL together. Adopt AGP 10 after its stable release and after verifying that combination with the released toolchain. See the [Flutter 3.50.0 migration](https://github.com/flutter/flutter/blob/3.50.0/packages/flutter_tools/lib/src/android/migrations/disable_new_dsl_migration.dart) and the [AGP roadmap](https://developer.android.com/build/releases/gradle-plugin-roadmap).
 
 ## Provider Defaults
 
@@ -66,7 +66,7 @@ Provider marks are bundled locally and are never loaded from a remote host at ru
 
 ## Persistence
 
-Drift with SQLite is the active persistence layer. SharedPreferences is retained only to import the legacy `app_settings` and `notes` payloads once. The `shared_preferences_v1` migration marker prevents repeated imports.
+Drift with SQLite is the active persistence layer. SharedPreferences supplies legacy `app_settings` and `notes` values for one-time migration. The `shared_preferences_v1` marker prevents repeated imports. For a mixed note list, the app stores rejected records in a private JSON array under `legacy_unimported_notes_v1` before removing the original list. Recovery records remain in app storage for authorized inspection. See [persistence architecture](architecture.md#persistence).
 
 The database file contains transcript content and may contain personal information. API keys are explicitly excluded.
 
@@ -88,6 +88,6 @@ The application applies separate import and transcription limits. One MiB is 1,0
 
 A file can pass import validation and still exceed the selected transcription endpoint's limit. These are application-side caps, not provider guarantees; the provider may reject a smaller file because of its own limits, format support, model access, or quota. Upload caps are shared by [recording and provider validation](../lib/services/remote/remote_audio_limits.dart); import validation belongs to [AudioCacheManager](../lib/services/storage/audio_cache_manager.dart).
 
-Temporary audio has a 24-hour TTL and a 512 MiB quota. These values are centralized in `AudioCacheManager`.
+Temporary audio has a 24-hour TTL. The main app applies a combined 512 MiB quota to import, share and recording copies. Retention staging shares the TTL. See [audio lifecycle](cache-lifecycle.md).
 
 Keyboard dictation does not create an audio file. Native capture is streamed in memory, its reconnect queue is bounded, and all queued chunks are discarded when recording stops or the editor session becomes invalid.

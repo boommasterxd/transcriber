@@ -12,25 +12,45 @@ import java.util.concurrent.atomic.AtomicInteger
 /** Streams bounded, in-memory PCM chunks. It never creates an audio file. */
 class PcmAudioRecorder(
     private val context: Context,
-    private val onChunk: (ByteArray, Double) -> Unit,
-    private val onFailure: (String) -> Unit,
+    private val createCaptureEvents: () -> PcmCaptureEvents,
 ) {
+    constructor(
+        context: Context,
+        onChunk: (ByteArray, Double) -> Unit,
+        onFailure: (String) -> Unit,
+    ) : this(
+        context,
+        {
+            PcmCaptureEvents(
+                offer = { bytes, level ->
+                    onChunk(bytes, level)
+                    true
+                },
+                fail = onFailure,
+            )
+        },
+    )
+
     private val running = AtomicBoolean(false)
     private val generation = AtomicInteger(0)
     private var recorder: AudioRecord? = null
     private var worker: Thread? = null
+    private var captureEvents: PcmCaptureEvents? = null
     private var configuredSampleRate: Int? = null
     private var paused = false
 
     fun hasPermission(): Boolean = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
         PackageManager.PERMISSION_GRANTED
 
+    @Synchronized
     fun start(sampleRate: Int): Boolean {
+        if (running.get()) return false
         paused = false
         configuredSampleRate = sampleRate
         return startCapture(sampleRate)
     }
 
+    @Synchronized
     fun pause(): Boolean {
         if (!running.get()) return false
         paused = true
@@ -38,6 +58,7 @@ class PcmAudioRecorder(
         return true
     }
 
+    @Synchronized
     fun resume(): Boolean {
         val sampleRate = configuredSampleRate
         val resumed = if (paused && sampleRate != null) startCapture(sampleRate) else false
@@ -45,6 +66,7 @@ class PcmAudioRecorder(
         return resumed
     }
 
+    @Synchronized
     fun stop() {
         paused = false
         configuredSampleRate = null
@@ -70,8 +92,11 @@ class PcmAudioRecorder(
     }
 
     private fun stopCapture() {
-        if (!running.getAndSet(false)) return
+        val wasRunning = running.getAndSet(false)
         generation.incrementAndGet()
+        captureEvents?.cancel?.invoke()
+        captureEvents = null
+        if (!wasRunning) return
         try {
             recorder?.stop()
         } catch (_: IllegalStateException) {
@@ -99,9 +124,12 @@ class PcmAudioRecorder(
                 false
             } else {
                 audioRecord.startRecording()
+                val events = createCaptureEvents()
+                captureEvents?.cancel?.invoke()
+                captureEvents = events
                 recorder = audioRecord
                 worker = Thread(
-                    { readLoop(audioRecord, sampleRate, captureGeneration) },
+                    { readLoop(audioRecord, sampleRate, captureGeneration, events) },
                     workerName,
                 ).also { it.start() }
                 true
@@ -113,34 +141,37 @@ class PcmAudioRecorder(
                 // Capture may have failed before Android entered recording state.
             }
             audioRecord?.release()
+            captureEvents?.cancel?.invoke()
+            captureEvents = null
             if (recorder === audioRecord) recorder = null
             running.set(false)
             false
         }
     }
 
-    private fun readLoop(audioRecord: AudioRecord, sampleRate: Int, captureGeneration: Int) {
+    private fun readLoop(
+        audioRecord: AudioRecord,
+        sampleRate: Int,
+        captureGeneration: Int,
+        events: PcmCaptureEvents,
+    ) {
         val buffer = ByteArray(sampleRate / chunksPerSecond * bytesPerSample)
+        fun isCurrent(): Boolean = running.get() && generation.get() == captureGeneration
         try {
-            while (running.get() && generation.get() == captureGeneration) {
+            while (isCurrent()) {
                 val count = audioRecord.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
-                if (count > 0 && running.get() && generation.get() == captureGeneration) {
-                    val chunk = buffer.copyOf(count)
-                    onChunk(chunk, PcmLevelMeter.normalizedLevel(chunk))
-                } else if (count < 0 && running.get() && generation.get() == captureGeneration) {
-                    onFailure("audio_read_failed")
-                    break
-                }
+                if (!isCurrent() || !events.dispatchRead(buffer, count)) break
             }
         } catch (_: IllegalStateException) {
-            if (running.get() && generation.get() == captureGeneration) {
-                onFailure("audio_read_failed")
+            if (isCurrent()) {
+                events.fail("audio_read_failed")
             }
         } finally {
             releaseCompletedCapture(audioRecord, captureGeneration)
         }
     }
 
+    @Synchronized
     private fun releaseCompletedCapture(audioRecord: AudioRecord, captureGeneration: Int) {
         if (!generation.compareAndSet(captureGeneration, captureGeneration + 1)) return
         running.set(false)
@@ -159,5 +190,23 @@ class PcmAudioRecorder(
         const val bufferSlicesPerSecond = 5
         const val bytesPerSample = 2
         const val workerName = "transcriber-pcm-recorder"
+    }
+}
+
+class PcmCaptureEvents(
+    val offer: (ByteArray, Double) -> Boolean,
+    val fail: (String) -> Unit,
+    val cancel: () -> Unit = {},
+) {
+    internal fun dispatchRead(buffer: ByteArray, count: Int): Boolean = when {
+        count < 0 -> {
+            fail("audio_read_failed")
+            false
+        }
+        count > 0 -> {
+            val chunk = buffer.copyOf(count)
+            offer(chunk, PcmLevelMeter.normalizedLevel(chunk))
+        }
+        else -> true
     }
 }

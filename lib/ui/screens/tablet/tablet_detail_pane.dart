@@ -34,6 +34,8 @@ class TabletDetailPane extends ConsumerStatefulWidget {
 
 class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
     with NoteDetailInteractionState<TabletDetailPane> {
+  static const _contentPadding = EdgeInsets.fromLTRB(28, 22, 28, 30);
+
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
@@ -56,73 +58,117 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
           onShare: () => shareNote(note),
           onDelete: () => confirmAndDeleteNote(note, t),
         ),
-        Expanded(
-          child: FadeEdges(
-            topHeight: 16,
-            builder: (context, controller) => ListView(
-              controller: controller,
-              padding: const EdgeInsets.fromLTRB(28, 22, 28, 30),
-              children: [
-                if (note.summaryError != null) ...[
-                  SummaryFailureNotice(error: note.summaryError!, strings: t),
-                  const SizedBox(height: 20),
-                ],
-                _responsiveColumns(note, t),
-                const SizedBox(height: 20),
-                DetailTranscriptToggle.tablet(
-                  strings: t,
-                  isOpen: transcriptOpen,
-                  onTap: toggleTranscript,
-                ),
-                if (transcriptOpen) ...[
-                  const SizedBox(height: 18),
-                  DetailTranscriptBlock(
-                    note: note,
-                    strings: t,
-                    copied: copied,
-                    actions: DetailTranscriptActions(
-                      onCopy: () => copyNote(note),
-                    ),
-                    style: const DetailTranscriptStyle(
-                      rowBottomPadding: 14,
-                      rowFontSize: 14,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: _noteScroll(note, t)),
       ],
     );
   }
 
-  Widget _responsiveColumns(TranscriptNote note, AppStrings strings) {
+  Widget _noteScroll(TranscriptNote note, AppStrings strings) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final left = _LeftColumn(note: note, strings: strings);
-        final right = _RightColumn(
-          note: note,
-          strings: strings,
-          onToggleTodo: (index) => ref
-              .read(notesControllerProvider.notifier)
-              .toggleTodo(note.id, index),
-        );
-        if (constraints.maxWidth < 640) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [left, const SizedBox(height: 16), right],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: left),
-            const SizedBox(width: 18),
-            Expanded(child: right),
-          ],
+        final wide = constraints.maxWidth - _contentPadding.horizontal >= 640;
+        return FadeEdges(
+          topHeight: 16,
+          builder: (context, controller) => CustomScrollView(
+            controller: controller,
+            slivers: [
+              SliverPadding(
+                padding: _contentPadding,
+                sliver: SliverMainAxisGroup(
+                  slivers: _noteSections(note, strings, wide: wide),
+                ),
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  List<Widget> _noteSections(
+    TranscriptNote note,
+    AppStrings strings, {
+    required bool wide,
+  }) {
+    return [
+      if (note.summaryError case final error?) ...[
+        SliverToBoxAdapter(
+          child: SummaryFailureNotice(error: error, strings: strings),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      ],
+      _responsiveColumns(note, strings, wide: wide),
+      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      SliverToBoxAdapter(
+        child: DetailTranscriptToggle.tablet(
+          strings: strings,
+          isOpen: transcriptOpen,
+          onTap: toggleTranscript,
+        ),
+      ),
+      if (transcriptOpen) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 18)),
+        DetailTranscriptBlock(
+          note: note,
+          strings: strings,
+          copied: copied,
+          actions: DetailTranscriptActions(onCopy: () => copyNote(note)),
+          style: const DetailTranscriptStyle(
+            rowBottomPadding: 14,
+            rowFontSize: 14,
+          ),
+        ),
+      ],
+    ];
+  }
+
+  Widget _responsiveColumns(
+    TranscriptNote note,
+    AppStrings strings, {
+    required bool wide,
+  }) {
+    final left = SliverToBoxAdapter(
+      child: _LeftColumn(note: note, strings: strings),
+    );
+    final right = SliverMainAxisGroup(
+      slivers: [
+        if (note.summaryError == null && note.points.isNotEmpty) ...[
+          NoteKeyPoints(
+            points: note.points,
+            label: strings.shPoints,
+            bottomPadding: 13,
+            fontSize: 14,
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        ],
+        if (note.summaryError == null && note.todos.isNotEmpty)
+          NoteTodos.tablet(
+            todos: note.todos,
+            strings: strings,
+            onToggle: (index) => ref
+                .read(notesControllerProvider.notifier)
+                .toggleTodo(note.id, index),
+          ),
+      ],
+    );
+    if (wide) {
+      return SliverCrossAxisGroup(
+        slivers: [
+          left,
+          const SliverConstrainedCrossAxis(
+            maxExtent: 18,
+            sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+          ),
+          right,
+        ],
+      );
+    }
+    return SliverMainAxisGroup(
+      slivers: [
+        left,
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        right,
+      ],
     );
   }
 }
@@ -236,49 +282,12 @@ class _LeftColumn extends StatelessWidget {
           AudioDeletedNotice(strings: strings),
         if (note.summaryError == null && note.gist.isNotEmpty) ...[
           const SizedBox(height: 16),
-          NoteSummaryCard(
-            gist: note.gist,
-            label: strings.shSummary,
-            textSize: 15,
-          ),
+          NoteSummaryCard(note: note, strings: strings, textSize: 15),
         ],
         const SizedBox(height: 16),
         NoteSectionLabel(strings.processedWith),
         const SizedBox(height: 12),
         ProcessedWithCard(note: note, strings: strings),
-      ],
-    );
-  }
-}
-
-class _RightColumn extends StatelessWidget {
-  const _RightColumn({
-    required this.note,
-    required this.strings,
-    required this.onToggleTodo,
-  });
-  final TranscriptNote note;
-  final AppStrings strings;
-  final ValueChanged<int> onToggleTodo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (note.summaryError == null && note.points.isNotEmpty) ...[
-          NoteSectionLabel(strings.shPoints),
-          const SizedBox(height: 12),
-          NoteKeyPoints(points: note.points, bottomPadding: 13, fontSize: 14),
-          const SizedBox(height: 8),
-        ],
-        if (note.summaryError == null && note.todos.isNotEmpty) ...[
-          EditableNoteTodos.tablet(
-            todos: note.todos,
-            strings: strings,
-            onToggle: onToggleTodo,
-          ),
-        ],
       ],
     );
   }

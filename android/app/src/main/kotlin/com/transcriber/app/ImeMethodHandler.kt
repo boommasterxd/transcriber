@@ -76,17 +76,15 @@ class ImeMethodHandler(
         val connection = service.currentInputConnection
         val changed = when {
             !editor.accepts(sessionId) -> false
-            composing -> connection?.setComposingText(text, cursorPosition) ?: false
-            else -> connection?.commitText(text, cursorPosition) ?: false
+            composing -> connection?.let { editor.setComposition(it, text) } ?: false
+            else -> connection?.let { editor.commitComposition(it, text) } ?: false
         }
         result.success(changed)
     }
 
     private fun clearComposingText(call: MethodCall, result: MethodChannel.Result) {
-        val connection = service.currentInputConnection
         val changed = if (editor.accepts(call.argument("sessionId"))) {
-            connection?.setComposingText("", cursorPosition)
-            connection?.finishComposingText() ?: false
+            editor.clearComposition()
         } else {
             false
         }

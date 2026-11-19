@@ -70,12 +70,16 @@ class RecordStatusPill extends StatelessWidget {
             decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
-          Text(
-            paused ? strings.recPaused : strings.recording,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: color,
+          Semantics(
+            container: true,
+            liveRegion: true,
+            child: Text(
+              paused ? strings.recPaused : strings.recording,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],

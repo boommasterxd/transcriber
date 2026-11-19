@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
+import '../database/database_error_boundary.dart';
 import '../models/audio_ownership.dart';
 import '../models/note_history.dart';
 import '../models/transcript_note.dart';
@@ -13,6 +14,7 @@ class NotesRepository {
   NotesRepository(this._database);
 
   final AppDatabase _database;
+  late final NotesHistoryQuery _history = NotesHistoryQuery(_database);
 
   Future<HistoryPage> loadHistoryPage({
     String query = '',
@@ -20,8 +22,12 @@ class NotesRepository {
     bool previous = false,
     int limit = 50,
   }) => _database.transaction(
-    () => NotesHistoryQuery(_database)
-        .load(query: query, cursor: cursor, previous: previous, limit: limit),
+    () => _history.load(
+      query: query,
+      cursor: cursor,
+      previous: previous,
+      limit: limit,
+    ),
   );
 
   /// Explicit complete snapshots for imports and test fixtures only.
@@ -50,10 +56,7 @@ class NotesRepository {
   ) => _database.transaction(() async {
     // Claim the marker before checking references. The DELETE takes SQLite's
     // writer lock, including across the share engine's separate connection.
-    final claimed = await (_database.delete(
-      _database.pendingAudioDeletionsTable,
-    )..where((table) => table.path.equals(path))).go();
-    if (claimed == 0) return true;
+    if (!await _claimPendingAudioDeletion(path)) return true;
 
     if (await _hasRetainedAudioReference(path)) {
       return true;
@@ -72,6 +75,13 @@ class NotesRepository {
       .insertOnConflictUpdate(
         PendingAudioDeletionsTableCompanion.insert(path: path),
       );
+
+  Future<bool> _claimPendingAudioDeletion(String path) async {
+    final removed = await (_database.delete(
+      _database.pendingAudioDeletionsTable,
+    )..where((table) => table.path.equals(path))).go();
+    return removed != 0;
+  }
 
   Future<bool> _hasRetainedAudioReference(String path) async {
     final row =
@@ -152,26 +162,46 @@ class NotesRepository {
   /// Adds or restores one note without replacing another engine's snapshot.
   Future<TranscriptNote> add(TranscriptNote note) =>
       _database.transaction(() async {
-        await _database
-            .into(_database.notesTable)
-            .insertOnConflictUpdate(_toNoteCompanion(note));
-        if (note.audioOwnership == AudioOwnership.retained &&
-            note.audioPath != null) {
-          await (_database.delete(
-            _database.pendingAudioDeletionsTable,
-          )..where((table) => table.path.equals(note.audioPath!))).go();
+        final path = note.audioPath;
+        if (note.audioOwnership == AudioOwnership.retained && path != null) {
+          await _claimPendingAudioDeletion(path);
         }
-        await _deleteChildren(note.id);
-        await _database.batch((batch) {
-          batch.insertAll(_database.notePointsTable, _pointRows([note]));
-          batch.insertAll(_database.noteTodosTable, _todoRows([note]));
-          batch.insertAll(
-            _database.transcriptSegmentsTable,
-            _segmentRows([note]),
-          );
-        });
-        return (await _findById(note.id))!;
+        return _storeNote(note);
       });
+
+  /// Tracks the target before moving audio out of disposable staging.
+  Future<TranscriptNote> addWithStagedAudio(
+    TranscriptNote note,
+    Future<void> Function() promoteAudio,
+  ) async {
+    final path = note.audioPath;
+    if (note.audioOwnership != AudioOwnership.retained || path == null) {
+      throw ArgumentError('Staged audio requires a retained path.');
+    }
+    await _queuePendingAudioDeletion(path);
+    return _database.transaction(() async {
+      // Promotion may only run while the claim transaction owns the writer.
+      // On rollback the durable candidate becomes visible to recovery again.
+      if (!await _claimPendingAudioDeletion(path)) {
+        throw const DatabaseOperationException();
+      }
+      await promoteAudio();
+      return _storeNote(note);
+    });
+  }
+
+  Future<TranscriptNote> _storeNote(TranscriptNote note) async {
+    await _database
+        .into(_database.notesTable)
+        .insertOnConflictUpdate(_toNoteCompanion(note));
+    await _deleteChildren(note.id);
+    await _database.batch((batch) {
+      batch.insertAll(_database.notePointsTable, _pointRows([note]));
+      batch.insertAll(_database.noteTodosTable, _todoRows([note]));
+      batch.insertAll(_database.transcriptSegmentsTable, _segmentRows([note]));
+    });
+    return (await _findById(note.id))!;
+  }
 
   /// Deletes only the requested note and returns its persisted audio metadata.
   Future<NotesDeletion> remove(String id) => _database.transaction(() async {

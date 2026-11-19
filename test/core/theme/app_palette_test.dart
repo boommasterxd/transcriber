@@ -6,6 +6,7 @@ import 'package:transcriber/core/theme/app_palette.dart';
 void main() {
   _registerPaletteFactories();
   _registerFocusIndicatorColors();
+  _registerTextContrast();
   _registerPaletteInterpolation();
   _registerPaletteContextAccessor();
 }
@@ -32,6 +33,38 @@ double contrastRatio(Color a, Color b) {
   final darker = identical(lighter, a) ? b : a;
   return (lighter.computeLuminance() + 0.05) /
       (darker.computeLuminance() + 0.05);
+}
+
+void _registerTextContrast() {
+  for (final brightness in Brightness.values) {
+    for (final accent in AppAccent.values) {
+      test(
+        'text contrast is readable in ${brightness.name} ${accent.name}',
+        () => _expectReadableText(AppPalette.from(brightness, accent)),
+      );
+    }
+  }
+}
+
+void _expectReadableText(AppPalette palette) {
+  for (final (foreground, background) in [
+    (palette.onAccent, palette.accent),
+    (palette.accentDeep, palette.accentSoft),
+    (palette.accentDeep, palette.bg),
+    (palette.coralInk, palette.coralSoft),
+    (palette.mintInk, palette.mintSoft),
+    (palette.mintInk, palette.chip),
+    for (final surface in [palette.bg, palette.surface, palette.chip]) ...[
+      (palette.muted, surface),
+      (palette.faint, surface),
+    ],
+  ]) {
+    expect(
+      contrastRatio(foreground, background),
+      greaterThanOrEqualTo(4.5),
+      reason: '$foreground on $background',
+    );
+  }
 }
 
 void _registerPaletteFactories() {

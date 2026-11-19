@@ -148,6 +148,13 @@ class TranscriptNote with NoteDisplayMetadata {
   List<TranscriptLine> get transcript => content.transcript;
   String? get summaryError => content.summaryError;
 
+  // Legacy notes without a recorded model and processing origin remain unknown.
+  bool get hasAiGeneratedSummary =>
+      summaryError == null &&
+      gist.trim().isNotEmpty &&
+      llmName.trim().isNotEmpty &&
+      llmSub.trim().isNotEmpty;
+
   /// Local path of the (optionally retained) source audio file.
   final String? audioPath;
   final AudioOwnership audioOwnership;

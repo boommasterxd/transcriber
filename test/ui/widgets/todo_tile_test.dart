@@ -1,34 +1,56 @@
-import 'package:material_ui/material_ui.dart';
+import 'dart:ui' show CheckedState;
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:transcriber/ui/widgets/todo_tile.dart';
 
 import 'widget_test_helpers.dart';
 
 void main() {
-  testWidgets('TodoTile displays incomplete item and toggles on tap', (
-    tester,
-  ) async {
-    var toggles = 0;
-    await tester.pumpWidget(
-      themed(
-        TodoTile(text: 'Send report', done: false, onToggle: () => toggles++),
-      ),
-    );
+  testWidgets(
+    'TodoTile keeps checked semantics in sync with keyboard and tap',
+    (tester) async {
+      const label = 'Send report';
+      var done = false;
+      await tester.pumpWidget(
+        themed(
+          StatefulBuilder(
+            builder: (context, setState) => TodoTile(
+              text: label,
+              done: done,
+              onToggle: () => setState(() => done = !done),
+            ),
+          ),
+        ),
+      );
 
-    expect(find.text('Send report'), findsOneWidget);
-    expect(find.byIcon(Icons.check), findsNothing);
-    await tester.tap(find.text('Send report'));
-    expect(toggles, 1);
-  });
+      final item = find.bySemanticsLabel(label);
+      expect(item, findsOneWidget);
+      _expectChecked(tester, item, checked: false);
 
-  testWidgets('TodoTile displays completed item with check', (tester) async {
-    await tester.pumpWidget(
-      themed(const TodoTile(text: 'Send report', done: true, onToggle: _noop)),
-    );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      _expectChecked(tester, item, checked: true);
 
-    expect(find.byIcon(Icons.check), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 220));
-  });
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      _expectChecked(tester, item, checked: false);
+
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+      _expectChecked(tester, item, checked: true);
+    },
+  );
 }
 
-void _noop() {}
+void _expectChecked(WidgetTester tester, Finder item, {required bool checked}) {
+  final data = tester.getSemantics(item).getSemanticsData();
+  expect(
+    data.flagsCollection.isChecked,
+    checked ? CheckedState.isTrue : CheckedState.isFalse,
+  );
+  expect(data.flagsCollection.isButton, isFalse);
+}

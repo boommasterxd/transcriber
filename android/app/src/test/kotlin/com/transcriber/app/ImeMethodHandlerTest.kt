@@ -94,9 +94,9 @@ class ImeMethodHandlerTest {
     @Test
     fun editsRequireActiveSessionAndReturnInputConnectionResults() {
         register()
-        `when`(connection.setComposingText("hello", 1)).thenReturn(true)
-        `when`(connection.commitText("hello", 1)).thenReturn(true)
-        `when`(connection.finishComposingText()).thenReturn(true)
+        `when`(editor.setComposition(connection, "hello")).thenReturn(true)
+        `when`(editor.commitComposition(connection, "hello")).thenReturn(true)
+        `when`(editor.clearComposition()).thenReturn(true)
         assertEquals(true, call("setComposingText"))
         assertEquals(true, call("commitText"))
         assertEquals(true, call("clearComposingText"))
@@ -104,7 +104,7 @@ class ImeMethodHandlerTest {
             assertEquals(false, call(method, emptyMap()))
         }
         `when`(service.currentInputConnection).thenReturn(null)
-        for (method in listOf("setComposingText", "commitText", "clearComposingText")) {
+        for (method in listOf("setComposingText", "commitText")) {
             assertEquals(false, call(method))
         }
     }

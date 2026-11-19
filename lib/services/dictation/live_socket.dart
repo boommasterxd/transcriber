@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'live_failure_classifier.dart';
 import 'live_socket_sender.dart';
+import 'live_socket_transport.dart';
 import 'live_transcription.dart';
 
 abstract interface class LiveSocket {
@@ -17,61 +18,65 @@ abstract interface class LiveSocket {
 typedef LiveSocketConnector = Future<LiveSocket> Function(
   Uri uri,
   Map<String, String> headers,
+  void Function(void Function() abort) onCancellation,
 );
 
 Future<LiveSocket> connectLiveSocket(
   Uri uri,
-  Map<String, String> headers,
-) async {
-  final transports = <Socket>[];
-  var aborted = false;
-  void abort() {
-    aborted = true;
-    for (final socket in transports) {
-      socket.destroy();
-    }
-    transports.clear();
-  }
+  Map<String, String> headers, [
+  void Function(void Function() abort)? onCancellation,
+]) => _openLiveSocket(uri, Map.of(headers), onCancellation);
 
-  final httpClient = HttpClient()
-    ..connectionFactory = (target, proxyHost, proxyPort) async {
-      final host = proxyHost ?? target.host;
-      final port = proxyPort ?? target.port;
-      final task = target.scheme == 'https' && proxyHost == null
-          ? await SecureSocket.startConnect(host, port)
-          : await Socket.startConnect(host, port);
-      final socket = await task.socket;
-      if (aborted) {
-        socket.destroy();
-      } else {
-        transports.add(socket);
-      }
-      return task;
-    };
+Future<LiveSocket> _openLiveSocket(
+  Uri uri,
+  Map<String, String> requestHeaders,
+  void Function(void Function() abort)? onCancellation,
+) async {
+  final transport = LiveSocketTransport.begin(uri);
   try {
+    onCancellation?.call(() {
+      requestHeaders.clear();
+      transport.abort();
+    });
     final socket = await WebSocket.connect(
       uri.toString(),
-      headers: headers,
-      customClient: httpClient,
+      headers: requestHeaders,
+      customClient: transport.httpClient,
+      compression: CompressionOptions.compressionOff,
+      maxPayloadLength: LiveTranscriptionLimits.maximumFrameBytes,
     );
-    return IoLiveSocket(socket, abort);
+    final liveSocket = IoLiveSocket(
+      socket,
+      transport.abort,
+      transport.messageReceived,
+    );
+    if (transport.aborted) {
+      await liveSocket.close();
+      throw const _LiveConnectionCancelled();
+    }
+    return liveSocket;
   } catch (_) {
-    abort();
+    transport.abort();
     rethrow;
   } finally {
-    httpClient.close(force: true);
+    requestHeaders.clear();
+    transport.endHandshake();
   }
 }
 
 final class IoLiveSocket implements LiveSocket {
-  IoLiveSocket(this._socket, this._abort);
+  IoLiveSocket(this._socket, this._abort, this._messageReceived);
   final WebSocket _socket;
   final void Function() _abort;
+  final void Function() _messageReceived;
   bool _sending = false;
   bool _closed = false;
 
   @override
-  Stream<Object?> get messages => _socket;
+  Stream<Object?> get messages => _socket.map((message) {
+    _messageReceived();
+    return message;
+  });
 
   @override
   int? get closeCode => _socket.closeCode;
@@ -126,6 +131,7 @@ abstract base class LiveSocketTranscriptionClient
   StreamSubscription<Object?>? _subscription;
   _LiveConnectionAttempt? _connectionAttempt;
   Completer<void>? _finishCompleter;
+  Future<void>? _closing;
   bool isClosed = false;
 
   @override
@@ -137,12 +143,14 @@ abstract base class LiveSocketTranscriptionClient
     Object setupMessage,
     _LiveConnectionAttempt attempt,
   ) async {
-    final pendingSocket = connector(uri, headers);
-    unawaited(
-      pendingSocket.then((socket) async {
-        if (!_isCurrent(attempt)) await _closeSocket(socket);
-      }, onError: (_) {}),
-    );
+    final socketCloseTimeout = closeTimeout;
+    final pendingSocket = connector(uri, headers, attempt.onCancellation).then((
+      socket,
+    ) async {
+      if (!attempt.cancelled.isCompleted) return socket;
+      await _runBoundedCleanup(socket.close(), socketCloseTimeout);
+      throw const _LiveConnectionCancelled();
+    });
     final result = await Future.any<Object>([
       pendingSocket,
       attempt.cancelled.future.then((_) => _ConnectionSignal.cancelled),
@@ -200,6 +208,7 @@ abstract base class LiveSocketTranscriptionClient
       emit(const LiveTranscriptionReady());
     } on TimeoutException {
       attempt.cancel();
+      unawaited(close());
       throw const LiveConnectionException('connection_timeout');
     } on _LiveConnectionCancelled {
       throw const LiveConnectionException('connection_cancelled');
@@ -329,8 +338,9 @@ abstract base class LiveSocketTranscriptionClient
   };
 
   @override
-  Future<void> close() async {
-    if (isClosed) return;
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
     isClosed = true;
     _sender?.close();
     _sender = null;
@@ -343,7 +353,8 @@ abstract base class LiveSocketTranscriptionClient
     final socket = activeSocket;
     activeSocket = null;
     await Future.wait([
-      if (subscription != null) _runBoundedCleanup(subscription.cancel()),
+      if (subscription != null)
+        _runBoundedCleanup(subscription.cancel(), closeTimeout),
       if (socket != null) _closeSocket(socket),
     ]);
     await eventController.close();
@@ -353,24 +364,39 @@ abstract base class LiveSocketTranscriptionClient
       !isClosed && identical(_connectionAttempt, attempt);
 
   Future<void> _closeSocket(LiveSocket socket) async {
-    await _runBoundedCleanup(socket.close());
+    await _runBoundedCleanup(socket.close(), closeTimeout);
   }
+}
 
-  Future<void> _runBoundedCleanup(Future<void> operation) async {
-    try {
-      await operation.timeout(closeTimeout, onTimeout: () {});
-    } catch (_) {
-      // Cleanup failures must not keep the input method in a transient state.
-    }
+Future<void> _runBoundedCleanup(
+  Future<void> operation,
+  Duration timeout,
+) async {
+  try {
+    await operation.timeout(timeout, onTimeout: () {});
+  } catch (_) {
+    // Cleanup failures must not keep the input method in a transient state.
   }
 }
 
 final class _LiveConnectionAttempt {
   final Completer<void> setup = Completer<void>();
   final Completer<void> cancelled = Completer<void>();
+  void Function()? _abort;
+
+  void onCancellation(void Function() abort) {
+    if (cancelled.isCompleted) {
+      abort();
+    } else {
+      _abort = abort;
+    }
+  }
 
   void cancel() {
-    if (!cancelled.isCompleted) cancelled.complete();
+    if (cancelled.isCompleted) return;
+    cancelled.complete();
+    _abort?.call();
+    _abort = null;
   }
 }
 

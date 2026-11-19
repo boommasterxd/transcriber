@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../service_exceptions.dart';
+import 'remote_cancellation.dart';
 
 /// Owns the deadline and response subscription for a single provider request.
 final class RemoteRequestOperation {
@@ -17,7 +18,13 @@ final class RemoteRequestOperation {
   final _bytes = BytesBuilder(copy: false);
   StreamSubscription<List<int>>? _subscription;
 
-  Future<http.Response> run(Duration timeout) async {
+  Future<http.Response> run(
+    Duration timeout,
+    RemoteCancellation? cancellation,
+  ) async {
+    final removeListener = cancellation?.listen(
+      () => _fail(const RemoteRequestCancelledException()),
+    );
     final timer = Timer(timeout, () {
       _fail(
         const RemoteApiException(
@@ -30,6 +37,7 @@ final class RemoteRequestOperation {
     try {
       return await _result.future;
     } finally {
+      removeListener?.call();
       timer.cancel();
       if (!_abort.isCompleted) _abort.complete();
     }

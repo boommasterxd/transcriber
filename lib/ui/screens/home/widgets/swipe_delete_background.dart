@@ -29,7 +29,7 @@ class SwipeDeleteBackground extends StatelessWidget {
       ),
       child: Icon(
         Icons.delete_outline_rounded,
-        color: Colors.white,
+        color: Colors.black,
         size: tablet ? 22 : 24,
       ),
     );

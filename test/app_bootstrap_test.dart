@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:transcriber/app_bootstrap.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/database/legacy_preferences_migrator.dart';
+import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
@@ -20,6 +23,7 @@ void main() {
   _registerBootstrapQueryTest();
   _registerAudioRecoveryTest();
   _registerShareRecoveryTest();
+  _registerFirstFrameTest();
 }
 
 void _registerBootstrapQueryTest() {
@@ -52,8 +56,10 @@ void _registerAudioRecoveryTest() {
         includePreview: true,
       );
 
-      await fixture.bootstrap();
+      final bootstrap = await fixture.bootstrap();
 
+      expect(await fixture.queuedAudio.exists(), isTrue);
+      await bootstrap.runMaintenance!();
       expect(await fixture.queuedAudio.exists(), isFalse);
       expect(await fixture.previewAudio!.exists(), isTrue);
       expect(await fixture.repository.pendingAudioDeletionPaths(), isEmpty);
@@ -68,12 +74,50 @@ void _registerShareRecoveryTest() {
       noteId: 'share-queued-audio',
     );
 
-    await fixture.bootstrap(recoverPendingAudioDeletes: false);
+    final bootstrap = await fixture.bootstrap(
+      recoverPendingAudioDeletes: false,
+    );
+    await bootstrap.runMaintenance!();
 
     expect(await fixture.queuedAudio.exists(), isTrue);
     expect(await fixture.repository.pendingAudioDeletionPaths(), [
       fixture.queuedAudio.path,
     ]);
+  });
+}
+
+void _registerFirstFrameTest() {
+  testWidgets('startup maintenance begins after the initial rendered frame', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final pending = Completer<void>();
+    const initialFrame = ValueKey('initial-frame');
+    var calls = 0;
+
+    await runBootstrappedApp(
+      app: const SizedBox(key: initialFrame),
+      loadBootstrap: () async => AppBootstrapData(
+        database: database,
+        settings: AppSettings.initial(),
+        connections: const {},
+        notes: const [],
+        cacheManager: AudioCacheManager(
+          paths: Completer<StoragePaths>().future,
+        ),
+        runMaintenance: () {
+          expect(find.byKey(initialFrame), findsOneWidget);
+          calls++;
+          return pending.future;
+        },
+      ),
+    );
+
+    await tester.pump();
+    expect(find.byKey(initialFrame), findsOneWidget);
+    expect(calls, 1);
+    pending.complete();
   });
 }
 
@@ -208,8 +252,10 @@ final class _QueuedAudioFixture {
   final File? previewAudio;
   final NotesRepository repository;
 
-  Future<void> bootstrap({bool recoverPendingAudioDeletes = true}) async {
-    await loadAppBootstrap(
+  Future<AppBootstrapData> bootstrap({
+    bool recoverPendingAudioDeletes = true,
+  }) async {
+    return loadAppBootstrap(
       database: database,
       preferences: await SharedPreferences.getInstance(),
       cacheManager: cacheManager,

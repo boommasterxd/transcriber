@@ -7,9 +7,11 @@ import 'package:http/http.dart' as http;
 
 import '../service_exceptions.dart';
 import 'remote_audio_limits.dart';
+import 'remote_cancellation.dart';
 import 'remote_request_operation.dart';
 
 export 'remote_audio_limits.dart' show maxRemoteAudioBytes;
+export 'remote_cancellation.dart';
 
 /// Network timeouts for cloud calls so a stalled request fails with a clear
 /// error instead of hanging the processing UI forever.
@@ -19,11 +21,16 @@ const Duration remoteTranscribeTimeout = Duration(seconds: 180);
 const int maxRemoteResponseBytes = 4 * 1024 * 1024;
 
 /// Validates a provider upload and returns its size for streaming requests.
-Future<int> validateRemoteAudioFile(File file) async {
+Future<int> validateRemoteAudioFile(
+  File file, {
+  RemoteCancellation? cancellation,
+}) async {
+  cancellation?.throwIfCancelled();
   if (!await file.exists()) {
     throw const RemoteApiException('The audio file could not be found.');
   }
   final length = await file.length();
+  cancellation?.throwIfCancelled();
   if (length <= 0 || length > maxRemoteAudioBytes) {
     throw const RemoteApiException('The audio file is too large.');
   }
@@ -40,12 +47,13 @@ Future<RemoteHttpResponse> sendRemoteRequest(
   http.Client client,
   http.BaseRequest request, {
   required Duration timeout,
+  RemoteCancellation? cancellation,
 }) async {
   final response = await RemoteRequestOperation(
     client,
     request,
     maxRemoteResponseBytes,
-  ).run(timeout);
+  ).run(timeout, cancellation);
   return RemoteHttpResponse(
     statusCode: response.statusCode,
     headers: response.headers,

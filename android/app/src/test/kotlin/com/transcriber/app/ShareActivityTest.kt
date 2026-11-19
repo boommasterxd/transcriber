@@ -50,15 +50,8 @@ class ShareActivityTest {
         val clip = shareIntent().apply { clipData = ClipData.newRawUri("audio", uri) }
         assertEquals(uri, extract(activity, clip))
         assertEquals(uri, extract(activity, Intent(Intent.ACTION_VIEW).setDataAndType(uri, "audio/wav")))
-        assertEquals(
-            Uri.parse("file:///voice.wav"),
-            extract(
-                activity,
-                shareIntent()
-                    .putExtra(Intent.EXTRA_STREAM, Uri.parse("file:///voice.wav"))
-            )
-        )
-        for (invalid in listOf("https://fixture/voice.wav", "content:///voice.wav", "file:", "/voice.wav")) {
+        val invalidUris = listOf("https://fixture/voice.wav", "content:///voice.wav", "file:///voice.wav", "/voice.wav")
+        for (invalid in invalidUris) {
             assertNull(extract(activity, shareIntent().putExtra(Intent.EXTRA_STREAM, Uri.parse(invalid))))
         }
         assertNull(extract(activity, Intent(Intent.ACTION_VIEW).setType("audio/wav")))
