@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "08:00"
+      time: "02:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
     labels:
@@ -21,7 +21,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "08:00"
+      time: "02:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
     labels:
@@ -37,7 +37,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "08:00"
+      time: "02:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
     labels:
@@ -53,7 +53,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "08:00"
+      time: "02:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
     labels:
@@ -69,7 +69,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "08:00"
+      time: "02:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
     labels:
