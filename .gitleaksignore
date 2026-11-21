@@ -1,0 +1,6 @@
+# The project owner confirmed on 2026-10-19 that these historical keys are unusable.
+# Exact immutable commit/path/rule/line fingerprints only; no path or rule bypass.
+# Rationale and verification: docs/security.md#historical-scanner-exceptions
+938154b4298f45c71dc53ad4bbe45153668fc49b:app/google-services.json:gcp-api-key:18
+353f4c681f1caa0b88ee48ce502ad5609049c996:app/google-services.json:gcp-api-key:18
+1161a878ec22557494acc137852e51d81db8f346:app/google-services.json:gcp-api-key:18

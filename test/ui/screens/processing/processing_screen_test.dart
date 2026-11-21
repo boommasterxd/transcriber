@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
@@ -14,11 +14,17 @@ import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/screens/processing/processing_screen.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_status_content.dart';
 import 'package:transcriber/ui/screens/settings/settings_screen.dart';
+
 import '../../../support/app_test_fakes.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.en);
+  _registerStatusTests(strings);
+  _registerProcessingNavigationTests(strings);
+  _registerReentryNavigationTest();
+}
 
+void _registerStatusTests(AppStrings strings) {
   testWidgets('renders a running transcription with cloud metadata', (
     tester,
   ) async {
@@ -36,9 +42,13 @@ void main() {
     expect(controller.lastFileName, 'meeting.m4a');
   });
 
-  testWidgets('renders cloud summarization status and both steps', (
+  testWidgets('cloud summarization remains readable in landscape at 200%', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(640, 320));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final controller = _FakeProcessingController(
       const ProcessingState(running: true, step: ProcessingStep.summarizing),
     );
@@ -48,8 +58,17 @@ void main() {
     expect(find.text('gemini-3.7-flash · Google Gemini'), findsOneWidget);
     expect(find.text(strings.shStep1), findsOneWidget);
     expect(find.text(strings.shStep2), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text(strings.shStep2));
+    await tester.pump();
+    expect(
+      tester.getBottomLeft(find.text(strings.shStep2)).dy,
+      lessThanOrEqualTo(320),
+    );
   });
+}
 
+void _registerProcessingNavigationTests(AppStrings strings) {
   testWidgets('dismisses a normal processing error', (tester) async {
     final controller = _FakeProcessingController(
       const ProcessingState(error: RemoteApiException('Provider unavailable')),
@@ -114,16 +133,74 @@ void main() {
   });
 }
 
+void _registerReentryNavigationTest() {
+  testWidgets('System Back releases the old route before a new import starts', (
+    tester,
+  ) async {
+    final controller = _FakeProcessingController(
+      const ProcessingState(running: true),
+    );
+    await _pumpScreen(
+      tester,
+      controller,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ProcessingScreen(
+                  audioPath: '/tmp/audio.m4a',
+                  ownership: AudioOwnership.external,
+                  source: NoteSource.file,
+                ),
+              ),
+            ),
+            child: const Text('Import'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Import'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    final firstOwner = controller.lastOwner;
+
+    await tester.binding.handlePopRoute();
+    expect(controller.discardedOwners, contains(firstOwner));
+    controller.emit(ProcessingState(result: _note('discarded-note')));
+    await tester.pumpAndSettle();
+    expect(find.text('Import'), findsOneWidget);
+    expect(find.byType(TranscriptDetailScreen), findsNothing);
+
+    controller.emit(const ProcessingState(running: true));
+    await tester.tap(find.text('Import'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(controller.runCount, 2);
+    expect(controller.lastOwner, isNot(same(firstOwner)));
+    controller.emit(ProcessingState(result: _note('second-note')));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester
+          .widget<TranscriptDetailScreen>(find.byType(TranscriptDetailScreen))
+          .noteId,
+      'second-note',
+    );
+  });
+}
+
 Future<void> _pumpScreen(
   WidgetTester tester,
   _FakeProcessingController controller, {
   NavigatorObserver? observer,
+  Widget? home,
 }) async {
   final database = testDatabase();
   addTearDown(database.close);
   final settings = AppSettings.initial().copyWith(
-    language: AppLanguage.en,
-    summarizeEnabled: true,
+    appearance: const AppearanceSettings(language: AppLanguage.en),
+    summary: const SummarySettings(enabled: true),
   );
   await tester.pumpWidget(
     appScope(
@@ -140,12 +217,14 @@ Future<void> _pumpScreen(
             ],
           ),
           navigatorObservers: [?observer],
-          home: const ProcessingScreen(
-            audioPath: '/tmp/audio.m4a',
-            ownership: AudioOwnership.external,
-            source: NoteSource.file,
-            fileName: 'meeting.m4a',
-          ),
+          home:
+              home ??
+              const ProcessingScreen(
+                audioPath: '/tmp/audio.m4a',
+                ownership: AudioOwnership.external,
+                source: NoteSource.file,
+                fileName: 'meeting.m4a',
+              ),
         ),
       ),
     ),
@@ -154,22 +233,28 @@ Future<void> _pumpScreen(
 }
 
 TranscriptNote _note(String id) => TranscriptNote(
-  id: id,
-  title: 'Meeting',
-  speaker: 'Speaker',
-  source: NoteSource.file,
-  durationSec: 10,
-  createdAt: DateTime(2024, 1, 1),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'gpt-transcribe',
-  asrSub: 'OpenAI',
-  llmName: 'gpt-5.6-luna',
-  llmSub: 'OpenAI',
-  gist: 'Summary',
-  points: const [],
-  todos: const [],
-  transcript: const [],
+  metadata: NoteMetadata(
+    id: id,
+    title: 'Meeting',
+    speaker: 'Speaker',
+    source: NoteSource.file,
+    durationSec: 10,
+    createdAt: DateTime(2024, 1, 1),
+  ),
+  origins: const NoteOrigins(
+    asrIsLocal: false,
+    summaryIsLocal: false,
+    asrName: 'gpt-transcribe',
+    asrSub: 'OpenAI',
+    llmName: 'gpt-5.6-luna',
+    llmSub: 'OpenAI',
+  ),
+  content: const NoteContent(
+    gist: 'Summary',
+    points: [],
+    todos: [],
+    transcript: [],
+  ),
 );
 
 final class _FakeProcessingController extends ProcessingController {
@@ -179,6 +264,8 @@ final class _FakeProcessingController extends ProcessingController {
   int runCount = 0;
   ProcessingInput? lastInput;
   String? lastFileName;
+  Object? lastOwner;
+  final discardedOwners = <Object?>[];
 
   @override
   ProcessingState build() => initialState;
@@ -188,10 +275,20 @@ final class _FakeProcessingController extends ProcessingController {
     ProcessingInput input, {
     String? fileName,
     bool save = true,
+    Object? owner,
   }) async {
     runCount++;
     lastInput = input;
     lastFileName = fileName;
+    lastOwner = owner;
+  }
+
+  @override
+  bool isOwnedBy(Object owner) => identical(owner, lastOwner);
+
+  @override
+  Future<void> discardCurrent({Object? owner}) async {
+    discardedOwners.add(owner);
   }
 
   void emit(ProcessingState next) => state = next;

@@ -1,111 +1,93 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/settings_controller.dart';
-import '../../../widgets/provider_logo.dart';
 
 class ProviderCredentialForm extends ConsumerWidget {
   const ProviderCredentialForm({
     super.key,
     required this.provider,
     required this.controller,
-    required this.busy,
-    required this.connected,
-    required this.verified,
-    required this.failed,
-    required this.onConnect,
-    required this.onShowHelp,
-    this.onTest,
-    this.onDisconnect,
+    required this.status,
+    required this.actions,
   });
 
   final RemoteProviderId provider;
   final TextEditingController controller;
-  final bool busy;
-  final bool connected;
-  final bool verified;
-  final bool failed;
-  final VoidCallback onConnect;
-  final VoidCallback onShowHelp;
-  final VoidCallback? onTest;
-  final VoidCallback? onDisconnect;
+  final CredentialFormStatus status;
+  final CredentialFormActions actions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final strings = ref.watch(stringsProvider);
+    final hintStyle = TextStyle(fontSize: 12, color: palette.muted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ProviderCredentialHeader(provider: provider, connected: connected),
-        const SizedBox(height: 13),
+        if (provider == RemoteProviderId.google) ...[
+          Text(strings.geminiRequirements, style: hintStyle),
+          const SizedBox(height: 9),
+        ],
         _ProviderApiKeyInput(
           provider: provider,
           controller: controller,
-          onConnect: onConnect,
-          busy: busy,
-          connected: connected,
+          onConnect: actions.connect,
+          busy: status.busy,
+          connected: status.connected,
         ),
-        if (verified || failed) ...[
+        if (status.verified || status.failed) ...[
           const SizedBox(height: 8),
           Text(
-            verified ? strings.keyVerified : strings.keyCheckFailed,
+            status.verified ? strings.keyVerified : strings.keyCheckFailed,
             style: TextStyle(
               fontSize: 12,
-              color: verified ? palette.mint : palette.coralInk,
+              color: status.verified ? palette.mintInk : palette.coralInk,
             ),
           ),
         ],
         const SizedBox(height: 9),
-        Text(
-          strings.keyHint,
-          style: TextStyle(fontSize: 12, color: palette.faint),
-        ),
+        Text(strings.keyHint, style: hintStyle),
         const SizedBox(height: 4),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: busy ? null : onShowHelp,
+            onPressed: status.busy ? null : actions.showHelp,
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
             icon: const Icon(Icons.help_outline_rounded, size: 16),
             label: Text(strings.keyHelp),
           ),
         ),
-        if (onTest != null || onDisconnect != null) ...[
+        if (actions.test != null || actions.disconnect != null) ...[
           const SizedBox(height: 4),
           Row(
             children: [
-              if (onTest != null)
+              if (actions.test != null)
                 Expanded(
                   child: TextButton(
-                    onPressed: busy ? null : onTest,
+                    onPressed: status.busy ? null : actions.test,
                     style: TextButton.styleFrom(
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: Text(
-                      strings.testKey,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text(strings.testKey, textAlign: TextAlign.center),
                   ),
                 ),
-              if (onTest != null && onDisconnect != null)
+              if (actions.test != null && actions.disconnect != null)
                 const SizedBox(width: 8),
-              if (onDisconnect != null)
+              if (actions.disconnect != null)
                 Expanded(
                   child: TextButton(
-                    onPressed: busy ? null : onDisconnect,
+                    onPressed: status.busy ? null : actions.disconnect,
                     style: TextButton.styleFrom(
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     child: Text(
                       strings.disconnect,
-                      maxLines: 2,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: palette.coralInk),
                     ),
@@ -119,39 +101,34 @@ class ProviderCredentialForm extends ConsumerWidget {
   }
 }
 
-class _ProviderCredentialHeader extends ConsumerWidget {
-  const _ProviderCredentialHeader({
-    required this.provider,
+@immutable
+class CredentialFormStatus {
+  const CredentialFormStatus({
+    required this.busy,
     required this.connected,
+    required this.verified,
+    required this.failed,
   });
 
-  final RemoteProviderId provider;
+  final bool busy;
   final bool connected;
+  final bool verified;
+  final bool failed;
+}
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
-    final strings = ref.watch(stringsProvider);
-    final providerName = RemoteCatalog.provider(provider).name;
-    return Row(
-      children: [
-        ProviderLogo(provider: provider, size: 34),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            '$providerName ${strings.apiKey}',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: palette.ink,
-            ),
-          ),
-        ),
-        if (connected)
-          Icon(Icons.check_circle_rounded, size: 18, color: palette.mint),
-      ],
-    );
-  }
+@immutable
+class CredentialFormActions {
+  const CredentialFormActions({
+    required this.connect,
+    required this.showHelp,
+    this.test,
+    this.disconnect,
+  });
+
+  final VoidCallback connect;
+  final VoidCallback showHelp;
+  final VoidCallback? test;
+  final VoidCallback? disconnect;
 }
 
 class _ProviderApiKeyInput extends ConsumerWidget {
@@ -185,7 +162,8 @@ class _ProviderApiKeyInput extends ConsumerWidget {
           onSubmitted: onConnect,
           enabled: !busy,
         );
-        if (constraints.maxWidth < 390) {
+        if (constraints.maxWidth < 390 ||
+            MediaQuery.textScalerOf(context).scale(14) > 18) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [field, const SizedBox(height: 8), button],
@@ -223,8 +201,8 @@ class _ProviderApiKeyField extends ConsumerWidget {
     final placeholder = provider == RemoteProviderId.openai
         ? strings.openAiKeyPlaceholder
         : strings.googleKeyPlaceholder;
-    return SizedBox(
-      height: 46,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
       child: TextField(
         controller: controller,
         enabled: enabled,
@@ -266,8 +244,8 @@ class _ProviderConnectButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return SizedBox(
-      height: 46,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(

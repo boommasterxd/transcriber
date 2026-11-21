@@ -1,16 +1,134 @@
 import 'package:drift/drift.dart';
 
 import '../database/app_database.dart';
+import '../database/database_error_boundary.dart';
 import '../models/audio_ownership.dart';
+import '../models/note_history.dart';
 import '../models/transcript_note.dart';
+import 'notes_history_query.dart';
 
 /// Persists notes and their ordered child collections in Drift.
 class NotesRepository {
+  static const maxPendingAudioDeletionBatchSize = 128;
+
   NotesRepository(this._database);
 
   final AppDatabase _database;
+  late final NotesHistoryQuery _history = NotesHistoryQuery(_database);
 
-  Future<List<TranscriptNote>> load() async {
+  Future<HistoryPage> loadHistoryPage({
+    String query = '',
+    HistoryCursor? cursor,
+    bool previous = false,
+    int limit = 50,
+  }) => _database.transaction(
+    () => _history.load(
+      query: query,
+      cursor: cursor,
+      previous: previous,
+      limit: limit,
+    ),
+  );
+
+  /// Explicit complete snapshots for imports and test fixtures only.
+  Future<List<TranscriptNote>> load() => _database.transaction(_load);
+
+  Future<TranscriptNote?> findById(String id) =>
+      _database.transaction(() => _findById(id));
+
+  /// Returns the oldest queued retained audio deletion candidates first.
+  Future<List<String>> pendingAudioDeletionPaths({int limit = 128}) async {
+    if (limit <= 0 || limit > maxPendingAudioDeletionBatchSize) {
+      throw ArgumentError.value(limit, 'limit');
+    }
+    final query = _database.select(_database.pendingAudioDeletionsTable);
+    query
+      ..orderBy([(table) => OrderingTerm.asc(table.rowId)])
+      ..limit(limit);
+    final rows = await query.get();
+    return rows.map((row) => row.path).toList(growable: false);
+  }
+
+  /// Processes one queued file while serializing note restoration against it.
+  Future<bool> tryProcessPendingAudioDeletion(
+    String path,
+    Future<bool> Function(String path) deleteFile,
+  ) => _database.transaction(() async {
+    // Claim the marker before checking references. The DELETE takes SQLite's
+    // writer lock, including across the share engine's separate connection.
+    if (!await _claimPendingAudioDeletion(path)) return true;
+
+    if (await _hasRetainedAudioReference(path)) {
+      return true;
+    }
+
+    if (!await deleteFile(path)) {
+      // Reinsert behind remaining candidates so failures cannot block recovery.
+      await _queuePendingAudioDeletion(path);
+      return false;
+    }
+    return true;
+  });
+
+  Future<void> _queuePendingAudioDeletion(String path) => _database
+      .into(_database.pendingAudioDeletionsTable)
+      .insertOnConflictUpdate(
+        PendingAudioDeletionsTableCompanion.insert(path: path),
+      );
+
+  Future<bool> _claimPendingAudioDeletion(String path) async {
+    final removed = await (_database.delete(
+      _database.pendingAudioDeletionsTable,
+    )..where((table) => table.path.equals(path))).go();
+    return removed != 0;
+  }
+
+  Future<bool> _hasRetainedAudioReference(String path) async {
+    final row =
+        await (_database.selectOnly(_database.notesTable)
+              ..addColumns([_database.notesTable.id])
+              ..where(
+                _database.notesTable.audioPath.equals(path) &
+                    _database.notesTable.audioOwnership.equals(
+                      AudioOwnership.retained.id,
+                    ),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row != null;
+  }
+
+  Future<TranscriptNote?> _findById(String id) async {
+    final row = await (_database.select(
+      _database.notesTable,
+    )..where((table) => table.id.equals(id))).getSingleOrNull();
+    if (row == null) return null;
+    final points =
+        await (_database.select(_database.notePointsTable)
+              ..where((table) => table.noteId.equals(id))
+              ..orderBy([(table) => OrderingTerm.asc(table.position)]))
+            .get();
+    final todos =
+        await (_database.select(_database.noteTodosTable)
+              ..where((table) => table.noteId.equals(id))
+              ..orderBy([(table) => OrderingTerm.asc(table.position)]))
+            .get();
+    final segments =
+        await (_database.select(_database.transcriptSegmentsTable)
+              ..where((table) => table.noteId.equals(id))
+              ..orderBy([(table) => OrderingTerm.asc(table.position)]))
+            .get();
+    return _fromRow(
+      row,
+      points.map((point) => point.content).toList(),
+      todos
+          .map((todo) => TodoItem(text: todo.content, done: todo.done))
+          .toList(),
+      segments.map((line) => TranscriptLine(text: line.content)).toList(),
+    );
+  }
+
+  Future<List<TranscriptNote>> _load() async {
     final rows = await (_database.select(
       _database.notesTable,
     )..orderBy([(table) => OrderingTerm.desc(table.createdAt)])).get();
@@ -41,6 +159,117 @@ class NotesRepository {
     ];
   }
 
+  /// Adds or restores one note without replacing another engine's snapshot.
+  Future<TranscriptNote> add(TranscriptNote note) =>
+      _database.transaction(() async {
+        final path = note.audioPath;
+        if (note.audioOwnership == AudioOwnership.retained && path != null) {
+          await _claimPendingAudioDeletion(path);
+        }
+        return _storeNote(note);
+      });
+
+  /// Tracks the target before moving audio out of disposable staging.
+  Future<TranscriptNote> addWithStagedAudio(
+    TranscriptNote note,
+    Future<void> Function() promoteAudio,
+  ) async {
+    final path = note.audioPath;
+    if (note.audioOwnership != AudioOwnership.retained || path == null) {
+      throw ArgumentError('Staged audio requires a retained path.');
+    }
+    await _queuePendingAudioDeletion(path);
+    return _database.transaction(() async {
+      // Promotion may only run while the claim transaction owns the writer.
+      // On rollback the durable candidate becomes visible to recovery again.
+      if (!await _claimPendingAudioDeletion(path)) {
+        throw const DatabaseOperationException();
+      }
+      await promoteAudio();
+      return _storeNote(note);
+    });
+  }
+
+  Future<TranscriptNote> _storeNote(TranscriptNote note) async {
+    await _database
+        .into(_database.notesTable)
+        .insertOnConflictUpdate(_toNoteCompanion(note));
+    await _deleteChildren(note.id);
+    await _database.batch((batch) {
+      batch.insertAll(_database.notePointsTable, _pointRows([note]));
+      batch.insertAll(_database.noteTodosTable, _todoRows([note]));
+      batch.insertAll(_database.transcriptSegmentsTable, _segmentRows([note]));
+    });
+    return (await _findById(note.id))!;
+  }
+
+  /// Deletes only the requested note and returns its persisted audio metadata.
+  Future<NotesDeletion> remove(String id) => _database.transaction(() async {
+    final row =
+        await (_database.selectOnly(_database.notesTable)
+              ..addColumns([
+                _database.notesTable.audioPath,
+                _database.notesTable.audioOwnership,
+              ])
+              ..where(_database.notesTable.id.equals(id)))
+            .getSingleOrNull();
+    final deleted = row == null
+        ? null
+        : DeletedNoteAudio(
+            id: id,
+            audioPath: row.read(_database.notesTable.audioPath),
+            audioOwnership: AudioOwnership.fromId(
+              row.read(_database.notesTable.audioOwnership),
+            ),
+          );
+    final audioPath = deleted?.audioPath;
+    if (deleted?.audioOwnership == AudioOwnership.retained &&
+        audioPath != null) {
+      await _database
+          .into(_database.pendingAudioDeletionsTable)
+          .insertOnConflictUpdate(
+            PendingAudioDeletionsTableCompanion.insert(path: audioPath),
+          );
+    }
+    await _deleteChildren(id);
+    await (_database.delete(
+      _database.notesTable,
+    )..where((table) => table.id.equals(id))).go();
+    return NotesDeletion(deleted);
+  });
+
+  /// Toggles a persisted item atomically without rewriting unrelated data.
+  Future<TranscriptNote?> toggleTodo(String noteId, int index) =>
+      _database.transaction(() async {
+        final query = _database.select(_database.noteTodosTable)
+          ..where(
+            (table) =>
+                table.noteId.equals(noteId) & table.position.equals(index),
+          );
+        final todo = await query.getSingleOrNull();
+        if (todo != null) {
+          await (_database.update(_database.noteTodosTable)..where(
+                (table) =>
+                    table.noteId.equals(noteId) & table.position.equals(index),
+              ))
+              .write(NoteTodosTableCompanion(done: Value(!todo.done)));
+        }
+        return _findById(noteId);
+      });
+
+  Future<void> _deleteChildren(String id) async {
+    await (_database.delete(
+      _database.notePointsTable,
+    )..where((table) => table.noteId.equals(id))).go();
+    await (_database.delete(
+      _database.noteTodosTable,
+    )..where((table) => table.noteId.equals(id))).go();
+    await (_database.delete(
+      _database.transcriptSegmentsTable,
+    )..where((table) => table.noteId.equals(id))).go();
+  }
+
+  /// Explicit snapshot replacement for imports and test fixtures only.
   Future<void> saveAll(List<TranscriptNote> notes) async {
     final ids = <String>{};
     for (final note in notes) {
@@ -75,22 +304,29 @@ class NotesRepository {
     List<TodoItem> todos,
     List<TranscriptLine> segments,
   ) => TranscriptNote(
-    id: row.id,
-    title: row.title,
-    speaker: row.speaker,
-    source: NoteSource.fromId(row.source),
-    durationSec: row.durationSec,
-    createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
-    asrIsLocal: row.asrIsLocal,
-    summaryIsLocal: row.summaryIsLocal,
-    asrName: row.asrName,
-    asrSub: row.asrSub,
-    llmName: row.llmName,
-    llmSub: row.llmSub,
-    gist: row.gist,
-    points: points,
-    todos: todos,
-    transcript: segments,
+    metadata: NoteMetadata(
+      id: row.id,
+      title: row.title,
+      speaker: row.speaker,
+      source: NoteSource.fromId(row.source),
+      durationSec: row.durationSec,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
+    ),
+    origins: NoteOrigins(
+      asrIsLocal: row.asrIsLocal,
+      summaryIsLocal: row.summaryIsLocal,
+      asrName: row.asrName,
+      asrSub: row.asrSub,
+      llmName: row.llmName,
+      llmSub: row.llmSub,
+    ),
+    content: NoteContent(
+      gist: row.gist,
+      summaryError: row.summaryError,
+      points: points,
+      todos: todos,
+      transcript: segments,
+    ),
     audioPath: row.audioPath,
     audioOwnership: AudioOwnership.fromId(row.audioOwnership),
   );
@@ -99,6 +335,7 @@ class NotesRepository {
       NotesTableCompanion.insert(
         id: note.id,
         title: note.title,
+        titleSearch: Value(note.title.toLowerCase()),
         speaker: note.speaker,
         source: note.source.id,
         durationSec: note.durationSec,
@@ -110,9 +347,8 @@ class NotesRepository {
         llmName: note.llmName,
         llmSub: note.llmSub,
         gist: note.gist,
-        audioPath: note.audioPath == null
-            ? const Value.absent()
-            : Value(note.audioPath),
+        summaryError: Value(note.summaryError),
+        audioPath: Value(note.audioPath),
         audioOwnership: note.audioOwnership.id,
       );
 
@@ -191,4 +427,22 @@ class NotesRepository {
     }
     return result;
   }
+}
+
+final class NotesDeletion {
+  const NotesDeletion(this.deleted);
+
+  final DeletedNoteAudio? deleted;
+}
+
+final class DeletedNoteAudio {
+  const DeletedNoteAudio({
+    required this.id,
+    required this.audioPath,
+    required this.audioOwnership,
+  });
+
+  final String id;
+  final String? audioPath;
+  final AudioOwnership audioOwnership;
 }

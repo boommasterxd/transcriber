@@ -21,12 +21,17 @@ class AppSettingsTable extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@TableIndex.sql(
+  'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
+)
+@TableIndex.sql('CREATE INDEX notes_audio_path ON notes (audio_path)')
 class NotesTable extends Table {
   @override
   String get tableName => 'notes';
 
   TextColumn get id => text()();
   TextColumn get title => text()();
+  TextColumn get titleSearch => text().withDefault(const Constant(''))();
   TextColumn get speaker => text()();
   TextColumn get source => text()();
   IntColumn get durationSec => integer()();
@@ -38,6 +43,7 @@ class NotesTable extends Table {
   TextColumn get llmName => text()();
   TextColumn get llmSub => text()();
   TextColumn get gist => text()();
+  TextColumn get summaryError => text().nullable()();
   TextColumn get audioPath => text().nullable()();
   TextColumn get audioOwnership => text()();
 
@@ -85,4 +91,15 @@ class MigrationStateTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {key};
+}
+
+/// Durable deletion candidates for retained audio removed with an undoable note.
+class PendingAudioDeletionsTable extends Table {
+  @override
+  String get tableName => 'pending_audio_deletions';
+
+  TextColumn get path => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {path};
 }

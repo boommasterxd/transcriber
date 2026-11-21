@@ -1,58 +1,34 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
 import 'waveforms.dart';
 
 /// Pulsing concentric rings around an animated equalizer for the processing and
 /// onboarding hero.
-class PulseRingHero extends StatefulWidget {
+class PulseRingHero extends StatelessWidget {
   const PulseRingHero({super.key, this.size = 96, this.ringSize});
 
   final double size;
   final double? ringSize;
 
-  @override
-  State<PulseRingHero> createState() => _PulseRingHeroState();
-}
-
-class _PulseRingHeroState extends State<PulseRingHero>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 2),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  Widget _ring(double phase) {
-    final palette = context.palette;
-    final ring = widget.ringSize ?? widget.size;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        final t = (_c.value + phase) % 1.0;
-        return Opacity(
-          opacity: (0.55 * (1 - t)).clamp(0.0, 1.0),
-          child: Transform.scale(
-            scale: 0.55 + t * 1.15,
-            child: Container(
-              width: ring,
-              height: ring,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: palette.accent.withValues(alpha: 0.4),
-                  width: 1.5,
-                ),
-              ),
+  Widget _ring(Color accent, double progress) {
+    final ring = ringSize ?? size;
+    return Opacity(
+      opacity: 0.55 * (1 - progress),
+      child: Transform.scale(
+        scale: 0.55 + progress * 1.15,
+        child: Container(
+          width: ring,
+          height: ring,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: accent.withValues(alpha: 0.4),
+              width: 1.5,
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -66,21 +42,25 @@ class _PulseRingHeroState extends State<PulseRingHero>
       child: SizedBox(
         width: 140,
         height: 140,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            _ring(0),
-            _ring(0.5),
-            Container(
-              width: widget.size,
-              height: widget.size,
-              decoration: BoxDecoration(
-                color: palette.accentSoft2,
-                borderRadius: BorderRadius.circular(32),
-              ),
-              child: const Center(child: EqWave()),
+        child: DecorativeLoop(
+          duration: const Duration(seconds: 2),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: palette.accentSoft2,
+              borderRadius: BorderRadius.circular(32),
             ),
-          ],
+            child: const Center(child: EqWave()),
+          ),
+          builder: (context, progress, child) => Stack(
+            alignment: Alignment.center,
+            children: [
+              _ring(palette.accent, progress),
+              _ring(palette.accent, (progress + 0.5) % 1.0),
+              child!,
+            ],
+          ),
         ),
       ),
     );
@@ -108,7 +88,7 @@ class StepIndicator extends StatelessWidget {
       width: 34,
       height: 34,
       decoration: BoxDecoration(color: palette.mint, shape: BoxShape.circle),
-      child: const Icon(Icons.check, color: Colors.white, size: 16),
+      child: const Icon(Icons.check, color: Colors.black, size: 16),
     );
     Widget circleSpinner() => SizedBox(
       width: 34,

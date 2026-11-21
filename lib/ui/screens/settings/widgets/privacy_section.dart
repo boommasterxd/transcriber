@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
 import '../../../../state/settings_controller.dart';
+import '../../../widgets/privacy_policy_link.dart';
 import '../../../widgets/surfaces.dart';
 import 'settings_switch_row.dart';
 
@@ -41,6 +42,7 @@ class PrivacySection extends ConsumerWidget {
           if (autoDelete) _AutoDeleteWarning(text: t.autoDelNote),
           Divider(height: 26, color: palette.line),
           _CloudProcessingStatement(text: t.privacyStatement),
+          const PrivacyPolicyLink(),
         ],
       ),
     );

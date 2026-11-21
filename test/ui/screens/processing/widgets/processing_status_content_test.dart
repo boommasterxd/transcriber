@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/processing/processing_profile.dart';
 import 'package:transcriber/state/processing_controller.dart';
 import 'package:transcriber/ui/screens/processing/widgets/processing_status_content.dart';
+
 import 'processing_widget_test_support.dart';
 
 void main() {
@@ -46,6 +47,7 @@ void main() {
   testWidgets('shows summary cloud metadata and completed first step', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final presentation = ProcessingStatusPresentation.forScreen(
       strings: strings,
       state: const ProcessingState(step: ProcessingStep.summarizing),
@@ -63,6 +65,11 @@ void main() {
     expect(find.text('gpt-5.6-luna · OpenAI'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    final status = tester.semantics.find(
+      find.bySemanticsLabel(strings.shSummarize),
+    );
+    expect(status.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+    semantics.dispose();
   });
 
   testWidgets('does not render an empty file chip', (tester) async {

@@ -1,14 +1,11 @@
 import '../../data/models/transcription_result.dart';
+import 'provider_model_catalog.dart';
+import 'remote_cancellation.dart';
+import 'remote_model_info.dart';
 
-/// A model exposed by a provider's model catalog.
-class RemoteModelInfo {
-  const RemoteModelInfo({required this.id, this.label});
-
-  final String id;
-  final String? label;
-
-  String get display => label?.isNotEmpty == true ? label! : id;
-}
+export 'provider_model_catalog.dart';
+export 'remote_cancellation.dart';
+export 'remote_model_info.dart';
 
 /// Provider boundary for audio transcription.
 abstract interface class TranscriptionProviderClient {
@@ -16,6 +13,7 @@ abstract interface class TranscriptionProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   });
 }
 
@@ -25,6 +23,7 @@ abstract interface class SummaryProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   });
 }
 
@@ -35,6 +34,8 @@ abstract interface class ProviderCredentialClient {
 
 /// Provider boundary for the model picker in settings.
 abstract interface class ModelCatalogClient {
+  Future<ProviderModelCatalog> loadModelCatalog();
+
   Future<List<RemoteModelInfo>> listModels({required bool forTranscription});
 }
 
@@ -44,4 +45,7 @@ abstract interface class RemoteProviderClient
         TranscriptionProviderClient,
         SummaryProviderClient,
         ProviderCredentialClient,
-        ModelCatalogClient {}
+        ModelCatalogClient {
+  /// Releases client-owned resources. Injected transports remain caller-owned.
+  void close();
+}

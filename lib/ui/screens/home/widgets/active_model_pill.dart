@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_palette.dart';
 
@@ -34,7 +34,7 @@ class ActiveModelPill extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: context.palette.faint,
+                color: context.palette.muted,
               ),
             ),
           ],

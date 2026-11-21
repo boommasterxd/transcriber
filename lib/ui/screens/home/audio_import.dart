@@ -1,49 +1,63 @@
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../core/l10n/app_strings.dart';
+import '../../../core/toast.dart';
+import '../../../data/models/audio_import_selection.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/storage/audio_cache_manager.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../navigation.dart';
 
-class AudioImportSelection {
-  const AudioImportSelection({required this.path, required this.fileName});
-
-  final String path;
-  final String fileName;
-}
+export '../../../data/models/audio_import_selection.dart';
 
 typedef AudioImportPicker = Future<AudioImportSelection?> Function();
-typedef AudioImportStarter =
-    Future<void> Function(BuildContext context, AudioImportSelection selection);
-
-Future<AudioImportSelection?> pickAudioImport() async {
-  final file = await FilePicker.pickFile(type: FileType.audio);
-  final path = file?.path;
-  if (file == null || path == null) return null;
-  return AudioImportSelection(path: path, fileName: file.name);
-}
+typedef AudioImportStarter = Future<void> Function(
+  BuildContext context,
+  AudioImportSelection selection,
+);
 
 Future<void> startAudioImport(
   BuildContext context, {
   required AudioCacheManager cacheManager,
-  AudioImportPicker picker = pickAudioImport,
+  required AppStrings strings,
+  required AudioImportPicker picker,
   AudioImportStarter starter = _startProcessing,
 }) async {
-  final selection = await picker();
-  if (selection == null || !context.mounted) return;
-  final imported = await cacheManager.importExternal(
-    selection.path,
-    displayName: selection.fileName,
-  );
-  if (!context.mounted) {
-    await cacheManager.discard(imported);
-    return;
+  try {
+    final selection = await picker();
+    if (selection == null) return;
+    final imported = await cacheManager.registerShared(selection.path);
+    if (!context.mounted) {
+      await cacheManager.discard(imported);
+      return;
+    }
+    try {
+      await starter(context, selection);
+    } catch (_) {
+      await cacheManager.discard(imported);
+      rethrow;
+    }
+  } catch (_) {
+    if (!context.mounted) return;
+    showAppToast(
+      strings.audioImportFailed,
+      isError: true,
+      messenger: ScaffoldMessenger.maybeOf(context),
+    );
   }
-  await starter(
-    context,
-    AudioImportSelection(path: imported.path, fileName: selection.fileName),
-  );
+}
+
+Future<void> discardPickedAudio(
+  AudioCacheManager cacheManager,
+  AudioImportSelection selection,
+) async {
+  try {
+    await cacheManager.discard(
+      await cacheManager.registerShared(selection.path),
+    );
+  } on Object {
+    // A missing or unverified path cannot be deleted as a picker file.
+  }
 }
 
 Future<void> _startProcessing(

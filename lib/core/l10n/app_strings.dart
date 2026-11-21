@@ -4,23 +4,14 @@
 /// Strings are a direct port of the DE/EN dictionaries from the original design.
 library;
 
+import '../../data/models/app_language.dart';
+import '../../data/models/app_accent.dart';
+
+export '../../data/models/app_language.dart';
+
 part 'app_string_key.dart';
 part 'app_strings_de.dart';
 part 'app_strings_en.dart';
-
-enum AppLanguage {
-  de('de'),
-  en('en');
-
-  const AppLanguage(this.code);
-
-  final String code;
-
-  static AppLanguage fromCode(String? code) => AppLanguage.values.firstWhere(
-    (language) => language.code == code,
-    orElse: () => AppLanguage.de,
-  );
-}
 
 class AppStrings {
   const AppStrings._(this.language, this._values);
@@ -47,13 +38,26 @@ class AppStrings {
   String get recording => _string(_StringKey.recording);
   String get recPaused => _string(_StringKey.recPaused);
   String get recHint => _string(_StringKey.recHint);
+  String get previousPage => _string(_StringKey.previousPage);
+  String get nextPage => _string(_StringKey.nextPage);
+  String recLimit(String duration) =>
+      _string(_StringKey.recLimit).replaceAll('{duration}', duration);
+  String recLimitWarning(String duration) =>
+      _string(_StringKey.recLimitWarning).replaceAll('{duration}', duration);
+  String get recLimitReached => _string(_StringKey.recLimitReached);
+  String get recFailure => _string(_StringKey.recFailure);
   String get recResume => _string(_StringKey.recResume);
   String get recPause => _string(_StringKey.recPause);
   String get recStopShort => _string(_StringKey.recStopShort);
   String get recCancel => _string(_StringKey.recCancel);
-  String get micPermissionTitle => _string(_StringKey.micPermissionTitle);
   String get micPermissionBody => _string(_StringKey.micPermissionBody);
+  String get micPermissionSettings => _string(_StringKey.micPermissionSettings);
   String get setTitle => _string(_StringKey.setTitle);
+  String get setModels => _string(_StringKey.setModels);
+  String get setGeneral => _string(_StringKey.setGeneral);
+  String get appVersion => _string(_StringKey.appVersion);
+  String get versionUnavailable => _string(_StringKey.versionUnavailable);
+  String get apiKeysDescription => _string(_StringKey.apiKeysDescription);
   String get setAppear => _string(_StringKey.setAppear);
   String get setAsr => _string(_StringKey.setAsr);
   String get setLlm => _string(_StringKey.setLlm);
@@ -65,6 +69,17 @@ class AppStrings {
   String get light => _string(_StringKey.light);
   String get dark => _string(_StringKey.dark);
   String get accentC => _string(_StringKey.accentC);
+  String accentName(AppAccent accent) => _string(switch (accent) {
+    AppAccent.violet => _StringKey.accentViolet,
+    AppAccent.blue => _StringKey.accentBlue,
+    AppAccent.emerald => _StringKey.accentEmerald,
+    AppAccent.amber => _StringKey.accentAmber,
+    AppAccent.magenta => _StringKey.accentMagenta,
+  });
+  String get actionClose => _string(_StringKey.actionClose);
+  String get actionBack => _string(_StringKey.actionBack);
+  String get actionDelete => _string(_StringKey.actionDelete);
+  String get actionShare => _string(_StringKey.actionShare);
   String get delete => _string(_StringKey.delete);
   String get autoLang => _string(_StringKey.autoLang);
   String get transLang => _string(_StringKey.transLang);
@@ -73,6 +88,11 @@ class AppStrings {
   String get apiKey => _string(_StringKey.apiKey);
   String get connect => _string(_StringKey.connect);
   String get connected => _string(_StringKey.connected);
+  String get providerChecking => _string(_StringKey.providerChecking);
+  String get providerConnectionFailed =>
+      _string(_StringKey.providerConnectionFailed);
+  String get providerConnectionsTitle =>
+      _string(_StringKey.providerConnectionsTitle);
   String get disconnect => _string(_StringKey.disconnect);
   String get testKey => _string(_StringKey.testKey);
   String get replaceKey => _string(_StringKey.replaceKey);
@@ -82,6 +102,7 @@ class AppStrings {
   String get openAiKeyPlaceholder => _string(_StringKey.openAiKeyPlaceholder);
   String get googleKeyPlaceholder => _string(_StringKey.googleKeyPlaceholder);
   String get keyHint => _string(_StringKey.keyHint);
+  String get geminiRequirements => _string(_StringKey.geminiRequirements);
   String get remoteModel => _string(_StringKey.remoteModel);
   String get showModels => _string(_StringKey.showModels);
   String get hideModels => _string(_StringKey.hideModels);
@@ -94,6 +115,23 @@ class AppStrings {
   String get summaryGoogleDescription =>
       _string(_StringKey.summaryGoogleDescription);
   String get connectFirst => _string(_StringKey.connectFirst);
+  String get noModels => _string(_StringKey.noModels);
+  String get modelUnavailable => _string(_StringKey.modelUnavailable);
+  String get chooseModel => _string(_StringKey.chooseModel);
+  String get transcriptionTaskTitle =>
+      _string(_StringKey.transcriptionTaskTitle);
+  String get transcriptionTaskDescription =>
+      _string(_StringKey.transcriptionTaskDescription);
+  String get summaryTaskDescription =>
+      _string(_StringKey.summaryTaskDescription);
+  String get transcriptionModelTitle =>
+      _string(_StringKey.transcriptionModelTitle);
+  String get summaryModelTitle => _string(_StringKey.summaryModelTitle);
+  String get alwaysActive => _string(_StringKey.alwaysActive);
+  String get optionalTask => _string(_StringKey.optionalTask);
+  String get modelLoadFailed => _string(_StringKey.modelLoadFailed);
+  String get modelsLoading => _string(_StringKey.modelsLoading);
+  String get refreshModels => _string(_StringKey.refreshModels);
   String get processedWith => _string(_StringKey.processedWith);
   String get autoDel => _string(_StringKey.autoDel);
   String get autoDelSub => _string(_StringKey.autoDelSub);
@@ -103,6 +141,10 @@ class AppStrings {
   String get shStep2 => _string(_StringKey.shStep2);
   String get shFrom => _string(_StringKey.shFrom);
   String get shSummary => _string(_StringKey.shSummary);
+  String get aiGeneratedSummary => _string(_StringKey.aiGeneratedSummary);
+  String get unknownSummaryOrigin =>
+      _string(_StringKey.unknownSummaryOrigin)
+          .replaceAll('{summary}', shSummary);
   String get shPoints => _string(_StringKey.shPoints);
   String get shActions => _string(_StringKey.shActions);
   String get shShow => _string(_StringKey.shShow);
@@ -112,12 +154,28 @@ class AppStrings {
   String get shCopied => _string(_StringKey.shCopied);
   String get shShare => _string(_StringKey.shShare);
   String get shSave => _string(_StringKey.shSave);
+  String get shareConfirmTitle => _string(_StringKey.shareConfirmTitle);
+  String get shareConfirmAction => _string(_StringKey.shareConfirmAction);
+  String shareAudioRecipient(String provider) =>
+      _string(_StringKey.shareAudioRecipient)
+          .replaceAll('{provider}', provider);
+  String shareTranscriptRecipient(String provider) =>
+      _string(_StringKey.shareTranscriptRecipient)
+          .replaceAll('{provider}', provider);
+  String get shareSaving => _string(_StringKey.shareSaving);
+  String get copyFailed => _string(_StringKey.copyFailed);
   String get mSpkTemplate => _string(_StringKey.mSpkTemplate);
   String get voiceNote => _string(_StringKey.voiceNote);
   String get recordingLabel => _string(_StringKey.recordingLabel);
   String get justNow => _string(_StringKey.justNow);
   String get processingTitle => _string(_StringKey.processingTitle);
   String get errorTitle => _string(_StringKey.errorTitle);
+  String get processingFailedBody => _string(_StringKey.processingFailedBody);
+  String get audioImportFailed => _string(_StringKey.audioImportFailed);
+  String get recoveredAudioTitle => _string(_StringKey.recoveredAudioTitle);
+  String get recoveredAudioBody => _string(_StringKey.recoveredAudioBody);
+  String get recoveredAudioContinue =>
+      _string(_StringKey.recoveredAudioContinue);
   String get retry => _string(_StringKey.retry);
   String get dismiss => _string(_StringKey.dismiss);
   String get goToSettings => _string(_StringKey.goToSettings);
@@ -132,8 +190,15 @@ class AppStrings {
   String get keyMissing => _string(_StringKey.keyMissing);
   String get cancel => _string(_StringKey.cancel);
   String get privacyStatement => _string(_StringKey.privacyStatement);
+  String get privacyPolicy => _string(_StringKey.privacyPolicy);
+  String get openPrivacyPolicyFailed =>
+      _string(_StringKey.openPrivacyPolicyFailed);
   String get obModelsT => _string(_StringKey.obModelsT);
-  String get obModelsS => _string(_StringKey.obModelsS);
+  String get obConnectStep => _string(_StringKey.obConnectStep);
+  String get obConnectDescription => _string(_StringKey.obConnectDescription);
+  String get obSelectModelsDescription =>
+      _string(_StringKey.obSelectModelsDescription);
+  String get obSelectModelsHint => _string(_StringKey.obSelectModelsHint);
   String get obNext => _string(_StringKey.obNext);
   String get obStart => _string(_StringKey.obStart);
   String get obWelcomeT => _string(_StringKey.obWelcomeT);
@@ -150,17 +215,10 @@ class AppStrings {
   String get obPrivacyS => _string(_StringKey.obPrivacyS);
   String get obReadyT => _string(_StringKey.obReadyT);
   String get obReadyS => _string(_StringKey.obReadyS);
-  String get obPermsT => _string(_StringKey.obPermsT);
-  String get obPermsS => _string(_StringKey.obPermsS);
-  String get obPermMicT => _string(_StringKey.obPermMicT);
-  String get obPermMicS => _string(_StringKey.obPermMicS);
-  String get obPermEnable => _string(_StringKey.obPermEnable);
-  String get obPermGranted => _string(_StringKey.obPermGranted);
-  String get obPermRequiredHint => _string(_StringKey.obPermRequiredHint);
-  String get obPermDeniedNote => _string(_StringKey.obPermDeniedNote);
-  String get obPermBlockedNote => _string(_StringKey.obPermBlockedNote);
-  String get obPermOpenSettings => _string(_StringKey.obPermOpenSettings);
-  String get obPermLocked => _string(_StringKey.obPermLocked);
+  String onboardingProgress(int current, int total) =>
+      _string(_StringKey.onboardingProgress)
+          .replaceAll('{current}', '$current')
+          .replaceAll('{total}', '$total');
   String get deleteNoteTitle => _string(_StringKey.deleteNoteTitle);
   String get deleteNoteBody => _string(_StringKey.deleteNoteBody);
   String get noteDeleted => _string(_StringKey.noteDeleted);
@@ -168,6 +226,8 @@ class AppStrings {
   String get summarizeTitle => _string(_StringKey.summarizeTitle);
   String get summarizeSub => _string(_StringKey.summarizeSub);
   String get summaryOff => _string(_StringKey.summaryOff);
+  String get summaryFailedTitle => _string(_StringKey.summaryFailedTitle);
+  String get summaryFailedBody => _string(_StringKey.summaryFailedBody);
   String get autoDelNote => _string(_StringKey.autoDelNote);
   String get keyHelpTitleTemplate => _string(_StringKey.keyHelpTitleTemplate);
   String get keyHelpNote => _string(_StringKey.keyHelpNote);
@@ -185,6 +245,11 @@ class AppStrings {
   String get keyboardSection => _string(_StringKey.keyboardSection);
   String get keyboardTitle => _string(_StringKey.keyboardTitle);
   String get keyboardDescription => _string(_StringKey.keyboardDescription);
+  String get keyboardGuideTitle => _string(_StringKey.keyboardGuideTitle);
+  String get keyboardGuideBenefit => _string(_StringKey.keyboardGuideBenefit);
+  String get keyboardGuideEnable => _string(_StringKey.keyboardGuideEnable);
+  String get keyboardGuideDictate => _string(_StringKey.keyboardGuideDictate);
+  String get keyboardGuideFinish => _string(_StringKey.keyboardGuideFinish);
   String get keyboardEnabled => _string(_StringKey.keyboardEnabled);
   String get keyboardDisabled => _string(_StringKey.keyboardDisabled);
   String get keyboardSelected => _string(_StringKey.keyboardSelected);
@@ -200,6 +265,10 @@ class AppStrings {
   String get keyboardSensitiveField =>
       _string(_StringKey.keyboardSensitiveField);
   String get keyboardMicMissing => _string(_StringKey.keyboardMicMissing);
+  String get keyboardMicTitle => _string(_StringKey.keyboardMicTitle);
+  String get keyboardMicEnable => _string(_StringKey.keyboardMicEnable);
+  String get keyboardMicGranted => _string(_StringKey.keyboardMicGranted);
+  String get keyboardMicDenied => _string(_StringKey.keyboardMicDenied);
   String get keyboardKeyMissing => _string(_StringKey.keyboardKeyMissing);
   String get keyboardConnectionError =>
       _string(_StringKey.keyboardConnectionError);
@@ -239,6 +308,13 @@ class AppStrings {
       _string(_StringKey.keyboardSetupChooseBody);
   String get keyboardSetupDone => _string(_StringKey.keyboardSetupDone);
   String get keyboardDone => _string(_StringKey.keyboardDone);
+  String get audioPlay => _string(_StringKey.audioPlay);
+  String get audioPause => _string(_StringKey.audioPause);
+  String get audioPosition => _string(_StringKey.audioPosition);
+  String audioPositionValue(String current, String total) =>
+      _string(_StringKey.audioPositionValue)
+          .replaceAll('{current}', current)
+          .replaceAll('{total}', total);
 
   List<String> get weekdaysShort =>
       _values[_StringKey.weekdaysShort]! as List<String>;

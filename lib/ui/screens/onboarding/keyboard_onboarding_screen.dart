@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/app_strings.dart';
@@ -9,6 +9,7 @@ import '../../../services/dictation/live_transcription.dart';
 import '../../../state/settings_controller.dart';
 import '../../keyboard/keyboard_status_loader.dart';
 import '../../widgets/surfaces.dart';
+import 'widgets/keyboard_microphone_step.dart';
 
 /// Optional guided setup for enabling and selecting the Android input method.
 class KeyboardOnboardingScreen extends ConsumerWidget {
@@ -92,6 +93,8 @@ class _SetupContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        KeyboardMicrophoneStep(strings: strings),
+        const SizedBox(height: 14),
         Text(
           strings.keyboardPrivacy,
           style: TextStyle(color: context.palette.muted),
@@ -126,10 +129,14 @@ class _SetupContent extends StatelessWidget {
           complete: status.enabled,
           title: strings.keyboardSetupEnableTitle,
           body: strings.keyboardSetupEnableBody,
-          actionLabel: status.enabled
-              ? strings.keyboardEnabled
-              : strings.keyboardOpenSettings,
-          action: status.enabled ? null : actions.enable,
+          action: FilledButton.tonal(
+            onPressed: status.enabled ? null : actions.enable,
+            child: Text(
+              status.enabled
+                  ? strings.keyboardEnabled
+                  : strings.keyboardOpenSettings,
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         _SetupStep(
@@ -137,11 +144,19 @@ class _SetupContent extends StatelessWidget {
           complete: status.selected,
           title: strings.keyboardSetupChooseTitle,
           body: strings.keyboardSetupChooseBody,
-          actionLabel: status.selected
-              ? strings.keyboardSelected
-              : strings.keyboardChoose,
-          action: status.enabled && !status.selected ? actions.choose : null,
+          action: FilledButton.tonal(
+            onPressed: status.enabled && !status.selected
+                ? actions.choose
+                : null,
+            child: Text(
+              status.selected
+                  ? strings.keyboardSelected
+                  : strings.keyboardChoose,
+            ),
+          ),
         ),
+        const SizedBox(height: 14),
+        KeyboardMicrophoneStep(strings: strings),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -220,7 +235,6 @@ class _SetupStep extends StatelessWidget {
     required this.title,
     required this.body,
     this.detail,
-    this.actionLabel,
     this.action,
   });
 
@@ -229,8 +243,7 @@ class _SetupStep extends StatelessWidget {
   final String title;
   final String body;
   final String? detail;
-  final String? actionLabel;
-  final VoidCallback? action;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -260,14 +273,14 @@ class _SetupStep extends StatelessWidget {
                   Text(
                     value,
                     style: TextStyle(
-                      color: context.palette.accent,
+                      color: context.palette.accentDeep,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
-                if (actionLabel case final label?) ...[
+                if (action case final button?) ...[
                   const SizedBox(height: 10),
-                  FilledButton.tonal(onPressed: action, child: Text(label)),
+                  button,
                 ],
               ],
             ),
@@ -288,7 +301,7 @@ class _StepBadge extends StatelessWidget {
   Widget build(BuildContext context) => CircleAvatar(
     radius: 16,
     backgroundColor: complete ? context.palette.mint : context.palette.chip,
-    foregroundColor: complete ? Colors.white : context.palette.ink,
+    foregroundColor: complete ? Colors.black : context.palette.ink,
     child: complete
         ? const Icon(Icons.check_rounded, size: 18)
         : Text('$number', style: const TextStyle(fontWeight: FontWeight.w800)),

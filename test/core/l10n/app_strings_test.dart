@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 
 void main() {
@@ -89,21 +89,27 @@ void _registerByokInputTest(AppStrings german, AppStrings english) {
     expect(german.keyPlaceholder, contains('Schlüssel einfügen'));
     expect(german.openAiKeyPlaceholder, contains('OpenAI'));
     expect(german.googleKeyPlaceholder, contains('Gemini'));
-    expect(german.keyHint, contains('nur lokal'));
+    expect(german.keyHint, contains('zur Authentifizierung an den Anbieter'));
     expect(english.keyPlaceholder, contains('paste key'));
     expect(english.openAiKeyPlaceholder, contains('OpenAI'));
     expect(english.googleKeyPlaceholder, contains('Gemini'));
-    expect(english.keyHint, contains('locally on device only'));
+    expect(english.keyHint, contains('sends the key to the provider'));
     expect(german.keyMissing, isNotEmpty);
     expect(english.keyMissing, isNotEmpty);
   });
 
   test('keeps provider descriptions specific to each processing stage', () {
-    expect(german.transcriptionGoogleDescription, contains('Transcribe'));
-    expect(german.summaryGoogleDescription, contains('Flash'));
+    expect(
+      german.transcriptionGoogleDescription,
+      allOf(contains('Audio in Text'), contains('Google Gemini')),
+    );
+    expect(german.summaryGoogleDescription, contains('Zusammenfassungen'));
     expect(german.summaryGoogleDescription, isNot(contains('Transcribe')));
-    expect(german.summaryOpenAiDescription, contains('GPT-5'));
-    expect(english.transcriptionOpenAiDescription, contains('gpt-transcribe'));
+    expect(german.summaryOpenAiDescription, contains('Zusammenfassungen'));
+    expect(
+      english.transcriptionOpenAiDescription,
+      allOf(contains('audio into text'), contains('OpenAI')),
+    );
     expect(english.summaryOpenAiDescription, isNot(contains('transcribe')));
   });
 }
@@ -142,22 +148,12 @@ void _registerMicrophoneTests() {
     final german = AppStrings.of(AppLanguage.de);
     final english = AppStrings.of(AppLanguage.en);
 
-    test(
-      'explains that microphone access is only needed for in-app recording',
-      () {
-        expect(german.micPermissionBody, contains('Mikrofon'));
-        expect(german.obPermMicS, contains('direkt in der App'));
-        expect(german.obPermsS, contains('nur für Aufnahmen'));
-        expect(
-          german.obPermsS.toLowerCase(),
-          isNot(contains('benachrichtigung')),
-        );
-        expect(english.micPermissionBody, contains('microphone'));
-        expect(english.obPermMicS, contains('right inside the app'));
-        expect(english.obPermsS, contains('only required for recordings'));
-        expect(english.obPermsS.toLowerCase(), isNot(contains('notification')));
-      },
-    );
+    test('explains the recording and dictation permission separately', () {
+      expect(german.micPermissionBody, contains('Mikrofon'));
+      expect(german.keyboardMicDenied, contains('Diktate'));
+      expect(english.micPermissionBody, contains('microphone'));
+      expect(english.keyboardMicDenied, contains('dictate'));
+    });
   });
 }
 
@@ -235,6 +231,11 @@ List<String> _catalogKeyboardValues(AppStrings strings) => [
   strings.keyboardSection,
   strings.keyboardTitle,
   strings.keyboardDescription,
+  strings.keyboardGuideTitle,
+  strings.keyboardGuideBenefit,
+  strings.keyboardGuideEnable,
+  strings.keyboardGuideDictate,
+  strings.keyboardGuideFinish,
   strings.keyboardEnabled,
   strings.keyboardDisabled,
   strings.keyboardSelected,
@@ -249,6 +250,10 @@ List<String> _catalogKeyboardValues(AppStrings strings) => [
   strings.keyboardStopping,
   strings.keyboardSensitiveField,
   strings.keyboardMicMissing,
+  strings.keyboardMicTitle,
+  strings.keyboardMicEnable,
+  strings.keyboardMicGranted,
+  strings.keyboardMicDenied,
   strings.keyboardKeyMissing,
   strings.keyboardConnectionError,
   strings.keyboardAuthenticationError,
@@ -301,9 +306,14 @@ List<String> _catalogHomeValues(AppStrings strings) => [
 ];
 
 List<String> _catalogSettingsValues(AppStrings strings) => [
-  strings.micPermissionTitle,
   strings.micPermissionBody,
+  strings.micPermissionSettings,
   strings.setTitle,
+  strings.setModels,
+  strings.setGeneral,
+  strings.appVersion,
+  strings.versionUnavailable,
+  strings.apiKeysDescription,
   strings.setAppear,
   strings.setAsr,
   strings.setLlm,
@@ -343,6 +353,9 @@ List<String> _catalogProviderValues(AppStrings strings) => [
   strings.summaryOpenAiDescription,
   strings.summaryGoogleDescription,
   strings.connectFirst,
+  strings.noModels,
+  strings.modelUnavailable,
+  strings.chooseModel,
   strings.processedWith,
   strings.autoDel,
   strings.autoDelSub,
@@ -355,6 +368,8 @@ List<String> _catalogShareValues(AppStrings strings) => [
   strings.shStep2,
   strings.shFrom,
   strings.shSummary,
+  strings.aiGeneratedSummary,
+  strings.unknownSummaryOrigin,
   strings.shPoints,
   strings.shActions,
   strings.shShow,
@@ -364,6 +379,12 @@ List<String> _catalogShareValues(AppStrings strings) => [
   strings.shCopied,
   strings.shShare,
   strings.shSave,
+  strings.shareConfirmTitle,
+  strings.shareConfirmAction,
+  strings.shareAudioRecipient('OpenAI'),
+  strings.shareTranscriptRecipient('Google Gemini'),
+  strings.shareSaving,
+  strings.copyFailed,
 ];
 
 List<String> _catalogNoteValues(AppStrings strings) => [
@@ -373,6 +394,7 @@ List<String> _catalogNoteValues(AppStrings strings) => [
   strings.justNow,
   strings.processingTitle,
   strings.errorTitle,
+  strings.processingFailedBody,
   strings.retry,
   strings.dismiss,
   strings.goToSettings,
@@ -391,7 +413,10 @@ List<String> _catalogNoteValues(AppStrings strings) => [
 
 List<String> _catalogOnboardingValues(AppStrings strings) => [
   strings.obModelsT,
-  strings.obModelsS,
+  strings.obConnectStep,
+  strings.obConnectDescription,
+  strings.obSelectModelsDescription,
+  strings.obSelectModelsHint,
   strings.obNext,
   strings.obStart,
   strings.obWelcomeT,
@@ -408,17 +433,11 @@ List<String> _catalogOnboardingValues(AppStrings strings) => [
   strings.obPrivacyS,
   strings.obReadyT,
   strings.obReadyS,
-  strings.obPermsT,
-  strings.obPermsS,
-  strings.obPermMicT,
-  strings.obPermMicS,
-  strings.obPermEnable,
-  strings.obPermGranted,
-  strings.obPermRequiredHint,
-  strings.obPermDeniedNote,
-  strings.obPermBlockedNote,
-  strings.obPermOpenSettings,
-  strings.obPermLocked,
+  strings.onboardingProgress(1, 5),
+  strings.audioPlay,
+  strings.audioPause,
+  strings.audioPosition,
+  strings.audioPositionValue('0:30', '1:00'),
 ];
 
 List<String> _catalogActionValues(AppStrings strings) => [
@@ -429,6 +448,8 @@ List<String> _catalogActionValues(AppStrings strings) => [
   strings.summarizeTitle,
   strings.summarizeSub,
   strings.summaryOff,
+  strings.summaryFailedTitle,
+  strings.summaryFailedBody,
   strings.autoDelNote,
   strings.keyHelpTitleTemplate,
   strings.keyHelpNote,

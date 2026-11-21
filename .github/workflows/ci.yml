@@ -1,11 +1,10 @@
 name: CI
 
-# Required quality gates for pull requests and the default branch. The signed
+# Required quality gates for pull requests. The signed
 # release APK remains in the dedicated build and release workflows.
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -16,12 +15,66 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Change scope
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+      workflow: ${{ steps.scope.outputs.workflow }}
+      dart: ${{ steps.scope.outputs.dart }}
+      jvm: ${{ steps.scope.outputs.jvm }}
+      native: ${{ steps.scope.outputs.native }}
+      device: ${{ steps.scope.outputs.device }}
+      build: ${{ steps.scope.outputs.build }}
+      dependency_audit: ${{ steps.scope.outputs.dependency_audit }}
+      base_sha: ${{ steps.scope.outputs.base_sha }}
+      head_sha: ${{ steps.scope.outputs.head_sha }}
+      merge_sha: ${{ steps.scope.outputs.merge_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Classify the complete pull request
+        id: scope
+        env:
+          CHANGE_EVENT: ${{ github.event_name }}
+          CHANGE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHANGE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tool/ci/detect-change-scope.cjs >> "$GITHUB_OUTPUT"
+      - name: Reject ambiguous npm production groups
+        if: steps.scope.outputs.dependency_audit == 'true'
+        run: node tool/ci/check-osv-npm-scope.cjs
+      - name: Audit locked npm production dependencies
+        if: steps.scope.outputs.dependency_audit == 'true'
+        run: npm --prefix tool/quality/node run audit -- --package-lock-only
+
   workflow-lint:
     name: Workflow lint
+    needs: changes
+    if: needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-node-tools
+      - name: Check Node quality and gate enforcement
+        run: npm --prefix tool/quality/node run check
+      - name: Test CI classification and final gate
+        run: >-
+          node --test --experimental-test-coverage
+          --test-coverage-include='tool/ci/*.cjs'
+          --test-coverage-include='tool/ci/cache-lifecycle/*.cjs'
+          --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80
+          test/tool/ci/*.test.cjs
+          test/tool/ci/cache-lifecycle/*.test.cjs
+      - name: Verify APK signing and publication guards
+        run: ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0" node --test test/tool/ci/apk-signing.integration.cjs
       - name: Install workflow linters
         env:
           ACTIONLINT_VERSION: 1.7.12
@@ -35,57 +88,60 @@ jobs:
           printf '%s  %s\n' "$ACTIONLINT_SHA256" "$actionlint_archive" | sha256sum --check
           tar -xzf "$actionlint_archive" -C "$RUNNER_TEMP" actionlint
 
-          shellcheck_archive="$RUNNER_TEMP/shellcheck.tar.gz"
-          shellcheck_url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.gz"
-          curl --fail --silent --show-error --location "$shellcheck_url" --output "$shellcheck_archive"
-          printf '%s  %s\n' "$SHELLCHECK_SHA256" "$shellcheck_archive" | sha256sum --check
-          tar -xzf "$shellcheck_archive" -C "$RUNNER_TEMP"
-          mv "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" "$RUNNER_TEMP/shellcheck"
+          if command -v shellcheck >/dev/null &&
+            shellcheck --version | grep --fixed-strings --line-regexp "version: $SHELLCHECK_VERSION"; then
+            shellcheck_path="$(command -v shellcheck)"
+          else
+            shellcheck_archive="$RUNNER_TEMP/shellcheck.tar.gz"
+            shellcheck_url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.gz"
+            curl --fail --silent --show-error --location "$shellcheck_url" --output "$shellcheck_archive"
+            printf '%s  %s\n' "$SHELLCHECK_SHA256" "$shellcheck_archive" | sha256sum --check
+            tar -xzf "$shellcheck_archive" -C "$RUNNER_TEMP"
+            shellcheck_path="$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          fi
+          printf 'SHELLCHECK_PATH=%s\n' "$shellcheck_path" >> "$GITHUB_ENV"
       - name: Check workflows
         run: |
-          "$RUNNER_TEMP/actionlint" -color=false -shellcheck="$RUNNER_TEMP/shellcheck"
+          "$RUNNER_TEMP/actionlint" -color=false -shellcheck="$SHELLCHECK_PATH"
       - name: Check shell scripts
         run: |
-          "$RUNNER_TEMP/shellcheck" tool/package/*.sh tool/quality/*.sh
+          "$SHELLCHECK_PATH" tool/package/*.sh tool/quality/*.sh tool/ci/*.sh
 
-  CI:
-    name: Analyze and test
+  dart-quality:
+    name: Dart quality, tests and bundle
+    needs: changes
+    if: needs.changes.outputs.dart == 'true' || (needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+          fetch-depth: 0
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Check formatting
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: dart format --output=none --set-exit-if-changed lib test tool
       - name: Analyze
-        run: flutter analyze --fatal-infos
-      - name: Test with coverage
-        run: flutter test --coverage --branch-coverage
-      - name: Enforce coverage thresholds
-        run: dart run tool/quality/check_coverage.dart coverage/lcov.info
-
-  metrics:
-    name: Size and complexity
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
-      - name: Resolve locked dependencies
-        run: flutter pub get --enforce-lockfile
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
+        run: flutter analyze --fatal-infos --no-pub
+      - name: Select affected tests
+        id: tests
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
+        env:
+          CHANGE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHANGE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          dart run tool/ci/select_tests.dart
+          --base "$CHANGE_BASE_SHA" --head "$CHANGE_HEAD_SHA"
+          --output .dart_tool/ci/test-plan.json
+      - name: Test and enforce coverage thresholds
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' && steps.tests.outcome == 'success' }}
+        run: dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json
       - name: Collect Dart metrics
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: |
           mkdir -p "$RUNNER_TEMP/code-quality"
           dart run dart_code_linter:metrics analyze lib test tool \
@@ -93,92 +149,179 @@ jobs:
             --json-path="$RUNNER_TEMP/code-quality/metrics.json" \
             --no-fatal-warnings >/dev/null
       - name: Enforce size and complexity thresholds
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: >-
           dart run tool/quality/check_code_quality.dart
           --metrics "$RUNNER_TEMP/code-quality/metrics.json"
-
-  dead-code:
-    name: Dead code
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
-      - name: Resolve locked dependencies
-        run: flutter pub get --enforce-lockfile
       - name: Check unused code
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: >-
           dart run dart_code_linter:metrics check-unused-code
           lib test tool --analyze-private-members
       - name: Check unused files
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: dart run dart_code_linter:metrics check-unused-files lib test tool
+      - name: Set up Node.js
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
+        uses: ./.github/actions/setup-node-tools
+      - name: Check Dart duplication
+        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
+        run: npm --prefix tool/quality/node run duplicates:dart
+      - name: Build Flutter asset bundle
+        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
+        run: flutter build bundle --debug --no-pub
+      - name: Verify bundle
+        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' && needs.changes.outputs.native != 'true' }}
+        run: |
+          test -s build/flutter_assets/kernel_blob.bin
+          test -s build/flutter_assets/AssetManifest.bin
 
-  kotlin-quality:
-    name: Kotlin quality and tests
+  jvm-quality:
+    name: JVM quality and tests
+    needs: changes
+    if: needs.changes.outputs.jvm == 'true' && needs.changes.outputs.native != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Java
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
-      - name: Resolve locked dependencies
-        run: flutter pub get --enforce-lockfile
-      - name: Check Kotlin quality
-        run: bash tool/quality/check_kotlin_quality.sh
-      - name: Run native unit tests and compile device tests
-        working-directory: android
-        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
-
-  duplication:
-    name: Duplication
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24"
+          node-version: "26.x"
+          check-latest: true
           package-manager-cache: false
-      - name: Check Dart duplication
+      - name: Set up Java
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Restore shared Gradle dependencies
+        uses: ./.github/actions/dependency-cache
+        with:
+          store: gradle
+      - name: Check Kotlin quality
+        run: bash tool/quality/check_kotlin_quality.sh
+      - name: Enforce native and shell file length
+        if: ${{ !cancelled() }}
+        run: node tool/ci/check-native-file-length.cjs
+      - name: Run pure JVM unit tests
+        if: ${{ !cancelled() }}
+        run: android/gradlew -p tool/ci/jvm test verifyNativeCoverage --no-daemon
+      - name: Prove JVM tests reject a production defect
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: >-
-          npx --yes jscpd@5.0.16
-          --min-tokens 50
-          --threshold 0
-          --reporters console
-          --format dart
-          --ignore "**/*.g.dart"
-          lib test tool
+          node --test test/tool/ci/jvm-test-failure.integration.cjs
+          test/tool/ci/gradle-cache.integration.cjs
+          test/tool/ci/native-coverage.integration.cjs
+          test/tool/ci/kotlin-quality.integration.cjs
 
-  build:
-    name: Build bundle
+  kotlin-quality:
+    name: Android quality and tests
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
+    outputs:
+      device_tests: ${{ steps.device-tests.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+          node-version: "26.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Set up Java
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Restore shared Gradle dependencies
+        uses: ./.github/actions/dependency-cache
+        with:
+          store: gradle
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
-      - name: Build Flutter asset bundle
-        run: flutter build bundle --debug
-      - name: Verify bundle
-        run: test -d build/flutter_assets
+      - name: Reuse or install pinned Android NDKs
+        uses: ./.github/actions/setup-android-ndk
+      - name: Check Kotlin quality
+        run: bash tool/quality/check_kotlin_quality.sh
+      - name: Enforce native and shell file length
+        if: ${{ !cancelled() }}
+        run: node tool/ci/check-native-file-length.cjs
+      - name: Run native unit tests and compile device tests
+        if: ${{ !cancelled() }}
+        working-directory: android
+        run: ./gradlew :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+      - name: Run instrumentation on an Android device
+        id: device-tests
+        if: needs.changes.outputs.device == 'true'
+        run: bash tool/ci/run_android_device_tests.sh
+      - name: Verify shared Android dependency warmup
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: android/gradlew -p android -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache --no-daemon
+      - name: Verify standalone JVM harness
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: android/gradlew -p tool/ci/jvm -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache test verifyNativeCoverage --no-daemon
+      - name: Prove JVM tests reject failures and skipped suites
+        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
+        run: >-
+          node --test test/tool/ci/jvm-test-failure.integration.cjs
+          test/tool/ci/gradle-cache.integration.cjs
+          test/tool/ci/native-coverage.integration.cjs
+          test/tool/ci/kotlin-quality.integration.cjs
+      - name: Verify Flutter bundle assembled by native tests
+        if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}
+        run: |
+          for bundle in build/app/intermediates/flutter/debug/flutter_assets \
+            android/app/build/intermediates/flutter/debug/flutter_assets; do
+            if test -s "$bundle/kernel_blob.bin" && test -s "$bundle/AssetManifest.bin"; then
+              printf 'Verified Flutter bundle: %s\n' "$bundle"
+              exit 0
+            fi
+          done
+          echo 'No complete native Flutter debug bundle was found.' >&2
+          exit 1
+      - name: Release build scratch space before saving caches
+        run: |
+          df -h .
+          android/gradlew -p android --stop
+          rm -rf build android/app/build .dart_tool/flutter_build android/.gradle
+          find "$HOME/.gradle/caches" -mindepth 1 -maxdepth 1 \
+            ! -name modules-2 -exec rm -rf -- {} +
+          df -h .
+
+  dependency-audit:
+    name: Dependency audit
+    needs: changes
+    if: needs.changes.outputs.dependency_audit == 'true'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/dependency-audit.yml
+    with:
+      npm-preflight-passed: true
+
+  CI:
+    name: CI
+    if: always()
+    needs: [changes, workflow-lint, dart-quality, jvm-quality, kotlin-quality, dependency-audit]
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Require every applicable CI job to succeed
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_MERGE_SHA: ${{ github.sha }}
+        run: node tool/ci/require-ci-success.cjs

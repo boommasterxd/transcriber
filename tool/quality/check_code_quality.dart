@@ -7,13 +7,15 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
 
+import 'parameter_count.dart';
+import 'coverage_source_kind.dart';
+
 const _fileLengthLimit = 500;
 const _cognitiveComplexityLimit = 25;
 const _metricLimits = <String, num>{
   'cyclomatic-complexity': 20,
   'lines-of-code': 100,
   'maximum-nesting-level': 4,
-  'number-of-parameters': 6,
 };
 
 void main(List<String> arguments) {
@@ -30,6 +32,7 @@ void main(List<String> arguments) {
   final violations = <String>[
     ...checkFileLengths(),
     ...checkCognitiveComplexity(),
+    ...checkParameterCounts(),
     ...checkDclMetrics(metricsPath),
   ];
 
@@ -42,6 +45,16 @@ void main(List<String> arguments) {
     return;
   }
   stdout.writeln('Code quality thresholds passed.');
+}
+
+List<String> checkParameterCounts() {
+  final files = _projectFiles(['*.dart']);
+  if (files.error case final error?) return [error];
+  return [
+    for (final path in files.paths)
+      if (!_isGeneratedDart(path))
+        ...parameterCountViolations(File(path).readAsStringSync(), path),
+  ];
 }
 
 String? _option(List<String> arguments, String name) {
@@ -119,26 +132,42 @@ List<String> checkDclMetrics(String metricsPath) {
   final decoded =
       jsonDecode(File(metricsPath).readAsStringSync()) as Map<String, dynamic>;
   final records = decoded['records'] as List<dynamic>;
+  if (records.isEmpty) return ['DCL reported no source records.'];
   final violations = <String>[];
   for (final recordValue in records) {
     final record = recordValue as Map<String, dynamic>;
     final path = record['path'] as String;
     if (_isGeneratedDart(path)) continue;
-    final functions = record['functions'] as Map<String, dynamic>? ?? const {};
+    final functions = record['functions'] as Map<String, dynamic>;
     for (final functionEntry in functions.entries) {
       final function = functionEntry.value as Map<String, dynamic>;
-      final metrics = function['metrics'] as List<dynamic>? ?? const [];
-      for (final metricValue in metrics) {
-        final metric = metricValue as Map<String, dynamic>;
-        final id = metric['metricsId'] as String;
-        final limit = _metricLimits[id];
-        if (limit == null) continue;
-        final value = metric['value'] as num;
-        if (value <= limit) continue;
-        final key = '$path|${functionEntry.key}|$id';
-        violations.add('$key is $value (limit $limit).');
-      }
+      final metrics = function['metrics'] as List<dynamic>;
+      violations.addAll(
+        _checkFunctionMetrics('$path|${functionEntry.key}', metrics),
+      );
     }
+  }
+  return violations;
+}
+
+List<String> _checkFunctionMetrics(String key, List<dynamic> metrics) {
+  final violations = <String>[];
+  final requiredMetrics = _metricLimits.keys.toSet();
+  for (final metricValue in metrics) {
+    final metric = metricValue as Map<String, dynamic>;
+    final id = metric['metricsId'] as String;
+    final limit = _metricLimits[id];
+    if (limit == null) continue;
+    if (!requiredMetrics.remove(id)) violations.add('$key|$id is duplicated.');
+    final value = metric['value'] as num;
+    if (!value.isFinite || value < 0) {
+      violations.add('$key|$id is invalid.');
+    } else if (value > limit) {
+      violations.add('$key|$id is $value (limit $limit).');
+    }
+  }
+  for (final id in requiredMetrics) {
+    violations.add('$key|$id is missing.');
   }
   return violations;
 }
@@ -147,9 +176,7 @@ bool _isGeneratedDart(String path) {
   if (!path.endsWith('.g.dart')) return false;
   final file = File(path);
   if (!file.existsSync()) return false;
-  return file.readAsStringSync().startsWith(
-    '// GENERATED CODE - DO NOT MODIFY BY HAND',
-  );
+  return isGeneratedDartSource(path, file.readAsStringSync());
 }
 
 final class CognitiveMeasurement {

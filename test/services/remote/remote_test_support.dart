@@ -1,13 +1,15 @@
 import 'dart:io';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
 import 'package:transcriber/services/service_exceptions.dart';
 
 import 'http_test_client.dart';
 
-typedef AudioTranscription =
-    Future<Object?> Function(String audioPath, RecordingHttpClient httpClient);
+typedef AudioTranscription = Future<Object?> Function(
+  String audioPath,
+  RecordingHttpClient httpClient,
+);
 typedef AudioTestAction = Future<void> Function(File file);
 
 RecordingHttpClient scriptedHttpClient(List<http.StreamedResponse> responses) {
@@ -81,6 +83,10 @@ Future<void> expectOversizedAudioRejected({
   );
 }
 
+String googleUploadUrl(String session) =>
+    'https://generativelanguage.googleapis.com/upload/v1beta/files'
+    '?upload_id=$session&upload_protocol=resumable';
+
 List<http.StreamedResponse> googleTranscriptionFailureResponses({
   required String session,
   required String fileState,
@@ -90,10 +96,7 @@ List<http.StreamedResponse> googleTranscriptionFailureResponses({
       ? textResponse(failureBody)
       : jsonResponse(failureBody);
   return [
-    jsonResponse(
-      {},
-      headers: {'x-goog-upload-url': 'https://upload.test/$session'},
-    ),
+    jsonResponse({}, headers: {'x-goog-upload-url': googleUploadUrl(session)}),
     jsonResponse({
       'file': {
         'name': 'files/$session',

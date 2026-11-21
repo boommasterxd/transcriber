@@ -14,6 +14,7 @@ class TranscriberInputMethodService : NonFullscreenInputMethodService() {
         super.onCreate()
         coordinator = ImeSessionCoordinator(this)
         coordinator.create()
+        onEditorSelectionChanged = coordinator::updateSelection
     }
 
     override fun onCreateInputView(): View = coordinator.inputView
@@ -40,7 +41,7 @@ class TranscriberInputMethodService : NonFullscreenInputMethodService() {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        coordinator.finishInputView()
+        coordinator.finishInput()
         super.onFinishInputView(finishingInput)
     }
 
@@ -50,17 +51,32 @@ class TranscriberInputMethodService : NonFullscreenInputMethodService() {
     }
 
     override fun onUnbindInput() {
-        coordinator.unbindInput()
+        coordinator.finishInput()
         super.onUnbindInput()
     }
 
     override fun onDestroy() {
+        onEditorSelectionChanged = null
         coordinator.destroy()
         super.onDestroy()
     }
 }
 
-/** Prevents Android's extract UI from replacing the bounded keyboard surface. */
+/** Keeps the host editor in control of the text and forwards selection offsets. */
 abstract class NonFullscreenInputMethodService : InputMethodService() {
+    protected var onEditorSelectionChanged: ((Int, Int, Int, Int) -> Unit)? = null
+
     final override fun onEvaluateFullscreenMode(): Boolean = false
+
+    final override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        onEditorSelectionChanged?.invoke(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+    }
 }

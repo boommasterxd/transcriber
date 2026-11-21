@@ -1,15 +1,38 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
+import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/services/summarization/remote_summarization_service.dart';
 import 'package:transcriber/services/summarization/summarization_service.dart';
 
 void main() {
+  for (final response in ['', '  \n  ']) {
+    test(
+      'rejects an empty summary response: ${response.length} characters',
+      () async {
+        final service = RemoteSummarizationService(
+          client: _RecordingSummaryClient(response: response),
+          apiModelId: 'summary-model',
+          fallbackTitle: 'Fallback',
+        );
+
+        await expectLater(
+          service.summarize('Transcript', german: false),
+          throwsA(
+            isA<RemoteApiException>().having(
+              (error) => error.message,
+              'message',
+              'The provider returned an empty summary.',
+            ),
+          ),
+        );
+      },
+    );
+  }
   test(
     'sends German prompts to the configured model and parses the response',
     () async {
       final client = _RecordingSummaryClient(
-        response:
-            '{"title":"Titel","gist":"Kernaussage","points":["Punkt"],"todos":["Aufgabe"]}',
+        response: '{"title":"Titel","gist":"Kernaussage","points":["Punkt"],"todos":["Aufgabe"]}',
       );
       final service = RemoteSummarizationService(
         client: client,
@@ -95,6 +118,7 @@ final class _RecordingSummaryClient implements SummaryProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
     chatCalls++;
     system = systemPrompt;

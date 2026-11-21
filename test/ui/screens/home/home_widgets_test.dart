@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
-import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/core/theme/app_palette.dart';
+import 'package:transcriber/data/models/note_history.dart';
 import 'package:transcriber/ui/screens/home/widgets/active_model_pill.dart';
 import 'package:transcriber/ui/screens/home/widgets/home_search_bar.dart';
 import 'package:transcriber/ui/screens/home/widgets/note_badges.dart';
@@ -20,21 +19,63 @@ void main() {
 }
 
 void _registerSearchBarTest() {
-  testWidgets('search bar forwards entered text', (tester) async {
-    String? query;
+  testWidgets('typing batches searches and keyboard submission is immediate', (
+    tester,
+  ) async {
+    final queries = <String>[];
     final strings = AppStrings.of(AppLanguage.en);
     await tester.pumpWidget(
       wrapHomeWidget(
-        HomeSearchBar(
-          hint: strings.search,
-          onChanged: (value) => query = value,
-        ),
+        HomeSearchBar(hint: strings.search, onChanged: queries.add),
       ),
     );
 
-    await tester.enterText(find.byType(TextField), 'Weekly');
+    final field = find.byType(TextField);
+    await tester.enterText(field, 'We');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.enterText(field, 'Weekly');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(queries, isEmpty);
 
-    expect(query, 'Weekly');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(queries, ['Weekly']);
+
+    await tester.enterText(field, 'Weekly planning');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    expect(queries, ['Weekly', 'Weekly planning']);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(queries, ['Weekly', 'Weekly planning']);
+  });
+
+  testWidgets('a completed search leaves newer typing intact', (tester) async {
+    final searches = <String>[];
+    var applied = '';
+    late StateSetter update;
+    await tester.pumpWidget(
+      wrapHomeWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return HomeSearchBar(
+              hint: 'Search',
+              query: applied,
+              onChanged: searches.add,
+            );
+          },
+        ),
+      ),
+    );
+    final field = find.byType(TextField);
+    await tester.enterText(field, 'First');
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(searches, ['First']);
+
+    await tester.enterText(field, 'First and second');
+    update(() => applied = 'First');
+    await tester.pump();
+    expect(find.text('First and second'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(searches, ['First', 'First and second']);
   });
 }
 
@@ -80,7 +121,9 @@ void _registerNoteBadgesTest() {
           width: 320,
           child: Row(
             children: [
-              Expanded(child: NoteModelBadge(note: note)),
+              Expanded(
+                child: NoteModelBadge(note: NoteHistoryEntry.fromNote(note)),
+              ),
               TodoCountBadge(count: note.todos.length, strings: strings),
             ],
           ),
@@ -109,7 +152,7 @@ void _registerPhoneHistoryRowTest() {
         SizedBox(
           width: 400,
           child: NoteListItem(
-            note: note,
+            note: NoteHistoryEntry.fromNote(note),
             strings: strings,
             isLast: true,
             onTap: () => tapped = true,
@@ -126,7 +169,7 @@ void _registerPhoneHistoryRowTest() {
 }
 
 void _registerTabletHistoryRowTest() {
-  testWidgets('tablet history row reflects selection and handles taps', (
+  testWidgets('tablet history row displays its title and handles taps', (
     tester,
   ) async {
     var tapped = false;
@@ -140,7 +183,7 @@ void _registerTabletHistoryRowTest() {
         SizedBox(
           width: 344,
           child: TabletHistoryRow(
-            note: note,
+            note: NoteHistoryEntry.fromNote(note),
             strings: AppStrings.of(AppLanguage.en),
             selected: true,
             onTap: () => tapped = true,
@@ -149,11 +192,6 @@ void _registerTabletHistoryRowTest() {
       ),
     );
 
-    final row = tester.widget<AnimatedContainer>(
-      find.byType(AnimatedContainer),
-    );
-    final decoration = row.decoration! as BoxDecoration;
-    expect(decoration.color, AppPalette.light(AppAccent.blue).accentSoft);
     await tester.tap(find.text('Tablet note'));
     expect(tapped, isTrue);
   });

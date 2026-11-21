@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,32 +6,41 @@ import 'package:http/http.dart' as http;
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
+import 'gemini_upload_uri.dart';
 import 'mime_utils.dart';
+import 'model_catalog_listing.dart';
 import 'provider_model_capabilities.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
 import 'transcription_prompt.dart';
 
 /// Direct REST client for Gemini generation, files, and interactions APIs.
-class GoogleClient implements RemoteProviderClient {
+class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
   GoogleClient({
     required this.apiKey,
     http.Client? httpClient,
     this.pollInterval = const Duration(seconds: 2),
     this.pollTimeout = const Duration(seconds: 30),
-    Future<void> Function(Duration)? delay,
   }) : _http = httpClient ?? http.Client(),
-       _delay = delay ?? Future<void>.delayed;
+       _ownsHttp = httpClient == null;
 
   final String apiKey;
   final http.Client _http;
+  final bool _ownsHttp;
+  bool _closed = false;
   final Duration pollInterval;
   final Duration pollTimeout;
-  final Future<void> Function(Duration) _delay;
 
-  static const _baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
-  static const _uploadUrl =
-      'https://generativelanguage.googleapis.com/upload/v1beta/files';
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    if (_ownsHttp) _http.close();
+  }
+
+  static const _apiHost = 'generativelanguage.googleapis.com';
+  static const _baseUrl = 'https://$_apiHost/v1beta';
+  static const _uploadUrl = 'https://$_apiHost/upload/v1beta/files';
   static const _modelPageSize = 1000;
   static const _maxModelPages = 10;
   @override
@@ -41,63 +49,58 @@ class GoogleClient implements RemoteProviderClient {
   }
 
   @override
-  Future<List<RemoteModelInfo>> listModels({
-    required bool forTranscription,
-  }) async {
-    final models = await _listModelCatalog();
-    final result = <String, RemoteModelInfo>{};
-    for (final raw in models) {
-      final id = (raw['name']?.toString() ?? '').replaceFirst('models/', '');
-      if (!id.toLowerCase().startsWith('gemini-')) continue;
-      final methods =
-          (raw['supportedGenerationMethods'] as List?)
-              ?.map((method) => method.toString())
-              .toSet() ??
-          const <String>{};
-      final transcriptionModel =
-          ProviderModelCapabilities.isGeminiTranscriptionModel(id, methods);
-      if (forTranscription
-          ? !transcriptionModel
-          : !methods.contains('generateContent')) {
-        continue;
-      }
-      result.putIfAbsent(
-        id,
-        () => RemoteModelInfo(id: id, label: raw['displayName']?.toString()),
-      );
-    }
-    final sorted = result.values.toList()
-      ..sort((left, right) => left.id.compareTo(right.id));
-    return sorted;
-  }
+  Future<ProviderModelCatalog> loadModelCatalog() async =>
+      ProviderModelCatalog.google(await _listModelCatalog());
 
   @override
   Future<String> summarize({
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
-    final json = await _postJson('/models/$modelId:generateContent', {
-      'systemInstruction': {
-        'parts': [
-          {'text': systemPrompt},
-        ],
-      },
-      'contents': [
-        {
-          'role': 'user',
+    if (!ProviderModelCapabilities.isGeminiSummaryModel(modelId, const {
+      'generateContent',
+    })) {
+      throw const RemoteApiException(
+        'The selected Gemini model does not support text summaries.',
+      );
+    }
+    final json = await _postJson(
+      '/models/$modelId:generateContent',
+      {
+        'systemInstruction': {
           'parts': [
-            {'text': userPrompt},
+            {'text': systemPrompt},
           ],
         },
-      ],
-      'generationConfig': {
-        'responseMimeType': 'application/json',
-        'maxOutputTokens': 1024,
-        if (_supportsThinkingLevel(modelId))
-          'thinkingConfig': {'thinkingLevel': 'LOW'},
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': userPrompt},
+            ],
+          },
+        ],
+        'generationConfig': {
+          'responseMimeType': 'application/json',
+          'maxOutputTokens': 1024,
+          if (_supportsThinkingLevel(modelId))
+            'thinkingConfig': {'thinkingLevel': 'LOW'},
+        },
       },
-    }, timeout: remoteChatTimeout);
+      timeout: remoteChatTimeout,
+      cancellation: cancellation,
+    );
+    final candidates = json['candidates'];
+    if (candidates is List &&
+        candidates.isNotEmpty &&
+        candidates.first is Map &&
+        (candidates.first as Map)['finishReason'] == 'MAX_TOKENS') {
+      throw const RemoteApiException(
+        'Gemini summary exceeded its response token limit.',
+      );
+    }
     return _candidateText(json);
   }
 
@@ -106,37 +109,57 @@ class GoogleClient implements RemoteProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) async {
-    final file = File(audioPath);
-    final length = await validateRemoteAudioFile(file);
+    if (!ProviderModelCapabilities.isGeminiTranscriptionModel(modelId, const {
+      'generateContent',
+    })) {
+      throw const RemoteApiException(
+        'The selected Gemini model does not support audio transcription.',
+      );
+    }
 
-    final uploaded = await _uploadFile(file, length);
+    final file = File(audioPath);
+    final length = await validateRemoteAudioFile(
+      file,
+      cancellation: cancellation,
+    );
+    final uploaded = await _uploadFile(file, length, cancellation);
     try {
-      await _waitUntilActive(uploaded.name, uploaded.state);
+      if (uploaded.uri.isEmpty) {
+        throw const RemoteApiException('Gemini returned an incomplete file.');
+      }
+      await _waitUntilActive(uploaded.name, uploaded.state, cancellation);
       final nativeTranscription =
           ProviderModelCapabilities.usesGeminiNativeTranscription(modelId);
-      final json = await _postJson('/interactions', {
-        'model': modelId,
-        'input': [
-          if (!nativeTranscription)
-            {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
-          {
-            'type': 'audio',
-            'uri': uploaded.uri,
-            'mime_type': uploaded.mimeType,
-          },
-        ],
-        if (nativeTranscription)
-          'generation_config': {
-            'transcription_config': {
-              'mode': {'type': 'smart'},
-              if (languageCode != null &&
-                  languageCode.isNotEmpty &&
-                  languageCode != 'auto')
-                'language_codes': [_geminiLanguageCode(languageCode)],
+      final json = await _postJson(
+        '/interactions',
+        {
+          'model': modelId,
+          'store': false,
+          'input': [
+            if (!nativeTranscription)
+              {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
+            {
+              'type': 'audio',
+              'uri': uploaded.uri,
+              'mime_type': uploaded.mimeType,
             },
-          },
-      }, timeout: remoteTranscribeTimeout);
+          ],
+          if (nativeTranscription)
+            'generation_config': {
+              'transcription_config': {
+                'mode': {'type': 'smart'},
+                if (languageCode != null &&
+                    languageCode.isNotEmpty &&
+                    languageCode != 'auto')
+                  'language_codes': [_geminiLanguageCode(languageCode)],
+              },
+            },
+        },
+        timeout: remoteTranscribeTimeout,
+        cancellation: cancellation,
+      );
       final text = _interactionText(json).trim();
       return TranscriptionResult(
         text: text,
@@ -159,9 +182,9 @@ class GoogleClient implements RemoteProviderClient {
       final pageModels = json['models'];
       if (pageModels is List) models.addAll(pageModels.whereType<Map>());
 
-      final next = json['nextPageToken']?.toString();
-      if (next == null || next.isEmpty) return models;
-      if (next.length > 2048 || !seenTokens.add(next)) {
+      final next = json['nextPageToken'];
+      if (next == null || next == '') return models;
+      if (next is! String || next.length > 2048 || !seenTokens.add(next)) {
         throw const RemoteApiException(
           'Gemini returned invalid model pagination.',
         );
@@ -171,20 +194,29 @@ class GoogleClient implements RemoteProviderClient {
     throw const RemoteApiException('Gemini returned too many model pages.');
   }
 
-  Future<_GeminiFile> _uploadFile(File file, int length) async {
+  Future<_GeminiFile> _uploadFile(
+    File file,
+    int length,
+    RemoteCancellation? cancellation,
+  ) async {
+    final mimeType = audioMimeType(file.path);
     final start = http.Request('POST', Uri.parse(_uploadUrl))
       ..headers.addAll({
         'x-goog-api-key': apiKey,
         'X-Goog-Upload-Protocol': 'resumable',
         'X-Goog-Upload-Command': 'start',
         'X-Goog-Upload-Header-Content-Length': '$length',
-        'X-Goog-Upload-Header-Content-Type': audioMimeType(file.path),
+        'X-Goog-Upload-Header-Content-Type': mimeType,
         'Content-Type': 'application/json',
       })
       ..body = jsonEncode({
         'file': {'display_name': 'transcriber-audio'},
       });
-    final startResponse = await _send(start, timeout: remoteTranscribeTimeout);
+    final startResponse = await _send(
+      start,
+      timeout: remoteTranscribeTimeout,
+      cancellation: cancellation,
+    );
     validateRemoteResponse(
       statusCode: startResponse.statusCode,
       body: startResponse.body,
@@ -196,24 +228,18 @@ class GoogleClient implements RemoteProviderClient {
       throw const RemoteApiException('Gemini did not return an upload URL.');
     }
 
-    final upload = http.StreamedRequest('POST', Uri.parse(uploadUri))
-      ..headers.addAll({
-        'x-goog-api-key': apiKey,
-        'X-Goog-Upload-Offset': '0',
-        'X-Goog-Upload-Command': 'upload, finalize',
-        'Content-Type': audioMimeType(file.path),
-      })
-      ..contentLength = length;
-    final responseFuture = _send(upload, timeout: remoteTranscribeTimeout);
-    await upload.sink.addStream(file.openRead());
-    await upload.sink.close();
-    final response = await responseFuture;
-    validateRemoteResponse(
-      statusCode: response.statusCode,
-      body: response.body,
-      errorLabel: 'Gemini upload error',
-      secret: apiKey,
-    );
+    final upload =
+        _AudioUploadRequest(
+            validateGeminiUploadUri(uploadUri, _apiHost, apiKey),
+            file,
+          )
+          ..headers.addAll({
+            'X-Goog-Upload-Offset': '0',
+            'X-Goog-Upload-Command': 'upload, finalize',
+            'Content-Type': mimeType,
+          })
+          ..contentLength = length;
+    final response = await _sendFileBytes(upload, cancellation);
     final json = decodeRemoteJsonObject(
       response.body,
       'Gemini upload response',
@@ -224,41 +250,64 @@ class GoogleClient implements RemoteProviderClient {
     }
     final name = rawFile['name']?.toString() ?? '';
     final uri = rawFile['uri']?.toString() ?? '';
-    if (!_isSafeFileName(name) || uri.isEmpty) {
+    if (!_isSafeFileName(name)) {
       throw const RemoteApiException('Gemini returned an incomplete file.');
     }
     return _GeminiFile(
       name: name,
       uri: uri,
-      mimeType: rawFile['mimeType']?.toString() ?? audioMimeType(file.path),
+      mimeType: rawFile['mimeType']?.toString() ?? mimeType,
       state: rawFile['state']?.toString(),
     );
   }
 
-  Future<void> _waitUntilActive(String name, String? initialState) async {
-    var state = initialState ?? 'PROCESSING';
-    final deadline = DateTime.now().add(pollTimeout);
-    while (state == 'PROCESSING') {
-      if (DateTime.now().isAfter(deadline)) {
-        throw const RemoteApiException('Gemini file processing timed out.');
+  Future<RemoteHttpResponse> _sendFileBytes(
+    _AudioUploadRequest upload,
+    RemoteCancellation? cancellation,
+  ) async {
+    try {
+      final response = await _send(
+        upload,
+        timeout: remoteTranscribeTimeout,
+        cancellation: cancellation,
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response;
       }
-      await _delay(pollInterval);
-      final json = await _getJson('/$name', timeout: remoteTranscribeTimeout);
+      throw RemoteApiException(
+        'Gemini upload error (${response.statusCode}).',
+        statusCode: response.statusCode,
+      );
+    } on http.ClientException {
+      throw const RemoteApiException('Gemini could not upload the audio file.');
+    }
+  }
+
+  Future<void> _waitUntilActive(
+    String name,
+    String? initialState,
+    RemoteCancellation? cancellation,
+  ) async {
+    var state = initialState ?? 'PROCESSING';
+    final stopwatch = Stopwatch()..start();
+    while (state == 'PROCESSING') {
+      var remaining = _remainingPollTime(stopwatch);
+      await waitForRemotePoll(
+        pollInterval < remaining ? pollInterval : remaining,
+        cancellation,
+      );
+      remaining = _remainingPollTime(stopwatch);
+      final json = await _getJson(
+        '/$name',
+        timeout: remaining,
+        cancellation: cancellation,
+      );
+      _remainingPollTime(stopwatch);
       final wrapped = json['file'];
       state =
           json['state']?.toString() ??
           (wrapped is Map ? wrapped['state']?.toString() : null) ??
           '';
-      if (state == 'FAILED') {
-        throw const RemoteApiException(
-          'Gemini could not process the audio file.',
-        );
-      }
-      if (state.isEmpty) {
-        throw const RemoteApiException(
-          'Gemini returned an invalid file state.',
-        );
-      }
     }
     if (state == 'FAILED') {
       throw const RemoteApiException(
@@ -268,6 +317,14 @@ class GoogleClient implements RemoteProviderClient {
     if (state != 'ACTIVE') {
       throw const RemoteApiException('Gemini returned an invalid file state.');
     }
+  }
+
+  Duration _remainingPollTime(Stopwatch stopwatch) {
+    final remaining = pollTimeout - stopwatch.elapsed;
+    if (remaining <= Duration.zero) {
+      throw const RemoteApiException('Gemini file processing timed out.');
+    }
+    return remaining;
   }
 
   Future<void> _deleteFile(String name) async {
@@ -286,11 +343,13 @@ class GoogleClient implements RemoteProviderClient {
   Future<Map<String, dynamic>> _getJson(
     String path, {
     required Duration timeout,
+    RemoteCancellation? cancellation,
   }) async {
     final response = await _send(
       http.Request('GET', Uri.parse('$_baseUrl$path'))
         ..headers['x-goog-api-key'] = apiKey,
       timeout: timeout,
+      cancellation: cancellation,
     );
     validateRemoteResponse(
       statusCode: response.statusCode,
@@ -305,6 +364,7 @@ class GoogleClient implements RemoteProviderClient {
     String path,
     Map<String, dynamic> payload, {
     required Duration timeout,
+    RemoteCancellation? cancellation,
   }) async {
     final response = await _send(
       http.Request('POST', Uri.parse('$_baseUrl$path'))
@@ -314,6 +374,7 @@ class GoogleClient implements RemoteProviderClient {
         })
         ..body = jsonEncode(payload),
       timeout: timeout,
+      cancellation: cancellation,
     );
     validateRemoteResponse(
       statusCode: response.statusCode,
@@ -327,7 +388,13 @@ class GoogleClient implements RemoteProviderClient {
   Future<RemoteHttpResponse> _send(
     http.BaseRequest request, {
     required Duration timeout,
-  }) => sendRemoteRequest(_http, request, timeout: timeout);
+    RemoteCancellation? cancellation,
+  }) => sendRemoteRequest(
+    _http,
+    request..followRedirects = false,
+    timeout: timeout,
+    cancellation: cancellation,
+  );
 
   String _candidateText(Map<String, dynamic> json) {
     final candidates = json['candidates'];
@@ -395,6 +462,19 @@ class GoogleClient implements RemoteProviderClient {
     final match = RegExp(r'^gemini-(\d+)').firstMatch(modelId.toLowerCase());
     final major = match == null ? null : int.tryParse(match.group(1)!);
     return major != null && major >= 3;
+  }
+}
+
+/// Finalizes directly from disk so transport abort also cancels the file read.
+final class _AudioUploadRequest extends http.BaseRequest {
+  _AudioUploadRequest(Uri uri, this.file) : super('POST', uri);
+
+  final File file;
+
+  @override
+  http.ByteStream finalize() {
+    super.finalize();
+    return http.ByteStream(file.openRead());
   }
 }
 

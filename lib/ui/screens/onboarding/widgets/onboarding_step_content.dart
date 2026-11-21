@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -6,7 +6,7 @@ import '../../../widgets/effects.dart';
 import '../../settings/widgets/appearance_section.dart';
 import '../../settings/widgets/language_section.dart';
 import 'onboarding_cloud_step.dart';
-import 'onboarding_permissions_step.dart';
+import 'onboarding_models_step.dart';
 
 class OnboardingStepContent extends StatelessWidget {
   const OnboardingStepContent({
@@ -22,11 +22,16 @@ class OnboardingStepContent extends StatelessWidget {
   Widget build(BuildContext context) => switch (step) {
     0 => _WelcomeStep(strings: strings),
     1 => _StepBody(
-      title: strings.obModelsT,
-      subtitle: strings.obModelsS,
+      title: strings.obConnectStep,
+      subtitle: strings.obConnectDescription,
       child: const OnboardingCloudStep(),
     ),
     2 => _StepBody(
+      title: strings.obModelsT,
+      subtitle: strings.obSelectModelsDescription,
+      child: const OnboardingModelsStep(),
+    ),
+    3 => _StepBody(
       title: strings.obLookT,
       subtitle: strings.obLookS,
       child: const Column(
@@ -36,11 +41,6 @@ class OnboardingStepContent extends StatelessWidget {
           AppearanceSection(),
         ],
       ),
-    ),
-    3 => _StepBody(
-      title: strings.obPermsT,
-      subtitle: strings.obPermsS,
-      child: const OnboardingPermissionsStep(),
     ),
     _ => _ReadyBanner(strings: strings),
   };

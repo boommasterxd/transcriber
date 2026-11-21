@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/data/catalog/remote_catalog.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 

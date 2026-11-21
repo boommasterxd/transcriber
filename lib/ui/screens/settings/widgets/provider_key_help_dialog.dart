@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
@@ -48,7 +48,7 @@ class ProviderKeyHelpDialog extends ConsumerWidget {
           child: Text(
             t.openPage,
             style: TextStyle(
-              color: palette.accent,
+              color: palette.accentDeep,
               fontWeight: FontWeight.w700,
             ),
           ),

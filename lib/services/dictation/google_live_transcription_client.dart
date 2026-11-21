@@ -75,42 +75,90 @@ final class GoogleLiveTranscriptionClient
 
   @override
   void handleSocketMessage(Object? raw) {
+    if (isClosed) return;
     final message = decodeMessage(raw);
     if (message == null) return;
     if (message.containsKey('setupComplete')) {
-      completeSetup();
+      _handleSetupComplete(message);
       return;
     }
-    if (message['error'] case final error?) {
-      failSetupOrEmit(
-        classifyProviderFailure(
-          code: error is Map ? error['code'] : null,
-          message: error is Map ? error['message'] : error,
-        ),
-      );
+    if (message.containsKey('error')) {
+      _handleProviderError(message);
       return;
     }
+    _handleServerContent(message);
+  }
+
+  void _handleSetupComplete(Map<String, dynamic> message) {
+    if (message['setupComplete'] is! Map) {
+      rejectMalformedResponse();
+      return;
+    }
+    completeSetup();
+  }
+
+  void _handleProviderError(Map<String, dynamic> message) {
+    final error = message['error'];
+    if (error is! Map) {
+      rejectMalformedResponse();
+      return;
+    }
+    final code = error['code'];
+    final detail = error['message'];
+    if ((code != null && code is! String && code is! num) ||
+        (detail != null && detail is! String)) {
+      rejectMalformedResponse();
+      return;
+    }
+    failSetupOrEmit(classifyProviderFailure(code: code, message: detail));
+  }
+
+  void _handleServerContent(Map<String, dynamic> message) {
+    if (!message.containsKey('serverContent')) return;
     final content = message['serverContent'];
-    if (content is! Map<String, dynamic>) return;
-    _emitTranscript(content, 'interimInputTranscription', partial: true);
-    _emitTranscript(content, 'inputTranscription', partial: false);
+    if (content is! Map<String, dynamic>) {
+      rejectMalformedResponse();
+      return;
+    }
+    if (!_emitTranscript(content, 'interimInputTranscription', partial: true)) {
+      return;
+    }
+    if (!_emitTranscript(content, 'inputTranscription', partial: false)) {
+      return;
+    }
+    if (content.containsKey('turnComplete') &&
+        content['turnComplete'] is! bool) {
+      rejectMalformedResponse();
+      return;
+    }
     if (content['turnComplete'] == true) {
       completeFinalization();
     }
   }
 
-  void _emitTranscript(
+  bool _emitTranscript(
     Map<String, dynamic> content,
     String key, {
     required bool partial,
   }) {
+    if (!content.containsKey(key)) return true;
     final value = content[key];
-    final text = value is Map ? value['text']?.toString().trim() : null;
-    if (text == null || text.isEmpty) return;
+    if (value is! Map || value['text'] is! String) {
+      rejectMalformedResponse();
+      return false;
+    }
+    final rawText = value['text'] as String;
+    if (rawText.length > LiveTranscriptionLimits.maximumTranscriptCharacters) {
+      rejectMalformedResponse();
+      return false;
+    }
+    final text = rawText.trim();
+    if (text.isEmpty) return true;
     emit(
       partial ? LiveTranscriptionPartial(text) : LiveTranscriptionFinal(text),
     );
     if (!partial) completeFinalization();
+    return true;
   }
 
   static final Uri liveUri = Uri.parse(

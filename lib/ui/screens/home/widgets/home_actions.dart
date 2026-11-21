@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_palette.dart';
 import '../../../widgets/buttons.dart';
@@ -19,7 +19,13 @@ class AudioFileTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return PressableScale(
-      onTap: onTap,
+      action: (
+        label: '$title. $subtitle',
+        onActivate: onTap,
+        focusBorderRadius: BorderRadius.circular(20),
+        selected: null,
+        inMutuallyExclusiveGroup: false,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         decoration: BoxDecoration(
@@ -95,15 +101,26 @@ class _AudioFileText extends StatelessWidget {
 }
 
 class RecordFab extends StatelessWidget {
-  const RecordFab({super.key, required this.onTap});
+  const RecordFab({
+    super.key,
+    required this.onTap,
+    required this.semanticLabel,
+  });
 
   final VoidCallback onTap;
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     return PressableScale(
-      onTap: onTap,
+      action: (
+        label: semanticLabel,
+        onActivate: onTap,
+        focusBorderRadius: BorderRadius.circular(66),
+        selected: null,
+        inMutuallyExclusiveGroup: false,
+      ),
       pressedScale: 0.9,
       child: Container(
         width: 66,
@@ -119,7 +136,7 @@ class RecordFab extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.mic_rounded, color: Colors.white, size: 28),
+        child: Icon(Icons.mic_rounded, color: palette.onAccent, size: 28),
       ),
     );
   }

@@ -1,23 +1,54 @@
 name: Dependency audit
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      npm-preflight-passed:
+        description: Whether the caller already audited npm and validated its dependency groups.
+        type: boolean
+        default: false
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
 jobs:
+  npm-preflight:
+    name: Audit npm and validate dependency groups
+    if: ${{ !inputs.npm-preflight-passed }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+          check-latest: true
+          package-manager-cache: false
+      - name: Reject ambiguous npm production groups
+        run: node tool/ci/check-osv-npm-scope.cjs
+      - name: Audit locked npm production dependencies
+        run: npm --prefix tool/quality/node run audit -- --package-lock-only
+
   audit:
     name: OSV Scanner
+    needs: npm-preflight
+    if: >-
+      ${{ !cancelled() && (needs.npm-preflight.result == 'success' ||
+          (inputs.npm-preflight-passed && needs.npm-preflight.result == 'skipped')) }}
     permissions:
       actions: read
       contents: read
       security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@8ac9e5ce44cc7178e0e04229a91bdcc003166e57 # v2.6.0 + fail-closed scan guard
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@d3c1414ded37de590f207572e37a7d180f1d0ef7 # v2.7.1 + fail-closed scan guard
     with:
       scan-args: |-
+        --config=tool/quality/node/osv-scanner.toml
         --lockfile=pubspec.lock
+        --lockfile=android/app/gradle.lockfile
+        --lockfile=tool/ci/jvm/gradle.lockfile
+        --lockfile=tool/ci/jvm/gradle/verification-metadata.xml
+        --lockfile=tool/quality/node/package-lock.json
       upload-sarif: false
       fail-on-vuln: true

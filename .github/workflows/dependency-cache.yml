@@ -1,0 +1,158 @@
+name: Dependency cache warmup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - .npmrc
+      - .nvmrc
+      - .fvmrc
+      - pubspec.yaml
+      - pubspec.lock
+      - android/**/*.gradle.kts
+      - android/**/gradle.lockfile
+      - android/**/verification-metadata.xml
+      - android/gradle.properties
+      - android/gradle/wrapper/gradle-wrapper.properties
+      - android/gradle/**
+      - android/gradlew
+      - android/gradlew.bat
+      - tool/ci/jvm/*.gradle.kts
+      - tool/ci/jvm/gradle.lockfile
+      - tool/ci/jvm/gradle/verification-metadata.xml
+      - tool/ci/jvm/gradle/**
+      - tool/ci/warm-gradle-cache.init.gradle
+      - tool/ci/setup_android_ndk.sh
+      - tool/ci/cache-lifecycle/**
+      - tool/quality/node/package*.json
+      - tool/quality/node/.npmrc
+      - .github/actions/**
+      - .github/workflows/dependency-cache.yml
+      - .github/workflows/ci.yml
+      - .github/workflows/build-apk.yml
+      - .github/workflows/release.yml
+      - .github/workflows/codeql.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-cache-main
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      replacements: ${{ steps.replacements.outputs.json }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node-tools
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: ./.github/actions/dependency-cache
+        with:
+          store: gradle
+      - uses: ./.github/actions/setup-flutter
+      - name: Populate Flutter and Pub stores
+        run: |
+          flutter precache --android
+          flutter pub get --enforce-lockfile
+          flutter build apk --debug --config-only --no-pub
+      - uses: ./.github/actions/setup-android-ndk
+        id: ndk
+        with:
+          save-cache: 'true'
+      - name: Populate Android and standalone JVM dependency roots
+        run: |
+          android/gradlew -p android -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache --no-daemon
+          android/gradlew -p tool/ci/jvm -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache --no-daemon
+      - uses: ./.github/actions/dependency-cache
+        id: npm-save
+        with:
+          store: npm
+          mode: save
+      - uses: ./.github/actions/dependency-cache
+        id: pub-save
+        with:
+          store: pub
+          mode: save
+      - uses: ./.github/actions/dependency-cache
+        id: gradle-save
+        with:
+          store: gradle
+          mode: save
+      - name: Release scratch space before archiving the SDK
+        run: |
+          rm -rf build android/app/build .dart_tool/flutter_build android/.gradle
+          find "$HOME/.gradle/caches" -mindepth 1 -maxdepth 1 \
+            ! -name modules-2 -exec rm -rf -- {} +
+      - uses: ./.github/actions/dependency-cache
+        id: flutter-save
+        with:
+          store: flutter-sdk
+          mode: save
+      - name: Publish native replacement identities
+        id: replacements
+        env:
+          NPM_KEY: ${{ steps.npm-save.outputs.cache-key }}
+          NPM_PREFIX: ${{ steps.npm-save.outputs.cache-prefix }}
+          PUB_KEY: ${{ steps.pub-save.outputs.cache-key }}
+          PUB_PREFIX: ${{ steps.pub-save.outputs.cache-prefix }}
+          GRADLE_KEY: ${{ steps.gradle-save.outputs.cache-key }}
+          GRADLE_PREFIX: ${{ steps.gradle-save.outputs.cache-prefix }}
+          FLUTTER_KEY: ${{ steps.flutter-save.outputs.cache-key }}
+          FLUTTER_PREFIX: ${{ steps.flutter-save.outputs.cache-prefix }}
+          NDK_KEY: ${{ steps.ndk.outputs.cache-key }}
+          NDK_PREFIX: ${{ steps.ndk.outputs.cache-prefix }}
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const stores = { npm: 'NPM', pub: 'PUB', gradle: 'GRADLE', 'flutter-sdk': 'FLUTTER', ndk: 'NDK' };
+          const replacements = Object.entries(stores).map(([family, name]) => ({
+            family, key: process.env[`${name}_KEY`], prefix: process.env[`${name}_PREFIX`],
+          }));
+          require('node:fs').writeFileSync(`${process.env.RUNNER_TEMP}/replacements.json`, JSON.stringify(replacements));
+          console.log(`json=${JSON.stringify(replacements)}`);
+          NODE
+      - name: Preserve replacement receipts for deferred cleanup
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cache-lifecycle-receipts-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/replacements.json
+          retention-days: 7
+          if-no-files-found: error
+
+  cleanup:
+    name: Retire replaced dependency caches
+    needs: warm
+    if: github.ref == 'refs/heads/main' && needs.warm.result == 'success'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.x'
+          check-latest: true
+          package-manager-cache: false
+      - name: Verify replacements and prune superseded caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_REPLACEMENTS: ${{ needs.warm.outputs.replacements }}
+        run: node tool/ci/cache-lifecycle/run.cjs tool/ci/cache-lifecycle/policy.json

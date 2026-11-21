@@ -2,50 +2,50 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
+import 'mime_utils.dart';
+import 'model_catalog_listing.dart';
 import 'provider_model_capabilities.dart';
+import 'remote_audio_limits.dart';
 import 'remote_api_client.dart';
 import 'remote_http.dart';
 import 'transcription_prompt.dart';
 
 /// Direct REST client for OpenAI's chat and transcription endpoints.
-class OpenAiClient implements RemoteProviderClient {
+class OpenAiClient with ModelCatalogListing implements RemoteProviderClient {
   OpenAiClient({required this.apiKey, http.Client? httpClient})
-    : _http = httpClient ?? http.Client();
+    : _http = httpClient ?? http.Client(),
+      _ownsHttp = httpClient == null;
 
   final String apiKey;
   final http.Client _http;
+  final bool _ownsHttp;
+  bool _closed = false;
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    if (_ownsHttp) _http.close();
+  }
 
   static const _baseUrl = 'https://api.openai.com/v1';
-  static const _maxInlineAudioBytes = 20 * 1024 * 1024;
   @override
   Future<void> testConnection() async {
     await _getJson('/models', timeout: remoteListTimeout);
   }
 
   @override
-  Future<List<RemoteModelInfo>> listModels({
-    required bool forTranscription,
-  }) async {
+  Future<ProviderModelCatalog> loadModelCatalog() async {
     final json = await _getJson('/models', timeout: remoteListTimeout);
     final data = json['data'];
-    if (data is! List) return const [];
-    final ids =
-        data
-            .whereType<Map>()
-            .map((model) => model['id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty)
-            .where(
-              (id) => forTranscription
-                  ? ProviderModelCapabilities.isOpenAiTranscriptionModel(id)
-                  : _isSummaryModel(id),
-            )
-            .toList()
-          ..sort();
-    return ids.map((id) => RemoteModelInfo(id: id)).toList();
+    return ProviderModelCatalog.openAi(
+      data is List ? data.whereType<Map>() : const [],
+    );
   }
 
   @override
@@ -53,14 +53,25 @@ class OpenAiClient implements RemoteProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
-    final json = await _postJson('/chat/completions', {
-      'model': modelId,
-      'messages': [
-        {'role': 'system', 'content': systemPrompt},
-        {'role': 'user', 'content': userPrompt},
-      ],
-    }, timeout: remoteChatTimeout);
+    if (!ProviderModelCapabilities.isOpenAiSummaryModel(modelId)) {
+      throw const RemoteApiException(
+        'The selected OpenAI model does not support text summaries.',
+      );
+    }
+    final json = await _postJson(
+      '/chat/completions',
+      {
+        'model': modelId,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': userPrompt},
+        ],
+      },
+      timeout: remoteChatTimeout,
+      cancellation: cancellation,
+    );
     return _messageText(json).trim();
   }
 
@@ -69,9 +80,13 @@ class OpenAiClient implements RemoteProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) async {
     final file = File(audioPath);
-    final length = await validateRemoteAudioFile(file);
+    final length = await validateRemoteAudioFile(
+      file,
+      cancellation: cancellation,
+    );
 
     if (ProviderModelCapabilities.usesOpenAiAudioChat(modelId)) {
       return _transcribeWithAudioChat(
@@ -79,6 +94,7 @@ class OpenAiClient implements RemoteProviderClient {
         length: length,
         modelId: modelId,
         languageCode: languageCode,
+        cancellation: cancellation,
       );
     }
     if (!ProviderModelCapabilities.usesOpenAiTranscriptionEndpoint(modelId)) {
@@ -90,6 +106,7 @@ class OpenAiClient implements RemoteProviderClient {
       audioPath,
       modelId: modelId,
       languageCode: languageCode,
+      cancellation: cancellation,
     );
   }
 
@@ -97,26 +114,41 @@ class OpenAiClient implements RemoteProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) async {
     final request =
         http.MultipartRequest(
             'POST',
             Uri.parse('$_baseUrl/audio/transcriptions'),
           )
+          ..followRedirects = false
           ..headers['Authorization'] = 'Bearer $apiKey'
           ..fields['model'] = modelId
           ..fields['response_format'] = 'json';
+    if (RegExp(r'(?:^|[._-])diarize(?:$|[._-])').hasMatch(modelId)) {
+      request.fields['chunking_strategy'] = 'auto';
+    }
     if (languageCode != null &&
         languageCode.isNotEmpty &&
         languageCode != 'auto') {
       request.fields['language'] = languageCode;
     }
+    cancellation?.throwIfCancelled();
+    final extension = p.extension(audioPath).toLowerCase();
+    final contentType = extension == '.opus'
+        ? 'audio/ogg'
+        : audioMimeType(audioPath);
+    final uploadExtension = switch (contentType) {
+      'application/octet-stream' => '',
+      _ when extension == '.opus' => '.ogg',
+      _ => extension,
+    };
     request.files.add(
       await http.MultipartFile.fromPath(
         'file',
         audioPath,
-        filename: _openAiUploadFileName(audioPath),
-        contentType: _openAiUploadContentType(audioPath),
+        filename: 'audio$uploadExtension',
+        contentType: http.MediaType.parse(contentType),
       ),
     );
 
@@ -124,6 +156,7 @@ class OpenAiClient implements RemoteProviderClient {
       _http,
       request,
       timeout: remoteTranscribeTimeout,
+      cancellation: cancellation,
     );
     validateRemoteResponse(
       statusCode: response.statusCode,
@@ -140,23 +173,12 @@ class OpenAiClient implements RemoteProviderClient {
     return _transcriptionResult(text);
   }
 
-  String _openAiUploadFileName(String path) {
-    final fileName = path.split(Platform.pathSeparator).last;
-    if (!fileName.toLowerCase().endsWith('.opus')) return fileName;
-    return '${fileName.substring(0, fileName.length - 5)}.ogg';
-  }
-
-  http.MediaType? _openAiUploadContentType(String path) {
-    return path.toLowerCase().endsWith('.opus')
-        ? http.MediaType('audio', 'ogg')
-        : null;
-  }
-
   Future<TranscriptionResult> _transcribeWithAudioChat(
     File file, {
     required int length,
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) async {
     final format = _inlineAudioFormat(file.path);
     if (format == null) {
@@ -164,30 +186,35 @@ class OpenAiClient implements RemoteProviderClient {
         'This OpenAI multimodal model requires WAV or MP3 audio.',
       );
     }
-    if (length > _maxInlineAudioBytes) {
+    if (length > maxInlineAudioBytes) {
       throw const RemoteApiException(
         'This OpenAI multimodal model requires audio up to 20 MiB.',
       );
     }
-    final json = await _postJson('/chat/completions', {
-      'model': modelId,
-      'modalities': ['text'],
-      'messages': [
-        {
-          'role': 'user',
-          'content': [
-            {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
-            {
-              'type': 'input_audio',
-              'input_audio': {
-                'data': base64Encode(await file.readAsBytes()),
-                'format': format,
+    cancellation?.throwIfCancelled();
+    final bytes = await file.readAsBytes();
+    cancellation?.throwIfCancelled();
+    final json = await _postJson(
+      '/chat/completions',
+      {
+        'model': modelId,
+        'modalities': ['text'],
+        'messages': [
+          {
+            'role': 'user',
+            'content': [
+              {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
+              {
+                'type': 'input_audio',
+                'input_audio': {'data': base64Encode(bytes), 'format': format},
               },
-            },
-          ],
-        },
-      ],
-    }, timeout: remoteTranscribeTimeout);
+            ],
+          },
+        ],
+      },
+      timeout: remoteTranscribeTimeout,
+      cancellation: cancellation,
+    );
     return _transcriptionResult(_messageText(json));
   }
 
@@ -213,22 +240,6 @@ class OpenAiClient implements RemoteProviderClient {
     return null;
   }
 
-  bool _isSummaryModel(String id) {
-    final lower = id.toLowerCase();
-    const excluded = [
-      'embed',
-      'whisper',
-      'transcribe',
-      'tts',
-      'audio',
-      'realtime',
-      'image',
-      'moderation',
-      'dall',
-    ];
-    return !excluded.any(lower.contains);
-  }
-
   Future<Map<String, dynamic>> _getJson(
     String path, {
     required Duration timeout,
@@ -244,6 +255,7 @@ class OpenAiClient implements RemoteProviderClient {
     String path,
     Map<String, dynamic> payload, {
     required Duration timeout,
+    RemoteCancellation? cancellation,
   }) async {
     return _requestJson(
       http.Request('POST', Uri.parse('$_baseUrl$path'))
@@ -253,14 +265,21 @@ class OpenAiClient implements RemoteProviderClient {
         })
         ..body = jsonEncode(payload),
       timeout,
+      cancellation: cancellation,
     );
   }
 
   Future<Map<String, dynamic>> _requestJson(
     http.BaseRequest request,
-    Duration timeout,
-  ) async {
-    final response = await sendRemoteRequest(_http, request, timeout: timeout);
+    Duration timeout, {
+    RemoteCancellation? cancellation,
+  }) async {
+    final response = await sendRemoteRequest(
+      _http,
+      request..followRedirects = false,
+      timeout: timeout,
+      cancellation: cancellation,
+    );
     validateRemoteResponse(
       statusCode: response.statusCode,
       body: response.body,

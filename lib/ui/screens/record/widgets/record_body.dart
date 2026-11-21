@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/l10n/app_strings.dart';
@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../state/recording_controller.dart';
 import '../../../widgets/waveforms.dart';
+import 'record_limit_hint.dart';
 
 /// Main recording content, including status, timer, waveform and privacy hint.
 class RecordBody extends StatelessWidget {
@@ -29,6 +30,8 @@ class RecordBody extends StatelessWidget {
           _RecordWaveform(paused: paused),
           const SizedBox(height: 24),
           _RecordHint(text: strings.recHint),
+          const SizedBox(height: 12),
+          RecordLimitHint(strings: strings),
         ],
       ),
     );
@@ -67,12 +70,16 @@ class RecordStatusPill extends StatelessWidget {
             decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
-          Text(
-            paused ? strings.recPaused : strings.recording,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: color,
+          Semantics(
+            container: true,
+            liveRegion: true,
+            child: Text(
+              paused ? strings.recPaused : strings.recording,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],

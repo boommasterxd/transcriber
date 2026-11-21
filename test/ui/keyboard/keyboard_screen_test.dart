@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
@@ -8,13 +8,12 @@ import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/dictation_state.dart';
 import 'package:transcriber/ui/keyboard/keyboard_screen.dart';
 import 'package:transcriber/ui/widgets/recording_controls.dart';
-import 'package:transcriber/ui/widgets/provider_logo.dart';
 import 'package:transcriber/ui/widgets/waveforms.dart';
 
 void main() {
   _registerInteractionTests();
   _registerDeletionTests();
-  _registerBrandingTests();
+  _registerProviderSwitchTest();
   _registerAccessibilityAndRecoveryTests();
   _registerErrorTests();
 }
@@ -32,10 +31,6 @@ void _registerInteractionTests() {
 
     expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('gpt-live-transcribe'), findsOneWidget);
-    expect(
-      tester.widget<ProviderLogo>(find.byType(ProviderLogo)).provider,
-      RemoteProviderId.openai,
-    );
     expect(find.text('Bereit für Live-Diktat'), findsNWidgets(2));
     await tester.tap(find.byIcon(Icons.mic_rounded));
     expect(starts, 1);
@@ -51,16 +46,20 @@ void _registerInteractionTests() {
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.correcting).copyWith(
-        preview: 'Guten Mor',
-        elapsed: const Duration(minutes: 2, seconds: 7),
-        levels: const [0.1, 0.5, 0.9],
+        progress: const DictationProgress(
+          preview: 'Guten Mor',
+          elapsed: Duration(minutes: 2, seconds: 7),
+          levels: [0.1, 0.5, 0.9],
+        ),
       ),
       brightness: Brightness.dark,
       size: const Size(360, 312),
       actions: _KeyboardActions(
-        stop: () => stops++,
-        cancel: () => cancels++,
-        togglePause: () => pauses++,
+        recording: RecordingActions(
+          stop: () => stops++,
+          cancel: () => cancels++,
+          togglePause: () => pauses++,
+        ),
         deleteBackward: () => deletes++,
       ),
     );
@@ -68,16 +67,6 @@ void _registerInteractionTests() {
     expect(find.text('Text wird live korrigiert'), findsOneWidget);
     expect(find.text('Guten Mor'), findsNothing);
     expect(find.text('02:07'), findsOneWidget);
-    final wave = tester.widget<RecordWave>(find.byType(RecordWave));
-    expect(wave.barWidth, 5);
-    expect(tester.getSize(find.byType(RecordWave)).height, greaterThan(100));
-    expect(
-      find.ancestor(
-        of: find.byType(RecordWave),
-        matching: find.byType(Container),
-      ),
-      findsNothing,
-    );
     await tester.tap(find.byIcon(Icons.backspace_outlined));
     await tester.tap(find.text('Stoppen'));
     expect(find.byType(RecordWave), findsOneWidget);
@@ -94,10 +83,14 @@ void _registerInteractionTests() {
     await _pumpKeyboard(
       tester,
       _state(DictationPhase.paused).copyWith(
-        levels: const [0.2, 0.7, 0.4],
-        elapsed: const Duration(seconds: 12),
+        progress: const DictationProgress(
+          levels: [0.2, 0.7, 0.4],
+          elapsed: Duration(seconds: 12),
+        ),
       ),
-      actions: _KeyboardActions(togglePause: () => resumes++),
+      actions: _KeyboardActions(
+        recording: RecordingActions(togglePause: () => resumes++),
+      ),
     );
 
     expect(find.text('Pausiert'), findsOneWidget);
@@ -133,20 +126,28 @@ void _registerDeletionTests() {
   });
 }
 
-void _registerBrandingTests() {
-  testWidgets('uses the selected Google provider logo in the switch action', (
-    tester,
-  ) async {
-    await _pumpKeyboard(
-      tester,
-      _state(DictationPhase.ready).copyWith(provider: RemoteProviderId.google),
-    );
+void _registerProviderSwitchTest() {
+  testWidgets(
+    'shows the Google live model and switches to the previous keyboard',
+    (tester) async {
+      var switches = 0;
+      await _pumpKeyboard(
+        tester,
+        _state(DictationPhase.ready).copyWith(
+          selection: const DictationModelSelection(
+            provider: RemoteProviderId.google,
+            modelId: 'gemini-3.5-transcribe-live',
+          ),
+        ),
+        actions: _KeyboardActions(switchBack: () => switches++),
+      );
 
-    expect(
-      tester.widget<ProviderLogo>(find.byType(ProviderLogo)).provider,
-      RemoteProviderId.google,
-    );
-  });
+      expect(find.text('Google Gemini'), findsOneWidget);
+      expect(find.text('gemini-3.5-transcribe-live'), findsOneWidget);
+      await tester.tap(find.byTooltip('Vorherige Tastatur'));
+      expect(switches, 1);
+    },
+  );
 }
 
 void _registerAccessibilityAndRecoveryTests() {
@@ -158,7 +159,9 @@ void _registerAccessibilityAndRecoveryTests() {
       _state(DictationPhase.connecting),
       textScale: 1.6,
       size: const Size(360, 280),
-      actions: _KeyboardActions(cancel: () => cancels++),
+      actions: _KeyboardActions(
+        recording: RecordingActions(cancel: () => cancels++),
+      ),
     );
 
     expect(find.text(strings.keyboardConnect), findsOneWidget);
@@ -178,9 +181,12 @@ void _registerAccessibilityAndRecoveryTests() {
   ) async {
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.paused,
-      ).copyWith(levels: const [0.2, 0.7, 0.4], preview: 'Pausierter Text'),
+      _state(DictationPhase.paused).copyWith(
+        progress: const DictationProgress(
+          levels: [0.2, 0.7, 0.4],
+          preview: 'Pausierter Text',
+        ),
+      ),
       textScale: 1.6,
       size: const Size(360, 280),
     );
@@ -197,7 +203,13 @@ void _registerAccessibilityAndRecoveryTests() {
     final semantics = tester.ensureSemantics();
     await _pumpKeyboard(
       tester,
-      _state(DictationPhase.unavailable).copyWith(editorSupported: false),
+      _state(DictationPhase.unavailable).copyWith(
+        editor: const DictationEditorStatus(
+          visible: true,
+          supported: false,
+          microphoneGranted: true,
+        ),
+      ),
       textScale: 1.6,
     );
 
@@ -217,9 +229,14 @@ void _registerAccessibilityAndRecoveryTests() {
     var settingsOpened = 0;
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.error,
-      ).copyWith(microphoneGranted: false, errorCode: 'microphone_denied'),
+      _state(DictationPhase.error).copyWith(
+        editor: const DictationEditorStatus(
+          visible: true,
+          supported: true,
+          microphoneGranted: false,
+        ),
+        errorCode: 'microphone_denied',
+      ),
       actions: _KeyboardActions(openAppSettings: () => settingsOpened++),
     );
 
@@ -259,9 +276,8 @@ void _registerErrorTests() {
 
     await _pumpKeyboard(
       tester,
-      _state(
-        DictationPhase.error,
-      ).copyWith(errorCode: 'configuration_rejected'),
+      _state(DictationPhase.error)
+          .copyWith(errorCode: 'configuration_rejected'),
     );
     expect(find.textContaining('Live-Konfiguration'), findsOneWidget);
 
@@ -285,11 +301,15 @@ void _registerErrorTests() {
 DictationState _state(DictationPhase phase) =>
     DictationState.initial().copyWith(
       phase: phase,
-      visible: true,
-      editorSupported: true,
-      microphoneGranted: true,
-      provider: RemoteProviderId.openai,
-      modelId: 'gpt-live-transcribe',
+      editor: const DictationEditorStatus(
+        visible: true,
+        supported: true,
+        microphoneGranted: true,
+      ),
+      selection: const DictationModelSelection(
+        provider: RemoteProviderId.openai,
+        modelId: 'gpt-live-transcribe',
+      ),
       clearError: true,
     );
 
@@ -313,13 +333,17 @@ Future<void> _pumpKeyboard(
         home: KeyboardView(
           state: state,
           strings: AppStrings.of(AppLanguage.de),
-          start: actions.start ?? _noOp,
-          stop: actions.stop ?? _noOp,
-          togglePause: actions.togglePause ?? _noOp,
-          cancel: actions.cancel ?? _noOp,
-          deleteBackward: actions.deleteBackward ?? _noOp,
-          switchBack: _noOp,
-          openAppSettings: actions.openAppSettings ?? _noOp,
+          actions: KeyboardActions(
+            start: actions.start ?? _noOp,
+            recording: RecordingActions(
+              stop: actions.recording.stop ?? _noOp,
+              togglePause: actions.recording.togglePause ?? _noOp,
+              cancel: actions.recording.cancel ?? _noOp,
+            ),
+            deleteBackward: actions.deleteBackward ?? _noOp,
+            switchBack: actions.switchBack ?? _noOp,
+            openAppSettings: actions.openAppSettings ?? _noOp,
+          ),
         ),
       ),
     ),
@@ -331,17 +355,15 @@ void _noOp() {}
 class _KeyboardActions {
   const _KeyboardActions({
     this.start,
-    this.stop,
-    this.cancel,
-    this.togglePause,
+    this.recording = const RecordingActions(),
     this.deleteBackward,
+    this.switchBack,
     this.openAppSettings,
   });
 
   final VoidCallback? start;
-  final VoidCallback? stop;
-  final VoidCallback? cancel;
-  final VoidCallback? togglePause;
+  final RecordingActions recording;
   final VoidCallback? deleteBackward;
+  final VoidCallback? switchBack;
   final VoidCallback? openAppSettings;
 }

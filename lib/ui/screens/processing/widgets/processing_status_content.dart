@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -123,13 +123,18 @@ class _StatusText extends StatelessWidget {
     final palette = context.palette;
     return Column(
       children: [
-        Text(
-          presentation.title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
-            color: palette.ink,
+        Semantics(
+          container: true,
+          header: true,
+          liveRegion: true,
+          child: Text(
+            presentation.title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: palette.ink,
+            ),
           ),
         ),
         const SizedBox(height: 10),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
@@ -51,7 +51,9 @@ Future<void> pumpKeyboardSettingsSurface(
   final database = testDatabase();
   addTearDown(database.close);
   final settings = AppSettings.initial().copyWith(
-    asrProvider: RemoteProviderId.google,
+    transcription: const TranscriptionSettings(
+      provider: RemoteProviderId.google,
+    ),
     onboarded: true,
   );
   await tester.pumpWidget(

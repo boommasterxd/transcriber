@@ -4,12 +4,14 @@
 set -euo pipefail
 
 if [[ -n "${RELEASE_VERSION:-}" ]]; then
-  v="${RELEASE_VERSION#v}"; echo "${v// /}"; exit 0
+  ver="${RELEASE_VERSION#v}"
+elif [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+  tag="${GITHUB_REF#refs/tags/}"
+  ver="${tag#v}"
+else
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  line="$(grep -m1 '^version:' "$root/pubspec.yaml")"
+  ver="${line#version:}"; ver="${ver// /}"; ver="${ver%%+*}"
 fi
-ref="${GITHUB_REF:-}"
-if [[ "$ref" == refs/tags/* ]]; then
-  tag="${ref#refs/tags/}"; echo "${tag#v}"; exit 0
-fi
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-line="$(grep -m1 '^version:' "$root/pubspec.yaml")"
-ver="${line#version:}"; ver="${ver// /}"; echo "${ver%%+*}"
+bash "$(dirname "${BASH_SOURCE[0]}")/validate_version.sh" "$ver"
+printf '%s\n' "$ver"

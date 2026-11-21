@@ -1,4 +1,5 @@
 import '../remote/remote_api_client.dart';
+import '../service_exceptions.dart';
 import 'summarization_service.dart';
 import 'summary_prompt.dart';
 import 'summary_result.dart';
@@ -19,12 +20,17 @@ class RemoteSummarizationService implements SummarizationService {
   Future<SummaryResult> summarize(
     String transcript, {
     required bool german,
+    RemoteCancellation? cancellation,
   }) async {
     final raw = await client.summarize(
       systemPrompt: SummaryPrompt.system(german),
       userPrompt: SummaryPrompt.user(transcript, german: german),
       modelId: apiModelId,
+      cancellation: cancellation,
     );
+    if (raw.trim().isEmpty) {
+      throw const RemoteApiException('The provider returned an empty summary.');
+    }
     return SummaryPrompt.parse(raw, fallbackTitle: fallbackTitle);
   }
 }

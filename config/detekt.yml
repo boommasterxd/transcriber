@@ -1,21 +1,26 @@
 complexity:
   CognitiveComplexMethod:
     active: true
+    excludes: []
     threshold: 25
   CyclomaticComplexMethod:
     active: true
+    excludes: []
     threshold: 20
   LongMethod:
     active: true
+    excludes: []
     threshold: 100
   LongParameterList:
     active: true
+    excludes: []
     functionThreshold: 6
     constructorThreshold: 6
     ignoreDefaultParameters: false
     ignoreDataClasses: false
   NestedBlockDepth:
     active: true
+    excludes: []
     threshold: 4
 
 potential-bugs:

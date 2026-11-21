@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/native.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/database/app_database.dart';
@@ -11,12 +15,16 @@ import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
+import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/ui/navigation.dart';
 import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/screens/processing/processing_screen.dart';
 import 'package:transcriber/ui/screens/record/record_screen.dart';
 import 'package:transcriber/ui/screens/settings/settings_screen.dart';
+
+import '../state/state_test_fakes.dart';
+import 'screens/onboarding/onboarding_test_support.dart';
 
 void main() {
   testWidgets('openSettings pushes the settings screen', (tester) async {
@@ -30,16 +38,7 @@ void main() {
     expect(find.byType(SettingsScreen), findsOneWidget);
   });
 
-  testWidgets('openRecord pushes the record screen', (tester) async {
-    final observer = _RouteObserver();
-    await _pumpHarness(tester, observer);
-
-    await _tapAction(tester, () => AppNavigator.openRecord(_context(tester)));
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(observer.pushes, hasLength(2));
-    expect(find.byType(RecordScreen), findsOneWidget);
-  });
+  group('Recording permission', _registerRecordingTests);
 
   testWidgets('openDetail passes the note id and pushes a route', (
     tester,
@@ -118,6 +117,93 @@ void main() {
   });
 }
 
+void _registerRecordingTests() {
+  const channel = MethodChannel('com.llfbandit.record/messages');
+  final strings = AppStrings.of(AppLanguage.de);
+  late OnboardingPermissionChannel permissions;
+  late FakeAudioRecorderService recorder;
+
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (_) async => null);
+    permissions = OnboardingPermissionChannel()..install();
+    final root = Directory.systemTemp.createTempSync(
+      'transcriber_record_test_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    recorder = FakeAudioRecorderService(
+      AudioCacheManager(
+        paths: Future.value(StoragePaths(supportRoot: root, cacheRoot: root)),
+      ),
+    );
+  });
+  tearDown(() async {
+    await recorder.dispose();
+    await permissions.uninstall();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+
+  Future<void> open(WidgetTester tester) async {
+    await _pumpHarness(tester, _RouteObserver(), recorder: recorder);
+    expect(permissions.requestCalls, 0);
+    await _tapAction(tester, () => AppNavigator.openRecord(_context(tester)));
+    await tester.pumpAndSettle();
+    expect(permissions.requestCalls, 1);
+  }
+
+  testWidgets('recording starts when microphone access is granted', (
+    tester,
+  ) async {
+    permissions.requestedMicrophone = PermissionStatus.granted;
+    await open(tester);
+    expect(find.byType(RecordScreen), findsOneWidget);
+    expect(recorder.startCalls, 1);
+    await tester.tap(find.text(strings.recCancel));
+    await tester.pumpAndSettle();
+    expect(recorder.cancelCalls, 1);
+    expect(find.byType(RecordScreen), findsNothing);
+  });
+
+  testWidgets('declining microphone access returns to the previous screen', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(find.byType(RecordScreen), findsNothing);
+    expect(find.text(strings.micPermissionBody), findsOneWidget);
+    expect(find.text(strings.micPermissionSettings), findsNothing);
+    expect(recorder.startCalls, 0);
+  });
+
+  testWidgets('permanent denial offers app settings without recording', (
+    tester,
+  ) async {
+    permissions.requestedMicrophone = PermissionStatus.permanentlyDenied;
+    await open(tester);
+    expect(find.byType(RecordScreen), findsNothing);
+    expect(recorder.startCalls, 0);
+    await tester.tap(find.text(strings.micPermissionSettings));
+    await tester.pumpAndSettle();
+    expect(permissions.settingsCalls, 1);
+  });
+
+  testWidgets(
+    'cancelling before the permission response prevents late capture',
+    (tester) async {
+      final pending = Completer<PermissionStatus>();
+      permissions.pendingRequest = pending.future;
+      await open(tester);
+      expect(find.text(strings.recHint), findsNothing);
+      await tester.tap(find.text(strings.recCancel));
+      await tester.pumpAndSettle();
+      pending.complete(PermissionStatus.granted);
+      await tester.pumpAndSettle();
+      expect(find.byType(RecordScreen), findsNothing);
+      expect(recorder.startCalls, 0);
+    },
+  );
+}
+
 BuildContext _context(WidgetTester tester) => tester.element(find.text('Open'));
 
 Future<void> _tapAction(
@@ -130,11 +216,14 @@ Future<void> _tapAction(
 
 Future<void> _pumpHarness(
   WidgetTester tester,
-  NavigatorObserver observer,
-) async {
+  NavigatorObserver observer, {
+  FakeAudioRecorderService? recorder,
+}) async {
   final database = AppDatabase(NativeDatabase.memory());
   addTearDown(database.close);
-  final settings = AppSettings.initial().copyWith(summarizeEnabled: false);
+  final settings = AppSettings.initial().copyWith(
+    summary: const SummarySettings(enabled: false),
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -143,6 +232,7 @@ Future<void> _pumpHarness(
         initialConnectionsProvider.overrideWithValue(const {}),
         initialNotesProvider.overrideWithValue(const []),
         audioCacheManagerProvider.overrideWithValue(AudioCacheManager()),
+        if (recorder != null) audioRecorderProvider.overrideWithValue(recorder),
       ],
       child: MaterialApp(
         theme: ThemeData(

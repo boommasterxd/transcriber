@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "repository": "boommasterxd/transcriber",
+  "defaultBranch": "main",
+  "producerInputs": [
+    "package.json", "package-lock.json", ".npmrc", ".nvmrc", ".fvmrc",
+    "pubspec.yaml", "pubspec.lock",
+    "tool/quality/node/package.json", "tool/quality/node/package-lock.json", "tool/quality/node/.npmrc",
+    "android/build.gradle.kts", "android/settings.gradle.kts", "android/gradle.properties",
+    "android/gradle/", "android/gradlew", "android/gradlew.bat",
+    "android/app/build.gradle.kts", "android/app/gradle.lockfile",
+    "tool/ci/jvm/build.gradle.kts", "tool/ci/jvm/settings.gradle.kts",
+    "tool/ci/jvm/native_coverage.gradle.kts", "tool/ci/jvm/require_executed_tests.gradle.kts",
+    "tool/ci/jvm/gradle.lockfile", "tool/ci/jvm/gradle/",
+    "tool/ci/warm-gradle-cache.init.gradle", "tool/ci/setup_android_ndk.sh",
+    ".github/actions/", ".github/workflows/dependency-cache.yml", "tool/ci/cache-lifecycle/"
+  ],
+  "producerWorkflows": [
+    { "name": "Dependency cache warmup", "path": ".github/workflows/dependency-cache.yml", "job": "warm" }
+  ],
+  "families": {
+    "npm": "deps-v1-",
+    "pub": "deps-v1-",
+    "gradle": "deps-v1-",
+    "flutter-sdk": "deps-v1-",
+    "ndk": "android-ndk-v1-"
+  },
+  "codeqlWorkflows": [
+    { "name": "CodeQL", "path": ".github/workflows/codeql.yml" }
+  ],
+  "retiredPrefixes": [
+    { "prefix": "flutter-action-setup-flutter-sdk-", "replacement": "flutter-sdk" },
+    { "prefix": "flutter-action-setup-flutter-pub-", "replacement": "pub" },
+    { "prefix": "codeql-dependencies-1-Linux-java-", "replacement": "gradle" }
+  ]
+}

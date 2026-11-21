@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
 import 'package:transcriber/services/remote/openai_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
@@ -147,19 +147,28 @@ Future<void> _testSummary() async {
 void _registerTranscriptionTest() {
   test('sends gpt-transcribe as multipart', _testTranscription);
   test(
+    'requests automatic chunking for diarized transcription',
+    () => _testTranscription(modelId: 'gpt-4o-transcribe-diarize'),
+  );
+  test(
+    'routes future diarized ASR without a fixed model family',
+    () => _testTranscription(modelId: 'gpt-99-transcribe-diarize'),
+  );
+  test(
     'presents Opus as supported OGG without converting its bytes',
     () => _testTranscription(
       fileName: 'whatsapp-voice.opus',
-      expectedUploadName: 'whatsapp-voice.ogg',
+      expectedUploadName: 'audio.ogg',
       expectedContentType: 'audio/ogg',
     ),
   );
 }
 
 Future<void> _testTranscription({
-  String fileName = 'voice.wav',
-  String? expectedUploadName,
-  String? expectedContentType,
+  String fileName = 'private-conversation.WAV',
+  String expectedUploadName = 'audio.wav',
+  String expectedContentType = 'audio/wav',
+  String modelId = 'gpt-transcribe',
 }) async {
   await withTemporaryAudio(
     prefix: 'openai-test-',
@@ -178,7 +187,7 @@ Future<void> _testTranscription({
 
       final result = await client.transcribe(
         file.path,
-        modelId: 'gpt-transcribe',
+        modelId: modelId,
         languageCode: 'de',
       );
       final captured = httpClient.requests.single as http.MultipartRequest;
@@ -188,17 +197,14 @@ Future<void> _testTranscription({
       );
       expect(captured.headers['Authorization'], 'Bearer secret-key');
       expect(captured.fields, {
-        'model': 'gpt-transcribe',
+        'model': modelId,
         'response_format': 'json',
+        if (modelId.contains('diarize')) 'chunking_strategy': 'auto',
         'language': 'de',
       });
-      expect(captured.files.single.filename, expectedUploadName ?? fileName);
-      if (expectedContentType != null) {
-        expect(
-          captured.files.single.contentType.toString(),
-          expectedContentType,
-        );
-      }
+      expect(captured.followRedirects, isFalse);
+      expect(captured.files.single.filename, expectedUploadName);
+      expect(captured.files.single.contentType.toString(), expectedContentType);
       expect(result.text, 'result');
       expect(result.segments.single.text, 'result');
     },

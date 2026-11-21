@@ -761,6 +761,18 @@ class $NotesTableTable extends NotesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _titleSearchMeta = const VerificationMeta(
+    'titleSearch',
+  );
+  @override
+  late final GeneratedColumn<String> titleSearch = GeneratedColumn<String>(
+    'title_search',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _speakerMeta = const VerificationMeta(
     'speaker',
   );
@@ -880,6 +892,17 @@ class $NotesTableTable extends NotesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _summaryErrorMeta = const VerificationMeta(
+    'summaryError',
+  );
+  @override
+  late final GeneratedColumn<String> summaryError = GeneratedColumn<String>(
+    'summary_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _audioPathMeta = const VerificationMeta(
     'audioPath',
   );
@@ -906,6 +929,7 @@ class $NotesTableTable extends NotesTable
   List<GeneratedColumn> get $columns => [
     id,
     title,
+    titleSearch,
     speaker,
     source,
     durationSec,
@@ -917,6 +941,7 @@ class $NotesTableTable extends NotesTable
     llmName,
     llmSub,
     gist,
+    summaryError,
     audioPath,
     audioOwnership,
   ];
@@ -944,6 +969,15 @@ class $NotesTableTable extends NotesTable
       );
     } else if (isInserting) {
       context.missing(_titleMeta);
+    }
+    if (data.containsKey('title_search')) {
+      context.handle(
+        _titleSearchMeta,
+        titleSearch.isAcceptableOrUnknown(
+          data['title_search']!,
+          _titleSearchMeta,
+        ),
+      );
     }
     if (data.containsKey('speaker')) {
       context.handle(
@@ -1042,6 +1076,15 @@ class $NotesTableTable extends NotesTable
     } else if (isInserting) {
       context.missing(_gistMeta);
     }
+    if (data.containsKey('summary_error')) {
+      context.handle(
+        _summaryErrorMeta,
+        summaryError.isAcceptableOrUnknown(
+          data['summary_error']!,
+          _summaryErrorMeta,
+        ),
+      );
+    }
     if (data.containsKey('audio_path')) {
       context.handle(
         _audioPathMeta,
@@ -1075,6 +1118,10 @@ class $NotesTableTable extends NotesTable
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
+      )!,
+      titleSearch: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title_search'],
       )!,
       speaker: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1120,6 +1167,10 @@ class $NotesTableTable extends NotesTable
         DriftSqlType.string,
         data['${effectivePrefix}gist'],
       )!,
+      summaryError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}summary_error'],
+      ),
       audioPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}audio_path'],
@@ -1140,6 +1191,7 @@ class $NotesTableTable extends NotesTable
 class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   final String id;
   final String title;
+  final String titleSearch;
   final String speaker;
   final String source;
   final int durationSec;
@@ -1151,11 +1203,13 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   final String llmName;
   final String llmSub;
   final String gist;
+  final String? summaryError;
   final String? audioPath;
   final String audioOwnership;
   const NotesTableData({
     required this.id,
     required this.title,
+    required this.titleSearch,
     required this.speaker,
     required this.source,
     required this.durationSec,
@@ -1167,6 +1221,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     required this.llmName,
     required this.llmSub,
     required this.gist,
+    this.summaryError,
     this.audioPath,
     required this.audioOwnership,
   });
@@ -1175,6 +1230,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['title'] = Variable<String>(title);
+    map['title_search'] = Variable<String>(titleSearch);
     map['speaker'] = Variable<String>(speaker);
     map['source'] = Variable<String>(source);
     map['duration_sec'] = Variable<int>(durationSec);
@@ -1186,6 +1242,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     map['llm_name'] = Variable<String>(llmName);
     map['llm_sub'] = Variable<String>(llmSub);
     map['gist'] = Variable<String>(gist);
+    if (!nullToAbsent || summaryError != null) {
+      map['summary_error'] = Variable<String>(summaryError);
+    }
     if (!nullToAbsent || audioPath != null) {
       map['audio_path'] = Variable<String>(audioPath);
     }
@@ -1197,6 +1256,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return NotesTableCompanion(
       id: Value(id),
       title: Value(title),
+      titleSearch: Value(titleSearch),
       speaker: Value(speaker),
       source: Value(source),
       durationSec: Value(durationSec),
@@ -1208,6 +1268,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       llmName: Value(llmName),
       llmSub: Value(llmSub),
       gist: Value(gist),
+      summaryError: summaryError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(summaryError),
       audioPath: audioPath == null && nullToAbsent
           ? const Value.absent()
           : Value(audioPath),
@@ -1223,6 +1286,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return NotesTableData(
       id: serializer.fromJson<String>(json['id']),
       title: serializer.fromJson<String>(json['title']),
+      titleSearch: serializer.fromJson<String>(json['titleSearch']),
       speaker: serializer.fromJson<String>(json['speaker']),
       source: serializer.fromJson<String>(json['source']),
       durationSec: serializer.fromJson<int>(json['durationSec']),
@@ -1234,6 +1298,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       llmName: serializer.fromJson<String>(json['llmName']),
       llmSub: serializer.fromJson<String>(json['llmSub']),
       gist: serializer.fromJson<String>(json['gist']),
+      summaryError: serializer.fromJson<String?>(json['summaryError']),
       audioPath: serializer.fromJson<String?>(json['audioPath']),
       audioOwnership: serializer.fromJson<String>(json['audioOwnership']),
     );
@@ -1244,6 +1309,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'title': serializer.toJson<String>(title),
+      'titleSearch': serializer.toJson<String>(titleSearch),
       'speaker': serializer.toJson<String>(speaker),
       'source': serializer.toJson<String>(source),
       'durationSec': serializer.toJson<int>(durationSec),
@@ -1255,6 +1321,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       'llmName': serializer.toJson<String>(llmName),
       'llmSub': serializer.toJson<String>(llmSub),
       'gist': serializer.toJson<String>(gist),
+      'summaryError': serializer.toJson<String?>(summaryError),
       'audioPath': serializer.toJson<String?>(audioPath),
       'audioOwnership': serializer.toJson<String>(audioOwnership),
     };
@@ -1263,6 +1330,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   NotesTableData copyWith({
     String? id,
     String? title,
+    String? titleSearch,
     String? speaker,
     String? source,
     int? durationSec,
@@ -1274,11 +1342,13 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     String? llmName,
     String? llmSub,
     String? gist,
+    Value<String?> summaryError = const Value.absent(),
     Value<String?> audioPath = const Value.absent(),
     String? audioOwnership,
   }) => NotesTableData(
     id: id ?? this.id,
     title: title ?? this.title,
+    titleSearch: titleSearch ?? this.titleSearch,
     speaker: speaker ?? this.speaker,
     source: source ?? this.source,
     durationSec: durationSec ?? this.durationSec,
@@ -1290,6 +1360,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     llmName: llmName ?? this.llmName,
     llmSub: llmSub ?? this.llmSub,
     gist: gist ?? this.gist,
+    summaryError: summaryError.present ? summaryError.value : this.summaryError,
     audioPath: audioPath.present ? audioPath.value : this.audioPath,
     audioOwnership: audioOwnership ?? this.audioOwnership,
   );
@@ -1297,6 +1368,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return NotesTableData(
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
+      titleSearch: data.titleSearch.present
+          ? data.titleSearch.value
+          : this.titleSearch,
       speaker: data.speaker.present ? data.speaker.value : this.speaker,
       source: data.source.present ? data.source.value : this.source,
       durationSec: data.durationSec.present
@@ -1314,6 +1388,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       llmName: data.llmName.present ? data.llmName.value : this.llmName,
       llmSub: data.llmSub.present ? data.llmSub.value : this.llmSub,
       gist: data.gist.present ? data.gist.value : this.gist,
+      summaryError: data.summaryError.present
+          ? data.summaryError.value
+          : this.summaryError,
       audioPath: data.audioPath.present ? data.audioPath.value : this.audioPath,
       audioOwnership: data.audioOwnership.present
           ? data.audioOwnership.value
@@ -1326,6 +1403,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     return (StringBuffer('NotesTableData(')
           ..write('id: $id, ')
           ..write('title: $title, ')
+          ..write('titleSearch: $titleSearch, ')
           ..write('speaker: $speaker, ')
           ..write('source: $source, ')
           ..write('durationSec: $durationSec, ')
@@ -1337,6 +1415,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           ..write('llmName: $llmName, ')
           ..write('llmSub: $llmSub, ')
           ..write('gist: $gist, ')
+          ..write('summaryError: $summaryError, ')
           ..write('audioPath: $audioPath, ')
           ..write('audioOwnership: $audioOwnership')
           ..write(')'))
@@ -1347,6 +1426,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   int get hashCode => Object.hash(
     id,
     title,
+    titleSearch,
     speaker,
     source,
     durationSec,
@@ -1358,6 +1438,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     llmName,
     llmSub,
     gist,
+    summaryError,
     audioPath,
     audioOwnership,
   );
@@ -1367,6 +1448,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       (other is NotesTableData &&
           other.id == this.id &&
           other.title == this.title &&
+          other.titleSearch == this.titleSearch &&
           other.speaker == this.speaker &&
           other.source == this.source &&
           other.durationSec == this.durationSec &&
@@ -1378,6 +1460,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           other.llmName == this.llmName &&
           other.llmSub == this.llmSub &&
           other.gist == this.gist &&
+          other.summaryError == this.summaryError &&
           other.audioPath == this.audioPath &&
           other.audioOwnership == this.audioOwnership);
 }
@@ -1385,6 +1468,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
 class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   final Value<String> id;
   final Value<String> title;
+  final Value<String> titleSearch;
   final Value<String> speaker;
   final Value<String> source;
   final Value<int> durationSec;
@@ -1396,12 +1480,14 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   final Value<String> llmName;
   final Value<String> llmSub;
   final Value<String> gist;
+  final Value<String?> summaryError;
   final Value<String?> audioPath;
   final Value<String> audioOwnership;
   final Value<int> rowid;
   const NotesTableCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
+    this.titleSearch = const Value.absent(),
     this.speaker = const Value.absent(),
     this.source = const Value.absent(),
     this.durationSec = const Value.absent(),
@@ -1413,6 +1499,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     this.llmName = const Value.absent(),
     this.llmSub = const Value.absent(),
     this.gist = const Value.absent(),
+    this.summaryError = const Value.absent(),
     this.audioPath = const Value.absent(),
     this.audioOwnership = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1420,6 +1507,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   NotesTableCompanion.insert({
     required String id,
     required String title,
+    this.titleSearch = const Value.absent(),
     required String speaker,
     required String source,
     required int durationSec,
@@ -1431,6 +1519,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     required String llmName,
     required String llmSub,
     required String gist,
+    this.summaryError = const Value.absent(),
     this.audioPath = const Value.absent(),
     required String audioOwnership,
     this.rowid = const Value.absent(),
@@ -1451,6 +1540,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   static Insertable<NotesTableData> custom({
     Expression<String>? id,
     Expression<String>? title,
+    Expression<String>? titleSearch,
     Expression<String>? speaker,
     Expression<String>? source,
     Expression<int>? durationSec,
@@ -1462,6 +1552,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     Expression<String>? llmName,
     Expression<String>? llmSub,
     Expression<String>? gist,
+    Expression<String>? summaryError,
     Expression<String>? audioPath,
     Expression<String>? audioOwnership,
     Expression<int>? rowid,
@@ -1469,6 +1560,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (title != null) 'title': title,
+      if (titleSearch != null) 'title_search': titleSearch,
       if (speaker != null) 'speaker': speaker,
       if (source != null) 'source': source,
       if (durationSec != null) 'duration_sec': durationSec,
@@ -1480,6 +1572,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
       if (llmName != null) 'llm_name': llmName,
       if (llmSub != null) 'llm_sub': llmSub,
       if (gist != null) 'gist': gist,
+      if (summaryError != null) 'summary_error': summaryError,
       if (audioPath != null) 'audio_path': audioPath,
       if (audioOwnership != null) 'audio_ownership': audioOwnership,
       if (rowid != null) 'rowid': rowid,
@@ -1489,6 +1582,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   NotesTableCompanion copyWith({
     Value<String>? id,
     Value<String>? title,
+    Value<String>? titleSearch,
     Value<String>? speaker,
     Value<String>? source,
     Value<int>? durationSec,
@@ -1500,6 +1594,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     Value<String>? llmName,
     Value<String>? llmSub,
     Value<String>? gist,
+    Value<String?>? summaryError,
     Value<String?>? audioPath,
     Value<String>? audioOwnership,
     Value<int>? rowid,
@@ -1507,6 +1602,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     return NotesTableCompanion(
       id: id ?? this.id,
       title: title ?? this.title,
+      titleSearch: titleSearch ?? this.titleSearch,
       speaker: speaker ?? this.speaker,
       source: source ?? this.source,
       durationSec: durationSec ?? this.durationSec,
@@ -1518,6 +1614,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
       llmName: llmName ?? this.llmName,
       llmSub: llmSub ?? this.llmSub,
       gist: gist ?? this.gist,
+      summaryError: summaryError ?? this.summaryError,
       audioPath: audioPath ?? this.audioPath,
       audioOwnership: audioOwnership ?? this.audioOwnership,
       rowid: rowid ?? this.rowid,
@@ -1532,6 +1629,9 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
+    }
+    if (titleSearch.present) {
+      map['title_search'] = Variable<String>(titleSearch.value);
     }
     if (speaker.present) {
       map['speaker'] = Variable<String>(speaker.value);
@@ -1566,6 +1666,9 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     if (gist.present) {
       map['gist'] = Variable<String>(gist.value);
     }
+    if (summaryError.present) {
+      map['summary_error'] = Variable<String>(summaryError.value);
+    }
     if (audioPath.present) {
       map['audio_path'] = Variable<String>(audioPath.value);
     }
@@ -1583,6 +1686,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     return (StringBuffer('NotesTableCompanion(')
           ..write('id: $id, ')
           ..write('title: $title, ')
+          ..write('titleSearch: $titleSearch, ')
           ..write('speaker: $speaker, ')
           ..write('source: $source, ')
           ..write('durationSec: $durationSec, ')
@@ -1594,6 +1698,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
           ..write('llmName: $llmName, ')
           ..write('llmSub: $llmSub, ')
           ..write('gist: $gist, ')
+          ..write('summaryError: $summaryError, ')
           ..write('audioPath: $audioPath, ')
           ..write('audioOwnership: $audioOwnership, ')
           ..write('rowid: $rowid')
@@ -2694,6 +2799,182 @@ class MigrationStateTableCompanion
   }
 }
 
+class $PendingAudioDeletionsTableTable extends PendingAudioDeletionsTable
+    with
+        TableInfo<
+          $PendingAudioDeletionsTableTable,
+          PendingAudioDeletionsTableData
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingAudioDeletionsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [path];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_audio_deletions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingAudioDeletionsTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('path')) {
+      context.handle(
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pathMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {path};
+  @override
+  PendingAudioDeletionsTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingAudioDeletionsTableData(
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingAudioDeletionsTableTable createAlias(String alias) {
+    return $PendingAudioDeletionsTableTable(attachedDatabase, alias);
+  }
+}
+
+class PendingAudioDeletionsTableData extends DataClass
+    implements Insertable<PendingAudioDeletionsTableData> {
+  final String path;
+  const PendingAudioDeletionsTableData({required this.path});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['path'] = Variable<String>(path);
+    return map;
+  }
+
+  PendingAudioDeletionsTableCompanion toCompanion(bool nullToAbsent) {
+    return PendingAudioDeletionsTableCompanion(path: Value(path));
+  }
+
+  factory PendingAudioDeletionsTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingAudioDeletionsTableData(
+      path: serializer.fromJson<String>(json['path']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{'path': serializer.toJson<String>(path)};
+  }
+
+  PendingAudioDeletionsTableData copyWith({String? path}) =>
+      PendingAudioDeletionsTableData(path: path ?? this.path);
+  PendingAudioDeletionsTableData copyWithCompanion(
+    PendingAudioDeletionsTableCompanion data,
+  ) {
+    return PendingAudioDeletionsTableData(
+      path: data.path.present ? data.path.value : this.path,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingAudioDeletionsTableData(')
+          ..write('path: $path')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => path.hashCode;
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingAudioDeletionsTableData && other.path == this.path);
+}
+
+class PendingAudioDeletionsTableCompanion
+    extends UpdateCompanion<PendingAudioDeletionsTableData> {
+  final Value<String> path;
+  final Value<int> rowid;
+  const PendingAudioDeletionsTableCompanion({
+    this.path = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingAudioDeletionsTableCompanion.insert({
+    required String path,
+    this.rowid = const Value.absent(),
+  }) : path = Value(path);
+  static Insertable<PendingAudioDeletionsTableData> custom({
+    Expression<String>? path,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (path != null) 'path': path,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingAudioDeletionsTableCompanion copyWith({
+    Value<String>? path,
+    Value<int>? rowid,
+  }) {
+    return PendingAudioDeletionsTableCompanion(
+      path: path ?? this.path,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingAudioDeletionsTableCompanion(')
+          ..write('path: $path, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2709,6 +2990,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $TranscriptSegmentsTableTable(this);
   late final $MigrationStateTableTable migrationStateTable =
       $MigrationStateTableTable(this);
+  late final $PendingAudioDeletionsTableTable pendingAudioDeletionsTable =
+      $PendingAudioDeletionsTableTable(this);
+  late final Index notesHistoryOrder = Index(
+    'notes_history_order',
+    'CREATE INDEX notes_history_order ON notes (created_at DESC, id DESC)',
+  );
+  late final Index notesAudioPath = Index(
+    'notes_audio_path',
+    'CREATE INDEX notes_audio_path ON notes (audio_path)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2720,6 +3011,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     noteTodosTable,
     transcriptSegmentsTable,
     migrationStateTable,
+    pendingAudioDeletionsTable,
+    notesHistoryOrder,
+    notesAudioPath,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3068,7 +3362,18 @@ class $$AppSettingsTableTableTableManager
                 onboarded: onboarded,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$AppSettingsTableTable, AppSettingsTableData>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $AppSettingsTableTable,
+                    AppSettingsTableData
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -3096,44 +3401,46 @@ typedef $$AppSettingsTableTableProcessedTableManager =
       AppSettingsTableData,
       PrefetchHooks Function()
     >;
-typedef $$NotesTableTableCreateCompanionBuilder =
-    NotesTableCompanion Function({
-      required String id,
-      required String title,
-      required String speaker,
-      required String source,
-      required int durationSec,
-      required int createdAt,
-      required bool asrIsLocal,
-      required bool summaryIsLocal,
-      required String asrName,
-      required String asrSub,
-      required String llmName,
-      required String llmSub,
-      required String gist,
-      Value<String?> audioPath,
-      required String audioOwnership,
-      Value<int> rowid,
-    });
-typedef $$NotesTableTableUpdateCompanionBuilder =
-    NotesTableCompanion Function({
-      Value<String> id,
-      Value<String> title,
-      Value<String> speaker,
-      Value<String> source,
-      Value<int> durationSec,
-      Value<int> createdAt,
-      Value<bool> asrIsLocal,
-      Value<bool> summaryIsLocal,
-      Value<String> asrName,
-      Value<String> asrSub,
-      Value<String> llmName,
-      Value<String> llmSub,
-      Value<String> gist,
-      Value<String?> audioPath,
-      Value<String> audioOwnership,
-      Value<int> rowid,
-    });
+typedef $$NotesTableTableCreateCompanionBuilder = NotesTableCompanion Function({
+  required String id,
+  required String title,
+  Value<String> titleSearch,
+  required String speaker,
+  required String source,
+  required int durationSec,
+  required int createdAt,
+  required bool asrIsLocal,
+  required bool summaryIsLocal,
+  required String asrName,
+  required String asrSub,
+  required String llmName,
+  required String llmSub,
+  required String gist,
+  Value<String?> summaryError,
+  Value<String?> audioPath,
+  required String audioOwnership,
+  Value<int> rowid,
+});
+typedef $$NotesTableTableUpdateCompanionBuilder = NotesTableCompanion Function({
+  Value<String> id,
+  Value<String> title,
+  Value<String> titleSearch,
+  Value<String> speaker,
+  Value<String> source,
+  Value<int> durationSec,
+  Value<int> createdAt,
+  Value<bool> asrIsLocal,
+  Value<bool> summaryIsLocal,
+  Value<String> asrName,
+  Value<String> asrSub,
+  Value<String> llmName,
+  Value<String> llmSub,
+  Value<String> gist,
+  Value<String?> summaryError,
+  Value<String?> audioPath,
+  Value<String> audioOwnership,
+  Value<int> rowid,
+});
 
 final class $$NotesTableTableReferences
     extends BaseReferences<_$AppDatabase, $NotesTableTable, NotesTableData> {
@@ -3222,6 +3529,11 @@ class $$NotesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get titleSearch => $composableBuilder(
+    column: $table.titleSearch,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get speaker => $composableBuilder(
     column: $table.speaker,
     builder: (column) => ColumnFilters(column),
@@ -3274,6 +3586,11 @@ class $$NotesTableTableFilterComposer
 
   ColumnFilters<String> get gist => $composableBuilder(
     column: $table.gist,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get summaryError => $composableBuilder(
+    column: $table.summaryError,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3383,6 +3700,11 @@ class $$NotesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get titleSearch => $composableBuilder(
+    column: $table.titleSearch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get speaker => $composableBuilder(
     column: $table.speaker,
     builder: (column) => ColumnOrderings(column),
@@ -3438,6 +3760,11 @@ class $$NotesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get summaryError => $composableBuilder(
+    column: $table.summaryError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get audioPath => $composableBuilder(
     column: $table.audioPath,
     builder: (column) => ColumnOrderings(column),
@@ -3463,6 +3790,11 @@ class $$NotesTableTableAnnotationComposer
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get titleSearch => $composableBuilder(
+    column: $table.titleSearch,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get speaker =>
       $composableBuilder(column: $table.speaker, builder: (column) => column);
@@ -3502,6 +3834,11 @@ class $$NotesTableTableAnnotationComposer
 
   GeneratedColumn<String> get gist =>
       $composableBuilder(column: $table.gist, builder: (column) => column);
+
+  GeneratedColumn<String> get summaryError => $composableBuilder(
+    column: $table.summaryError,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get audioPath =>
       $composableBuilder(column: $table.audioPath, builder: (column) => column);
@@ -3623,6 +3960,7 @@ class $$NotesTableTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
+                Value<String> titleSearch = const Value.absent(),
                 Value<String> speaker = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<int> durationSec = const Value.absent(),
@@ -3634,12 +3972,14 @@ class $$NotesTableTableTableManager
                 Value<String> llmName = const Value.absent(),
                 Value<String> llmSub = const Value.absent(),
                 Value<String> gist = const Value.absent(),
+                Value<String?> summaryError = const Value.absent(),
                 Value<String?> audioPath = const Value.absent(),
                 Value<String> audioOwnership = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesTableCompanion(
                 id: id,
                 title: title,
+                titleSearch: titleSearch,
                 speaker: speaker,
                 source: source,
                 durationSec: durationSec,
@@ -3651,6 +3991,7 @@ class $$NotesTableTableTableManager
                 llmName: llmName,
                 llmSub: llmSub,
                 gist: gist,
+                summaryError: summaryError,
                 audioPath: audioPath,
                 audioOwnership: audioOwnership,
                 rowid: rowid,
@@ -3659,6 +4000,7 @@ class $$NotesTableTableTableManager
               ({
                 required String id,
                 required String title,
+                Value<String> titleSearch = const Value.absent(),
                 required String speaker,
                 required String source,
                 required int durationSec,
@@ -3670,12 +4012,14 @@ class $$NotesTableTableTableManager
                 required String llmName,
                 required String llmSub,
                 required String gist,
+                Value<String?> summaryError = const Value.absent(),
                 Value<String?> audioPath = const Value.absent(),
                 required String audioOwnership,
                 Value<int> rowid = const Value.absent(),
               }) => NotesTableCompanion.insert(
                 id: id,
                 title: title,
+                titleSearch: titleSearch,
                 speaker: speaker,
                 source: source,
                 durationSec: durationSec,
@@ -3687,6 +4031,7 @@ class $$NotesTableTableTableManager
                 llmName: llmName,
                 llmSub: llmSub,
                 gist: gist,
+                summaryError: summaryError,
                 audioPath: audioPath,
                 audioOwnership: audioOwnership,
                 rowid: rowid,
@@ -3694,7 +4039,7 @@ class $$NotesTableTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$NotesTableTable, NotesTableData>(table),
                   $$NotesTableTableReferences(db, table, e),
                 ),
               )
@@ -3716,10 +4061,11 @@ class $$NotesTableTableTableManager
                   getPrefetchedDataCallback: (items) async {
                     return [
                       if (notePointsTableRefs)
-                        await $_getPrefetchedData<
+                        await $_getPrefetchedDataByColumns<
                           NotesTableData,
                           $NotesTableTable,
-                          NotePointsTableData
+                          NotePointsTableData,
+                          $NotePointsTableTable
                         >(
                           currentTable: table,
                           referencedTable: $$NotesTableTableReferences
@@ -3730,17 +4076,16 @@ class $$NotesTableTableTableManager
                                 table,
                                 p0,
                               ).notePointsTableRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
+                          currentColumn: 'id',
+                          referencedColumn: 'note_id',
                           typedResults: items,
                         ),
                       if (noteTodosTableRefs)
-                        await $_getPrefetchedData<
+                        await $_getPrefetchedDataByColumns<
                           NotesTableData,
                           $NotesTableTable,
-                          NoteTodosTableData
+                          NoteTodosTableData,
+                          $NoteTodosTableTable
                         >(
                           currentTable: table,
                           referencedTable: $$NotesTableTableReferences
@@ -3751,17 +4096,16 @@ class $$NotesTableTableTableManager
                                 table,
                                 p0,
                               ).noteTodosTableRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
+                          currentColumn: 'id',
+                          referencedColumn: 'note_id',
                           typedResults: items,
                         ),
                       if (transcriptSegmentsTableRefs)
-                        await $_getPrefetchedData<
+                        await $_getPrefetchedDataByColumns<
                           NotesTableData,
                           $NotesTableTable,
-                          TranscriptSegmentsTableData
+                          TranscriptSegmentsTableData,
+                          $TranscriptSegmentsTableTable
                         >(
                           currentTable: table,
                           referencedTable: $$NotesTableTableReferences
@@ -3772,10 +4116,8 @@ class $$NotesTableTableTableManager
                                 table,
                                 p0,
                               ).transcriptSegmentsTableRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
+                          currentColumn: 'id',
+                          referencedColumn: 'note_id',
                           typedResults: items,
                         ),
                     ];
@@ -4030,7 +4372,9 @@ class $$NotePointsTableTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$NotePointsTableTable, NotePointsTableData>(
+                    table,
+                  ),
                   $$NotePointsTableTableReferences(db, table, e),
                 ),
               )
@@ -4056,19 +4400,15 @@ class $$NotePointsTableTableTableManager
                     >
                   >(state) {
                     if (noteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.noteId,
-                                referencedTable:
-                                    $$NotePointsTableTableReferences
-                                        ._noteIdTable(db),
-                                referencedColumn:
-                                    $$NotePointsTableTableReferences
-                                        ._noteIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable: $$NotePointsTableTableReferences
+                            ._noteIdTable(db),
+                        referencedColumn: $$NotePointsTableTableReferences
+                            ._noteIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -4341,7 +4681,7 @@ class $$NoteTodosTableTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$NoteTodosTableTable, NoteTodosTableData>(table),
                   $$NoteTodosTableTableReferences(db, table, e),
                 ),
               )
@@ -4367,18 +4707,15 @@ class $$NoteTodosTableTableTableManager
                     >
                   >(state) {
                     if (noteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.noteId,
-                                referencedTable: $$NoteTodosTableTableReferences
-                                    ._noteIdTable(db),
-                                referencedColumn:
-                                    $$NoteTodosTableTableReferences
-                                        ._noteIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable: $$NoteTodosTableTableReferences
+                            ._noteIdTable(db),
+                        referencedColumn: $$NoteTodosTableTableReferences
+                            ._noteIdTable(db)
+                            .id,
+                      ) as T;
                     }
 
                     return state;
@@ -4644,7 +4981,10 @@ class $$TranscriptSegmentsTableTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<
+                    $TranscriptSegmentsTableTable,
+                    TranscriptSegmentsTableData
+                  >(table),
                   $$TranscriptSegmentsTableTableReferences(db, table, e),
                 ),
               )
@@ -4670,19 +5010,17 @@ class $$TranscriptSegmentsTableTableTableManager
                     >
                   >(state) {
                     if (noteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.noteId,
-                                referencedTable:
-                                    $$TranscriptSegmentsTableTableReferences
-                                        ._noteIdTable(db),
-                                referencedColumn:
-                                    $$TranscriptSegmentsTableTableReferences
-                                        ._noteIdTable(db)
-                                        .id,
-                              )
-                              as T;
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable:
+                            $$TranscriptSegmentsTableTableReferences
+                                ._noteIdTable(db),
+                        referencedColumn:
+                            $$TranscriptSegmentsTableTableReferences
+                                ._noteIdTable(db)
+                                .id,
+                      ) as T;
                     }
 
                     return state;
@@ -4843,7 +5181,19 @@ class $$MigrationStateTableTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<
+                    $MigrationStateTableTable,
+                    MigrationStateTableData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $MigrationStateTableTable,
+                    MigrationStateTableData
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -4871,6 +5221,157 @@ typedef $$MigrationStateTableTableProcessedTableManager =
       MigrationStateTableData,
       PrefetchHooks Function()
     >;
+typedef $$PendingAudioDeletionsTableTableCreateCompanionBuilder =
+    PendingAudioDeletionsTableCompanion Function({
+      required String path,
+      Value<int> rowid,
+    });
+typedef $$PendingAudioDeletionsTableTableUpdateCompanionBuilder =
+    PendingAudioDeletionsTableCompanion Function({
+      Value<String> path,
+      Value<int> rowid,
+    });
+
+class $$PendingAudioDeletionsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingAudioDeletionsTableTable> {
+  $$PendingAudioDeletionsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingAudioDeletionsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingAudioDeletionsTableTable> {
+  $$PendingAudioDeletionsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingAudioDeletionsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingAudioDeletionsTableTable> {
+  $$PendingAudioDeletionsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+}
+
+class $$PendingAudioDeletionsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingAudioDeletionsTableTable,
+          PendingAudioDeletionsTableData,
+          $$PendingAudioDeletionsTableTableFilterComposer,
+          $$PendingAudioDeletionsTableTableOrderingComposer,
+          $$PendingAudioDeletionsTableTableAnnotationComposer,
+          $$PendingAudioDeletionsTableTableCreateCompanionBuilder,
+          $$PendingAudioDeletionsTableTableUpdateCompanionBuilder,
+          (
+            PendingAudioDeletionsTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingAudioDeletionsTableTable,
+              PendingAudioDeletionsTableData
+            >,
+          ),
+          PendingAudioDeletionsTableData,
+          PrefetchHooks Function()
+        > {
+  $$PendingAudioDeletionsTableTableTableManager(
+    _$AppDatabase db,
+    $PendingAudioDeletionsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingAudioDeletionsTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PendingAudioDeletionsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingAudioDeletionsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback: ({
+            Value<String> path = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => PendingAudioDeletionsTableCompanion(path: path, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required String path,
+                Value<int> rowid = const Value.absent(),
+              }) => PendingAudioDeletionsTableCompanion.insert(
+                path: path,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $PendingAudioDeletionsTableTable,
+                    PendingAudioDeletionsTableData
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $PendingAudioDeletionsTableTable,
+                    PendingAudioDeletionsTableData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingAudioDeletionsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingAudioDeletionsTableTable,
+      PendingAudioDeletionsTableData,
+      $$PendingAudioDeletionsTableTableFilterComposer,
+      $$PendingAudioDeletionsTableTableOrderingComposer,
+      $$PendingAudioDeletionsTableTableAnnotationComposer,
+      $$PendingAudioDeletionsTableTableCreateCompanionBuilder,
+      $$PendingAudioDeletionsTableTableUpdateCompanionBuilder,
+      (
+        PendingAudioDeletionsTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingAudioDeletionsTableTable,
+          PendingAudioDeletionsTableData
+        >,
+      ),
+      PendingAudioDeletionsTableData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4890,4 +5391,10 @@ class $AppDatabaseManager {
       );
   $$MigrationStateTableTableTableManager get migrationStateTable =>
       $$MigrationStateTableTableTableManager(_db, _db.migrationStateTable);
+  $$PendingAudioDeletionsTableTableTableManager
+  get pendingAudioDeletionsTable =>
+      $$PendingAudioDeletionsTableTableTableManager(
+        _db,
+        _db.pendingAudioDeletionsTable,
+      );
 }

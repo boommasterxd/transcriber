@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/openai_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 
@@ -95,7 +95,7 @@ Future<String> _summarize(Object body) {
   return client.summarize(
     systemPrompt: 'system',
     userPrompt: 'user',
-    modelId: 'summary-model',
+    modelId: 'gpt-4o-mini',
   );
 }
 

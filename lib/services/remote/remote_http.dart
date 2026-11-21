@@ -6,55 +6,54 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../service_exceptions.dart';
+import 'remote_audio_limits.dart';
+import 'remote_cancellation.dart';
+import 'remote_request_operation.dart';
+
+export 'remote_audio_limits.dart' show maxRemoteAudioBytes;
+export 'remote_cancellation.dart';
 
 /// Network timeouts for cloud calls so a stalled request fails with a clear
 /// error instead of hanging the processing UI forever.
 const Duration remoteChatTimeout = Duration(seconds: 45);
 const Duration remoteListTimeout = Duration(seconds: 25);
 const Duration remoteTranscribeTimeout = Duration(seconds: 180);
-const int maxRemoteAudioBytes = 100 * 1024 * 1024;
 const int maxRemoteResponseBytes = 4 * 1024 * 1024;
 
 /// Validates a provider upload and returns its size for streaming requests.
-Future<int> validateRemoteAudioFile(File file) async {
+Future<int> validateRemoteAudioFile(
+  File file, {
+  RemoteCancellation? cancellation,
+}) async {
+  cancellation?.throwIfCancelled();
   if (!await file.exists()) {
     throw const RemoteApiException('The audio file could not be found.');
   }
   final length = await file.length();
+  cancellation?.throwIfCancelled();
   if (length <= 0 || length > maxRemoteAudioBytes) {
     throw const RemoteApiException('The audio file is too large.');
   }
   return length;
 }
 
-/// Applies [timeout] to [future], converting a timeout into a user-facing error.
-Future<T> guardTimeout<T>(Future<T> future, Duration timeout) {
-  return future.timeout(
-    timeout,
-    onTimeout: () => throw const RemoteApiException(
-      'Request timed out - the provider did not respond in time. '
-      'Check your connection and try again.',
-    ),
-  );
-}
-
 /// Sends a request and reads its complete response within one deadline.
 ///
 /// Applying the timeout only to [http.Client.send] is insufficient because a
 /// provider can return headers and then stall while streaming the body.
+/// Injected clients must support [http.Abortable] to terminate their transport;
+/// response consumption is cancelled independently of transport support.
 Future<RemoteHttpResponse> sendRemoteRequest(
   http.Client client,
   http.BaseRequest request, {
   required Duration timeout,
-}) {
-  return guardTimeout(_sendAndRead(client, request), timeout);
-}
-
-Future<RemoteHttpResponse> _sendAndRead(
-  http.Client client,
-  http.BaseRequest request,
-) async {
-  final response = await client.send(request);
+  RemoteCancellation? cancellation,
+}) async {
+  final response = await RemoteRequestOperation(
+    client,
+    request,
+    maxRemoteResponseBytes,
+  ).run(timeout, cancellation);
   return RemoteHttpResponse(
     statusCode: response.statusCode,
     headers: response.headers,
@@ -103,16 +102,25 @@ String remoteErrorMessage(
     final message = error is Map
         ? error['message']?.toString()
         : (preferScalarError ? error?.toString() : null);
-    return _redact(message ?? 'The provider returned an error.', secret);
+    return sanitizeRemoteErrorMessage(
+      message ?? 'The provider returned an error.',
+      secrets: [?secret],
+    );
   } catch (_) {
     return 'The provider returned an invalid error response.';
   }
 }
 
-String _redact(String value, String? secret) {
+/// Bounds a diagnostic and removes credentials before display or persistence.
+String sanitizeRemoteErrorMessage(
+  String value, {
+  Iterable<String> secrets = const [],
+}) {
   var result = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (secret != null && secret.isNotEmpty) {
-    result = result.replaceAll(secret, '[REDACTED]');
+  for (final secret in secrets) {
+    if (secret.isNotEmpty) {
+      result = result.replaceAll(secret, '[REDACTED]');
+    }
   }
   result = result.replaceAll(
     RegExp(

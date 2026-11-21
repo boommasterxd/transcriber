@@ -6,6 +6,19 @@ import org.junit.Test
 
 class EditorSessionGateTest {
     @Test
+    fun productionIdentityRotatesAndRejectsHiddenSessions() {
+        val gate = EditorSessionGate()
+        val initial = gate.sessionId
+        gate.startEditor(isSupported = true)
+        assertFalse(initial == gate.sessionId)
+        assertFalse(gate.accepts(gate.sessionId))
+        gate.setVisible(true)
+        assertTrue(gate.accepts(gate.sessionId))
+        gate.setVisible(false)
+        assertFalse(gate.accepts(gate.sessionId))
+    }
+
+    @Test
     fun acceptsOnlyVisibleSupportedCurrentSession() {
         val ids = ArrayDeque(listOf("initial", "editor", "invalid"))
         val gate = EditorSessionGate(ids::removeFirst)

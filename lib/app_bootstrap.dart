@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,6 +13,7 @@ import 'data/models/transcript_note.dart';
 import 'data/repositories/notes_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'services/storage/audio_cache_manager.dart';
+import 'services/storage/pending_audio_deletion_recovery.dart';
 import 'state/providers.dart';
 
 /// Fully initialized application dependencies and synchronous seed state.
@@ -21,6 +24,7 @@ final class AppBootstrapData {
     required this.connections,
     required this.notes,
     required this.cacheManager,
+    this.runMaintenance,
   });
 
   final AppDatabase database;
@@ -28,15 +32,24 @@ final class AppBootstrapData {
   final Map<RemoteProviderId, bool> connections;
   final List<TranscriptNote> notes;
   final AudioCacheManager cacheManager;
+  final Future<void> Function()? runMaintenance;
 }
 
 /// Loads application dependencies and exposes them to the selected root app.
 Future<void> runBootstrappedApp({
   required Widget app,
   Future<AppBootstrapData> Function()? loadBootstrap,
+  bool recoverPendingAudioDeletes = true,
+  bool enforceAudioCacheQuota = true,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final bootstrap = await (loadBootstrap ?? loadAppBootstrap)();
+  final bootstrap = loadBootstrap == null
+      ? await loadAppBootstrap(
+          recoverPendingAudioDeletes: recoverPendingAudioDeletes,
+          enforceAudioCacheQuota: enforceAudioCacheQuota,
+        )
+      : await loadBootstrap();
+  final maintenance = bootstrap.runMaintenance;
 
   runApp(
     ProviderScope(
@@ -47,40 +60,76 @@ Future<void> runBootstrappedApp({
         initialNotesProvider.overrideWithValue(bootstrap.notes),
         audioCacheManagerProvider.overrideWithValue(bootstrap.cacheManager),
       ],
-      child: app,
+      child: maintenance == null
+          ? app
+          : _StartupMaintenance(run: maintenance, child: app),
     ),
   );
 }
 
-/// Opens Drift, imports legacy preferences once, and cleans stale app cache.
+class _StartupMaintenance extends StatefulWidget {
+  const _StartupMaintenance({required this.run, required this.child});
+
+  final Future<void> Function() run;
+  final Widget child;
+
+  @override
+  State<_StartupMaintenance> createState() => _StartupMaintenanceState();
+}
+
+class _StartupMaintenanceState extends State<_StartupMaintenance> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(widget.run());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// Opens Drift and loads the state needed for the first frame.
 Future<AppBootstrapData> loadAppBootstrap({
   AppDatabase? database,
   SharedPreferences? preferences,
   FlutterSecureStorage secureStorage = const FlutterSecureStorage(),
   AudioCacheManager? cacheManager,
+  bool recoverPendingAudioDeletes = true,
+  bool enforceAudioCacheQuota = true,
 }) async {
   final resolvedDatabase = database ?? AppDatabase.defaults();
   final legacyPreferences =
       preferences ?? await SharedPreferences.getInstance();
-  await LegacyPreferencesMigrator(
+  final migrator = LegacyPreferencesMigrator(
     database: resolvedDatabase,
     preferences: legacyPreferences,
     secureStorage: secureStorage,
-  ).migrate();
+  );
+  final cleanupLegacyCredentials = await migrator.migrate();
 
   final settingsRepository = SettingsRepository(
     resolvedDatabase,
     secureStorage: secureStorage,
   );
-  final notesRepository = NotesRepository(resolvedDatabase);
   final resolvedCacheManager = cacheManager ?? AudioCacheManager();
-  await resolvedCacheManager.cleanup();
-
   return AppBootstrapData(
     database: resolvedDatabase,
     settings: await settingsRepository.load(),
     connections: await settingsRepository.connectedProviders(),
-    notes: await notesRepository.load(),
+    notes: const [],
     cacheManager: resolvedCacheManager,
+    runMaintenance: () async {
+      await Future.wait([
+        if (cleanupLegacyCredentials) migrator.cleanupObsoleteCredentials(),
+        resolvedCacheManager.cleanup(enforceQuota: enforceAudioCacheQuota),
+        if (recoverPendingAudioDeletes)
+          PendingAudioDeletionRecovery(
+            NotesRepository(resolvedDatabase),
+            resolvedCacheManager,
+          ).recover(),
+      ]).onError((_, _) => []);
+    },
   );
 }

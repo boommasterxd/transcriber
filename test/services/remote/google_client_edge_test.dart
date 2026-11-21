@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/google_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 
@@ -88,12 +88,11 @@ Future<void> _expectGoogleFailure({
       final client = GoogleClient(
         apiKey: 'key',
         pollInterval: Duration.zero,
-        delay: (_) async {},
         httpClient: httpClient,
       );
 
       await expectLater(
-        client.transcribe(file.path, modelId: 'gemini-transcribe'),
+        client.transcribe(file.path, modelId: 'gemini-3.5-transcribe'),
         throwsA(
           isA<RemoteApiException>().having(
             (error) => error.message,
@@ -116,7 +115,7 @@ void _registerSizeLimitTest() {
       transcribe: (path, httpClient) => GoogleClient(
         apiKey: 'key',
         httpClient: httpClient,
-      ).transcribe(path, modelId: 'gemini-transcribe'),
+      ).transcribe(path, modelId: 'gemini-3.5-transcribe'),
     ),
   );
 }

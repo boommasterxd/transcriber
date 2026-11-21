@@ -1,25 +1,29 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/models/transcript_note.dart';
+import '../../../widgets/buttons.dart';
 
 class NoteSummaryCard extends StatelessWidget {
   const NoteSummaryCard({
     super.key,
-    required this.gist,
-    required this.label,
+    required this.note,
+    required this.strings,
     this.textSize = 15.5,
   });
 
-  final String gist;
-  final String label;
+  final TranscriptNote note;
+  final AppStrings strings;
   final double textSize;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final label = note.hasAiGeneratedSummary
+        ? strings.aiGeneratedSummary
+        : strings.unknownSummaryOrigin;
     return Container(
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
@@ -37,20 +41,22 @@ class NoteSummaryCard extends StatelessWidget {
             children: [
               Icon(Icons.auto_awesome, size: 17, color: palette.accent),
               const SizedBox(width: 8),
-              Text(
-                label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: palette.accentDeep,
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: palette.accentDeep,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 9),
           Text(
-            gist,
+            note.gist,
             style: TextStyle(
               fontSize: textSize,
               height: 1.5,
@@ -120,34 +126,44 @@ class NotePillChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final color = highlight ? palette.mint : palette.body;
+    final action = onTap;
+    final color = highlight ? palette.mintInk : palette.body;
+    final radius = BorderRadius.circular(9999);
     final content = Container(
+      constraints: BoxConstraints(minHeight: action == null ? 0 : 48),
       padding: EdgeInsets.symmetric(
         horizontal: _horizontalPadding,
         vertical: 7,
       ),
-      decoration: BoxDecoration(
-        color: palette.chip,
-        borderRadius: BorderRadius.circular(9999),
-      ),
+      decoration: BoxDecoration(color: palette.chip, borderRadius: radius),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: onTap == null ? palette.muted : color),
+          Icon(icon, size: 13, color: action == null ? palette.muted : color),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: _fontWeight,
-              color: color,
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: _fontWeight,
+                color: color,
+              ),
             ),
           ),
         ],
       ),
     );
-    return onTap == null
-        ? content
-        : GestureDetector(onTap: onTap, child: content);
+    if (action == null) return content;
+    return PressableScale(
+      action: (
+        label: label,
+        onActivate: action,
+        focusBorderRadius: radius,
+        selected: null,
+        inMutuallyExclusiveGroup: false,
+      ),
+      child: content,
+    );
   }
 }

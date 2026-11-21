@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
@@ -29,13 +28,13 @@ void _registerAppearanceTests(_SettingsFixture fixture) {
       final controller = fixture.controller;
 
       expect(fixture.settings, AppSettings.initial());
-      await controller.setThemeMode(ThemeMode.dark);
+      await controller.setThemeMode(AppThemeMode.dark);
       await controller.setAccent(AppAccent.magenta);
       await controller.setLanguage(AppLanguage.en);
       await controller.setTranscriptionLanguage(TranscriptionLanguage.de);
 
       final state = fixture.settings;
-      expect(state.themeMode, ThemeMode.dark);
+      expect(state.themeMode, AppThemeMode.dark);
       expect(state.accent, AppAccent.magenta);
       expect(state.language, AppLanguage.en);
       expect(state.transcriptionLanguage, TranscriptionLanguage.de);
@@ -45,6 +44,38 @@ void _registerAppearanceTests(_SettingsFixture fixture) {
 }
 
 void _registerModelTests(_SettingsFixture fixture) {
+  test('applies transcription provider and model with one save', () async {
+    final before = fixture.settings;
+    await fixture.controller.setAsrSelection(
+      RemoteProviderId.openai,
+      'new-api-transcription',
+    );
+    final saved = fixture.repository.saved.single;
+    expect(saved.asrProvider, RemoteProviderId.openai);
+    expect(saved.asrModelId(RemoteProviderId.openai), 'new-api-transcription');
+    expect(saved.summaryProvider, before.summaryProvider);
+    expect(saved.chatModelByProvider, before.chatModelByProvider);
+    expect(
+      saved.asrModelId(RemoteProviderId.google),
+      before.asrModelId(RemoteProviderId.google),
+    );
+  });
+  test('applies summary provider and model with one save', () async {
+    final before = fixture.settings;
+    await fixture.controller.setSummarySelection(
+      RemoteProviderId.openai,
+      'new-api-summary',
+    );
+    final saved = fixture.repository.saved.single;
+    expect(saved.summaryProvider, RemoteProviderId.openai);
+    expect(saved.summaryModelId(RemoteProviderId.openai), 'new-api-summary');
+    expect(saved.asrProvider, before.asrProvider);
+    expect(saved.asrModelByProvider, before.asrModelByProvider);
+    expect(
+      saved.summaryModelId(RemoteProviderId.google),
+      before.summaryModelId(RemoteProviderId.google),
+    );
+  });
   test(
     'persists cloud provider and model selections for both stages',
     () async {

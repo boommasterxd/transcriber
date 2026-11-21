@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
@@ -16,6 +17,7 @@ void main() {
   _registerHeaderTest(strings);
   _registerTranscriptTest(strings);
   _registerTranscriptVariantsTest(strings);
+  _registerNarrowTranscriptActionsTest();
   _registerNoticeTest(strings);
   _registerProcessedWithTest(strings);
 }
@@ -60,14 +62,18 @@ void _registerTranscriptTest(AppStrings strings) {
     final note = detailTestNote();
     await tester.pumpWidget(
       _wrap(
-        DetailTranscriptBlock(
-          note: note,
-          strings: strings,
-          copied: false,
-          actions: DetailTranscriptActions(
-            onCopy: () => copyCount++,
-            onShare: () => shareCount++,
-          ),
+        CustomScrollView(
+          slivers: [
+            DetailTranscriptBlock(
+              note: note,
+              strings: strings,
+              copied: false,
+              actions: DetailTranscriptActions(
+                onCopy: () => copyCount++,
+                onShare: () => shareCount++,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -81,11 +87,18 @@ void _registerTranscriptTest(AppStrings strings) {
 
     await tester.pumpWidget(
       _wrap(
-        DetailTranscriptBlock(
-          note: note,
-          strings: strings,
-          copied: true,
-          actions: const DetailTranscriptActions(onCopy: _noOp, onShare: _noOp),
+        CustomScrollView(
+          slivers: [
+            DetailTranscriptBlock(
+              note: note,
+              strings: strings,
+              copied: true,
+              actions: const DetailTranscriptActions(
+                onCopy: _noOp,
+                onShare: _noOp,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -102,8 +115,8 @@ void _registerTranscriptVariantsTest(AppStrings strings) {
     final note = detailTestNote();
     await tester.pumpWidget(
       _wrap(
-        ListView(
-          children: [
+        CustomScrollView(
+          slivers: [
             DetailTranscriptBlock(
               note: note,
               strings: strings,
@@ -114,20 +127,24 @@ void _registerTranscriptVariantsTest(AppStrings strings) {
               ),
               actions: DetailTranscriptActions(onCopy: () => tapCount++),
             ),
-            DetailTranscriptToggle.phone(
-              strings: strings,
-              isOpen: true,
-              onTap: () => tapCount++,
-            ),
-            DetailTranscriptToggle.phone(
-              strings: strings,
-              isOpen: false,
-              onTap: _noOp,
-            ),
-            DetailTranscriptToggle.tablet(
-              strings: strings,
-              isOpen: false,
-              onTap: _noOp,
+            SliverList.list(
+              children: [
+                DetailTranscriptToggle.phone(
+                  strings: strings,
+                  isOpen: true,
+                  onTap: () => tapCount++,
+                ),
+                DetailTranscriptToggle.phone(
+                  strings: strings,
+                  isOpen: false,
+                  onTap: _noOp,
+                ),
+                DetailTranscriptToggle.tablet(
+                  strings: strings,
+                  isOpen: false,
+                  onTap: _noOp,
+                ),
+              ],
             ),
           ],
         ),
@@ -140,6 +157,59 @@ void _registerTranscriptVariantsTest(AppStrings strings) {
     await tester.tap(find.text(strings.shCopy));
     await tester.tap(find.text(strings.shHide));
     expect(tapCount, 2);
+  });
+}
+
+void _registerNarrowTranscriptActionsTest() {
+  testWidgets('German transcript actions reflow and keep keyboard focus', (
+    tester,
+  ) async {
+    await useTestSurface(tester, const Size(320, 640));
+    final strings = AppStrings.of(AppLanguage.de);
+    var copies = 0;
+    var shares = 0;
+    await tester.pumpWidget(
+      _wrap(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: StatefulBuilder(
+              builder: (context, setState) => CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: DetailTranscriptBlock(
+                      note: detailTestNote(),
+                      strings: strings,
+                      copied: copies > 0,
+                      actions: DetailTranscriptActions(
+                        onCopy: () => setState(() => copies++),
+                        onShare: () => shares++,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(find.text(strings.shCopied), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(copies, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(shares, 1);
+    expect(tester.takeException(), isNull);
   });
 }
 

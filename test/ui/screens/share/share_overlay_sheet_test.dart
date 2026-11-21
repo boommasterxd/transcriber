@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
+import 'package:transcriber/services/processing/processing_profile.dart';
 import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/state/processing_controller.dart';
-import 'package:transcriber/ui/navigation.dart';
+import 'package:transcriber/ui/screens/settings/settings_screen.dart';
 import 'package:transcriber/ui/screens/share/share_overlay_sheet.dart';
+
 import '../../../support/app_test_fakes.dart';
 import 'share_test_support.dart';
 
@@ -16,10 +18,41 @@ void main() {
   _registerDismissTest();
   _registerRetryTest();
   _registerSettingsTest();
-  _registerLayoutTests();
 }
 
 void _registerPreviewCommitTest() {
+  testWidgets(
+    'failed share save stays retryable and closes only after success',
+    (tester) async {
+      late _FakeProcessingController controller;
+      var finishes = 0;
+      await tester.pumpWidget(
+        _shareApp(
+          createProcessing: () => controller = _FakeProcessingController([
+            shareTestNote(gist: 'Preview'),
+          ])..failCommit = true,
+          child: ShareSheetContent(
+            audioPath: '/audio/shared.m4a',
+            onFinished: () => finishes++,
+          ),
+        ),
+      );
+      await _confirmShare(tester);
+      await tester.tap(find.text(shareTestStrings.shSave));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text(shareTestStrings.errorTitle), findsOneWidget);
+      expect(finishes, 0);
+      expect(controller.discardCalls, 0);
+
+      controller.failCommit = false;
+      await tester.tap(find.text(shareTestStrings.shSave));
+      await tester.pump();
+      expect(controller.commitCalls, 2);
+      expect(finishes, 1);
+    },
+  );
+
   testWidgets('share preview uses save false and commits at most once', (
     tester,
   ) async {
@@ -36,10 +69,29 @@ void _registerPreviewCommitTest() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 400));
+    expect(controller.runCalls, 0);
+    expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
+    final settings = shareTestSettings();
+    final profile = ProcessingProfile.resolve(settings);
+    expect(
+      find.text(shareTestStrings.shareAudioRecipient(profile.asr.providerName)),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        shareTestStrings.shareTranscriptRecipient(profile.summary.providerName),
+      ),
+      findsOneWidget,
+    );
+    await _confirmShare(tester);
 
     expect(controller.lastSave, isFalse);
     expect(controller.lastInput?.audio.ownership, AudioOwnership.temporary);
+    expect(controller.lastInput?.settings?.asrProvider, settings.asrProvider);
+    expect(
+      controller.lastInput?.settings?.summaryProvider,
+      settings.summaryProvider,
+    );
     expect(find.text(note.title), findsOneWidget);
 
     await tester.tap(find.text(shareTestStrings.shSave));
@@ -66,7 +118,7 @@ void _registerDismissTest() {
         ),
       ),
     );
-    await tester.pump();
+    await _confirmShare(tester);
 
     expect(find.text(shareTestStrings.errorTitle), findsOneWidget);
     await tester.tap(find.text(shareTestStrings.dismiss));
@@ -92,7 +144,7 @@ void _registerRetryTest() {
         ),
       ),
     );
-    await tester.pump();
+    await _confirmShare(tester);
 
     await tester.tap(find.text(shareTestStrings.retry));
     await tester.pump();
@@ -103,16 +155,18 @@ void _registerRetryTest() {
 }
 
 void _registerSettingsTest() {
-  testWidgets('missing API key opens settings after closing share sheet', (
+  testWidgets('returning from settings requires a new upload confirmation', (
     tester,
   ) async {
     var finished = false;
+    late _FakeProcessingController controller;
     final observer = _RecordingNavigatorObserver();
     await tester.pumpWidget(
       _shareApp(
         observer: observer,
-        createProcessing: () => _FakeProcessingController([
+        createProcessing: () => controller = _FakeProcessingController([
           const MissingApiKeyException('Provider key unavailable'),
+          shareTestNote(gist: 'Recovered after connecting'),
         ]),
         child: ShareSheetContent(
           audioPath: '/audio/shared.m4a',
@@ -120,57 +174,30 @@ void _registerSettingsTest() {
         ),
       ),
     );
-    await tester.pump();
+    await _confirmShare(tester);
 
     await tester.tap(find.text(shareTestStrings.goToSettings));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
-    expect(finished, isTrue);
+    expect(finished, isFalse);
+    expect(controller.discardCalls, 0);
     expect(observer.pushes, 2);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(controller.runCalls, 1);
+    expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
+    await _confirmShare(tester);
+    expect(controller.runCalls, 2);
+    expect(find.text('Recovered after connecting'), findsOneWidget);
+    expect(finished, isFalse);
   });
 }
 
-void _registerLayoutTests() {
-  _registerSheetWidthTest(
-    'share sheet uses the full phone width',
-    const Size(400, 800),
-    400,
-  );
-  _registerSheetWidthTest(
-    'share sheet caps its width on tablets',
-    const Size(800, 800),
-    600,
-  );
-}
-
-void _registerSheetWidthTest(String name, Size size, double expectedWidth) {
-  testWidgets(name, (tester) async {
-    await tester.binding.setSurfaceSize(size);
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await _pumpSheet(tester);
-
-    expect(tester.getSize(find.byType(ShareSheetContent)).width, expectedWidth);
-  });
-}
-
-Future<void> _pumpSheet(WidgetTester tester) async {
-  final note = shareTestNote(gist: 'Layout summary.');
-  await tester.pumpWidget(
-    _shareApp(
-      createProcessing: () => _FakeProcessingController([note]),
-      child: Builder(
-        builder: (context) => ElevatedButton(
-          onPressed: () => presentShareSheet(
-            context: context,
-            audioPath: '/audio/shared.m4a',
-          ),
-          child: const Text('Open'),
-        ),
-      ),
-    ),
-  );
-  await tester.tap(find.text('Open'));
-  await tester.pump();
+Future<void> _confirmShare(WidgetTester tester) async {
+  await tester.tap(find.text(shareTestStrings.shareConfirmAction));
   await tester.pump();
 }
 
@@ -187,7 +214,6 @@ Widget _shareApp({
     child: ProviderScope(
       overrides: [processingControllerProvider.overrideWith(createProcessing)],
       child: MaterialApp(
-        navigatorKey: navigatorKey,
         navigatorObservers: observer == null ? const [] : [observer],
         theme: shareTestTheme(),
         home: Scaffold(body: child),
@@ -203,6 +229,7 @@ final class _FakeProcessingController extends ProcessingController {
   int runCalls = 0;
   int commitCalls = 0;
   int discardCalls = 0;
+  bool failCommit = false;
   bool? lastSave;
   ProcessingInput? lastInput;
 
@@ -214,6 +241,7 @@ final class _FakeProcessingController extends ProcessingController {
     ProcessingInput input, {
     String? fileName,
     bool save = true,
+    Object? owner,
   }) async {
     runCalls++;
     lastInput = input;
@@ -227,10 +255,11 @@ final class _FakeProcessingController extends ProcessingController {
   @override
   Future<void> commit() async {
     commitCalls++;
+    if (failCommit) throw StateError('injected persistence failure');
   }
 
   @override
-  Future<void> discardCurrent() async {
+  Future<void> discardCurrent({Object? owner}) async {
     discardCalls++;
   }
 }

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
 import 'package:transcriber/services/remote/google_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
@@ -81,7 +81,7 @@ void _registerCatalogPaginationTest() {
             'supportedGenerationMethods': ['generateContent'],
           },
           {
-            'name': 'models/gemini-3.7-pro',
+            'name': 'models/gemini-3.1-pro-preview',
             'supportedGenerationMethods': ['generateContent'],
           },
         ],
@@ -92,8 +92,8 @@ void _registerCatalogPaginationTest() {
     final models = await client.listModels(forTranscription: true);
 
     expect(models.map((model) => model.id), [
+      'gemini-3.1-pro-preview',
       'gemini-3.7-flash',
-      'gemini-3.7-pro',
     ]);
     expect(httpClient.requests, hasLength(2));
     expect(
@@ -181,6 +181,10 @@ void _registerTranscriptionTest() {
     _testTranscription,
   );
   test(
+    'routes future unary ASR models through native interactions',
+    () => _testTranscription(modelId: 'gemini-99-asr'),
+  );
+  test(
     'uploads WhatsApp Opus with native MIME metadata',
     () => _testTranscription(
       fileName: 'whatsapp-voice.opus',
@@ -192,6 +196,7 @@ void _registerTranscriptionTest() {
 Future<void> _testTranscription({
   String fileName = 'voice.wav',
   String expectedMimeType = 'audio/wav',
+  String modelId = 'gemini-3.5-transcribe',
 }) async {
   await withTemporaryAudio(
     prefix: 'gemini-test-',
@@ -201,7 +206,7 @@ Future<void> _testTranscription({
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/session'},
+          headers: {'x-goog-upload-url': googleUploadUrl('session')},
         ),
         jsonResponse({
           'file': {
@@ -228,7 +233,7 @@ Future<void> _testTranscription({
 
       final result = await client.transcribe(
         file.path,
-        modelId: 'gemini-3.5-transcribe',
+        modelId: modelId,
         languageCode: 'de',
       );
       expect(httpClient.requests, hasLength(4));
@@ -237,21 +242,26 @@ Future<void> _testTranscription({
         httpClient.requests[0].headers['X-Goog-Upload-Header-Content-Type'],
         expectedMimeType,
       );
-      expect(
-        httpClient.requests[1].url.toString(),
-        'https://upload.test/session',
-      );
+      expect(httpClient.requests[1].url.toString(), googleUploadUrl('session'));
       expect(httpClient.requests[1].headers['Content-Type'], expectedMimeType);
       expect(httpClient.requests[2].url.path, '/v1beta/interactions');
       expect(httpClient.requests[3].method, 'DELETE');
       for (final request in httpClient.requests) {
-        expect(request.url.queryParameters, isEmpty);
-        expect(request.headers['x-goog-api-key'], 'secret-key');
+        final uploadsBytes = request.url.queryParameters.containsKey(
+          'upload_id',
+        );
+        expect(request.url.queryParameters.containsKey('key'), isFalse);
+        expect(
+          request.headers['x-goog-api-key'],
+          uploadsBytes ? isNull : 'secret-key',
+        );
+        expect(request.followRedirects, isFalse);
       }
-      final interaction =
-          jsonDecode((httpClient.requests[2] as http.Request).body)
-              as Map<String, dynamic>;
-      expect(interaction['model'], 'gemini-3.5-transcribe');
+      final interaction = jsonDecode(
+        (httpClient.requests[2] as http.Request).body,
+      ) as Map<String, dynamic>;
+      expect(interaction['model'], modelId);
+      expect(interaction['store'], isFalse);
       expect((interaction['input'] as List).single['type'], 'audio');
       expect(
         (interaction['input'] as List).single['mime_type'],
@@ -281,7 +291,7 @@ Future<void> _testMultimodalTranscription() async {
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/multimodal'},
+          headers: {'x-goog-upload-url': googleUploadUrl('multimodal')},
         ),
         jsonResponse({
           'file': {
@@ -310,11 +320,12 @@ Future<void> _testMultimodalTranscription() async {
         modelId: 'gemini-3.7-flash',
         languageCode: 'en',
       );
-      final interaction =
-          jsonDecode((httpClient.requests[2] as http.Request).body)
-              as Map<String, dynamic>;
+      final interaction = jsonDecode(
+        (httpClient.requests[2] as http.Request).body,
+      ) as Map<String, dynamic>;
       final input = interaction['input'] as List;
 
+      expect(interaction['store'], isFalse);
       expect(input, hasLength(2));
       expect((input.first as Map)['type'], 'text');
       expect((input.first as Map)['text'], contains('language is en'));
@@ -337,7 +348,7 @@ Future<void> _testPolling() async {
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/poll'},
+          headers: {'x-goog-upload-url': googleUploadUrl('poll')},
         ),
         jsonResponse({
           'file': {
@@ -363,7 +374,6 @@ Future<void> _testPolling() async {
       final client = GoogleClient(
         apiKey: 'key',
         pollInterval: Duration.zero,
-        delay: (_) async {},
         httpClient: httpClient,
       );
 
@@ -387,7 +397,7 @@ Future<void> _testProviderError() async {
       final httpClient = scriptedHttpClient([
         jsonResponse(
           {},
-          headers: {'x-goog-upload-url': 'https://upload.test/error'},
+          headers: {'x-goog-upload-url': googleUploadUrl('error')},
         ),
         jsonResponse({
           'file': {

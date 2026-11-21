@@ -1,5 +1,5 @@
 import 'package:drift/native.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/database/app_database.dart';
@@ -19,12 +19,16 @@ void main() {
   ) async {
     final harness = await _pumpKeyboardApp(
       tester,
-      AppSettings.initial().copyWith(themeMode: ThemeMode.light),
+      AppSettings.initial().copyWith(
+        appearance: const AppearanceSettings(themeMode: AppThemeMode.light),
+      ),
     );
     expect(harness.backgrounds, [true]);
 
     await harness.repository.save(
-      AppSettings.initial().copyWith(themeMode: ThemeMode.dark),
+      AppSettings.initial().copyWith(
+        appearance: const AppearanceSettings(themeMode: AppThemeMode.dark),
+      ),
     );
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);

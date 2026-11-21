@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +10,8 @@ import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/state/settings_controller.dart';
+
+import '../../../support/note_test_fixtures.dart';
 
 final class DetailTestNotesController extends NotesController {
   DetailTestNotesController(this.initialNotes);
@@ -56,8 +58,10 @@ final class DetailTestNotesController extends NotesController {
 final class DetailTestSettingsController extends SettingsController {
   @override
   AppSettings build() => AppSettings.initial().copyWith(
-    language: AppLanguage.en,
-    accent: AppAccent.violet,
+    appearance: const AppearanceSettings(
+      language: AppLanguage.en,
+      accent: AppAccent.violet,
+    ),
   );
 }
 
@@ -120,11 +124,7 @@ Future<void> verifyTranscriptCopy(
 ) async {
   await tester.tap(find.text(strings.shCopy));
   await tester.pump();
-  expect(
-    (clipboard.callNamed('Clipboard.setData')?.arguments
-        as Map<Object?, Object?>?)?['text'],
-    expectedText,
-  );
+  expect(clipboard.callNamed('setSensitiveText')?.arguments, expectedText);
   expect(find.text(strings.shCopied), findsOneWidget);
   await tester.pump(const Duration(milliseconds: 1601));
   expect(find.text(strings.shCopy), findsOneWidget);
@@ -134,24 +134,23 @@ TranscriptNote detailTestNote({
   String id = 'note-1',
   String gist = 'Concise summary',
 }) => TranscriptNote(
-  id: id,
-  title: 'Planning session',
-  speaker: 'Alex',
-  source: NoteSource.shared,
-  durationSec: 65,
-  createdAt: DateTime(2026, 8, 28),
-  asrIsLocal: false,
-  summaryIsLocal: false,
-  asrName: 'gpt-transcribe',
-  asrSub: 'OpenAI',
-  llmName: 'gemini-3.7-flash',
-  llmSub: 'Google Gemini',
-  gist: gist,
-  points: const ['Confirm the launch plan'],
-  todos: [TodoItem(text: 'Send the agenda')],
-  transcript: const [
-    TranscriptLine(text: 'We should confirm the launch plan.'),
-  ],
+  metadata: NoteMetadata(
+    id: id,
+    title: 'Planning session',
+    speaker: 'Alex',
+    source: NoteSource.shared,
+    durationSec: 65,
+    createdAt: DateTime(2026, 8, 28),
+  ),
+  origins: cloudNoteOrigins,
+  content: NoteContent(
+    gist: gist,
+    points: const ['Confirm the launch plan'],
+    todos: [TodoItem(text: 'Send the agenda')],
+    transcript: const [
+      TranscriptLine(text: 'We should confirm the launch plan.'),
+    ],
+  ),
 );
 
 Widget detailTestApp({

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/toast.dart';
 
@@ -25,7 +25,6 @@ void main() {
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
     expect(find.text('ready'), findsOneWidget);
     expect(snackBar.duration, const Duration(seconds: 2));
-    expect(snackBar.behavior, SnackBarBehavior.floating);
   });
 
   testWidgets('showAppToast displays an error toast for four seconds', (

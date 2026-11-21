@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +11,7 @@ import '../services/dictation/live_transcription_client_factory.dart';
 import 'dictation_state.dart';
 
 part 'dictation_connection.dart';
+part 'dictation_session.dart';
 
 /// Coordinates one editor-bound, non-persistent live dictation session.
 final class DictationController extends ChangeNotifier {
@@ -49,16 +51,26 @@ final class DictationController extends ChangeNotifier {
   LiveTranscriptionConfig? _config;
   KeyboardEditorState? _editor;
   Timer? _timer;
+  Timer? _reconnectTimer;
+  Completer<void>? _reconnectDelay;
   DateTime? _startedAt;
   Duration _elapsedBeforeSegment = Duration.zero;
   Future<void> _editorWrites = Future.value();
   Future<void> _editorTransitions = Future.value();
+  Future<void> _clientCleanup = Future.value();
+  Future<void>? _sessionCleanup;
+  Future<void>? _recordingChange;
+  Future<void>? _recordingStop;
+  ({String sessionId, String text, int generation})? _pendingComposition;
   String _finalized = '';
   String _partial = '';
   int _connectionGeneration = 0;
+  int _sessionGeneration = 0;
   int _textGeneration = 0;
   int _reconnectAttempt = 0;
+  bool _compositionWorkerRunning = false;
   bool _connected = false;
+  bool _capturePaused = false;
   bool _disposed = false;
 
   DictationState get state => _state;
@@ -71,114 +83,148 @@ final class DictationController extends ChangeNotifier {
 
   Future<void> start() async {
     final editor = _editor;
-    if (editor == null || !editor.visible || !editor.supported) return;
+    if (_state.isActive ||
+        _sessionCleanup != null ||
+        editor == null ||
+        !_isCurrent(editor.sessionId)) {
+      return;
+    }
     if (!editor.microphoneGranted) {
       _fail('microphone_denied');
       return;
     }
+    final sessionId = editor.sessionId;
+    final generation = ++_sessionGeneration;
+    _setState(
+      _state.copyWith(
+        phase: DictationPhase.connecting,
+        progress: const DictationProgress(),
+        clearError: true,
+      ),
+    );
     try {
-      final settings = await _settingsRepository.load();
-      final key = (await _settingsRepository.apiKey(
-        settings.asrProvider,
-      ))?.trim();
-      if (key == null || key.isEmpty) {
-        _fail('api_key_missing');
-        return;
-      }
-      _config = LiveTranscriptionConfig(
-        provider: settings.asrProvider,
-        apiKey: key,
-        languageCode: LiveDictationModelCatalog.languageCodeFor(
-          settings.asrProvider,
-          settings.transcriptionLanguage,
-        ),
-      );
-      _textGeneration++;
-      _finalized = '';
-      _partial = '';
+      final config = await _readConfiguration(sessionId, generation);
+      if (config == null || !_ownsSession(sessionId, generation)) return;
+      _config = config;
       _setState(
         _state.copyWith(
-          phase: DictationPhase.connecting,
-          provider: settings.asrProvider,
-          modelId: _config!.modelId,
-          preview: '',
-          elapsed: Duration.zero,
-          levels: const [],
-          clearError: true,
+          selection: DictationModelSelection(
+            provider: config.provider,
+            modelId: config.modelId,
+          ),
         ),
       );
-      await _connect(editor.sessionId);
-      if (!_isCurrent(editor.sessionId)) return;
-      await _platform.startRecording(editor.sessionId, _config!.sampleRate);
+      if (!_ownsSession(sessionId, generation)) return;
+      await _connect(sessionId);
+      if (!_ownsSession(sessionId, generation)) return;
+      await _changeRecording(
+        () => _platform.startRecording(sessionId, config.sampleRate),
+      );
+      if (!_ownsSession(sessionId, generation)) return;
       _startTimer();
       _setState(
         _state.copyWith(
           phase: DictationPhase.recording,
-          levels: List.filled(maximumLevels, initialWaveformLevel),
+          progress: _state.progress.copyWith(
+            levels: List.filled(maximumLevels, initialWaveformLevel),
+          ),
         ),
       );
     } on LiveConnectionException catch (error) {
-      await _handleStartFailure(editor.sessionId, error.code);
+      await _handleStartFailure(sessionId, generation, error.code);
     } on PlatformException catch (error) {
-      await _handleStartFailure(editor.sessionId, error.code);
+      await _handleStartFailure(sessionId, generation, error.code);
     } catch (_) {
-      await _handleStartFailure(editor.sessionId, 'connection_failed');
+      await _handleStartFailure(sessionId, generation, 'connection_failed');
     }
   }
 
   Future<void> stop() async {
-    if (!_state.isActive) return;
-    final sessionId = _editor?.sessionId;
+    if (!_state.isActive ||
+        _state.phase == DictationPhase.stopping ||
+        _sessionCleanup != null) {
+      return;
+    }
+    if (_state.phase == DictationPhase.connecting) {
+      await cancel();
+      return;
+    }
+    final sessionId = _editor!.sessionId;
+    final generation = _sessionGeneration;
     _setState(_state.copyWith(phase: DictationPhase.stopping));
-    if (sessionId != null) await _platform.stopRecording(sessionId);
     _stopTimer();
+    _releaseReconnectDelay();
     try {
-      await _client?.finish();
+      if (_ownsSession(sessionId, generation)) {
+        await _stopRecording(sessionId);
+      }
+      if (!_ownsSession(sessionId, generation)) return;
+      if (_connected) {
+        await _client?.finish();
+      } else {
+        await _disconnectClient();
+      }
+      if (!_ownsSession(sessionId, generation)) return;
       await _editorWrites;
+      if (!_ownsSession(sessionId, generation)) return;
       final transcript = _sessionTranscript;
-      if (sessionId != null && transcript.isNotEmpty && _isCurrent(sessionId)) {
+      if (transcript.isNotEmpty) {
         await _platform.commitText(sessionId, transcript);
       }
-      _textGeneration++;
-      _finalized = '';
-      _partial = '';
+      if (!_ownsSession(sessionId, generation)) return;
+      await _endSession();
+      if (generation + 1 == _sessionGeneration) _setReadyState();
     } catch (_) {
-      _textGeneration++;
-      await _editorWrites;
-      if (sessionId != null) await _platform.clearComposingText(sessionId);
-      _finalized = '';
-      _partial = '';
-      _fail('finalization_failed');
-    } finally {
-      await _closeClient();
+      if (_ownsSession(sessionId, generation)) {
+        await _abortWithError('finalization_failed');
+      }
     }
-    if (_state.phase != DictationPhase.error) _setReadyState();
   }
 
   Future<void> togglePause() async {
     final editor = _editor;
-    if (editor == null || !_isCurrent(editor.sessionId)) return;
+    final generation = _sessionGeneration;
+    if (editor == null ||
+        !_ownsSession(editor.sessionId, generation) ||
+        _recordingChange != null) {
+      return;
+    }
+    final sessionId = editor.sessionId;
     try {
       if (_state.phase == DictationPhase.paused) {
-        await _platform.resumeRecording(editor.sessionId);
+        await _changeRecording(() => _platform.resumeRecording(sessionId));
+        if (!_canChangePause(sessionId, generation)) return;
+        _capturePaused = false;
         _startTimer();
-        _setState(_state.copyWith(phase: DictationPhase.recording));
+        if (_state.phase != DictationPhase.reconnecting) {
+          _setState(_state.copyWith(phase: DictationPhase.recording));
+        }
       } else if (_state.phase == DictationPhase.recording ||
           _state.phase == DictationPhase.correcting) {
-        await _platform.pauseRecording(editor.sessionId);
+        await _changeRecording(() => _platform.pauseRecording(sessionId));
+        if (!_canChangePause(sessionId, generation)) return;
+        _capturePaused = true;
         _pauseTimer();
-        _setState(_state.copyWith(phase: DictationPhase.paused));
+        if (_state.phase != DictationPhase.reconnecting) {
+          _setState(_state.copyWith(phase: DictationPhase.paused));
+        }
       }
     } on PlatformException catch (error) {
-      await _abortWithError(error.code);
+      if (_canChangePause(sessionId, generation)) {
+        await _abortWithError(error.code);
+      }
     } catch (_) {
-      await _abortWithError('audio_state_failed');
+      if (_canChangePause(sessionId, generation)) {
+        await _abortWithError('audio_state_failed');
+      }
     }
   }
 
   Future<void> cancel() async {
-    await _discardSession();
-    _setReadyState();
+    final cleanup = _endSession(discard: true);
+    final generation = _sessionGeneration;
+    await cleanup;
+    if (generation == _sessionGeneration) _setReadyState();
   }
 
   Future<void> switchBack() async {
@@ -197,9 +243,11 @@ final class DictationController extends ChangeNotifier {
       case DictationEditorChanged(:final editor):
         _queueEditorTransition(editor);
       case DictationAudioChunk(:final sessionId, :final pcm, :final level):
-        if (_isCurrent(sessionId)) _handleAudio(pcm, level);
+        _handleAudio(sessionId, pcm, level);
       case DictationPlatformFailure(:final sessionId, :final code):
-        if (_isCurrent(sessionId)) unawaited(_abortWithError(code));
+        if (_ownsSession(sessionId, _sessionGeneration)) {
+          unawaited(_abortWithError(code));
+        }
     }
   }
 
@@ -209,11 +257,15 @@ final class DictationController extends ChangeNotifier {
     unawaited(_editorTransitions);
   }
 
-  void _handleAudio(Uint8List pcm, double level) {
-    if (_state.phase == DictationPhase.paused) return;
+  void _handleAudio(String sessionId, Uint8List pcm, double level) {
+    final generation = _sessionGeneration;
+    if (_capturePaused || !_canChangePause(sessionId, generation)) return;
     final levels = [..._state.levels, level];
     if (levels.length > maximumLevels) levels.removeAt(0);
-    _setState(_state.copyWith(levels: levels));
+    _setState(
+      _state.copyWith(progress: _state.progress.copyWith(levels: levels)),
+    );
+    if (!_canChangePause(sessionId, generation)) return;
     if (_connected) {
       _client?.addAudio(pcm);
     } else {
@@ -228,14 +280,23 @@ final class DictationController extends ChangeNotifier {
     if (_disposed) return;
     final changed = _editor?.sessionId != editor.sessionId;
     final available = editor.visible && editor.supported;
-    if (_state.isActive && (changed || !available)) await cancel();
+    if (_state.isActive && (changed || !available)) {
+      await _endSession(discard: true);
+    }
+    if (_disposed) return;
     _editor = editor;
     _setState(
       _state.copyWith(
-        phase: available ? DictationPhase.ready : DictationPhase.unavailable,
-        visible: editor.visible,
-        editorSupported: editor.supported,
-        microphoneGranted: editor.microphoneGranted,
+        phase: _state.isActive && !changed && available
+            ? _state.phase
+            : available
+            ? DictationPhase.ready
+            : DictationPhase.unavailable,
+        editor: DictationEditorStatus(
+          visible: editor.visible,
+          supported: editor.supported,
+          microphoneGranted: editor.microphoneGranted,
+        ),
         clearError: true,
       ),
     );
@@ -245,34 +306,12 @@ final class DictationController extends ChangeNotifier {
     final settings = await _settingsRepository.load();
     _setState(
       _state.copyWith(
-        provider: settings.asrProvider,
-        modelId: LiveDictationModelCatalog.modelFor(settings.asrProvider),
+        selection: DictationModelSelection(
+          provider: settings.asrProvider,
+          modelId: LiveDictationModelCatalog.modelFor(settings.asrProvider),
+        ),
       ),
     );
-  }
-
-  Future<void> _abortWithError(String code) async {
-    _fail(code);
-    await _discardSession();
-  }
-
-  Future<void> _discardSession() async {
-    _textGeneration++;
-    final sessionId = _editor?.sessionId;
-    if (sessionId != null) await _platform.stopRecording(sessionId);
-    _stopTimer();
-    await _closeClient();
-    await _editorWrites;
-    if (sessionId != null) await _platform.clearComposingText(sessionId);
-    _finalized = '';
-    _partial = '';
-  }
-
-  Future<void> _handleStartFailure(String sessionId, String code) async {
-    if (!_isCurrent(sessionId) || _state.phase != DictationPhase.connecting) {
-      return;
-    }
-    await _abortWithError(code);
   }
 
   void _startTimer() {
@@ -284,8 +323,10 @@ final class DictationController extends ChangeNotifier {
       if (startedAt != null) {
         _setState(
           _state.copyWith(
-            elapsed:
-                _elapsedBeforeSegment + DateTime.now().difference(startedAt),
+            progress: _state.progress.copyWith(
+              elapsed:
+                  _elapsedBeforeSegment + DateTime.now().difference(startedAt),
+            ),
           ),
         );
       }
@@ -296,7 +337,11 @@ final class DictationController extends ChangeNotifier {
     final startedAt = _startedAt;
     if (startedAt != null) {
       _elapsedBeforeSegment += DateTime.now().difference(startedAt);
-      _setState(_state.copyWith(elapsed: _elapsedBeforeSegment));
+      _setState(
+        _state.copyWith(
+          progress: _state.progress.copyWith(elapsed: _elapsedBeforeSegment),
+        ),
+      );
     }
     _timer?.cancel();
     _timer = null;
@@ -316,9 +361,7 @@ final class DictationController extends ChangeNotifier {
     _setState(
       _state.copyWith(
         phase: available ? DictationPhase.ready : DictationPhase.unavailable,
-        preview: '',
-        levels: const [],
-        elapsed: Duration.zero,
+        progress: const DictationProgress(),
         clearError: true,
       ),
     );
@@ -329,7 +372,20 @@ final class DictationController extends ChangeNotifier {
   }
 
   bool _isCurrent(String sessionId) =>
-      _editor?.sessionId == sessionId && _editor?.visible == true;
+      !_disposed &&
+      _editor?.sessionId == sessionId &&
+      _editor?.visible == true &&
+      _editor?.supported == true;
+
+  bool _ownsSession(String sessionId, int generation) =>
+      generation == _sessionGeneration &&
+      _sessionCleanup == null &&
+      _state.isActive &&
+      _isCurrent(sessionId);
+
+  bool _canChangePause(String sessionId, int generation) =>
+      _ownsSession(sessionId, generation) &&
+      _state.phase != DictationPhase.stopping;
 
   void _setState(DictationState next) {
     if (_disposed) return;
@@ -340,28 +396,10 @@ final class DictationController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _connected = false;
-    _connectionGeneration++;
-    _textGeneration++;
-    _timer?.cancel();
-    _timer = null;
-    _startedAt = null;
-    _elapsedBeforeSegment = Duration.zero;
-    _config = null;
-    _finalized = '';
-    _partial = '';
-    _pendingAudio.clear();
+    unawaited(_endSession(discard: true));
     final platformSubscription = _platformSubscription;
-    final clientSubscription = _clientSubscription;
-    final client = _client;
-    final sessionId = _editor?.sessionId;
     _platformSubscription = null;
-    _clientSubscription = null;
-    _client = null;
     unawaited(platformSubscription?.cancel());
-    unawaited(clientSubscription?.cancel());
-    unawaited(client?.close());
-    if (sessionId != null) unawaited(_platform.stopRecording(sessionId));
     super.dispose();
   }
 
@@ -380,6 +418,20 @@ String _joinTranscript(String finalized, String current) {
     return '$finalized$current';
   }
   return '$finalized $current';
+}
+
+bool _fitsSessionTranscript(String finalized, String current) =>
+    _joinedTranscriptLength(finalized, current) <=
+    LiveTranscriptionLimits.maximumTranscriptCharacters;
+
+int _joinedTranscriptLength(String finalized, String current) {
+  if (finalized.isEmpty || current.isEmpty) {
+    return finalized.length + current.length;
+  }
+  final needsSeparator =
+      !_hasBoundaryWhitespace(finalized, current) &&
+      !_startsWithPunctuation(current);
+  return finalized.length + current.length + (needsSeparator ? 1 : 0);
 }
 
 bool _hasBoundaryWhitespace(String left, String right) =>

@@ -16,6 +16,7 @@ import 'package:transcriber/state/dictation_state.dart';
 import 'dictation_test_support.dart';
 
 part 'dictation_controller_session_cases.dart';
+part 'dictation_controller_race_cases.dart';
 
 late AppDatabase database;
 late SettingsRepository repository;
@@ -34,8 +35,10 @@ void main() {
     repository = SettingsRepository(database);
     await repository.save(
       AppSettings.initial().copyWith(
-        asrProvider: RemoteProviderId.openai,
-        transcriptionLanguage: TranscriptionLanguage.de,
+        transcription: const TranscriptionSettings(
+          provider: RemoteProviderId.openai,
+          language: TranscriptionLanguage.de,
+        ),
       ),
     );
     platform = FakeDictationPlatform();
@@ -78,6 +81,7 @@ void main() {
   _registerRecoveryTests();
   _registerEditorActionTests();
   _registerResourceLifecycleTests();
+  _registerSessionRaceTests();
 }
 
 void _registerStartupAndEditingTests() {
@@ -199,8 +203,10 @@ void _registerProviderConfigurationTests() {
   test('normalizes Gemini language and sample-rate configuration', () async {
     await repository.save(
       AppSettings.initial().copyWith(
-        asrProvider: RemoteProviderId.google,
-        transcriptionLanguage: TranscriptionLanguage.de,
+        transcription: const TranscriptionSettings(
+          provider: RemoteProviderId.google,
+          language: TranscriptionLanguage.de,
+        ),
       ),
     );
     FlutterSecureStorage.setMockInitialValues({'api_key_google': 'test-key'});

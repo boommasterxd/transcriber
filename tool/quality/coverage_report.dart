@@ -4,25 +4,29 @@ const _gitSourceArguments =
     'ls-files --cached --others --exclude-standard -- lib';
 
 final class CoverageReport {
-  const CoverageReport({
-    required this.coveredLines,
-    required this.totalLines,
-    required this.coveredBranches,
-    required this.totalBranches,
-    required this.coveredFunctions,
-    required this.totalFunctions,
-    required this.coveredSources,
-    required this.totalSources,
-    required this.missingSources,
-    required this.nonInstrumentableSources,
-  });
+  const CoverageReport._(
+    this._lines,
+    this._branches,
+    this._functions,
+    this._sources,
+    this.isPartial,
+  );
 
-  final int coveredLines, totalLines;
-  final int coveredBranches, totalBranches;
-  final int coveredFunctions, totalFunctions;
-  final int coveredSources, totalSources;
-  final List<String> missingSources;
-  final Map<String, String> nonInstrumentableSources;
+  final _Metric _lines, _branches, _functions;
+  final ({int total, List<String> missing, Map<String, String> excluded})
+  _sources;
+  final bool isPartial;
+
+  int get coveredLines => _lines.covered;
+  int get totalLines => _lines.total;
+  int get coveredBranches => _branches.covered;
+  int get totalBranches => _branches.total;
+  int get coveredFunctions => _functions.covered;
+  int get totalFunctions => _functions.total;
+  int get coveredSources => totalSources - missingSources.length;
+  int get totalSources => _sources.total;
+  List<String> get missingSources => _sources.missing;
+  Map<String, String> get nonInstrumentableSources => _sources.excluded;
 
   int get maintainedSources => totalSources + nonInstrumentableSources.length;
   double get lineRate => _percentage(coveredLines, totalLines);
@@ -33,13 +37,16 @@ final class CoverageReport {
   factory CoverageReport.parse(
     List<String> lines, {
     Map<String, String>? sources,
+    bool isPartial = false,
   }) => _CoverageBuilder(
     _LcovParser(lines).parse(),
     sources ?? discoverMaintainedSources(),
+    isPartial,
   ).build();
 
   List<String> thresholdFailures() {
     final failures = <String>[];
+    if (isPartial && maintainedSources == 0) return failures;
     if (missingSources.isNotEmpty) {
       final preview = missingSources.take(10).join(', ');
       final remainder = missingSources.length > 10
@@ -70,13 +77,18 @@ final class CoverageReport {
   }
 
   String summary() {
+    if (isPartial && maintainedSources == 0) {
+      return 'Partial coverage: the plan has no affected application sources. '
+          'No application coverage was measured; full coverage was not checked.';
+    }
     final classification = nonInstrumentableSources.entries
         .map((entry) => '${entry.key} (${entry.value})')
         .join(', ');
     final suffix = classification.isEmpty
         ? ''
         : ' Non-instrumentable sources: $classification.';
-    return 'Coverage: sources $coveredSources/$totalSources executable '
+    final label = isPartial ? 'Partial coverage (selected scope)' : 'Coverage';
+    return '$label: sources $coveredSources/$totalSources executable '
         '($maintainedSources maintained), lines ${lineRate.toStringAsFixed(2)}%, '
         'statements ${statementRate.toStringAsFixed(2)}%, '
         'functions ${functionRate.toStringAsFixed(2)}%, '
@@ -128,17 +140,21 @@ Map<String, String> discoverMaintainedSources({Directory? root}) {
 }
 
 final class _CoverageBuilder {
-  _CoverageBuilder(this.reported, this.maintained);
+  _CoverageBuilder(this.reported, this.maintained, this.isPartial);
 
   final Map<String, _SourceCoverage> reported;
   final Map<String, String> maintained;
+  final bool isPartial;
 
   CoverageReport build() {
     final executable = <String, _SourceAnalysis>{};
     final nonInstrumentable = <String, String>{};
     for (final entry in maintained.entries) {
       final analysis = _SourceAnalysis.parse(entry.key);
-      if (analysis.nonInstrumentableReason case final reason?) {
+      final reason = analysis.nonInstrumentableReason;
+      if (reason != null &&
+          (reason == 'generated Dart source' ||
+              !(reported[entry.key]?.hasLines ?? false))) {
         nonInstrumentable[entry.value] = reason;
       } else {
         executable[entry.key] = analysis;
@@ -164,17 +180,10 @@ final class _CoverageBuilder {
       nonInstrumentable.entries.toList()
         ..sort((a, b) => a.key.compareTo(b.key)),
     );
-    return CoverageReport(
-      coveredLines: lines.covered,
-      totalLines: lines.total,
-      coveredBranches: branches.covered,
-      totalBranches: branches.total,
-      coveredFunctions: functions.covered,
-      totalFunctions: functions.total,
-      coveredSources: executable.length - missing.length,
-      totalSources: executable.length,
-      missingSources: missing,
-      nonInstrumentableSources: sortedNonInstrumentable,
-    );
+    return CoverageReport._(lines, branches, functions, (
+      total: executable.length,
+      missing: missing,
+      excluded: sortedNonInstrumentable,
+    ), isPartial);
   }
 }

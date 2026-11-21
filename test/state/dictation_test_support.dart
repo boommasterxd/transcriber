@@ -28,6 +28,7 @@ final class FakeDictationPlatform implements DictationPlatform {
   int switchCount = 0;
   bool acceptEdits = true;
   Completer<bool>? compositionGate;
+  Completer<void>? resumeGate;
 
   @override
   Stream<DictationPlatformEvent> get events => controller.stream;
@@ -44,7 +45,10 @@ final class FakeDictationPlatform implements DictationPlatform {
   Future<void> pauseRecording(String sessionId) async => pauseCount++;
 
   @override
-  Future<void> resumeRecording(String sessionId) async => resumeCount++;
+  Future<void> resumeRecording(String sessionId) async {
+    resumeCount++;
+    await resumeGate?.future;
+  }
 
   @override
   Future<bool> stopRecording(String sessionId) async {

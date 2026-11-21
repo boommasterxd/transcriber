@@ -6,11 +6,13 @@ import '../data/models/remote_provider.dart';
 import '../data/models/transcript_note.dart';
 import '../data/repositories/notes_repository.dart';
 import '../data/repositories/settings_repository.dart';
+import '../services/audio/audio_import_picker.dart';
 import '../services/audio/audio_recorder_service.dart';
 import '../services/processing/processing_pipeline.dart';
 import '../services/remote/remote_client_factory.dart';
 import '../services/share/share_intent_service.dart';
 import '../services/storage/audio_cache_manager.dart';
+import '../services/storage/pending_audio_deletion_recovery.dart';
 
 /// Overridden after the Drift database has been initialized.
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -34,6 +36,10 @@ final audioCacheManagerProvider = Provider<AudioCacheManager>(
   (ref) => AudioCacheManager(),
 );
 
+final audioImportPickerProvider = Provider<AudioImportPickerService>(
+  (ref) => AudioImportPickerService(),
+);
+
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => SettingsRepository(ref.watch(databaseProvider)),
 );
@@ -42,13 +48,28 @@ final notesRepositoryProvider = Provider<NotesRepository>(
   (ref) => NotesRepository(ref.watch(databaseProvider)),
 );
 
-typedef ProviderCredentialTester =
-    Future<void> Function(RemoteProviderId provider, String apiKey);
+final pendingAudioDeletionRecoveryProvider =
+    Provider<PendingAudioDeletionRecovery>(
+      (ref) => PendingAudioDeletionRecovery(
+        ref.watch(notesRepositoryProvider),
+        ref.watch(audioCacheManagerProvider),
+      ),
+    );
+
+typedef ProviderCredentialTester = Future<void> Function(
+  RemoteProviderId provider,
+  String apiKey,
+);
 
 final providerCredentialTesterProvider = Provider<ProviderCredentialTester>(
-  (ref) =>
-      (provider, apiKey) =>
-          RemoteClientFactory.create(provider, apiKey).testConnection(),
+  (ref) => (provider, apiKey) async {
+    final client = RemoteClientFactory.create(provider, apiKey);
+    try {
+      await client.testConnection();
+    } finally {
+      client.close();
+    }
+  },
 );
 
 final processingPipelineProvider = Provider<ProcessingPipeline>(

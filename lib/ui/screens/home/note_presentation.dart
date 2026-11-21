@@ -1,6 +1,7 @@
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/utils/formatting.dart';
 import '../../../data/models/transcript_note.dart';
+import '../../../data/models/note_history.dart';
 import 'history_logic.dart';
 
 String historyPeriodLabel(HistoryPeriod period, AppStrings strings) =>
@@ -10,7 +11,7 @@ String historyPeriodLabel(HistoryPeriod period, AppStrings strings) =>
       HistoryPeriod.earlier => strings.secEarlier,
     };
 
-String noteSubtitle(TranscriptNote note, {required AppStrings strings}) {
+String noteSubtitle(NoteHistoryEntry note, {required AppStrings strings}) {
   final source = switch (note.source) {
     NoteSource.recording => strings.recordingLabel,
     NoteSource.file => strings.tabFile,

@@ -1,6 +1,7 @@
 import '../../core/l10n/app_strings.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/transcript_note.dart';
+import '../remote/remote_cancellation.dart';
 import '../storage/managed_audio_file.dart';
 
 /// The two visible steps of the processing flow.
@@ -14,11 +15,15 @@ final class ProcessingInput {
     required this.audio,
     required this.source,
     this.knownDurationSec,
+    this.settings,
   });
 
   final ManagedAudioFile audio;
   final NoteSource source;
   final int? knownDurationSec;
+
+  /// Settings shown when the user confirmed an inbound share.
+  final AppSettings? settings;
 
   String get audioPath => audio.path;
 
@@ -26,6 +31,7 @@ final class ProcessingInput {
     audio: audio,
     source: source,
     knownDurationSec: durationSec,
+    settings: settings,
   );
 }
 
@@ -63,7 +69,10 @@ final class ProcessingRequest {
 
 /// Optional observer callbacks for the visible cloud processing stages.
 final class ProcessingCallbacks {
-  const ProcessingCallbacks({this.onStep});
+  const ProcessingCallbacks({this.onStep, this.cancellation});
 
   final ProcessingStepCallback? onStep;
+  final RemoteCancellation? cancellation;
+
+  void throwIfCancelled() => cancellation?.throwIfCancelled();
 }

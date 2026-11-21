@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/remote_models_provider.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/privacy_section.dart';
@@ -38,25 +40,60 @@ void main() {
     tester,
   ) async {
     final controller = _TestSettingsController(
-      AppSettings.initial().copyWith(summarizeEnabled: false),
+      AppSettings.initial().copyWith(
+        summary: const SummarySettings(enabled: false),
+      ),
     );
     await tester.pumpWidget(
       _settingsApp(child: const SummarySection(), controller: controller),
     );
 
-    expect(find.text(strings.remoteModel.toUpperCase()), findsNothing);
+    expect(find.text(strings.chooseModel), findsNothing);
     await tester.tap(find.byType(Switch));
     await tester.pump();
 
     expect(controller.state.summarizeEnabled, isTrue);
-    expect(find.text(strings.remoteModel.toUpperCase()), findsOneWidget);
-    expect(find.text('OpenAI'), findsOneWidget);
-    expect(find.text('Google Gemini'), findsOneWidget);
+    expect(find.text(strings.connectFirst), findsOneWidget);
 
     await tester.tap(find.byType(Switch));
     await tester.pump();
     expect(controller.state.summarizeEnabled, isFalse);
-    expect(find.text(strings.remoteModel.toUpperCase()), findsNothing);
+    expect(find.text(strings.connectFirst), findsNothing);
+  });
+
+  testWidgets('opens the privacy policy externally and reports failure', (
+    tester,
+  ) async {
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final launches = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      launches.add(call);
+      return false;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    await tester.pumpWidget(
+      _settingsApp(
+        child: const PrivacySection(),
+        controller: _TestSettingsController(),
+      ),
+    );
+    expect(launches, isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    final launch = launches.single;
+    expect(launch.method, 'launch');
+    expect(
+      launch.arguments['url'],
+      'https://github.com/boommasterxd/transcriber/blob/main/docs/privacy-policy.md',
+    );
+    expect(launch.arguments['useWebView'], isFalse);
+    expect(find.text(strings.openPrivacyPolicyFailed), findsOneWidget);
   });
 }
 
@@ -65,6 +102,7 @@ Widget _settingsApp({
   required _TestSettingsController controller,
 }) => ProviderScope(
   overrides: [
+    initialConnectionsProvider.overrideWithValue(const {}),
     settingsControllerProvider.overrideWith(() => controller),
     remoteModelsProvider.overrideWith((ref, query) async => const []),
   ],
@@ -92,6 +130,6 @@ class _TestSettingsController extends SettingsController {
 
   @override
   Future<void> setSummarizeEnabled(bool value) async {
-    state = state.copyWith(summarizeEnabled: value);
+    state = state.copyWith(summary: state.summary.copyWith(enabled: value));
   }
 }

@@ -1,0 +1,78 @@
+name: CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 7 * * 1"
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: java-kotlin
+            build-mode: manual
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Flutter
+        if: matrix.language == 'java-kotlin'
+        uses: ./.github/actions/setup-flutter
+      - name: Restore shared Gradle dependencies
+        if: matrix.language == 'java-kotlin'
+        uses: ./.github/actions/dependency-cache
+        with:
+          store: gradle
+      - name: Reuse or install pinned Android NDKs
+        if: matrix.language == 'java-kotlin'
+        uses: ./.github/actions/setup-android-ndk
+      - name: Prepare Android configuration
+        if: matrix.language == 'java-kotlin'
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter build apk --debug --config-only --no-pub
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          dependency-caching: false
+      - name: Compile Android sources for analysis
+        if: matrix.language == 'java-kotlin'
+        run: >-
+          android/gradlew -p android :app:compileDebugKotlin
+          --no-daemon --no-build-cache --no-configuration-cache --rerun-tasks
+          -Pkotlin.incremental=false -Pkotlin.compiler.execution.strategy=in-process
+      - name: Analyze
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:${{ matrix.language }}"

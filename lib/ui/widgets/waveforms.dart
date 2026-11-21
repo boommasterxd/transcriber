@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
 
@@ -21,8 +21,66 @@ List<double> _waveHeights(int count) => _waveHeightsCache.putIfAbsent(
   }),
 );
 
-/// Animated equalizer used in onboarding / processing hero badges.
-class EqWave extends StatefulWidget {
+/// Runs a purely decorative animation only while the system allows motion.
+class DecorativeLoop extends StatelessWidget {
+  const DecorativeLoop({
+    super.key,
+    required this.duration,
+    required this.builder,
+    this.child,
+  });
+
+  final Duration duration;
+  final Widget Function(BuildContext context, double progress, Widget? child)
+  builder;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => MediaQuery.disableAnimationsOf(context)
+      ? builder(context, 0, child)
+      : _AnimatedDecoration(duration: duration, builder: builder, child: child);
+}
+
+class _AnimatedDecoration extends StatefulWidget {
+  const _AnimatedDecoration({
+    required this.duration,
+    required this.builder,
+    this.child,
+  });
+
+  final Duration duration;
+  final Widget Function(BuildContext context, double progress, Widget? child)
+  builder;
+  final Widget? child;
+
+  @override
+  State<_AnimatedDecoration> createState() => _AnimatedDecorationState();
+}
+
+class _AnimatedDecorationState extends State<_AnimatedDecoration>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: widget.duration,
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    child: widget.child,
+    builder: (context, child) =>
+        widget.builder(context, _controller.value, child),
+  );
+}
+
+/// Equalizer used in onboarding and processing hero badges.
+class EqWave extends StatelessWidget {
   const EqWave({super.key, this.bars = 7, this.height = 46, this.color});
 
   final int bars;
@@ -30,34 +88,18 @@ class EqWave extends StatefulWidget {
   final Color? color;
 
   @override
-  State<EqWave> createState() => _EqWaveState();
-}
-
-class _EqWaveState extends State<EqWave> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 1),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final color = widget.color ?? context.palette.accent;
+    final barColor = color ?? context.palette.accent;
     return SizedBox(
-      height: widget.height,
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) => Row(
+      height: height,
+      child: DecorativeLoop(
+        duration: const Duration(seconds: 1),
+        builder: (context, progress, _) => Row(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: List.generate(widget.bars, (i) {
+          children: List.generate(bars, (i) {
             final phase = (i * 0.11);
-            final t = (math.sin((_c.value + phase) * 2 * math.pi) + 1) / 2;
+            final t = (math.sin((progress + phase) * 2 * math.pi) + 1) / 2;
             final scale = 0.35 + t * 0.9;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2.5),
@@ -65,7 +107,7 @@ class _EqWaveState extends State<EqWave> with SingleTickerProviderStateMixin {
                 width: 6,
                 height: 30 * scale,
                 decoration: BoxDecoration(
-                  color: color,
+                  color: barColor,
                   borderRadius: BorderRadius.circular(9999),
                 ),
               ),
@@ -117,7 +159,13 @@ class MiniWave extends StatelessWidget {
 /// hairlines. The bar count is derived from the available width so the density
 /// stays consistent across the phone dialog and the wider tablet pane.
 class PlayerWave extends StatelessWidget {
-  const PlayerWave({super.key, required this.progress, this.onSeek});
+  const PlayerWave({
+    super.key,
+    required this.progress,
+    required this.label,
+    required this.semanticFormatterCallback,
+    this.onSeek,
+  });
 
   /// Throttle granularity for progress repaints. Kept comfortably finer than
   /// the rendered bars so callers can skip no-op rebuilds (see
@@ -130,48 +178,70 @@ class PlayerWave extends StatelessWidget {
   static const double _barGap = 5.0;
 
   final double progress;
+  final String label;
+  final SemanticFormatterCallback semanticFormatterCallback;
   final ValueChanged<double>? onSeek;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Expanded(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          // How many fixed-width bars fit, evenly spaced by at least _barGap.
-          final count = math.max(
-            1,
-            ((width + _barGap) / (_barWidth + _barGap)).floor(),
-          );
-          final heights = _waveHeights(count);
-          return GestureDetector(
-            onTapDown: onSeek == null
-                ? null
-                : (d) => onSeek!((d.localPosition.dx / width).clamp(0.0, 1.0)),
-            child: SizedBox(
-              height: 38,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < count; i++)
-                    Container(
-                      width: _barWidth,
-                      height: heights[i] * 26 + 8,
-                      decoration: BoxDecoration(
-                        color: (i / count) <= progress
-                            ? palette.accent
-                            : palette.waveOff,
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                    ),
-                ],
-              ),
+    return SizedBox(
+      height: 48,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: LayoutBuilder(builder: _buildBars),
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.transparent,
+              inactiveTrackColor: Colors.transparent,
+              disabledActiveTrackColor: Colors.transparent,
+              disabledInactiveTrackColor: Colors.transparent,
+              disabledThumbColor: palette.muted,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              showValueIndicator: ShowValueIndicator.never,
             ),
-          );
-        },
+            child: Slider(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              value: progress,
+              label: label,
+              semanticFormatterCallback: semanticFormatterCallback,
+              allowedInteraction: SliderInteraction.tapOnly,
+              thumbColor: palette.accentDeep,
+              overlayColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.focused)
+                    ? palette.ink.withValues(alpha: 0.55)
+                    : palette.accent.withValues(alpha: 0.35),
+              ),
+              onChanged: onSeek,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildBars(BuildContext context, BoxConstraints constraints) {
+    final palette = context.palette;
+    final count = ((constraints.maxWidth + _barGap) / (_barWidth + _barGap))
+        .floor();
+    final heights = _waveHeights(count);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (var i = 0; i < count; i++)
+          Container(
+            width: _barWidth,
+            height: heights[i] * 26 + 8,
+            decoration: BoxDecoration(
+              color: (i / count) <= progress ? palette.accent : palette.waveOff,
+              borderRadius: BorderRadius.circular(9999),
+            ),
+          ),
+      ],
     );
   }
 }

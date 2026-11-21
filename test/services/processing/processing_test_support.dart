@@ -19,19 +19,23 @@ ProcessingRequest testProcessingRequest({
 }) {
   final requestOptions = options ?? ProcessingRequestOptions();
   final settings = AppSettings.initial().copyWith(
-    asrProvider: requestOptions.asrProvider,
-    summaryProvider: requestOptions.summaryProvider,
-    asrModelByProvider: {
-      RemoteProviderId.openai: 'openai-asr',
-      RemoteProviderId.google: 'google-asr',
-    },
-    chatModelByProvider: {
-      RemoteProviderId.openai: 'openai-summary',
-      RemoteProviderId.google: 'google-summary',
-    },
-    summarizeEnabled: requestOptions.summarizeEnabled,
+    appearance: const AppearanceSettings(language: AppLanguage.en),
+    transcription: TranscriptionSettings(
+      provider: requestOptions.asrProvider,
+      models: {
+        RemoteProviderId.openai: 'openai-asr',
+        RemoteProviderId.google: 'google-asr',
+      },
+    ),
+    summary: SummarySettings(
+      provider: requestOptions.summaryProvider,
+      models: {
+        RemoteProviderId.openai: 'openai-summary',
+        RemoteProviderId.google: 'google-summary',
+      },
+      enabled: requestOptions.summarizeEnabled,
+    ),
     autoDeleteAudio: requestOptions.autoDeleteAudio,
-    language: AppLanguage.en,
   );
   return ProcessingRequest(
     input: ProcessingInput(
@@ -118,6 +122,11 @@ final class RecordingClientFactory {
 }
 
 final class RecordingProviderClient implements RemoteProviderClient {
+  int closeCalls = 0;
+
+  @override
+  void close() => closeCalls++;
+
   int summaryCalls = 0;
   int transcriptionCalls = 0;
   Object? summaryError;
@@ -136,6 +145,7 @@ final class RecordingProviderClient implements RemoteProviderClient {
     String audioPath, {
     required String modelId,
     String? languageCode,
+    RemoteCancellation? cancellation,
   }) async {
     transcriptionCalls++;
     this.audioPath = audioPath;
@@ -153,6 +163,7 @@ final class RecordingProviderClient implements RemoteProviderClient {
     required String systemPrompt,
     required String userPrompt,
     required String modelId,
+    RemoteCancellation? cancellation,
   }) async {
     summaryCalls++;
     transcript = userPrompt;
@@ -163,6 +174,10 @@ final class RecordingProviderClient implements RemoteProviderClient {
 
   @override
   Future<List<RemoteModelInfo>> listModels({required bool forTranscription}) =>
+      throw UnsupportedError('Model listing is outside processing tests');
+
+  @override
+  Future<ProviderModelCatalog> loadModelCatalog() =>
       throw UnsupportedError('Model listing is outside processing tests');
 
   @override

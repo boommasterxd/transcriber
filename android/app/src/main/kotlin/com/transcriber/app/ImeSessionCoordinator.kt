@@ -28,7 +28,7 @@ class ImeSessionCoordinator(
         engine = FlutterEngine(service.applicationContext)
         editor = ImeEditorContext(service)
         events = ImeEventPublisher(engine.dartExecutor.binaryMessenger, editor)
-        recorder = PcmAudioRecorder(service, events::emitAudioChunk, events::emitAudioFailure)
+        recorder = events.createRecorder(service)
         ImeMethodHandler(service, engine.dartExecutor.binaryMessenger, editor, recorder).register()
         events.register(recorder)
         KeyboardSettingsChannel(
@@ -80,19 +80,11 @@ class ImeSessionCoordinator(
         events.emitEditorState(recorder)
     }
 
-    fun finishInputView() {
-        recorder.stop()
-        editor.invalidate()
-        events.emitEditorState(recorder)
+    fun updateSelection(selectionStart: Int, selectionEnd: Int, candidatesStart: Int, candidatesEnd: Int) {
+        editor.updateSelection(selectionStart, selectionEnd, candidatesStart, candidatesEnd)
     }
 
     fun finishInput() {
-        recorder.stop()
-        editor.invalidate()
-        events.emitEditorState(recorder)
-    }
-
-    fun unbindInput() {
         recorder.stop()
         editor.invalidate()
         events.emitEditorState(recorder)

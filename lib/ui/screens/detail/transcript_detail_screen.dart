@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../state/notes_controller.dart';
+import '../../../state/note_detail_provider.dart';
 import '../../../state/settings_controller.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/audio_deleted_notice.dart';
@@ -15,6 +16,8 @@ import 'widgets/note_content_widgets.dart';
 import 'widgets/note_detail_interactions.dart';
 import 'widgets/note_summary_metadata_widgets.dart';
 import 'widgets/processed_with_card.dart';
+import 'widgets/summary_failure_notice.dart';
+import 'widgets/note_detail_status.dart';
 
 /// In-app screen showing a fully processed note: audio, summary, key points,
 /// to-dos, the models used, and the expandable transcript.
@@ -38,6 +41,17 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
+    final detail = ref.watch(noteDetailProvider(widget.noteId));
+    if (detail.isLoading || detail.hasError) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: NoteDetailStatus(
+          loading: detail.isLoading,
+          strings: t,
+          retry: () => ref.invalidate(noteDetailProvider(widget.noteId)),
+        ),
+      );
+    }
     final note = watchNote(widget.noteId);
 
     return note == null ? _missingNote(t) : _detailScreen(note, t);
@@ -73,10 +87,16 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
             Expanded(
               child: FadeEdges(
                 topHeight: 16,
-                builder: (context, controller) => ListView(
+                builder: (context, controller) => CustomScrollView(
                   controller: controller,
-                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
-                  children: _noteSections(note, strings),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
+                      sliver: SliverMainAxisGroup(
+                        slivers: _noteSections(note, strings),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -88,31 +108,32 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
 
   List<Widget> _noteSections(TranscriptNote note, AppStrings strings) {
     return [
-      ..._leadingSections(note, strings),
-      if (note.points.isNotEmpty) ...[
-        NoteSectionLabel(strings.shPoints),
-        const SizedBox(height: 12),
-        NoteKeyPoints(points: note.points),
-        const SizedBox(height: 22),
+      SliverList.list(children: _leadingSections(note, strings)),
+      if (note.summaryError == null && note.points.isNotEmpty) ...[
+        NoteKeyPoints(points: note.points, label: strings.shPoints),
+        const SliverToBoxAdapter(child: SizedBox(height: 22)),
       ],
-      if (note.todos.isNotEmpty) ...[
-        EditableNoteTodos.phone(
+      if (note.summaryError == null && note.todos.isNotEmpty) ...[
+        NoteTodos.phone(
           todos: note.todos,
           strings: strings,
           onToggle: (index) => ref
               .read(notesControllerProvider.notifier)
               .toggleTodo(note.id, index),
         ),
-        const SizedBox(height: 12),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
       ],
-      if (note.gist.isNotEmpty)
-        DetailTranscriptToggle.phone(
-          strings: strings,
-          isOpen: transcriptOpen,
-          onTap: toggleTranscript,
+      if (note.gist.isNotEmpty || note.summaryError != null)
+        SliverToBoxAdapter(
+          child: DetailTranscriptToggle.phone(
+            strings: strings,
+            isOpen: transcriptOpen,
+            onTap: toggleTranscript,
+          ),
         ),
-      if (note.gist.isEmpty || transcriptOpen) ...[
-        const SizedBox(height: 18),
+      if ((note.gist.isEmpty && note.summaryError == null) ||
+          transcriptOpen) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 18)),
         DetailTranscriptBlock(
           note: note,
           strings: strings,
@@ -128,6 +149,10 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
 
   List<Widget> _leadingSections(TranscriptNote note, AppStrings strings) {
     return [
+      if (note.summaryError != null) ...[
+        SummaryFailureNotice(error: note.summaryError!, strings: strings),
+        const SizedBox(height: 18),
+      ],
       if (note.audioPath != null)
         DetailAudioPlayer(
           audioPath: note.audioPath!,
@@ -136,8 +161,8 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
       else
         AudioDeletedNotice(strings: strings),
       const SizedBox(height: 18),
-      if (note.gist.isNotEmpty) ...[
-        NoteSummaryCard(gist: note.gist, label: strings.shSummary),
+      if (note.summaryError == null && note.gist.isNotEmpty) ...[
+        NoteSummaryCard(note: note, strings: strings),
         const SizedBox(height: 16),
       ],
       NoteMetadataChips(note: note, strings: strings),

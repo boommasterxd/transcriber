@@ -2,14 +2,19 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-typedef RequestHandler =
-    Future<http.StreamedResponse> Function(http.BaseRequest request);
+typedef RequestHandler = Future<http.StreamedResponse> Function(
+  http.BaseRequest request,
+);
 
 class RecordingHttpClient extends http.BaseClient {
   RecordingHttpClient(this._handler);
 
   final RequestHandler _handler;
   final List<http.BaseRequest> requests = [];
+  int closeCalls = 0;
+
+  @override
+  void close() => closeCalls++;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {

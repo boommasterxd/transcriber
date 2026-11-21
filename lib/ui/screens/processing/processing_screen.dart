@@ -1,17 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/processing_controller.dart';
 import '../../../state/settings_controller.dart';
-import '../../navigation.dart';
+import '../../navigation_routes.dart';
 import '../detail/transcript_detail_screen.dart';
 import 'widgets/processing_controller_lifecycle.dart';
 import 'widgets/processing_error_view.dart';
+import 'widgets/processing_screen_frame.dart';
 import 'widgets/processing_status_content.dart';
 
 /// Full-screen processing view. Runs the pipeline and, on success, replaces
@@ -50,10 +50,12 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
         knownDurationSec: widget.knownDurationSec,
       ),
       fileName: widget.fileName,
+      owner: processingOwner,
     );
   }
 
   void _onResult(TranscriptNote note) {
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => TranscriptDetailScreen(noteId: note.id),
@@ -63,7 +65,6 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final t = ref.watch(stringsProvider);
     final state = ref.watch(processingControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
@@ -76,11 +77,15 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
     );
 
     ref.listen(processingControllerProvider, (prev, next) {
-      if (next.result != null) _onResult(next.result!);
+      if (next.result != null &&
+          processingController.isOwnedBy(processingOwner)) {
+        _onResult(next.result!);
+      }
     });
 
+    final Widget content;
     if (state.hasError) {
-      return ProcessingErrorView(
+      content = ProcessingErrorView(
         presentation: ProcessingErrorPresentation.resolve(state.error!, t),
         actions: ProcessingErrorActions(
           onRetry: () {
@@ -88,27 +93,25 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
             startProcessing();
           },
           onClose: () => Navigator.of(context).pop(),
-          onOpenSettings: () => AppNavigator.openSettings(context),
+          onOpenSettings: () => openSettingsRoute(context),
+        ),
+      );
+    } else {
+      content = ProcessingScreenFrame(
+        child: ProcessingStatusContent(
+          presentation: presentation,
+          strings: t,
+          fileName: state.fileName.isEmpty
+              ? (widget.fileName ?? '')
+              : state.fileName,
         ),
       );
     }
-
-    return Scaffold(
-      backgroundColor: palette.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 34),
-          child: Center(
-            child: ProcessingStatusContent(
-              presentation: presentation,
-              strings: t,
-              fileName: state.fileName.isEmpty
-                  ? (widget.fileName ?? '')
-                  : state.fileName,
-            ),
-          ),
-        ),
-      ),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) discardProcessing();
+      },
+      child: content,
     );
   }
 }

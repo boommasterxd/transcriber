@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:transcriber/services/summarization/summary_prompt.dart';
 
 void main() {
@@ -104,8 +104,7 @@ void _registerStructuredParseTests() {
 
     test('extracts an object surrounded by prose and a code fence', () {
       _expectParsedSummary((
-        raw:
-            'Result:\n```json\n{"title":"T","gist":"G","points":[],"todos":[]}\n```\nDone',
+        raw: 'Result:\n```json\n{"title":"T","gist":"G","points":[],"todos":[]}\n```\nDone',
         title: 'T',
         gist: 'G',
         points: const [],

@@ -1,27 +1,32 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/ui/widgets/effects.dart';
-import 'package:transcriber/ui/widgets/waveforms.dart';
 
 import 'widget_test_helpers.dart';
 
 void main() {
-  testWidgets('PulseRingHero keeps animated content in a repaint boundary', (
+  testWidgets('PulseRingHero follows changes to reduced motion', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      themed(const PulseRingHero(size: 96, ringSize: 110)),
+    final dispatcher = tester.platformDispatcher;
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
     );
+    addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(themed(const Center(child: PulseRingHero())));
+    await tester.pump();
+    expect(find.byType(PulseRingHero), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
 
-    expect(
-      find.descendant(
-        of: find.byType(PulseRingHero),
-        matching: find.byType(RepaintBoundary),
-      ),
-      findsOneWidget,
+    dispatcher.clearAccessibilityFeaturesTestValue();
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, greaterThanOrEqualTo(2));
+
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
     );
-    expect(find.byType(EqWave), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 0);
   });
 
   testWidgets('StepIndicator shows spinner and pending second step initially', (

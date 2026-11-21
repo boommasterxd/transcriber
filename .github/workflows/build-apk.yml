@@ -1,110 +1,59 @@
 name: Build APK
 
-# Runs manually from the Actions tab for on-demand release APK validation.
+# Runs manually from the Actions tab for on-demand APK validation.
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   android:
-    name: Android APK
-    runs-on: ubuntu-latest
+    name: Android Preview APK
+    # GitHub keeps the original actor on reruns, so also check who requested the rerun.
+    if: >-
+      github.repository == 'boommasterxd/transcriber' &&
+      github.actor_id == '62777283' &&
+      github.triggering_actor == 'boommasterxd'
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Java
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+        uses: ./.github/actions/setup-flutter
 
-      # Cache Gradle dependencies + build cache across runs (the biggest repeat
-      # cost after the first build).
-      - name: Cache Gradle
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore shared Gradle dependencies
+        uses: ./.github/actions/dependency-cache
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          store: gradle
 
-      # Write the release keystore + key.properties from secrets so every build
-      # is signed with the same key (updates install over previous versions).
-      # Falls back to debug signing when the secrets aren't set.
-      - name: Configure release signing
+      - name: Reuse or install pinned Android NDKs
+        uses: ./.github/actions/setup-android-ndk
+
+      - name: Build isolated preview APK
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TRANSCRIBER_TEST_APK: 'true'
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "No signing secrets set, building with debug signing."
-            exit 0
-          fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload.jks
-          printf 'storeFile=upload.jks\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n' \
-            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
-          echo "Release signing configured."
+          flutter pub get --enforce-lockfile
+          flutter build apk --release --no-pub --build-number="$GITHUB_RUN_NUMBER"
 
-      # Gradle's on-demand NDK download on the hosted runner intermittently
-      # produces a corrupt archive ("Archive is not a ZIP archive"), failing the
-      # build. Install the one pinned NDK up front via sdkmanager, retrying and
-      # wiping the partial each time, so the build never has to download it.
-      - name: Pre-install NDK (with retry)
+      - name: Verify preview package and signature
         run: |
-          # android/app/build.gradle.kts pins ndkVersion (28.2.x), which Flutter's
-          # Gradle tooling applies to every plugin module too - except AGP 9 also
-          # resolves its own default NDK (28.0.13004108) during project evaluation
-          # for reasons unrelated to any specific plugin (checked all four KGP
-          # plugins' build.gradle for a hardcoded ndkVersion, found none). Install
-          # both up front so neither triggers the on-demand download above.
-          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          SDKMGR=$(find "$SDK/cmdline-tools" -name sdkmanager | sort -V | tail -1)
-          echo "Using $SDKMGR"
-          for NDK_VER in 28.0.13004108 28.2.13676358; do
-            for i in 1 2 3 4; do
-              rm -rf "$SDK/ndk/$NDK_VER"
-              if yes | "$SDKMGR" "ndk;$NDK_VER"; then
-                echo "NDK $NDK_VER installed."; break
-              fi
-              echo "NDK $NDK_VER attempt $i failed; retrying in $((i*5))s"; sleep $((i*5))
-            done
-            test -d "$SDK/ndk/$NDK_VER"
-          done
+          export ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          bash tool/package/verify_apk_identity.sh \
+            build/app/outputs/flutter-apk/app-release.apk com.transcriber.app.preview
+          mv build/app/outputs/flutter-apk/app-release.apk transcriber-preview-android.apk
 
-      - name: Build
-        run: |
-          flutter pub get
-          flutter build apk --release --build-number=${{ github.run_number }}
-
-      # Confirm the APK is actually release-signed. Fails the build if signing
-      # fell back to the debug key (CN=Android Debug), so a misconfigured secret
-      # can never ship an unupgradable APK silently.
-      - name: Verify signature
-        run: |
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner | sort -V | tail -1)
-          echo "Using $APKSIGNER"
-          CERTS=$("$APKSIGNER" verify --print-certs "$APK")
-          echo "$CERTS"
-          if echo "$CERTS" | grep -qi "CN=Android Debug"; then
-            echo "::error::APK is debug-signed, release signing secrets are missing or wrong."
-            exit 1
-          fi
-          echo "APK is release-signed."
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: transcriber-android
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: transcriber-preview-android
+          path: transcriber-preview-android.apk
+          if-no-files-found: error
           retention-days: 3

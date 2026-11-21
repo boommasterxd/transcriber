@@ -3,8 +3,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import 'bounded_audio_copy.dart';
 import 'managed_audio_file.dart';
+import 'staged_audio_retention.dart';
 import 'storage_paths.dart';
+
+export 'staged_audio_retention.dart';
 
 /// Owns app-private audio imports, recordings, retained files, and cleanup.
 final class AudioCacheManager {
@@ -55,8 +59,7 @@ final class AudioCacheManager {
       ),
     );
     try {
-      await source.openRead().pipe(destination.openWrite());
-      await _validateSource(destination);
+      await copyAudioWithinLimit(source, destination, maximumFileBytes);
       return ManagedAudioFile(
         path: destination.path,
         ownership: AudioOwnership.temporary,
@@ -95,30 +98,25 @@ final class AudioCacheManager {
     return ManagedAudioFile(path: path, ownership: AudioOwnership.temporary);
   }
 
-  Future<ManagedAudioFile> retain(
-    ManagedAudioFile audio, {
-    bool deleteTemporarySource = true,
-  }) async {
-    if (audio.ownership == AudioOwnership.retained) return audio;
+  Future<StagedAudioRetention> stageRetention(ManagedAudioFile audio) async {
+    await validate(audio);
     final source = File(audio.path);
-    await _validateSource(source);
     final extension = _validatedExtension(source.path);
-    final directory = await (await _paths).retainedAudioDir();
-    final destination = File(p.join(directory.path, '${_uuid.v4()}$extension'));
-    try {
-      await source.openRead().pipe(destination.openWrite());
-      await _validateSource(destination);
-    } catch (_) {
-      await _deleteQuietly(destination);
-      rethrow;
-    }
-    if (deleteTemporarySource && audio.ownership == AudioOwnership.temporary) {
-      await discard(audio);
-    }
-    return ManagedAudioFile(
-      path: destination.path,
-      ownership: AudioOwnership.retained,
+    final paths = await _paths;
+    final retained = await paths.retainedAudioDir();
+    final staging = await paths.retentionStagingDir();
+    final name = '${_uuid.v4()}$extension';
+    final stage = StagedAudioRetention(
+      source: source,
+      stage: File(p.join(staging.path, name)),
+      destination: ManagedAudioFile(
+        path: p.join(retained.path, name),
+        ownership: AudioOwnership.retained,
+      ),
+      maximumBytes: maximumFileBytes,
     );
+    await stage.prepare();
+    return stage;
   }
 
   void markActive(ManagedAudioFile audio) =>
@@ -138,33 +136,54 @@ final class AudioCacheManager {
   }
 
   Future<void> discard(ManagedAudioFile audio) async {
-    if (audio.ownership == AudioOwnership.external) return;
+    await tryDiscard(audio);
+  }
+
+  /// Deletes app-owned audio when it is no longer active in this engine.
+  ///
+  /// Returns false when an active audio operation still owns the path. The
+  /// caller can keep its durable deletion marker and retry during recovery.
+  Future<bool> tryDiscard(ManagedAudioFile audio) async {
+    if (audio.ownership == AudioOwnership.external) return true;
     final file = File(audio.path);
-    if (_activePaths.contains(_canonicalPath(file))) return;
-    if (!await _isOwned(file, audio.ownership)) return;
-    await _deleteQuietly(file);
+    if (_activePaths.contains(_canonicalPath(file))) return false;
+    if (!await file.exists()) return true;
+    if (!await _isOwned(file, audio.ownership)) return false;
+    return _tryDeleteQuietly(file);
   }
 
   Future<void> deleteRetainedPath(String? path) async {
-    if (path == null) return;
-    await discard(
+    await tryDeleteRetainedPath(path);
+  }
+
+  /// Attempts to delete a retained file without blocking an active operation.
+  Future<bool> tryDeleteRetainedPath(String? path) async {
+    if (path == null) return true;
+    return tryDiscard(
       ManagedAudioFile(path: path, ownership: AudioOwnership.retained),
     );
   }
 
-  Future<void> cleanup() async {
+  Future<void> cleanup({bool enforceQuota = true}) async {
     final paths = await _paths;
     final directories = [
       await paths.importCacheDir(),
       await paths.sharedCacheDir(),
       await paths.recordingCacheDir(),
     ];
-    final files = await _cacheFiles(directories);
-    final expiry = _now().subtract(temporaryTtl);
-    for (final file in files) {
+    final now = _now();
+    final expiry = now.subtract(temporaryTtl);
+    final eligible = <_CacheFile>[];
+    await for (final file in _cacheFiles(directories)) {
+      if (file.modified.isBefore(expiry) && await _deleteCacheEntry(file)) {
+        continue;
+      }
+      if (enforceQuota && file.modified.isBefore(now)) eligible.add(file);
+    }
+    if (enforceQuota) await _enforceQuota(eligible);
+    await for (final file in _cacheFiles([await paths.retentionStagingDir()])) {
       if (file.modified.isBefore(expiry)) await _deleteCacheEntry(file);
     }
-    await _enforceQuota(await _cacheFiles(directories));
   }
 
   Future<void> _validateSource(File file) async {
@@ -210,20 +229,20 @@ final class AudioCacheManager {
   String _canonicalPath(FileSystemEntity entity) =>
       p.normalize(entity.absolute.path);
 
-  Future<List<_CacheFile>> _cacheFiles(List<Directory> directories) async {
-    final result = <_CacheFile>[];
+  Stream<_CacheFile> _cacheFiles(List<Directory> directories) async* {
     for (final directory in directories) {
       await for (final entity in directory.list(followLinks: false)) {
         if (entity is! File || _activePaths.contains(_canonicalPath(entity))) {
           continue;
         }
         final stat = await entity.stat();
-        result.add(
-          _CacheFile(file: entity, size: stat.size, modified: stat.modified),
+        yield _CacheFile(
+          file: entity,
+          size: stat.size,
+          modified: stat.modified,
         );
       }
     }
-    return result;
   }
 
   Future<void> _enforceQuota(List<_CacheFile> files) async {
@@ -231,20 +250,27 @@ final class AudioCacheManager {
     if (total <= cacheQuotaBytes) return;
     files.sort((a, b) => a.modified.compareTo(b.modified));
     for (final file in files) {
-      await _deleteCacheEntry(file);
-      total -= file.size;
+      if (await _deleteCacheEntry(file)) total -= file.size;
       if (total <= cacheQuotaBytes) return;
     }
   }
 
-  Future<void> _deleteCacheEntry(_CacheFile entry) =>
-      _deleteQuietly(entry.file);
+  Future<bool> _deleteCacheEntry(_CacheFile entry) async {
+    if (_activePaths.contains(_canonicalPath(entry.file))) return false;
+    return _tryDeleteQuietly(entry.file);
+  }
 
   Future<void> _deleteQuietly(File file) async {
+    await _tryDeleteQuietly(file);
+  }
+
+  Future<bool> _tryDeleteQuietly(File file) async {
     try {
       if (await file.exists()) await file.delete();
+      return true;
     } on FileSystemException {
       // Cleanup is best-effort; the next startup pass retries stale files.
+      return false;
     }
   }
 }

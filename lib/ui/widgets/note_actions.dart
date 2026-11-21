@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/app_strings.dart';
@@ -31,7 +31,7 @@ Future<void> deleteNoteWithUndo(
       duration: const Duration(seconds: 4),
       action: SnackBarAction(
         label: strings.undo,
-        onPressed: () => ref.read(notesControllerProvider.notifier).add(note),
+        onPressed: () => controller.add(note),
       ),
     ),
   );

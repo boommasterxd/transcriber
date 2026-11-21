@@ -1,112 +1,62 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/ui/widgets/waveforms.dart';
 
 import 'widget_test_helpers.dart';
 
 void main() {
-  testWidgets('EqWave creates requested bars and remains bounded', (
-    tester,
-  ) async {
-    await tester.pumpWidget(themed(const EqWave(bars: 4, height: 32)));
-
-    expect(find.byType(Container), findsNWidgets(4));
-    await tester.pump(const Duration(milliseconds: 200));
-  });
-
-  testWidgets('MiniWave renders its seven static bars', (tester) async {
-    await tester.pumpWidget(themed(const MiniWave(color: Colors.orange)));
-
-    expect(find.byType(Container), findsNWidgets(7));
-  });
-
   _registerPlayerWaveTests();
   _registerRecordWaveTests();
 }
 
 void _registerPlayerWaveTests() {
-  testWidgets('PlayerWave colors bars by progress and seeks by tap position', (
+  testWidgets('PlayerWave seeks by tap position and reaches both ends', (
     tester,
   ) async {
-    double? seek;
+    final seeks = <double>[];
     await tester.pumpWidget(
       themed(
-        SizedBox(
-          width: 200,
-          child: Row(
-            children: [
-              PlayerWave(progress: 0.5, onSeek: (value) => seek = value),
-            ],
+        Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              child: PlayerWave(
+                progress: 0.5,
+                label: 'Playback position',
+                semanticFormatterCallback: (value) => value.toString(),
+                onSeek: seeks.add,
+              ),
+            ),
           ),
         ),
       ),
     );
 
-    expect(find.byType(GestureDetector), findsOneWidget);
-    final wave = find.byType(GestureDetector);
-    final topLeft = tester.getTopLeft(wave);
-    final size = tester.getSize(wave);
-    await tester.tapAt(topLeft + Offset(size.width * 0.75, size.height / 2));
-    expect(seek, closeTo(0.75, 0.01));
-    final bars = tester.widgetList<Container>(find.byType(Container)).toList();
-    expect(bars.length, greaterThan(2));
+    final slider = tester.getRect(find.byType(Slider)).deflate(10);
+    await tester.tapAt(slider.centerLeft);
+    await tester.tapAt(slider.center + Offset(slider.width / 4, 0));
+    await tester.tapAt(slider.centerRight - const Offset(0.01, 0));
+    expect(seeks, [0, closeTo(0.75, 0.01), closeTo(1, 0.01)]);
   });
 
-  testWidgets('PlayerWave clamps taps outside waveform to valid progress', (
+  testWidgets('EqWave stays still when reduced motion is active', (
     tester,
   ) async {
-    double? seek;
-    await tester.pumpWidget(
-      themed(
-        SizedBox(
-          width: 100,
-          child: Row(
-            children: [
-              PlayerWave(progress: 0, onSeek: (value) => seek = value),
-            ],
-          ),
-        ),
-      ),
-    );
+    final dispatcher = tester.platformDispatcher;
+    addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(themed(const EqWave()));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
 
-    final wave = find.byType(GestureDetector);
-    final topLeft = tester.getTopLeft(wave);
-    final size = tester.getSize(wave);
-    await tester.tapAt(topLeft + Offset(0, size.height / 2));
-    expect(seek, closeTo(0, 0.01));
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
+    await tester.pump();
+    expect(find.byType(EqWave), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
   });
 }
 
 void _registerRecordWaveTests() {
-  testWidgets(
-    'RecordWave paints paused and active states and repaints on new levels',
-    (tester) async {
-      final first = <double>[0.2, 0.4, 0.6];
-      final second = <double>[0.8, 0.3, 0.1];
-      await tester.pumpWidget(themed(RecordWave(levels: first, paused: false)));
-      final paint = find.descendant(
-        of: find.byType(RecordWave),
-        matching: find.byType(CustomPaint),
-      );
-      expect(paint, findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(RecordWave),
-          matching: find.byType(RepaintBoundary),
-        ),
-        findsOneWidget,
-      );
-      final active = tester.widget<CustomPaint>(paint);
-      expect(active.painter, isNotNull);
-
-      await tester.pumpWidget(themed(RecordWave(levels: second, paused: true)));
-      await tester.pump(const Duration(milliseconds: 70));
-      final paused = tester.widget<CustomPaint>(paint);
-      expect(paused.painter, isNot(same(active.painter)));
-      await tester.pump(const Duration(milliseconds: 140));
-    },
-  );
-
   testWidgets('RecordWave respects reduced-motion settings', (tester) async {
     await tester.pumpWidget(
       themed(

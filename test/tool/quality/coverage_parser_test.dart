@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 import '../../../tool/quality/check_coverage.dart';
 import 'coverage_test_support.dart';

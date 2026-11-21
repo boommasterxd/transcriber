@@ -1,17 +1,24 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_palette.dart';
+import '../../../core/toast.dart';
+import '../../../data/models/app_settings.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
+import '../../../services/storage/audio_cache_manager.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/processing_controller.dart';
+import '../../../state/providers.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import '../processing/widgets/processing_error_view.dart';
 import '../processing/widgets/processing_controller_lifecycle.dart';
 import '../processing/widgets/processing_status_content.dart';
+import 'widgets/share_processing_confirmation.dart';
 import 'widgets/share_result_body.dart';
 
 Future<void> presentShareSheet({
@@ -19,14 +26,8 @@ Future<void> presentShareSheet({
   required String audioPath,
   String? fileName,
 }) {
-  final isTablet = MediaQuery.of(context).size.width >= 720;
-  return showModalBottomSheet<void>(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
-    constraints: isTablet ? const BoxConstraints(maxWidth: 600) : null,
+  return showAppBottomSheet<void>(
+    context,
     builder: (sheetContext) => ShareSheetContent(
       audioPath: audioPath,
       fileName: fileName,
@@ -72,45 +73,111 @@ class ShareSheetContent extends ConsumerStatefulWidget {
 
 class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
     with ProcessingControllerLifecycle<ShareSheetContent> {
+  late final AudioCacheManager _cacheManager;
+  late final ManagedAudioFile _audio;
+  AppSettings? _approvedSettings;
+  bool _submitted = false;
   bool _saving = false;
+  bool _finishing = false;
+  bool _openingSettings = false;
+
+  @override
+  bool get startsProcessingOnMount => false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cacheManager = ref.read(audioCacheManagerProvider);
+    _audio = ManagedAudioFile(
+      path: widget.audioPath,
+      ownership: AudioOwnership.temporary,
+    );
+  }
+
+  void _approve(AppSettings settings) {
+    if (_approvedSettings != null || _finishing) return;
+    setState(() => _approvedSettings = settings);
+    startProcessing();
+  }
 
   @override
   void startProcessing() {
+    final settings = _approvedSettings;
+    if (settings == null || _finishing) return;
+    _submitted = true;
     processingController
       ..reset()
       ..run(
         ProcessingInput(
-          audio: ManagedAudioFile(
-            path: widget.audioPath,
-            ownership: AudioOwnership.temporary,
-          ),
+          audio: _audio,
           source: NoteSource.shared,
+          settings: settings,
         ),
         fileName: widget.fileName,
         save: false,
+        owner: processingOwner,
       );
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || _finishing) return;
     setState(() => _saving = true);
-    await processingController.commit();
+    try {
+      await processingController.commit();
+    } catch (_) {
+      _showError();
+      return;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+    if (!mounted) return;
     await _finish();
   }
 
   Future<void> _finish() async {
-    await processingController.discardCurrent();
-    widget.onFinished();
+    if (_saving || _finishing) return;
+    _finishing = true;
+    try {
+      if (_submitted) {
+        await processingController.discardCurrent(owner: processingOwner);
+      } else {
+        await _cacheManager.discard(_audio);
+      }
+      if (mounted) widget.onFinished();
+    } catch (_) {
+      _finishing = false;
+      _showError();
+    }
+  }
+
+  @override
+  void discardProcessing() {
+    if (_finishing) return;
+    if (_submitted) {
+      super.discardProcessing();
+    } else {
+      unawaited(_cacheManager.discard(_audio).catchError((Object _) {}));
+    }
+  }
+
+  void _showError() {
+    if (!mounted) return;
+    showAppToast(
+      ref.read(stringsProvider).errorTitle,
+      isError: true,
+      messenger: ScaffoldMessenger.of(context),
+    );
   }
 
   Future<void> _openSettings() async {
-    await processingController.discardCurrent();
-    if (!mounted) return;
-    widget.onFinished();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = navigatorKey.currentContext;
-      if (context != null) AppNavigator.openSettings(context);
-    });
+    if (_saving || _finishing || _openingSettings) return;
+    _openingSettings = true;
+    try {
+      await AppNavigator.openSettings(context);
+      if (mounted) setState(() => _approvedSettings = null);
+    } finally {
+      _openingSettings = false;
+    }
   }
 
   @override
@@ -121,32 +188,22 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
 
     return Padding(
       padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: media.size.height * 0.92),
-        child: Container(
-          decoration: BoxDecoration(
-            color: context.palette.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: body.fill ? MainAxisSize.max : MainAxisSize.min,
-              children: [
-                const _DragHandle(),
-                if (body.fill)
-                  Expanded(child: body.content)
-                else
-                  Flexible(child: body.content),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: AppBottomSheetFrame(expand: body.fill, child: body.content),
     );
   }
 
   _ShareBody _selectBody(ProcessingState state) {
+    final approvedSettings = _approvedSettings;
+    if (approvedSettings == null) {
+      final settings = ref.watch(settingsControllerProvider);
+      return _ShareBody(
+        content: ShareProcessingConfirmation(
+          settings: settings,
+          onConfirm: () => _approve(settings),
+          onCancel: _finish,
+        ),
+      );
+    }
     if (state.hasError) {
       final strings = ref.watch(stringsProvider);
       return _ShareBody(
@@ -178,7 +235,9 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
         ),
       );
     }
-    return const _ShareBody(content: _ShareProcessingBody());
+    return _ShareBody(
+      content: _ShareProcessingBody(settings: approvedSettings),
+    );
   }
 }
 
@@ -190,13 +249,14 @@ class _ShareBody {
 }
 
 class _ShareProcessingBody extends ConsumerWidget {
-  const _ShareProcessingBody();
+  const _ShareProcessingBody({required this.settings});
+
+  final AppSettings settings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
     final state = ref.watch(processingControllerProvider);
-    final settings = ref.watch(settingsControllerProvider);
     final presentation = ProcessingStatusPresentation.forShareSheet(
       strings: strings,
       state: state,
@@ -208,25 +268,6 @@ class _ShareProcessingBody extends ConsumerWidget {
       child: ProcessingStatusContent(
         presentation: presentation,
         strings: strings,
-      ),
-    );
-  }
-}
-
-class _DragHandle extends StatelessWidget {
-  const _DragHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 4),
-      child: Container(
-        width: 40,
-        height: 4,
-        decoration: BoxDecoration(
-          color: context.palette.line2,
-          borderRadius: BorderRadius.circular(9999),
-        ),
       ),
     );
   }

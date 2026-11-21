@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatting.dart';
@@ -92,7 +93,6 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
   DetailAudioPlayerPort? _player;
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<DetailPlaybackState>? _playbackSubscription;
-  bool _hasAudio = false;
   bool _ready = false;
   bool _playing = false;
   Duration _position = Duration.zero;
@@ -108,13 +108,10 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
     return Duration(seconds: widget.durationSec);
   }
 
-  int get _totalSeconds => _effectiveTotal.inSeconds;
-
   @override
   void initState() {
     super.initState();
-    _hasAudio = File(widget.audioPath).existsSync();
-    if (_hasAudio) unawaited(_initialize());
+    if (File(widget.audioPath).existsSync()) unawaited(_initialize());
   }
 
   Future<void> _initialize() async {
@@ -214,10 +211,20 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final totalSec = _totalSeconds;
-    final progress = totalSec == 0
+    final strings = AppStrings.of(
+      Localizations.localeOf(context).languageCode == 'de'
+          ? AppLanguage.de
+          : AppLanguage.en,
+    );
+    final total = _effectiveTotal;
+    final progress = total == Duration.zero
         ? 0.0
-        : (_position.inMilliseconds / (totalSec * 1000)).clamp(0.0, 1.0);
+        : (_position.inMicroseconds / total.inMicroseconds).clamp(0.0, 1.0);
+    String positionLabel(double fraction) => formatDuration(
+      (fraction * total.inMicroseconds / Duration.microsecondsPerSecond)
+          .round(),
+    );
+    final totalLabel = positionLabel(1);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -226,43 +233,47 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: _hasAudio ? _toggle : null,
-            child: Opacity(
-              opacity: _hasAudio ? 1 : 0.5,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: palette.accent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: palette.accent.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+          IconButton.filled(
+            onPressed: _ready ? _toggle : null,
+            tooltip: _playing ? strings.audioPause : strings.audioPlay,
+            style:
+                IconButton.styleFrom(
+                  minimumSize: const Size.square(48),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  backgroundColor: palette.accent,
+                  foregroundColor: palette.onAccent,
+                ).copyWith(
+                  side: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.focused)
+                        ? BorderSide(color: palette.ink, width: 2)
+                        : null,
+                  ),
                 ),
-                child: Icon(
-                  _playing ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
+            icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
           ),
           const SizedBox(width: 12),
-          PlayerWave(progress: progress, onSeek: _hasAudio ? _seek : null),
-          const SizedBox(width: 12),
-          // The waveform shrinks instead of wrapping this timestamp.
-          Text(
-            '${formatDuration((progress * totalSec).round())} / ${formatDuration(totalSec)}',
-            maxLines: 1,
-            softWrap: false,
-            textAlign: TextAlign.right,
-            style: AppTheme.mono(color: palette.muted, size: 11.5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                PlayerWave(
+                  progress: progress,
+                  label: strings.audioPosition,
+                  semanticFormatterCallback: (fraction) => strings
+                      .audioPositionValue(positionLabel(fraction), totalLabel),
+                  onSeek: _ready && total > Duration.zero ? _seek : null,
+                ),
+                ExcludeSemantics(
+                  child: Text(
+                    '${positionLabel(progress)} / $totalLabel',
+                    textAlign: TextAlign.end,
+                    style: AppTheme.mono(color: palette.muted, size: 11.5),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

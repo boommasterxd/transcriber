@@ -15,6 +15,7 @@ class InputMethodRegistrationTest {
     fun manifestRegistersProtectedExportedInputMethodService() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val component = ComponentName(context, TranscriberInputMethodService::class.java)
+
         @Suppress("DEPRECATION")
         val info = context.packageManager.getServiceInfo(component, PackageManager.GET_META_DATA)
 

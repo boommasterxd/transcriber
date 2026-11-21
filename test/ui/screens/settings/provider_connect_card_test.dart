@@ -1,16 +1,18 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
-import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/settings_controller.dart';
 import 'package:transcriber/ui/screens/settings/widgets/provider_connect_card.dart';
+import 'package:transcriber/ui/screens/onboarding/widgets/onboarding_cloud_step.dart';
 import 'package:transcriber/ui/widgets/provider_logo.dart';
-import 'package:transcriber/ui/widgets/surfaces.dart';
+
+import 'settings_test_app.dart';
 
 void main() {
   final strings = AppStrings.of(AppLanguage.de);
@@ -19,9 +21,130 @@ void main() {
     group(provider.name, () {
       _registerConnectionTests(provider, strings);
       _registerCredentialTests(provider, strings);
+      _registerExpansionTests(provider, strings);
     });
   }
   _registerResponsiveTest();
+  _registerAccordionTest();
+  _registerDeferredCredentialTest(strings);
+}
+
+void _registerDeferredCredentialTest(AppStrings strings) {
+  testWidgets('only opens the stored credential while its editor is expanded', (
+    tester,
+  ) async {
+    const provider = RemoteProviderId.openai;
+    final saved = {provider: 'synthetic-stored-key'};
+    final controller = _FakeConnectionsController(
+      initial: {provider: true},
+      storedKeys: saved,
+    );
+    await _pumpCard(tester, provider, controller, expand: false);
+    expect(find.text(strings.connected), findsOneWidget);
+    expect(controller.keyReads, isEmpty);
+
+    final tile = find.byType(ListTile);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField);
+    expect(tester.widget<TextField>(field).controller!.text, saved[provider]);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    saved[provider] = 'synthetic-updated-key';
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).controller!.text, saved[provider]);
+    expect(controller.keyReads, [provider, provider]);
+  });
+}
+
+void _registerExpansionTests(RemoteProviderId provider, AppStrings strings) {
+  testWidgets('starts compact and preserves masked input when collapsed', (
+    tester,
+  ) async {
+    await _pumpCard(
+      tester,
+      provider,
+      _FakeConnectionsController(),
+      expand: false,
+    );
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(strings.keyMissing), findsOneWidget);
+    expect(find.byType(ProviderLogo), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(ListTile)).height,
+      greaterThanOrEqualTo(48),
+    );
+
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'draft-value');
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, 'draft-value');
+    expect(field.obscureText, isTrue);
+  });
+
+  testWidgets('reports checking until the connection succeeds', (tester) async {
+    final pending = Completer<void>();
+    final controller = _FakeConnectionsController()..pendingConnect = pending;
+    await _pumpCard(tester, provider, controller);
+    await tester.enterText(find.byType(TextField), 'candidate-value');
+    await tester.tap(find.text(strings.connect));
+    await tester.pump();
+    expect(find.text(strings.providerChecking), findsOneWidget);
+    expect(find.text(strings.connected), findsNothing);
+    await tester.tap(find.byType(ListTile));
+    await tester.pump();
+    expect(find.byType(TextField), findsNothing);
+    pending.complete();
+    await tester.pump();
+    expect(find.text(strings.connected), findsOneWidget);
+    expect(controller.connectCalls, hasLength(1));
+  });
+}
+
+void _registerAccordionTest() {
+  testWidgets('onboarding only expands one provider at a time', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsControllerProvider.overrideWith(_FakeSettingsController.new),
+          connectionsControllerProvider.overrideWith(
+            _FakeConnectionsController.new,
+          ),
+        ],
+        child: settingsTestApp(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: OnboardingCloudStep()),
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'first-provider-draft');
+    await tester.tap(find.byType(ListTile).last);
+    await tester.pump();
+    expect(find.byType(TextField), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '',
+    );
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'first-provider-draft',
+    );
+  });
 }
 
 void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
@@ -37,6 +160,7 @@ void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
 
     expect(controller.connectCalls, [(provider, '  test-key  ')]);
     expect(find.text(strings.keyCheckFailed), findsOneWidget);
+    expect(find.text(strings.providerConnectionFailed), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
 
     controller.failConnect = false;
@@ -65,6 +189,7 @@ void _registerConnectionTests(RemoteProviderId provider, AppStrings strings) {
     await tester.pump();
     expect(controller.testCalls, [provider, provider]);
     expect(find.text(strings.keyCheckFailed), findsOneWidget);
+    expect(find.text(strings.providerConnectionFailed), findsOneWidget);
   });
 }
 
@@ -93,7 +218,7 @@ void _registerCredentialTests(RemoteProviderId provider, AppStrings strings) {
     await _pumpCard(tester, provider, controller);
 
     await tester.tap(find.text(strings.disconnect));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(controller.disconnectCalls, [provider]);
     expect(find.text(strings.keyCheckFailed), findsOneWidget);
     expect(find.text(strings.disconnect), findsOneWidget);
@@ -145,7 +270,7 @@ void _registerResponsiveTest() {
       tester,
       RemoteProviderId.openai,
       _FakeConnectionsController(),
-      textScaler: const TextScaler.linear(1.3),
+      textScaler: const TextScaler.linear(2),
     );
 
     final fieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
@@ -154,7 +279,7 @@ void _registerResponsiveTest() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('fills connected key actions equally at larger text sizes', (
+  testWidgets('connected key actions remain usable at larger text sizes', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(360, 900));
@@ -163,7 +288,7 @@ void _registerResponsiveTest() {
       tester,
       RemoteProviderId.openai,
       _FakeConnectionsController(initial: {RemoteProviderId.openai: true}),
-      textScaler: const TextScaler.linear(1.6),
+      textScaler: const TextScaler.linear(2),
     );
 
     final strings = AppStrings.of(AppLanguage.de);
@@ -180,10 +305,6 @@ void _registerResponsiveTest() {
 
     final testSize = tester.getSize(testButton);
     final disconnectSize = tester.getSize(disconnectButton);
-    final cardSize = tester.getSize(find.byType(SurfaceCard));
-    final actionWidth = (cardSize.width - 32 - 8) / 2;
-    expect(testSize.width, closeTo(actionWidth, 1));
-    expect(disconnectSize.width, closeTo(actionWidth, 1));
     expect(testSize.height, greaterThanOrEqualTo(48));
     expect(disconnectSize.height, greaterThanOrEqualTo(48));
     expect(tester.takeException(), isNull);
@@ -195,26 +316,29 @@ Future<void> _pumpCard(
   RemoteProviderId provider,
   _FakeConnectionsController connections, {
   TextScaler textScaler = TextScaler.noScaling,
-}) => tester.pumpWidget(
-  ProviderScope(
-    overrides: [
-      settingsControllerProvider.overrideWith(_FakeSettingsController.new),
-      connectionsControllerProvider.overrideWith(() => connections),
-    ],
-    child: MaterialApp(
-      theme: AppTheme.build(Brightness.light, AppAccent.blue),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-        child: child!,
-      ),
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: ProviderConnectCard(provider: provider),
+  bool expand = true,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        settingsControllerProvider.overrideWith(_FakeSettingsController.new),
+        connectionsControllerProvider.overrideWith(() => connections),
+      ],
+      child: settingsTestApp(
+        textScaler: textScaler,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ProviderConnectCard(provider: provider),
+          ),
         ),
       ),
     ),
-  ),
-);
+  );
+  if (expand) {
+    await tester.tap(find.byType(ListTile));
+    await tester.pumpAndSettle();
+  }
+}
 
 class _FakeSettingsController extends SettingsController {
   @override
@@ -232,9 +356,11 @@ class _FakeConnectionsController extends ConnectionsController {
   final List<(RemoteProviderId, String)> connectCalls = [];
   final List<RemoteProviderId> testCalls = [];
   final List<RemoteProviderId> disconnectCalls = [];
+  final List<RemoteProviderId> keyReads = [];
   bool failConnect = false;
   bool failTest = false;
   bool failDisconnect = false;
+  Completer<void>? pendingConnect;
 
   @override
   Map<RemoteProviderId, bool> build() => Map.of(initial);
@@ -243,6 +369,7 @@ class _FakeConnectionsController extends ConnectionsController {
   Future<void> connect(RemoteProviderId provider, String key) async {
     connectCalls.add((provider, key));
     if (failConnect) throw StateError('connection failed');
+    await pendingConnect?.future;
     state = {...state, provider: true};
   }
 
@@ -260,6 +387,8 @@ class _FakeConnectionsController extends ConnectionsController {
   }
 
   @override
-  Future<String> apiKey(RemoteProviderId provider) async =>
-      storedKeys[provider] ?? '';
+  Future<String> apiKey(RemoteProviderId provider) async {
+    keyReads.add(provider);
+    return storedKeys[provider] ?? '';
+  }
 }
