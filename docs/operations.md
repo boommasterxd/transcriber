@@ -171,7 +171,7 @@ Publication jobs are serialized by the normalized version without interrupting a
 
 ### Artifacts and verification
 
-The unsigned APK passes to the signing job in the `android-unsigned` Actions artifact. The signing job produces exactly `transcriber-<version>-android.apk` and its `SHA256SUMS` in `android-signed`. The publication job verifies the file set and checksum. The GitHub CLI then creates a draft with generated release notes, uploads both files, and publishes GitHub Release `v<version>`. This order also supports [immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases). An already published version is rejected. The two intermediate Actions artifacts have three-day retention and are deleted after publication.
+The unsigned APK passes to the signing job in the `android-unsigned` Actions artifact. The signing job produces exactly `transcriber-<version>-android.apk` and its `SHA256SUMS` in `android-signed`. The publication job verifies the file set and checksum. The GitHub CLI then creates a draft with generated release notes, uploads both files, and publishes GitHub Release `v<version>`. This order also supports [immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases). An already published version is rejected. The workflow attempts to delete the intermediate Actions artifacts after publication. Any remaining artifacts expire after three days.
 
 Download the APK and `SHA256SUMS` from the same release into one directory. From that directory, verify the download before installing:
 
