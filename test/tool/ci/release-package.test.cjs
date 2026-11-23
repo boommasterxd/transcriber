@@ -64,6 +64,24 @@ test('manual release retains the built commit after the default branch advances'
   assert.equal(git('tag', '--list'), '');
 });
 
+test('workflow changes on main require a new dispatch before publishing', (t) => {
+  const { root, git, built } = releaseRepository(t);
+  const workflows = path.join(root, '.github', 'workflows');
+  fs.mkdirSync(workflows, { recursive: true });
+  fs.writeFileSync(path.join(workflows, 'release.yml'), 'name: Release\n');
+  git('add', '.github/workflows/release.yml');
+  git('commit', '-m', 'Change release workflow');
+
+  const stale = runScript('verify_release_tag.sh', ['1.2.3', built], { cwd: root });
+  assert.notEqual(stale.status, 0);
+  assert.equal(stale.stdout, '');
+  assert.match(stale.stderr, /Start a new release from current main/);
+
+  const current = runScript('verify_release_tag.sh', ['1.2.3', git('rev-parse', 'HEAD')], { cwd: root });
+  assert.equal(current.status, 0, current.stderr);
+  assert.equal(current.stdout, 'v1.2.3\n');
+});
+
 test('existing lightweight and annotated tags must resolve to the built commit', (t) => {
   const { root, git, built, current } = releaseRepository(t);
   git('tag', 'v1.2.3', built);

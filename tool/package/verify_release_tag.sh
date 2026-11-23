@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Print the release tag only if it is absent or resolves to the built commit.
+# Check the built revision against the remote workflows and proposed release tag.
 set -euo pipefail
 version="${1:?usage: verify_release_tag.sh <version> <built-commit>}"
 commit="${2:?usage: verify_release_tag.sh <version> <built-commit>}"
@@ -25,4 +25,13 @@ if [[ -n "$target" && "$target" != "$commit" ]]; then
   echo 'Release tag does not match the built commit; publication refused.' >&2
   exit 1
 fi
+
+# GitHub requires a token with Workflows write access to publish a target with
+# different workflow files. The Actions token cannot be given that permission.
+timeout 30s git fetch --quiet --no-tags --depth=1 origin refs/heads/main
+if ! git diff --quiet --no-ext-diff "$commit" FETCH_HEAD -- .github/workflows/; then
+  echo 'Cannot verify matching workflow files on main. Start a new release from current main instead of rerunning this build.' >&2
+  exit 1
+fi
+
 printf '%s\n' "$tag"

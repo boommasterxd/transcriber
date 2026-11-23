@@ -166,7 +166,7 @@ jobs:
           BUILD_VERSION: ${{ needs.android.outputs.version }}
         run: bash tool/package/verify_release_assets.sh "$BUILD_VERSION" dist
 
-      - name: Verify release tag against built commit
+      - name: Verify release tag and workflow files
         id: tag
         env:
           BUILD_VERSION: ${{ needs.android.outputs.version }}
@@ -176,16 +176,16 @@ jobs:
           echo "name=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Create release
-        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
-        with:
-          tag_name: ${{ steps.tag.outputs.name }}
-          target_commitish: ${{ needs.android.outputs.commit }}
-          name: ${{ steps.tag.outputs.name }}
-          files: |
-            dist/transcriber-${{ needs.android.outputs.version }}-android.apk
-            dist/SHA256SUMS
-          fail_on_unmatched_files: true
-          generate_release_notes: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+          BUILT_COMMIT: ${{ needs.android.outputs.commit }}
+          BUILD_VERSION: ${{ needs.android.outputs.version }}
+        run: |
+          # With assets, gh creates a draft and publishes only after both uploads.
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" \
+            --target "$BUILT_COMMIT" --generate-notes \
+            "dist/transcriber-$BUILD_VERSION-android.apk" dist/SHA256SUMS
 
       - name: Delete build artifacts (now published on the release)
         # The intermediates only hand the APK between jobs. Drop them
