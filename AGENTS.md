@@ -120,6 +120,7 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 | [`docs/configuration.md`](docs/configuration.md) | Documents supported toolchains, runtime settings, external services, and secret handling. |
 | [`docs/decisions/bounded-native-recording.md`](docs/decisions/bounded-native-recording.md) | Explains native WAV byte limits, capture ownership, and lifecycle synchronization. |
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |
+| [`docs/decisions/repository-admin-bypass.md`](docs/decisions/repository-admin-bypass.md) | Records the owner's accepted admin bypass and its effect on required checks. |
 | [`docs/operations.md`](docs/operations.md) | Provides local development, validation, build, and release operating procedures. |
 | [`docs/privacy-policy.md`](docs/privacy-policy.md) | Contains the German privacy policy for Transcriber. |
 | [`docs/provider-setup.md`](docs/provider-setup.md) | Explains how to create and safely configure OpenAI and Gemini API keys. |

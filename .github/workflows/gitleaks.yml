@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: gitleaks-${{ github.ref }}
+  group: gitleaks-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -25,31 +25,53 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26.x"
           check-latest: true
           package-manager-cache: false
       - name: Run gitleaks
+        shell: bash
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          ver=$(jq -er '.version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' .gitleaks-version)
-          sum=$(jq -er '.sha256 | select(test("^[a-f0-9]{64}$"))' .gitleaks-version)
-          scanner_dir=$(mktemp -d "$RUNNER_TEMP/gitleaks.XXXXXX")
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" -o "$scanner_dir/gitleaks.tar.gz"
-          printf '%s  %s\n' "$sum" "$scanner_dir/gitleaks.tar.gz" | sha256sum -c -
-          tar -xzf "$scanner_dir/gitleaks.tar.gz" -C "$scanner_dir" gitleaks
-          GITLEAKS_EXECUTABLE="$scanner_dir/gitleaks" node --test test/tool/ci/gitleaks.integration.cjs
-          "$scanner_dir/gitleaks" dir --no-banner --redact --exit-code 1 .
-
-          log_options=""
+          set -euo pipefail
+          trusted_sha="$GITHUB_SHA"
+          log_range="--full-history --all --diff-filter=tuxdb"
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            for sha in "$PR_BASE_SHA" "$PR_HEAD_SHA"; do
-              [[ "$sha" =~ ^[a-fA-F0-9]{40}$ && ! "$sha" =~ ^0+$ ]] || exit 1
-              git cat-file -e "${sha}^{commit}"
-            done
-            log_options="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+            trusted_sha="$PR_BASE_SHA"
+            [[ "$PR_HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]
+            git cat-file -e "${PR_HEAD_SHA}^{commit}"
+            log_range="$PR_BASE_SHA..$PR_HEAD_SHA"
           fi
-          "$scanner_dir/gitleaks" git --no-banner --redact --exit-code 1 --log-opts="$log_options" .
+          [[ "$trusted_sha" =~ ^[a-f0-9]{40}$ ]]
+          git cat-file -e "${trusted_sha}^{commit}"
+
+          scanner_dir=$(mktemp -d "$RUNNER_TEMP/gitleaks.XXXXXX")
+          trusted="$scanner_dir/trusted"
+          mkdir -p "$trusted/test/tool/ci"
+          for path in .gitleaks-version .gitleaks.toml .gitleaksignore test/tool/ci/gitleaks.integration.cjs; do
+            git show "$trusted_sha:$path" > "$trusted/$path"
+          done
+          ver=$(jq -er '.version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' "$trusted/.gitleaks-version")
+          sum=$(jq -er '.sha256 | select(test("^[a-f0-9]{64}$"))' "$trusted/.gitleaks-version")
+          archive="$scanner_dir/gitleaks.tar.gz"
+          curl --fail --silent --show-error --location --max-time 60 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" -o "$archive"
+          printf '%s  %s\n' "$sum" "$archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$scanner_dir" gitleaks
+          GITLEAKS_EXECUTABLE="$scanner_dir/gitleaks" node --test "$trusted/test/tool/ci/gitleaks.integration.cjs"
+
+          # The CLI also loads .gitleaksignore at the scan root. Keep the checkout's
+          # copy in the tree as scan input, outside that special location.
+          if [[ -e .gitleaksignore || -L .gitleaksignore ]]; then
+            scan_input=$(mktemp -d .gitleaks-input.XXXXXX)
+            mv -T -- .gitleaksignore "$scan_input/.gitleaksignore"
+          fi
+          flags=(--config "$trusted/.gitleaks.toml" --gitleaks-ignore-path "$trusted/.gitleaksignore"
+            --ignore-gitleaks-allow --timeout 180 --no-banner --redact --exit-code 1)
+          "$scanner_dir/gitleaks" dir "${flags[@]}" .
+          "$scanner_dir/gitleaks" git "${flags[@]}" \
+            --log-opts="--diff-merges=first-parent --no-ext-diff --no-textconv --text $log_range" .

@@ -10,10 +10,12 @@ const test = require('node:test');
 const scanner = process.env.GITLEAKS_EXECUTABLE;
 const config = path.resolve(__dirname, '../../../.gitleaks.toml');
 const repositoryIgnore = path.resolve(__dirname, '../../../.gitleaksignore');
+const historyFlags = '--diff-merges=first-parent --no-ext-diff --no-textconv --text';
 
 function scan(arguments_, cwd, ignorePath = repositoryIgnore) {
   const result = childProcess.spawnSync(scanner, [...arguments_, '--no-banner', '--redact',
-    '--exit-code', '1', '--config', config, '--gitleaks-ignore-path', ignorePath], {
+    '--exit-code', '1', '--ignore-gitleaks-allow',
+    '--config', config, '--gitleaks-ignore-path', ignorePath], {
     cwd, encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024,
   });
   // Scanner output remains private even when a synthetic fixture fails.
@@ -23,7 +25,7 @@ function scan(arguments_, cwd, ignorePath = repositoryIgnore) {
 }
 
 function syntheticCredential() {
-  return ['token=ghp_', 'aB3dE6gH9jK2mN5pQ8', 'rS1uV4xY7zA0cD3fG6', '\n'].join('');
+  return ['token=ghp_', 'aB3dE6gH9jK2mN5pQ8', 'rS1uV4xY7zA0cD3fG6', ' # gitleaks:allow\n'].join('');
 }
 
 function fixture(context) {
@@ -70,6 +72,7 @@ test('the pinned scanner detects synthetic credentials in every previously exclu
 test('introduced history still fails after synthetic test credentials are deleted', (context) => {
   const { directory, git } = repositoryFixture(context);
   const base = git('rev-parse', 'HEAD');
+  fs.writeFileSync(path.join(directory, '.gitattributes'), 'test/fixture.txt -diff\n');
   const target = path.join(directory, 'test', 'fixture.txt');
   fs.mkdirSync(path.dirname(target));
   fs.writeFileSync(target, syntheticCredential());
@@ -80,7 +83,7 @@ test('introduced history still fails after synthetic test credentials are delete
   git('commit', '-qm', 'test: remove synthetic detector fixture');
   const head = git('rev-parse', 'HEAD');
   assert.equal(scan(['dir', directory], directory), 0, 'Clean merge tree must pass.');
-  assert.equal(scan(['git', '--log-opts', base + '..' + head, directory], directory), 1,
+  assert.equal(scan(['git', '--log-opts', `${historyFlags} ${base}..${head}`, directory], directory), 1,
     'Introduced history must still reject a deleted synthetic credential.');
 });
 
