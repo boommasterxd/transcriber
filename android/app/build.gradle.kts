@@ -105,7 +105,7 @@ dependencies {
         }
     }
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("org.robolectric:robolectric:4.18.1")
     testImplementation("org.mockito:mockito-core:5.24.0")
     // Keep Kotlin's runtime lock graph stable (Gradle issue 21396).
     runtimeOnly("org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21")
@@ -131,7 +131,7 @@ configurations.matching { it.name in auditedClasspaths }.configureEach {
 val robolectricSdks = listOf(
     "8.1.0-robolectric-4611349-i7",
     "9-robolectric-4913185-2-i7",
-    "15-robolectric-13954326-i7",
+    "15-robolectric-14663667-2-i7",
 ).mapIndexed { index, version ->
     configurations.create("robolectricSdk$index") {
         isCanBeConsumed = false
