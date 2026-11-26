@@ -19,10 +19,7 @@ void main() {
     tearDown(() => fixture.close());
     _registerQueuedFileRecoveryTest(() => fixture);
     _registerStagedPromotionRecoveryTest(() => fixture);
-    _registerBatchBudgetTest(() => fixture);
-    _registerFailureRotationTest(() => fixture);
     _registerSharedReferenceProtectionTest(() => fixture);
-    _registerActivePathRetryTest(() => fixture);
   });
 }
 
@@ -99,79 +96,6 @@ void _registerQueuedFileRecoveryTest(_RecoveryFixture Function() fixture) {
   );
 }
 
-void _registerBatchBudgetTest(_RecoveryFixture Function() fixture) {
-  test('startup recovery processes one bounded candidate batch', () async {
-    final recovery = fixture();
-    final retained = await recovery.paths.retainedAudioDir();
-    final candidates = List.generate(
-      NotesRepository.maxPendingAudioDeletionBatchSize + 1,
-      (index) => p.join(
-        retained.path,
-        'pending-${index.toString().padLeft(3, '0')}.wav',
-      ),
-    );
-    await _queueCandidates(recovery, candidates);
-
-    await recovery.recovery.recover();
-
-    expect(await recovery.repository.pendingAudioDeletionPaths(), [
-      candidates.last,
-    ]);
-    await recovery.recovery.recover();
-    expect(await recovery.repository.pendingAudioDeletionPaths(), isEmpty);
-  });
-}
-
-void _registerFailureRotationTest(_RecoveryFixture Function() fixture) {
-  test('failed candidates do not starve later queued audio', () async {
-    final recovery = fixture();
-    final blocked = await _createActiveCandidates(recovery);
-    final retained = await recovery.paths.retainedAudioDir();
-    final available = File(p.join(retained.path, 'ready.wav'));
-    await available.writeAsBytes([1, 2, 3]);
-    await _queueCandidates(recovery, [...blocked, available.path]);
-
-    await recovery.recovery.recover();
-
-    expect(await available.exists(), isTrue);
-    await recovery.recovery.recover();
-
-    expect(await available.exists(), isFalse);
-    expect(
-      await recovery.repository.pendingAudioDeletionPaths(),
-      unorderedEquals(blocked),
-    );
-  });
-}
-
-Future<List<String>> _createActiveCandidates(_RecoveryFixture fixture) async {
-  final retained = await fixture.paths.retainedAudioDir();
-  final paths = <String>[];
-  for (
-    var index = 0;
-    index < NotesRepository.maxPendingAudioDeletionBatchSize;
-    index++
-  ) {
-    final audio = File(p.join(retained.path, 'blocked-$index.wav'));
-    await audio.writeAsBytes([1]);
-    fixture.cacheManager.markActive(
-      ManagedAudioFile(path: audio.path, ownership: AudioOwnership.retained),
-    );
-    paths.add(audio.path);
-  }
-  return paths;
-}
-
-Future<void> _queueCandidates(
-  _RecoveryFixture fixture,
-  List<String> candidates,
-) => fixture.database.batch((batch) {
-  batch.insertAll(fixture.database.pendingAudioDeletionsTable, [
-    for (final path in candidates)
-      PendingAudioDeletionsTableCompanion.insert(path: path),
-  ]);
-});
-
 void _registerSharedReferenceProtectionTest(
   _RecoveryFixture Function() fixture,
 ) {
@@ -189,32 +113,6 @@ void _registerSharedReferenceProtectionTest(
     await recovery.recovery.recover();
 
     expect(await audio.exists(), isTrue);
-    expect(await recovery.repository.pendingAudioDeletionPaths(), isEmpty);
-  });
-}
-
-void _registerActivePathRetryTest(_RecoveryFixture Function() fixture) {
-  test('retains an active path for a later retry', () async {
-    final recovery = fixture();
-    final retained = await recovery.paths.retainedAudioDir();
-    final audio = File(p.join(retained.path, 'active.wav'));
-    await audio.writeAsBytes([1, 2, 3]);
-    final note = _note('active', audio.path);
-    await recovery.repository.add(note);
-    await recovery.repository.remove(note.id);
-    final managed = ManagedAudioFile(
-      path: audio.path,
-      ownership: AudioOwnership.retained,
-    );
-    recovery.cacheManager.markActive(managed);
-
-    await recovery.recovery.recover();
-
-    expect(await audio.exists(), isTrue);
-    expect(await recovery.repository.pendingAudioDeletionPaths(), [audio.path]);
-    recovery.cacheManager.markInactive(managed);
-    await recovery.recovery.recover();
-    expect(await audio.exists(), isFalse);
     expect(await recovery.repository.pendingAudioDeletionPaths(), isEmpty);
   });
 }

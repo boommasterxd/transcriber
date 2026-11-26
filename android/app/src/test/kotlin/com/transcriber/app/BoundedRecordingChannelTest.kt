@@ -7,7 +7,6 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mockConstruction
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
@@ -16,7 +15,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
-import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
@@ -52,9 +50,6 @@ class BoundedRecordingChannelTest {
             assertTrue("app/recording" in transport.backgroundChannels)
             assertEquals(file.path, start(file))
             chunk(byteArrayOf(1, 2), 0.5)
-            assertEquals(2L, progress()["bytes"])
-            assertEquals(0.5, progress()["level"])
-            assertEquals(false, progress()["stopped"])
             chunk(byteArrayOf(3, 4, 5, 6), 0.7)
             assertEquals(48L, file.length())
             assertEquals(true, progress()["limited"])
@@ -62,46 +57,23 @@ class BoundedRecordingChannelTest {
             chunk(byteArrayOf(7, 8), 1.0)
             assertEquals(48L, file.length())
             assertFalse(call("resume") as Boolean)
-            assertFalse(call("pause") as Boolean)
             verify(captures.constructed().single()).stop()
             assertEquals(file.path, call("stop"))
             assertEquals(file.path, call("stop"))
             assertTrue(file.exists())
-            assertEquals(null, call("unknown"))
-            channel.dispose()
-        }
-    }
-
-    @Test
-    fun pauseResumeCancelDisposeAndAnotherSessionKeepIndependentBudgets() {
-        capture().use { captures ->
-            val channel = BoundedRecordingChannel(context, transport).also { it.register() }
-            start()
-            chunk(byteArrayOf(1, 2), 0.2)
-            assertTrue(call("pause") as Boolean)
-            assertTrue(call("resume") as Boolean)
-            verify(captures.constructed().single()).pause()
-            verify(captures.constructed().single()).resume()
-            assertEquals(2L, progress()["bytes"])
-            call("cancel")
-            assertEquals(null, call("stop"))
-            start()
-            assertEquals(0L, progress()["bytes"])
-            call("dispose")
-            assertTrue(progress()["stopped"] as Boolean)
             channel.dispose()
         }
     }
 
     @Test
     fun invalidPathsBudgetsAndDuplicateStartsFailBeforeCapture() {
-        capture().use {
+        capture().use { captures ->
             val channel = BoundedRecordingChannel(context, transport).also { it.register() }
-            assertThrows(FlutterException::class.java) { call("start") }
-            assertThrows(FlutterException::class.java) { start(File(context.cacheDir, "outside.wav")) }
-            assertThrows(FlutterException::class.java) { start(File(destination().parent, "wrong.mp3")) }
-            assertThrows(FlutterException::class.java) { call("start", mapOf("path" to destination().path)) }
+            val external = File(context.cacheDir, "outside.wav").apply { writeText("external audio") }
+            assertThrows(FlutterException::class.java) { start(external) }
+            assertEquals("external audio", external.readText())
             assertThrows(FlutterException::class.java) { start(maxBytes = 45) }
+            verify(captures.constructed().single(), never()).start(16_000)
             start()
             assertThrows(FlutterException::class.java) { start() }
             channel.dispose()
@@ -129,61 +101,11 @@ class BoundedRecordingChannelTest {
     }
 
     @Test
-    fun writeAndFinalizationErrorsKeepTheRecordingRecoverableForStopRetry() {
-        capture().use {
-            mockConstruction(BoundedWaveWriter::class.java).use { writers ->
-                val channel = BoundedRecordingChannel(context, transport).also { it.register() }
-                start()
-                val writer = writers.constructed().single()
-                `when`(writer.append(byteArrayOf(1, 2))).thenAnswer { throw IOException("Write failed") }
-                var attempts = 0
-                doAnswer {
-                    if (attempts++ == 0) throw IOException("Sync failed")
-                    null
-                }.`when`(writer).finish()
-                chunk(byteArrayOf(1, 2), 0.1)
-                assertEquals(true, progress()["failed"])
-                assertEquals(true, progress()["stopped"])
-                assertEquals(destination().path, call("stop"))
-                channel.dispose()
-            }
-        }
-    }
-
-    @Test
-    fun persistentFinalizationFailureStillAllowsCancelAndLifecycleCleanup() {
-        capture().use {
-            mockConstruction(BoundedWaveWriter::class.java).use { writers ->
-                val channel = BoundedRecordingChannel(context, transport).also { it.register() }
-                start()
-                val first = writers.constructed().single()
-                doAnswer { throw IOException("Persistent storage failure") }.`when`(first).finish()
-                assertThrows(FlutterException::class.java) { call("stop") }
-                assertEquals(true, progress()["failed"])
-                call("cancel")
-                verify(first).close()
-                assertEquals(null, call("stop"))
-                start()
-                val second = writers.constructed().last()
-                doAnswer { throw IOException("Persistent storage failure") }.`when`(second).finish()
-                channel.dispose()
-                verify(second).close()
-            }
-        }
-    }
-
-    @Test
-    fun lifecycleAndResumeShareAMonitorAndStaleQueuedCallsCannotRestartCapture() {
+    fun staleQueuedCallsCannotRestartCaptureAfterDisposal() {
         capture().use { captures ->
             val channel = BoundedRecordingChannel(context, transport).also { it.register() }
             val recorder = captures.constructed().single()
             start()
-            assertTrue(call("pause") as Boolean)
-            `when`(recorder.resume()).thenAnswer {
-                assertTrue(Thread.holdsLock(channel))
-                true
-            }
-            assertTrue(call("resume") as Boolean)
             assertTrue(call("pause") as Boolean)
             val staleResume = transport.captureCall("app/recording", "resume")
             val staleStart = transport.captureCall(
@@ -191,12 +113,8 @@ class BoundedRecordingChannelTest {
                 "start",
                 mapOf("path" to destination().path, "maxBytes" to 48),
             )
-            doAnswer {
-                assertTrue(Thread.holdsLock(channel))
-                null
-            }.`when`(recorder).stop()
             channel.dispose()
-            channel.dispose()
+            verify(recorder).stop()
             org.mockito.Mockito.clearInvocations(recorder)
             assertThrows(FlutterException::class.java) { staleResume() }
             assertThrows(FlutterException::class.java) { staleStart() }

@@ -28,7 +28,7 @@ The historical exceptions for Google keys detected in `app/google-services.json`
 
 [`.gitleaksignore`](../.gitleaksignore) contains exactly three fingerprints, each bound to the complete immutable commit ID, path, `gcp-api-key` rule and line 18. These exceptions apply only to those historical findings. Default detectors still cover every path, including tests and Firebase configuration; later commits, other locations and current files receive no exemption. Do not replace these entries with path, rule or credential-pattern allowlists. Reassess them if the confirmation changes or scanner fingerprint semantics change.
 
-The pinned Gitleaks release scans history and the current tree with these exceptions. Pull requests use the manifest, scanner policy, fingerprints, and regression suite from their exact base commit. Inline suppression comments are disabled. Scanner regressions check that the exact historical fingerprint is ignored and that the same synthetic credential in a later commit still fails. See [code quality](code-quality.md#ci-jobs) for scanner commands and coverage.
+The pinned Gitleaks release scans history and the current tree with these exceptions. Pull requests use the manifest, scanner policy, fingerprints, and regression suite from their exact base commit. Inline suppression comments are disabled. Scanner regressions check that the exact historical fingerprint is ignored and that the same synthetic credential in a later commit still fails. See [code quality](code-quality.md#ci-helper-regressions) for scanner commands.
 
 ### Repository Security Controls
 

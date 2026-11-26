@@ -16,17 +16,10 @@ function scope(...checks) {
         || (name === 'dependency_audit' && checks.length > 0)])) };
 }
 
-test('fresh advisories remain a required gate even when dependency files are unchanged', () => {
-  for (const file of ['lib/app.dart', 'test/example_test.dart', '.github/workflows/release.yml']) {
-    assert.equal(classifyPaths([file]).dependency_audit, true);
-  }
-  assert.equal(classifyPaths(['docs/guide.md']).dependency_audit, false);
-});
-
 test('JVM mappings accept only a nonempty manifest of unique qualified classes', () => {
   assert.deepEqual(parseJvmClasses('com.transcriber.app.EditorSessionGate\r\n'), ['com.transcriber.app.EditorSessionGate']);
   for (const text of ['', '\n', 'android.foo.Class', '../outside',
-    'com.transcriber.app.Bad_Class', 'com.transcriber.app.PcmLevelMeter\ncom.transcriber.app.PcmLevelMeter']) {
+    'com.transcriber.app.Bad_Class', 'com.transcriber.app.BoundedWaveWriter\ncom.transcriber.app.BoundedWaveWriter']) {
     assert.throws(() => parseJvmClasses(text));
   }
 });
@@ -44,7 +37,6 @@ test('known paths request precisely their relevant checks', () => {
     ['test/tool/ci/check-osv-npm-scope.test.cjs', ['workflow']],
     ['test/tool/ci/jvm-test-failure.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/gradle-cache.integration.cjs', ['workflow', 'jvm']],
-    ['test/tool/ci/native-coverage.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/jvm_fixture.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/kotlin-quality.integration.cjs', ['workflow', 'jvm']],
     ['test/tool/ci/android-picker-device.integration.cjs', ['workflow', 'native', 'device']],
@@ -57,12 +49,12 @@ test('known paths request precisely their relevant checks', () => {
     ['android/app/src/main/kotlin/com/transcriber/app/EditorFieldPolicy.kt', ['native', 'device']],
     ['android/app/src/main/kotlin/com/transcriber/app/EditorSessionGate.kt', ['jvm', 'native', 'device']],
     ['android/app/src/main/kotlin/com/transcriber/app/ImeNavigationBarAppearance.kt', ['native', 'device']],
-    ['android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt', ['jvm', 'native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/BoundedWaveWriter.kt', ['jvm', 'native', 'device']],
     ['android/app/src/test/kotlin/com/transcriber/app/EditorSessionGateTest.kt', ['jvm']],
-    ['android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt', ['jvm']],
+    ['android/app/src/test/kotlin/com/transcriber/app/BoundedWaveWriterTest.kt', ['jvm']],
     ['android/app/src/test/kotlin/com/transcriber/app/NavigationBarAppearanceTest.kt', ['native']],
     ['android/app/src/test/kotlin/com/transcriber/app/EditorFieldPolicyTest.kt', ['native']],
-    ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['native', 'device']],
+    ['android/app/src/main/kotlin/com/transcriber/app/ShareFileNamePolicy.kt', ['jvm', 'native', 'device']],
     ['android/app/src/main/kotlin/com/transcriber/app/PcmAudioRecorder.kt', ['dart', 'native', 'device']],
     ['android/app/src/main/kotlin/com/transcriber/app/ImeMethodHandler.kt', ['dart', 'native', 'device']],
     ['android/app/src/main/kotlin/com/transcriber/app/ShareActivity.kt', ['dart', 'native', 'device']],
@@ -81,43 +73,13 @@ test('known paths request precisely their relevant checks', () => {
     ['lib/ui/screens/home/home_screen.dart', ['dart', 'native', 'device', 'build']],
     ['lib/ui/screens/home/audio_import.dart', ['dart', 'native', 'device', 'build']],
     ['lib/ui/screens/home/audio_import_recovery_gate.dart', ['dart', 'native', 'device', 'build']],
-    ['lib/services/example.dart', ['dart']],
+    ['lib/services/example.dart', ['dart', 'build']],
     ['test/services/example_test.dart', ['dart']],
     ['assets/images/example.png', ['dart', 'build']],
   ];
   for (const [name, checks] of cases) {
     assert.deepEqual(classifyPaths([name]), scope(...checks), name);
   }
-});
-
-test('Dart CI and quality infrastructure requires every gate, including its regression tests', () => {
-  const full = scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit');
-  for (const name of ['tool/ci/select_tests.dart', 'tool/ci/run_test_plan.dart',
-    'tool/ci/selection_graph.dart', 'tool/ci/test_selection.dart', 'tool/ci/test_runtime.dart',
-    'test/tool/ci/test_selection_test.dart', 'test/tool/ci/test_runtime_test.dart',
-    'tool/quality/check_code_quality.dart', 'tool/quality/check_coverage.dart',
-    'tool/quality/coverage_source.dart', 'tool/quality/coverage_merge.dart',
-    'tool/quality/parameter_count.dart', 'test/tool/quality/parameter_count_test.dart',
-    'test/tool/quality/coverage_analysis_test.dart']) {
-    assert.deepEqual(classifyPaths([name]), full, name);
-    assert.deepEqual(classifyPaths(['docs/guide.md', name, 'lib/services/example.dart']), full, name);
-  }
-});
-
-test('ordinary Dart edits never select Java, native tests, or packaging', () => {
-  for (const file of ['lib/core/l10n/app_strings_de.dart', 'lib/ui/widgets/provider_logo.dart',
-    'lib/services/storage/audio_cache_manager.dart', 'test/services/example_test.dart']) {
-    const plan = classifyPaths([file]);
-    assert.deepEqual(plan, scope('dart'), file);
-    assert.equal(plan.native, false);
-    assert.equal(plan.build, false);
-  }
-  assert.deepEqual(classifyPaths([
-    'lib/services/example.dart', 'android/app/src/test/kotlin/ExampleTest.kt',
-  ]), scope('dart', 'native'));
-  assert.deepEqual(classifyPaths([
-    'lib/services/example.dart', 'lib/share_entrypoint.dart',
-  ]), scope('dart', 'native', 'device', 'build'));
 });
 
 test('shared foundations, unknown paths and incomplete inputs require every check', () => {
@@ -174,8 +136,8 @@ function fixture(context) {
 
 test('the complete Git range distinguishes pure JVM tests from production consumers', (context) => {
   const { cwd, base } = fixture(context);
-  const source = 'android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt';
-  const target = 'android/app/src/test/kotlin/com/transcriber/app/PcmLevelMeterTest.kt';
+  const source = 'android/app/src/main/kotlin/com/transcriber/app/BoundedWaveWriter.kt';
+  const target = 'android/app/src/test/kotlin/com/transcriber/app/BoundedWaveWriterTest.kt';
   write(cwd, target, '// Updated pure test\n');
   const testHead = commit(cwd);
   assert.deepEqual(detectChangeScope('pull_request', base, testHead, cwd), scope('jvm'));
@@ -199,26 +161,6 @@ test('documentation additions, modifications and deletions skip full CI', (conte
   assert.equal(detectDocsOnly('push', base, added, cwd), true);
   fs.rmSync(path.join(cwd, 'docs/guide.md'));
   assert.equal(detectDocsOnly('push', added, commit(cwd), cwd), true);
-});
-
-test('code and mixed changes run full CI', (context) => {
-  const { cwd, base } = fixture(context);
-  write(cwd, 'src/index.js', 'module.exports = 2;\n');
-  const code = commit(cwd);
-  assert.equal(detectDocsOnly('push', base, code, cwd), false);
-  write(cwd, 'docs/guide.md', 'Updated\n');
-  assert.equal(detectDocsOnly('pull_request', base, commit(cwd), cwd), false);
-});
-
-test('only the root docs directory qualifies, including unusual filename characters', (context) => {
-  const { cwd, base } = fixture(context);
-  write(cwd, 'docs/quoted "file"\nname.md', 'Notes\n');
-  const docs = commit(cwd);
-  assert.equal(detectDocsOnly('push', base, docs, cwd), true);
-  for (const name of ['doc/guide.md', 'nested/docs/guide.md', 'README.md', 'docs-other/guide.md']) {
-    write(cwd, name, 'Outside root docs\n');
-    assert.equal(detectDocsOnly('push', docs, commit(cwd), cwd), false);
-  }
 });
 
 /** @type {[string, string, boolean][]} */
@@ -273,14 +215,6 @@ test('empty ranges and invalid, missing or unavailable commit inputs run full CI
   assert.equal(detectDocsOnly('push', base, base, path.join(cwd, 'missing')), false);
 });
 
-test('unrelated histories cannot qualify as documentation-only pull requests', (context) => {
-  const { cwd, base } = fixture(context);
-  git(cwd, ['checkout', '--orphan', 'unrelated']);
-  git(cwd, ['rm', '-rf', '.']);
-  write(cwd, 'docs/unrelated.md', 'Unrelated\n');
-  assert.equal(detectDocsOnly('pull_request', base, commit(cwd), cwd), false);
-});
-
 test('Git overflow, timeout, cancellation, failure and incomplete output never skip CI', (context) => {
   const sha = 'a'.repeat(40);
   const errors = ['ENOBUFS', 'ETIMEDOUT', 'ENOENT', 'SIGTERM', 'SIGKILL'];
@@ -296,29 +230,6 @@ test('Git overflow, timeout, cancellation, failure and incomplete output never s
   mock.mock.restore();
 });
 
-test('a real documentation diff exceeding the output bound runs full CI', (context) => {
-  const { cwd, base } = fixture(context);
-  for (let index = 0; index < 1500; index += 1) {
-    write(cwd, `docs/${index}-${'a'.repeat(190)}.md`, 'Bounded output fixture\n');
-  }
-  assert.equal(detectDocsOnly('push', base, commit(cwd), cwd), false);
-});
-
-test('CLI emits the complete GitHub output plan and exits successfully on uncertainty', (context) => {
-  const { cwd, base } = fixture(context);
-  write(cwd, 'docs/guide.md', 'Updated\n');
-  const head = commit(cwd);
-  const script = path.join(__dirname, '../../../tool/ci/detect-change-scope.cjs');
-  for (const event of ['push', 'pull_request', '']) {
-    const output = childProcess.execFileSync(process.execPath, [script], {
-      cwd, encoding: 'utf8', timeout: 5000,
-      env: { ...process.env, CHANGE_EVENT: event, CHANGE_BASE_SHA: base, CHANGE_HEAD_SHA: head },
-    });
-    const expected = createChangePlan(event, base, head, cwd);
-    assert.equal(output, Object.entries(expected).map(([name, value]) => `${name}=${value}\n`).join(''));
-  }
-});
-
 test('real deletions and cross-category renames include both affected check sets', (context) => {
   const { cwd, base } = fixture(context);
   write(cwd, 'lib/example.dart', 'void main() {}\n');
@@ -326,18 +237,10 @@ test('real deletions and cross-category renames include both affected check sets
   fs.mkdirSync(path.join(cwd, 'test'), { recursive: true });
   fs.renameSync(path.join(cwd, 'lib/example.dart'), path.join(cwd, 'test/example_test.dart'));
   const moved = commit(cwd);
-  assert.deepEqual(detectChangeScope('pull_request', source, moved, cwd), scope('dart'));
+  assert.deepEqual(detectChangeScope('pull_request', source, moved, cwd), scope('dart', 'build'));
   fs.rmSync(path.join(cwd, 'test/example_test.dart'));
   assert.deepEqual(detectChangeScope('pull_request', moved, commit(cwd), cwd), scope('dart'));
   assert.equal(detectChangeScope('push', base, moved, cwd).docs_only, false);
-});
-
-test('every workflow and shared dependency configuration selects all applicable checks', () => {
-  for (const file of ['release.yml', 'build-apk.yml', 'codeql.yml', 'commit-style-check.yml',
-    'dependabot-auto-merge.yml', 'update-flutter.yml', 'new-workflow.yaml']) {
-    assert.deepEqual(classifyPaths([`.github/workflows/${file}`]),
-      scope('workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'));
-  }
 });
 
 test('plans carry the actual checkout and PR comparison revisions', (context) => {

@@ -16,12 +16,19 @@ class InputMethodDeviceTest {
     fun realEditorChangesHonorMissingMicrophoneAndProtectPassword() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val target = instrumentation.targetContext
+        val component = ComponentName(target, TranscriberInputMethodService::class.java)
+
+        @Suppress("DEPRECATION")
+        val service = target.packageManager.getServiceInfo(component, PackageManager.GET_META_DATA)
+        assertTrue(service.exported)
+        assertEquals(Manifest.permission.BIND_INPUT_METHOD, service.permission)
+        assertEquals(R.xml.input_method, service.metaData.getInt("android.view.im"))
         assertEquals(
             "Device test requires an isolated app with the microphone permission denied",
             PackageManager.PERMISSION_DENIED,
             target.checkSelfPermission(Manifest.permission.RECORD_AUDIO),
         )
-        val transcriber = ComponentName(target, TranscriberInputMethodService::class.java).flattenToShortString()
+        val transcriber = component.flattenToShortString()
         DeviceUi(instrumentation).use { ui ->
             val previous = ui.shell("settings get secure default_input_method")
             assertTrue(

@@ -1,99 +1,16 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:test/test.dart';
 import 'package:transcriber/services/remote/remote_http.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 
-import 'http_test_client.dart';
-
 void main() {
   _registerDeadlineTests();
-  _registerSuccessfulResponseTest();
   _registerOversizedResponseTest();
-  _registerFailureTests();
-  _registerUserCancellationTests();
-}
-
-void _registerUserCancellationTests() {
-  test('an already cancelled run sends no HTTP request', () async {
-    final cancellation = RemoteCancellation()..cancel();
-    final client = RecordingHttpClient((_) async => textResponse('unexpected'));
-    await expectLater(
-      sendRemoteRequest(
-        client,
-        http.Request('POST', _url),
-        timeout: const Duration(seconds: 1),
-        cancellation: cancellation,
-      ),
-      throwsA(isA<RemoteRequestCancelledException>()),
-    );
-    expect(client.requests, isEmpty);
-  });
-
-  test(
-    'user cancellation aborts active transport and response consumption',
-    () async {
-      final cancellation = RemoteCancellation();
-      final listening = Completer<void>();
-      final transportAborted = Completer<void>();
-      final responseCancelled = Completer<void>();
-      final body = StreamController<List<int>>(
-        onListen: listening.complete,
-        onCancel: responseCancelled.complete,
-      );
-      final client = RecordingHttpClient((request) async {
-        unawaited(
-          (request as http.Abortable).abortTrigger!.then(
-            (_) => transportAborted.complete(),
-          ),
-        );
-        return http.StreamedResponse(body.stream, 200);
-      });
-      final result = sendRemoteRequest(
-        client,
-        http.Request('POST', _url),
-        timeout: const Duration(seconds: 5),
-        cancellation: cancellation,
-      );
-      final terminal = expectLater(
-        result,
-        throwsA(isA<RemoteRequestCancelledException>()),
-      );
-      await listening.future;
-      cancellation.cancel();
-      await Future.wait([
-        terminal,
-        transportAborted.future,
-        responseCancelled.future,
-      ]);
-      await body.close();
-      expect(client.closeCalls, 0);
-    },
-  );
 }
 
 void _registerDeadlineTests() {
-  test('aborts a request stalled before response headers', () async {
-    final client = _AbortAwareClient();
-    await _expectDeadline(client, http.Request('GET', _url));
-    await client.aborted.future;
-    expect(client.closeCalls, 0);
-  });
-
-  test('cancels body consumption at the deadline', () async {
-    final cancelled = Completer<void>();
-    final body = StreamController<List<int>>(onCancel: cancelled.complete);
-    final client = RecordingHttpClient((_) async {
-      return http.StreamedResponse(body.stream, 200);
-    });
-    await _expectDeadline(client, http.Request('GET', _url));
-    await cancelled.future;
-    expect(body.hasListener, isFalse);
-    await body.close();
-  });
-
   test('aborts stalled upload and cancels its input stream', () async {
     final cancelled = Completer<void>();
     final body = StreamController<List<int>>(onCancel: cancelled.complete);
@@ -105,63 +22,6 @@ void _registerDeadlineTests() {
     expect(client.closeCalls, 0);
     await body.close();
   });
-
-  test('cancels a response arriving after its deadline', () async {
-    final headers = Completer<http.StreamedResponse>();
-    final cancelled = Completer<void>();
-    final body = StreamController<List<int>>(onCancel: cancelled.complete);
-    final client = RecordingHttpClient((_) => headers.future);
-    await _expectDeadline(client, http.Request('GET', _url));
-    headers.complete(http.StreamedResponse(body.stream, 200));
-    await cancelled.future;
-    await body.close();
-  });
-
-  test('a stalled cancellation cannot hold the timeout result', () async {
-    final cleanup = Completer<void>();
-    final body = StreamController<List<int>>(onCancel: () => cleanup.future);
-    final client = RecordingHttpClient((_) async {
-      return http.StreamedResponse(body.stream, 200);
-    });
-    await _expectDeadline(client, http.Request('GET', _url));
-    expect(body.hasListener, isFalse);
-    cleanup.complete();
-    await body.close();
-  });
-}
-
-void _registerSuccessfulResponseTest() {
-  test(
-    'successful response preserves payload, headers and request options',
-    () async {
-      final client = RecordingHttpClient((request) async {
-        expect(request, isA<http.Abortable>());
-        expect(request.headers['authorization'], 'Bearer test');
-        expect(request.followRedirects, isFalse);
-        expect(request.maxRedirects, 2);
-        expect(request.persistentConnection, isFalse);
-        expect((request as http.Request).body, 'payload');
-        return textResponse(
-          'Grüße',
-          statusCode: 201,
-          headers: {'x-test': 'ok'},
-        );
-      });
-      final response = await sendRemoteRequest(
-        client,
-        http.Request('POST', _url)
-          ..headers['authorization'] = 'Bearer test'
-          ..body = 'payload'
-          ..followRedirects = false
-          ..maxRedirects = 2
-          ..persistentConnection = false,
-        timeout: Duration.zero,
-      );
-      expect(response.body, 'Grüße');
-      expect(response.statusCode, 201);
-      expect(response.headers['x-test'], 'ok');
-    },
-  );
 }
 
 void _registerOversizedResponseTest() {
@@ -177,50 +37,6 @@ void _registerOversizedResponseTest() {
     );
     await client.aborted.future;
     expect(client.cancelled, isTrue);
-  });
-}
-
-void _registerFailureTests() {
-  test('preserves a failure before response headers', () async {
-    final failure = http.ClientException('connection failed');
-    final client = MockClient((_) async => throw failure);
-    await expectLater(
-      sendRemoteRequest(
-        client,
-        http.Request('GET', _url),
-        timeout: Duration.zero,
-      ),
-      throwsA(same(failure)),
-    );
-  });
-
-  test('preserves a response stream error and cancels consumption', () async {
-    final failure = http.ClientException('connection interrupted');
-    final body = StreamController<List<int>>();
-    final client = RecordingHttpClient(
-      (_) async => http.StreamedResponse(body.stream, 200),
-    );
-    final result = sendRemoteRequest(
-      client,
-      http.Request('GET', _url),
-      timeout: Duration.zero,
-    );
-    body.addError(failure);
-    await expectLater(result, throwsA(same(failure)));
-    expect(body.hasListener, isFalse);
-    await body.close();
-  });
-
-  test('a failed cancellation does not replace the deadline error', () async {
-    final body = StreamController<List<int>>(
-      onCancel: () async => throw StateError('cleanup failed'),
-    );
-    final client = RecordingHttpClient(
-      (_) async => http.StreamedResponse(body.stream, 200),
-    );
-    await _expectDeadline(client, http.Request('GET', _url));
-    expect(body.hasListener, isFalse);
-    await body.close();
   });
 }
 

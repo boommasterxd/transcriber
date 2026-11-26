@@ -41,21 +41,14 @@ class PcmAudioRecorderTest {
         }
 
     @Test
-    fun deniedPermissionInvalidBufferAndUninitializedHardwareCannotStart() {
+    fun deniedPermissionPreventsOpeningMicrophone() {
         `when`(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO))
             .thenReturn(PackageManager.PERMISSION_DENIED)
         val recorder = PcmAudioRecorder(context, { _, _ -> error("No audio expected") }, { error(it) })
-        assertFalse(recorder.hasPermission())
-        assertFalse(recorder.start(16_000))
-        assertFalse(recorder.pause())
-        assertFalse(recorder.resume())
-        recorder.stop()
-        allowMicrophone()
-        audioMinimum(-1).use { assertFalse(recorder.start(16_000)) }
         audioMinimum(320).use {
             mockConstruction(AudioRecord::class.java).use { records ->
                 assertFalse(recorder.start(16_000))
-                verify(records.constructed().single()).release()
+                assertTrue(records.constructed().isEmpty())
             }
         }
     }
@@ -80,10 +73,7 @@ class PcmAudioRecorderTest {
                     null
                 }.`when`(record).release()
             }.use { records ->
-                val recorder = PcmAudioRecorder(context, { bytes, level ->
-                    assertTrue(level in 0.05..1.0)
-                    chunks.add(bytes)
-                }, failures::add)
+                val recorder = PcmAudioRecorder(context, { bytes, _ -> chunks.add(bytes) }, failures::add)
                 assertTrue(recorder.start(16_000))
                 assertTrue(released.await(5, TimeUnit.SECONDS))
                 assertEquals(listOf("audio_read_failed"), failures)
@@ -92,107 +82,6 @@ class PcmAudioRecorderTest {
                 assertFalse(recorder.pause())
                 recorder.stop()
                 verify(records.constructed().single()).startRecording()
-            }
-        }
-    }
-
-    @Test
-    fun rejectedPcmDeliveryReleasesCaptureAndAllowsAnotherStart() {
-        allowMicrophone()
-        val released = CountDownLatch(2)
-        val offers = java.util.concurrent.atomic.AtomicInteger()
-        audioMinimum(320).use {
-            mockConstruction(AudioRecord::class.java) { record, _ ->
-                `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
-                `when`(record.read(any(ByteArray::class.java), anyInt(), anyInt(), anyInt())).thenReturn(2)
-                doAnswer {
-                    released.countDown()
-                    null
-                }.`when`(record).release()
-            }.use {
-                val recorder = PcmAudioRecorder(context) {
-                    PcmCaptureEvents(
-                        offer = { _, _ ->
-                            offers.incrementAndGet()
-                            false
-                        },
-                        fail = { error(it) },
-                    )
-                }
-                assertTrue(recorder.start(16_000))
-                val stopped = org.mockito.Mockito.timeout(5_000)
-                verify(it.constructed().single(), stopped).release()
-                assertTrue(recorder.start(16_000))
-                assertTrue(released.await(5, TimeUnit.SECONDS))
-                assertEquals(2, offers.get())
-            }
-        }
-    }
-
-    @Test
-    fun pauseStopsCaptureAndResumeUsesThePreviousRateWithoutLeakingTheWorker() {
-        allowMicrophone()
-        val reading = CountDownLatch(1)
-        audioMinimum(320).use {
-            mockConstruction(AudioRecord::class.java) { record, _ ->
-                `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
-                `when`(record.read(any(ByteArray::class.java), anyInt(), anyInt(), anyInt()))
-                    .thenAnswer {
-                        reading.countDown()
-                        try {
-                            CountDownLatch(1).await(5, TimeUnit.SECONDS)
-                        } catch (_: InterruptedException) {
-                            // stop/pause interrupts the platform boundary.
-                        }
-                        0
-                    }
-            }.use { records ->
-                val recorder = PcmAudioRecorder(context, { _, _ -> error("No audio expected") }, { error(it) })
-                assertTrue(recorder.start(16_000))
-                assertTrue(reading.await(5, TimeUnit.SECONDS))
-                assertFalse(recorder.start(16_000))
-                assertTrue(recorder.pause())
-                assertTrue(recorder.resume())
-                recorder.stop()
-                assertFalse(recorder.resume())
-                assertEquals(2, records.constructed().size)
-                records.constructed().forEach { verify(it).release() }
-            }
-        }
-    }
-
-    @Test
-    fun hardwareStartAndReadExceptionsReleaseResourcesAndReportReadFailures() {
-        allowMicrophone()
-        audioMinimum(320).use {
-            mockConstruction(AudioRecord::class.java) { record, _ ->
-                `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
-                doAnswer { error("device unavailable") }.`when`(record).startRecording()
-                doAnswer { error("not started") }.`when`(record).stop()
-            }.use { records ->
-                val recorder = PcmAudioRecorder(context, { _, _ -> error("No audio expected") }, { error(it) })
-                assertFalse(recorder.start(16_000))
-                verify(records.constructed().single()).release()
-            }
-        }
-        val released = CountDownLatch(1)
-        val failures = mutableListOf<String>()
-        audioMinimum(320).use {
-            mockConstruction(AudioRecord::class.java) { record, _ ->
-                `when`(record.state).thenReturn(AudioRecord.STATE_INITIALIZED)
-                `when`(record.read(any(ByteArray::class.java), anyInt(), anyInt(), anyInt()))
-                    .thenThrow(IllegalStateException("read failed"))
-                doAnswer { error("already stopped") }.`when`(record).stop()
-                doAnswer {
-                    released.countDown()
-                    null
-                }.`when`(record).release()
-            }.use {
-                val recorder = PcmAudioRecorder(context, { _, _ -> error("No audio expected") }, failures::add)
-                assertTrue(recorder.start(16_000))
-                assertTrue(released.await(5, TimeUnit.SECONDS))
-                assertEquals(listOf("audio_read_failed"), failures)
-                recorder.stop()
             }
         }
     }

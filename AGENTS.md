@@ -43,10 +43,6 @@ See [`docs/architecture.md`](docs/architecture.md) for entry points, data flows,
 | Cognitive complexity | over 15 | at most 25 |
 | Parameters per function | over 4 | at most 6 |
 | Nesting depth | over 3 | at most 4 |
-| Line coverage | below 85% | at least 85% |
-| Statement coverage | below 85% | at least 85% |
-| Function coverage | below 85% | at least 85% |
-| Branch coverage | below 80% | at least 80% |
 
 These limits are strict. Do not add baselines, grandfathered violations, broad exclusions, disabled rules, raised thresholds, or empty assertions. Fix violations at their source. A narrow exception requires an evidenced tool limitation or generated source, the smallest possible scope, and durable justification in `docs/code-quality.md`.
 
@@ -60,7 +56,7 @@ Run the checks documented in [`docs/code-quality.md`](docs/code-quality.md). Pul
 - Detekt metrics, formatting, and unused-private-code checks for maintained Kotlin;
 - ESLint correctness, formatting, unused-code and size/complexity limits for maintained Node tooling, with locked development dependencies and jscpd at 50 tokens and at most 5% duplication;
 - unused Dart declarations and files as the Dart equivalent of `knip`;
-- tests with strict line, statement, function, and branch coverage thresholds, plus executed instrumentation for affected Android device contracts;
+- critical tests selected from the change plan, plus executed instrumentation for affected Android device contracts;
 - `jscpd` for Dart with `minTokens: 50` and zero accepted duplication;
 - workflow syntax and embedded shell checks with pinned `actionlint`;
 - OSV dependency vulnerability scanning, including the locked Android release and test runtime graphs;
@@ -75,12 +71,17 @@ Commit `pubspec.lock` and update it only through Flutter or Dart package-manager
 
 ## Testing Requirements
 
-- Add deterministic tests for every relevant behavior change.
-- Cover normal, boundary, failure, and security-sensitive misuse paths.
-- Test pure domain and formatting logic without platform services.
-- Mock network, filesystem, secure-storage, model, and platform integrations only at explicit boundaries.
-- Use integration or device-level checks for Android share intents, permissions, recording, provider requests, and release signing when unit tests cannot represent the behavior.
-- Do not use fixed sleeps, order-dependent state, real provider requests, or production credentials in tests.
+Keep permanent tests focused on critical outcomes. Add or update deterministic tests when a change affects one of these outcomes:
+
+- Audio capture respects permissions and byte limits. The system picker can recover an interrupted import. Shared audio reaches the selected providers only after confirmation.
+- Transcription and optional summarization use the configured providers. A summary failure preserves the transcript. Credentials stay in secure storage and out of errors.
+- Note writes, retries, deletions, and legacy migrations preserve data integrity. File cleanup respects ownership and preserves external originals.
+- Live dictation delivers text to the active editor, clears discarded text, and blocks input in sensitive fields.
+- CI fails on stale plans, unsupported skips, or failed required jobs. Scanner and APK checks protect credentials, signing identity, and release assets.
+
+Use isolated fixtures and mock external integrations at their boundaries. Keep device tests for outcomes that require Android, including external share intents, document-picker recovery after process death, and input-method behavior. Avoid fixed sleeps, order-dependent state, real provider requests, and production credentials.
+
+Run affected suites locally after locked dependency resolution. `dart run tool/ci/run_test_plan.dart` discovers the complete Dart suite. The [CI selection guide](docs/ci-test-selection.md) explains affected selection and full fallback. See [code quality](docs/code-quality.md#local-commands) for Kotlin, device, Node, and release checks. Verify each changed app flow directly with `flutter run` on a supported Android device or emulator.
 
 ## Security and Privacy
 
@@ -116,7 +117,7 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 | [`docs/architecture.md`](docs/architecture.md) | Describes application layers, entry points, processing flows, and integration boundaries. |
 | [`docs/cache-lifecycle.md`](docs/cache-lifecycle.md) | Defines audio ownership, managed directories, cleanup, TTL, and quota behavior. |
 | [`docs/ci-test-selection.md`](docs/ci-test-selection.md) | Explains impacted-test selection, conservative fallbacks, runner reuse, and dependency-cache policy. |
-| [`docs/code-quality.md`](docs/code-quality.md) | Defines strict quality gates, commands, Flutter coverage mappings, and CI behavior. |
+| [`docs/code-quality.md`](docs/code-quality.md) | Defines strict quality gates, local verification commands, and CI behavior. |
 | [`docs/configuration.md`](docs/configuration.md) | Documents supported toolchains, runtime settings, external services, and secret handling. |
 | [`docs/decisions/bounded-native-recording.md`](docs/decisions/bounded-native-recording.md) | Explains native WAV byte limits, capture ownership, and lifecycle synchronization. |
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |

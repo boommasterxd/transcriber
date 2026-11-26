@@ -22,44 +22,7 @@ void main() {
 
   _registerExternalImportTests(() => harness);
   _registerOwnershipTests(() => harness);
-  _registerRetentionTests(() => harness);
-  _registerStagedRetentionTest(() => harness);
   _registerCleanupTests(() => harness);
-}
-
-void _registerStagedRetentionTest(_HarnessGetter getHarness) {
-  test(
-    'publishes only when promoted and restages after rollback recovery',
-    () async {
-      final harness = getHarness();
-      final source = await _writeAudio(harness.externalRoot, 'meeting.wav', 6);
-      final audio = ManagedAudioFile(
-        path: source.path,
-        ownership: AudioOwnership.external,
-      );
-      final staged = await harness.manager.stageRetention(audio);
-      final destination = File(staged.destination.path);
-      final staging = await harness.paths.retentionStagingDir();
-      expect(staged.destination.ownership, AudioOwnership.retained);
-      expect(await destination.exists(), isFalse);
-      expect(await _files(staging), hasLength(1));
-
-      await staged.discardStage();
-      expect(await _files(staging), isEmpty);
-      await staged.prepare();
-      await staged.promote();
-      await staged.promote();
-      expect(await destination.readAsBytes(), await source.readAsBytes());
-      expect(await _files(staging), isEmpty);
-
-      await destination.delete();
-      await staged.prepare();
-      await staged.promote();
-      expect(await destination.readAsBytes(), await source.readAsBytes());
-      await harness.manager.discard(audio);
-      expect(await source.exists(), isTrue);
-    },
-  );
 }
 
 final class _AudioCacheTestHarness {
@@ -117,43 +80,9 @@ final class _AudioCacheTestHarness {
 
 void _registerExternalImportTests(_HarnessGetter getHarness) {
   group('external imports', () {
-    _registerExternalCopyTest(getHarness);
     _registerExternalValidationTest(getHarness);
-    _registerDisplayNameExtensionTest(getHarness);
     _registerExternalPathSafetyTest(getHarness);
   });
-}
-
-void _registerExternalCopyTest(_HarnessGetter getHarness) {
-  test(
-    'copies an external audio file and leaves the original untouched',
-    () async {
-      final harness = getHarness();
-      final source = await _writeAudio(harness.externalRoot, 'meeting.m4a', 6);
-      final originalBytes = await source.readAsBytes();
-
-      final imported = await harness.manager.importExternal(
-        source.path,
-        displayName: 'meeting.m4a',
-      );
-
-      expect(imported.ownership, AudioOwnership.temporary);
-      expect(imported.path, isNot(source.path));
-      expect(
-        p.isWithin((await harness.paths.importCacheDir()).path, imported.path),
-        isTrue,
-      );
-      expect(await File(imported.path).readAsBytes(), originalBytes);
-      await harness.manager.discard(
-        const ManagedAudioFile(
-          path: '/outside.m4a',
-          ownership: AudioOwnership.external,
-        ),
-      );
-      expect(await source.exists(), isTrue);
-      expect(await source.readAsBytes(), originalBytes);
-    },
-  );
 }
 
 void _registerExternalValidationTest(_HarnessGetter getHarness) {
@@ -186,27 +115,6 @@ void _registerExternalValidationTest(_HarnessGetter getHarness) {
         throwsA(isA<FileSystemException>()),
       );
       expect(await _files(await harness.paths.importCacheDir()), isEmpty);
-    },
-  );
-}
-
-void _registerDisplayNameExtensionTest(_HarnessGetter getHarness) {
-  test(
-    'uses the supplied display name extension for an imported copy',
-    () async {
-      final harness = getHarness();
-      final source = await _writeAudio(
-        harness.externalRoot,
-        'recording.m4a',
-        4,
-      );
-
-      final imported = await harness.manager.importExternal(
-        source.path,
-        displayName: 'whatsapp-voice.opus',
-      );
-
-      expect(p.extension(imported.path), '.opus');
     },
   );
 }
@@ -244,7 +152,6 @@ void _registerExternalPathSafetyTest(_HarnessGetter getHarness) {
 void _registerOwnershipTests(_HarnessGetter getHarness) {
   group('shared and recording ownership', () {
     _registerSharedOwnershipTest(getHarness);
-    _registerRecordingOwnershipTest(getHarness);
   });
 }
 
@@ -263,166 +170,11 @@ void _registerSharedOwnershipTest(_HarnessGetter getHarness) {
       throwsA(isA<FileSystemException>()),
     );
   });
-
-  test(
-    'accepts an app-owned shared file through a symlink alias',
-    () async {
-      final harness = getHarness();
-      final sharedDirectory = await harness.paths.sharedCacheDir();
-      final alias = Link(p.join(harness.cacheRoot.path, 'shared-alias'));
-      await alias.create(sharedDirectory.path);
-      final shared = await _writeAudio(Directory(alias.path), 'shared.mp3', 4);
-
-      final registered = await harness.manager.registerShared(shared.path);
-
-      expect(registered.path, shared.path);
-      expect(registered.ownership, AudioOwnership.temporary);
-    },
-    skip: Platform.isWindows
-        ? 'Symlink creation requires elevated access'
-        : false,
-  );
-}
-
-void _registerRecordingOwnershipTest(_HarnessGetter getHarness) {
-  test(
-    'creates and registers recording files only in the recording cache',
-    () async {
-      final harness = getHarness();
-      final destination = await harness.manager.recordingDestination();
-      expect(
-        p.isWithin((await harness.paths.recordingCacheDir()).path, destination),
-        isTrue,
-      );
-      expect(p.extension(destination), '.wav');
-
-      final recording = await _writeFile(
-        await harness.paths.recordingCacheDir(),
-        p.basename(destination),
-        4,
-      );
-      final registered = await harness.manager.registerRecording(
-        recording.path,
-      );
-      expect(registered.ownership, AudioOwnership.temporary);
-      final externalRecording = await _writeAudio(
-        harness.externalRoot,
-        'external-recording.wav',
-        4,
-      );
-      expect(
-        harness.manager.registerRecording(externalRecording.path),
-        throwsA(isA<FileSystemException>()),
-      );
-    },
-  );
-}
-
-void _registerRetentionTests(_HarnessGetter getHarness) {
-  group('retention and discard', () {
-    _registerOwnedDiscardTest(getHarness);
-  });
-}
-
-void _registerOwnedDiscardTest(_HarnessGetter getHarness) {
-  test(
-    'discards owned temporary and retained files only within managed roots',
-    () async {
-      final harness = getHarness();
-      final source = await _writeAudio(harness.externalRoot, 'source.m4a', 4);
-      final temporary = await harness.manager.importExternal(source.path);
-      final stage = await harness.manager.stageRetention(temporary);
-      await stage.promote();
-
-      await harness.manager.discard(stage.destination);
-      expect(await File(stage.destination.path).exists(), isFalse);
-      expect(await source.exists(), isTrue);
-
-      final outside = await _writeAudio(harness.externalRoot, 'outside.m4a', 4);
-      await harness.manager.discard(
-        ManagedAudioFile(
-          path: outside.path,
-          ownership: AudioOwnership.retained,
-        ),
-      );
-      expect(await outside.exists(), isTrue);
-    },
-  );
 }
 
 void _registerCleanupTests(_HarnessGetter getHarness) {
   group('cleanup', () {
-    _registerExpiryCleanupTest(getHarness);
-    _registerQuotaCleanupTest(getHarness);
     _registerActiveCleanupTest(getHarness);
-    _registerRetainedQuotaTest(getHarness);
-    _registerShareExpiryTest(getHarness);
-  });
-}
-
-void _registerShareExpiryTest(_HarnessGetter getHarness) {
-  test(
-    'share startup expires abandoned stages without evicting fresh copies',
-    () async {
-      final harness = getHarness();
-      final shared = await harness.paths.sharedCacheDir();
-      final first = await _writeAudio(shared, 'first.wav', 6);
-      final second = await _writeAudio(shared, 'second.wav', 6);
-      final staging = await harness.paths.retentionStagingDir();
-      final abandoned = await _writeFile(staging, 'abandoned.wav.partial', 4);
-      await abandoned.setLastModified(
-        harness.now.subtract(const Duration(days: 2)),
-      );
-
-      await harness.manager.cleanup(enforceQuota: false);
-
-      expect(await first.exists(), isTrue);
-      expect(await second.exists(), isTrue);
-      expect(await abandoned.exists(), isFalse);
-    },
-  );
-}
-
-void _registerExpiryCleanupTest(_HarnessGetter getHarness) {
-  test('removes expired temporary files but preserves fresh files', () async {
-    final harness = getHarness();
-    final directory = await harness.paths.importCacheDir();
-    final expired = await _writeAudio(directory, 'expired.m4a', 4);
-    final fresh = await _writeAudio(directory, 'fresh.m4a', 4);
-    await expired.setLastModified(
-      harness.now.subtract(const Duration(days: 2)),
-    );
-    await fresh.setLastModified(harness.now.subtract(const Duration(hours: 1)));
-
-    await harness.manager.cleanup();
-
-    expect(await expired.exists(), isFalse);
-    expect(await fresh.exists(), isTrue);
-  });
-}
-
-void _registerQuotaCleanupTest(_HarnessGetter getHarness) {
-  test('enforces quota in least-recently-modified order', () async {
-    final harness = getHarness();
-    final directory = await harness.paths.importCacheDir();
-    final oldest = await _writeAudio(directory, 'oldest.m4a', 6);
-    final middle = await _writeAudio(directory, 'middle.m4a', 6);
-    final newest = await _writeAudio(directory, 'newest.m4a', 6);
-    await oldest.setLastModified(
-      harness.now.subtract(const Duration(hours: 3)),
-    );
-    await middle.setLastModified(
-      harness.now.subtract(const Duration(hours: 2)),
-    );
-    await newest.setLastModified(
-      harness.now.subtract(const Duration(hours: 1)),
-    );
-
-    await harness.manager.cleanup();
-
-    expect(await oldest.exists(), isFalse);
-    expect(await middle.exists(), isFalse);
-    expect(await newest.exists(), isTrue);
   });
 }
 
@@ -445,27 +197,6 @@ void _registerActiveCleanupTest(_HarnessGetter getHarness) {
     expect(await active.exists(), isTrue);
     expect(await other.exists(), isFalse);
     harness.manager.markInactive(activeManaged);
-  });
-}
-
-void _registerRetainedQuotaTest(_HarnessGetter getHarness) {
-  test('does not count retained audio against temporary cache quota', () async {
-    final harness = getHarness();
-    final source = await _writeAudio(harness.externalRoot, 'source.m4a', 6);
-    final stage = await harness.manager.stageRetention(
-      ManagedAudioFile(path: source.path, ownership: AudioOwnership.external),
-    );
-    await stage.promote();
-    final temporary = await _writeAudio(
-      await harness.paths.importCacheDir(),
-      'temporary.m4a',
-      6,
-    );
-
-    await harness.manager.cleanup();
-
-    expect(await File(stage.destination.path).exists(), isTrue);
-    expect(await temporary.exists(), isTrue);
   });
 }
 

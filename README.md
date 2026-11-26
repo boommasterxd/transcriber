@@ -64,8 +64,7 @@ With the pinned Flutter SDK on `PATH`, the core local checks are:
 ```bash
 dart format --output=none --set-exit-if-changed lib test tool
 flutter analyze --fatal-infos
-flutter test --coverage --branch-coverage
-dart run tool/quality/check_coverage.dart coverage/lcov.info
+dart run tool/ci/run_test_plan.dart
 flutter build bundle --debug
 ```
 
@@ -89,7 +88,7 @@ Read [AGENTS.md](AGENTS.md) for repository conventions and [code quality](docs/c
 | [Audio lifecycle](docs/cache-lifecycle.md) | File ownership, retention, and temporary-file cleanup. |
 | [Operations](docs/operations.md) | Local setup, device checks, troubleshooting, and releases. |
 | [Security and privacy](docs/security.md) | Data transfers, credential protection, and known limitations. |
-| [Code quality](docs/code-quality.md) | Required checks and coverage thresholds. |
+| [Code quality](docs/code-quality.md) | Required checks and critical test commands. |
 | [CI test selection](docs/ci-test-selection.md) | How pull requests select checks and tests. |
 
 The complete documentation index, including architecture decisions, is in [AGENTS.md](AGENTS.md#documentation-index).

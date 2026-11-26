@@ -1,12 +1,9 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/theme/app_accent.dart';
 import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
-
-import '../../../support/app_test_fakes.dart';
 
 final shareTestStrings = AppStrings.of(AppLanguage.en);
 
@@ -47,16 +44,3 @@ TranscriptNote shareTestNote({
 AppSettings shareTestSettings() => AppSettings.initial().copyWith(
   appearance: const AppearanceSettings(language: AppLanguage.en),
 );
-
-Widget shareTestChildApp({required Widget child}) {
-  final database = testDatabase();
-  addTearDown(database.close);
-  return appScope(
-    database: database,
-    settings: shareTestSettings(),
-    child: MaterialApp(
-      theme: shareTestTheme(),
-      home: Scaffold(body: child),
-    ),
-  );
-}

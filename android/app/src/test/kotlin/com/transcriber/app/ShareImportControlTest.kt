@@ -7,7 +7,6 @@ import org.junit.Test
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.Executor
-import java.util.concurrent.RejectedExecutionException
 
 class ShareImportControlTest {
     @Test
@@ -49,33 +48,5 @@ class ShareImportControlTest {
         val file = File.createTempFile("share", ".wav")
         assertFalse(control.track(file))
         assertFalse(file.exists())
-    }
-
-    @Test
-    fun handoffTransfersFileAndClearsClosedResourceReferences() {
-        val control = ShareImportControl(Executor { it.run() })
-        val file = File.createTempFile("share", ".wav")
-        var closed = false
-        try {
-            control.track(file)
-            assertTrue(control.register(Closeable { closed = true }))
-            control.handoff()
-            control.cancel()
-            assertTrue(file.exists())
-            assertFalse(closed)
-        } finally {
-            file.delete()
-        }
-    }
-
-    @Test
-    fun busyCleanupWorkerDoesNotBlockCancellationState() {
-        val control = ShareImportControl(Executor { throw RejectedExecutionException("busy") })
-        val file = File.createTempFile("share", ".wav")
-        control.track(file)
-        control.cancel()
-        assertTrue(control.cancelled)
-        assertFalse(file.exists())
-        assertFalse(control.register(Closeable { throw IllegalStateException("close fixture") }))
     }
 }

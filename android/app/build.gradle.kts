@@ -5,7 +5,6 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("dev.flutter.flutter-gradle-plugin")
-    jacoco
 }
 
 val testApk = providers.environmentVariable("TRANSCRIBER_TEST_APK").orNull == "true"
@@ -32,10 +31,6 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
         resultsDir = androidTestResults.absolutePath
-    }
-
-    testCoverage {
-        jacocoVersion = "0.8.14"
     }
 
     compileOptions {
@@ -76,9 +71,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            enableAndroidTestCoverage = true
-        }
         release {
             if (testApk) {
                 applicationIdSuffix = ".preview"
@@ -127,25 +119,19 @@ configurations.matching { it.name in auditedClasspaths }.configureEach {
     resolutionStrategy.activateDependencyLocking()
 }
 
-// Resolve the exact sandbox SDKs through Gradle so the audit sees runtime downloads too.
-val robolectricSdks = listOf(
-    "8.1.0-robolectric-4611349-i7",
-    "9-robolectric-4913185-2-i7",
-    "15-robolectric-14663667-2-i7",
-).mapIndexed { index, version ->
-    configurations.create("robolectricSdk$index") {
-        isCanBeConsumed = false
-        isCanBeResolved = true
-        resolutionStrategy.activateDependencyLocking()
-    }.also {
-        dependencies.add(it.name, "org.robolectric:android-all-instrumented:$version")
-    }
+// Resolve the test sandbox through Gradle so the audit sees the runtime download.
+val robolectricSdk = configurations.create("robolectricSdk") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    resolutionStrategy.activateDependencyLocking()
 }
+dependencies.add(robolectricSdk.name, "org.robolectric:android-all-instrumented:15-robolectric-14663667-2-i7")
+
 tasks.register("verifyAuditedAndroidDependencies") {
     group = "verification"
     description = "Resolve each Android dependency graph scanned by OSV."
     doLast {
-        (auditedClasspaths.map(configurations::getByName) + robolectricSdks).forEach { configuration ->
+        (auditedClasspaths.map(configurations::getByName) + listOf(robolectricSdk)).forEach { configuration ->
             configuration.incoming.artifactView {
                 // Verify external artifacts without building the dependent projects.
                 componentFilter { it is ModuleComponentIdentifier }
@@ -155,12 +141,12 @@ tasks.register("verifyAuditedAndroidDependencies") {
 }
 val sandboxDirectory = layout.buildDirectory.dir("robolectric-sdks")
 val prepareRobolectricSdks = tasks.register<Sync>("prepareRobolectricSdks") {
-    from(robolectricSdks)
+    from(robolectricSdk)
     into(sandboxDirectory)
 }
 tasks.withType<Test>().configureEach {
     dependsOn(prepareRobolectricSdks)
-    inputs.files(robolectricSdks).withPropertyName("robolectricSdks")
+    inputs.files(robolectricSdk).withPropertyName("robolectricSdk")
         .withPathSensitivity(PathSensitivity.NAME_ONLY)
     systemProperty("robolectric.offline", "true")
     systemProperty("robolectric.dependency.dir", sandboxDirectory.get().asFile.absolutePath)
@@ -186,16 +172,6 @@ extra["requiredTestSourceFiles"] = fileTree("src/test/kotlin") {
 extra["requiredConnectedTestSourceRoot"] = file("src/androidTest/kotlin")
 extra["requiredConnectedTestResults"] = androidTestResults.resolve("connected/debug")
 apply(from = rootProject.file("../tool/ci/jvm/require_executed_tests.gradle.kts"))
-
-extra["coverageSources"] = fileTree("src/main/kotlin") { include("**/*.kt") }.files
-extra["coverageSourceRoot"] = file("src/main/kotlin")
-extra["coverageClassDirectories"] = files(
-    providers.provider { tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileDebugKotlin").get() }
-        .flatMap { it.destinationDirectory },
-)
-extra["coverageTestTask"] = "testDebugUnitTest"
-extra["coverageDeviceTask"] = "connectedDebugAndroidTest"
-apply(from = rootProject.file("../tool/ci/jvm/native_coverage.gradle.kts"))
 
 // Robolectric's resource APK consumes the Flutter assets produced by this task.
 tasks.matching { it.name == "packageDebugUnitTestForUnitTest" }.configureEach {

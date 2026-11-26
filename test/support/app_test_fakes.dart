@@ -18,23 +18,11 @@ import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/settings_controller.dart';
 
 final class TestShareIntentService extends ShareIntentService {
-  TestShareIntentService({this.initialPath, this.initialError});
-
-  final String? initialPath;
-  final Object? initialError;
-  void Function(String path)? _listener;
+  @override
+  Future<String?> initialSharedAudio() async => null;
 
   @override
-  Future<String?> initialSharedAudio() async {
-    final error = initialError;
-    if (error != null) throw error;
-    return initialPath;
-  }
-
-  @override
-  void listen(void Function(String path) onAudio) => _listener = onAudio;
-
-  void emit(String path) => _listener?.call(path);
+  void listen(void Function(String path) onAudio) {}
 }
 
 final class TestSettingsController extends SettingsController {

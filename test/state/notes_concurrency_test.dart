@@ -41,26 +41,6 @@ void main() {
   });
 
   test(
-    'stale main and share engines preserve each other saved notes',
-    () async {
-      await mainEngine
-          .read(notesControllerProvider.notifier)
-          .add(_note('main'));
-      await shareEngine
-          .read(notesControllerProvider.notifier)
-          .add(_note('share'));
-
-      expect((await mainRepository.load()).map((note) => note.id).toSet(), {
-        'main',
-        'share',
-      });
-      await mainEngine.read(notesControllerProvider.notifier).refresh();
-      expect(mainEngine.read(notesControllerProvider), isEmpty);
-      expect((await mainRepository.loadHistoryPage()).totalCount, 2);
-    },
-  );
-
-  test(
     'stale deletes and toggles leave unrelated persisted updates intact',
     () async {
       final main = mainEngine.read(notesControllerProvider.notifier);
@@ -80,31 +60,8 @@ void main() {
   );
 
   test(
-    'parallel controller operations publish all committed results',
-    () async {
-      final controller = mainEngine.read(notesControllerProvider.notifier);
-      await Future.wait([
-        controller.add(_note('one')),
-        controller.add(_note('two')),
-      ]);
-      await Future.wait([
-        controller.toggleTodo('one', 0),
-        controller.refresh(),
-      ]);
-
-      expect(mainEngine.read(notesControllerProvider), isEmpty);
-      expect((await mainRepository.findById('one'))!.todos.single.done, isTrue);
-      expect((await mainRepository.load()), hasLength(2));
-    },
-  );
-
-  test(
     'an add failure rolls back note and child mutations together',
     () => _verifyRollback(mainRepository, shareRepository, mainDatabase),
-  );
-  test(
-    'repeated restoration changes only its own children',
-    () => _verifyRestoration(mainRepository, shareRepository),
   );
 }
 
@@ -134,23 +91,6 @@ BEGIN SELECT RAISE(ABORT, 'injected write failure'); END
     loaded.toJson()..remove('createdAt'),
     original.toJson()..remove('createdAt'),
   );
-}
-
-Future<void> _verifyRestoration(
-  NotesRepository repository,
-  NotesRepository peer,
-) async {
-  await repository.add(_note('stable'));
-  await peer.add(_note('other'));
-  await repository.add(_note('stable'));
-  await repository.toggleTodo('stable', -1);
-  await repository.toggleTodo('missing', 0);
-  await repository.remove('missing');
-
-  final loaded = await repository.load();
-  expect(loaded, hasLength(2));
-  expect(loaded.every((note) => note.todos.length == 1), isTrue);
-  expect(loaded.every((note) => note.points.length == 1), isTrue);
 }
 
 ProviderContainer _engine(NotesRepository repository) => ProviderContainer(

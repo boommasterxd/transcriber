@@ -47,7 +47,6 @@ function checksForPath(path) {
     || ['.github/dependabot.yml', '.github/release.yml'].includes(path)) return CHECKS;
   if (['test/tool/ci/jvm-test-failure.integration.cjs',
     'test/tool/ci/gradle-cache.integration.cjs',
-    'test/tool/ci/native-coverage.integration.cjs',
     'test/tool/ci/jvm_fixture.cjs',
     'test/tool/ci/kotlin-quality.integration.cjs'].includes(path)) return ['workflow', 'jvm'];
   if (path === 'test/tool/ci/android-picker-device.integration.cjs') return ['workflow', 'native', 'device'];
@@ -63,7 +62,7 @@ function checksForPath(path) {
     'lib/ui/screens/home/home_screen.dart', 'lib/ui/screens/home/audio_import.dart',
     'lib/ui/screens/home/audio_import_recovery_gate.dart',
     'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'device', 'build'];
-  if (/^lib\/.*\.dart$/.test(path)) return ['dart'];
+  if (/^lib\/.*\.dart$/.test(path)) return ['dart', 'build'];
   if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
   if (path.startsWith('assets/')) return ['dart', 'build'];
   return CHECKS;

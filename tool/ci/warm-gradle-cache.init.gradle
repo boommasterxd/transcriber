@@ -12,7 +12,7 @@ gradle.projectsEvaluated {
                         configuration.name.startsWith('robolectricSdk') ||
                         configuration.name.startsWith('kotlinCompiler') ||
                         configuration.name == 'kotlinBuildToolsApiClasspath' ||
-                        configuration.name in ['jacocoAgent', 'jacocoAnt', 'lintClassPath']
+                        configuration.name == 'lintClassPath'
                     )
                 }.each { configuration ->
                     logger.lifecycle("Warming ${project.path}:${configuration.name}")

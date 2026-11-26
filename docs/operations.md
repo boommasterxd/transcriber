@@ -30,18 +30,16 @@ When another app sends audio to Transcriber, check the audio and transcript reci
 
 ## Validation
 
-Run the complete commands in [code quality](code-quality.md). The minimum implementation checks are:
+Run the static and build checks in [code quality](code-quality.md). Run the affected critical tests and exercise each changed app flow on a supported Android device or emulator with `flutter run`. For a complete Dart run after locked dependency resolution:
 
 ```bash
 dart format --output=none --set-exit-if-changed lib test tool
 flutter analyze --fatal-infos
-flutter test --coverage --branch-coverage
+dart run tool/ci/run_test_plan.dart
 flutter build bundle --debug
 ```
 
-For CI automation changes, also run the [Node CI helper coverage check](code-quality.md#ci-helper-regressions) and the Dart regressions under `test/tool/ci/` and `test/tool/quality/`. Validate workflows with the pinned actionlint and ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge. See [CI test selection](ci-test-selection.md) for impacted-test selection, local selection commands, coverage boundaries, and the documentation-only path.
-
-The CI plan runner selects Dart VM or Flutter per suite and merges application coverage before checking the unchanged limits. The complete local Flutter command above still runs all Dart and widget suites. Individual runtime and merge commands are documented in [code quality](code-quality.md#local-commands).
+For CI automation changes, run the applicable [CI helper regressions](code-quality.md#ci-helper-regressions) and validate workflows with the pinned actionlint and ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge. See [CI test selection](ci-test-selection.md) for local selection commands, full fallback, and the documentation-only path.
 
 Run Android quality checks separately:
 
@@ -49,13 +47,13 @@ Run Android quality checks separately:
 bash tool/quality/check_kotlin_quality.sh
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest \
-  :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+  :app:compileDebugAndroidTestKotlin
 ```
 
 For only the manifest-listed pure Kotlin tests, Flutter and an Android SDK are unnecessary:
 
 ```bash
-JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test verifyNativeCoverage
+JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test --no-daemon
 ```
 
 Run instrumented Android tests on an attached Android device or emulator with API 29 or later and `arm64-v8a` support:
@@ -67,15 +65,13 @@ JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
 
 The CI device runner creates a disposable, offline emulator for instrumentation and process-death recovery. The picker fixture installs the debug APK and clears its own test package data before and after the scenario. Use the manual recovery procedure above on an ordinary device.
 
-For CI coverage-control changes, also run `JAVA_HOME=/path/to/jdk17 node --test test/tool/ci/native-coverage.integration.cjs`. Android unit coverage uses locked, offline-provided Robolectric SDKs and all maintained Kotlin sources; it does not replace the device checks above. Metric mappings and dependency-inventory updates are documented in [code quality](code-quality.md#native-coverage).
-
 ## Android Gradle Migration
 
 The current build uses built-in Kotlin and pins `android.newDsl=false` to match Flutter's compatibility migration. Jetifier is disabled. See [Android Gradle compatibility](configuration.md#android-gradle-compatibility). Before an AGP 10 upgrade:
 
 1. Inspect the exact stable Flutter Gradle plugin and every resolved native plugin for legacy DSL/variant APIs and incompatible Kotlin plugin application. Preserve the current SDK, NDK, Android API, ABI, and signing requirements unless a separate supported change is approved.
 2. Resolve any incompatible consumers through supported upstream releases or interfaces. Once the pinned Flutter release and resolved plugins support the public DSL together, verify an ordinary Flutter build with the public DSL before removing the compatibility flag. Leave shared SDK files and compiler warning settings intact.
-3. Clean the affected application build output, regenerate dependency locks with Gradle when the graph changes, and run the ordinary locked native tests and strict coverage again. Ensure coverage reads the current Kotlin compiler output, rather than an old `tmp/kotlin-classes` directory.
+3. Clean the affected application build output. If the dependency graph changes, regenerate the Gradle locks and verify the locked native test command.
 4. Build both debug and release APKs with the pinned Flutter SDK. Verify both resolved runtime dependency graphs use AndroidX and both builds succeed with Jetifier disabled.
 5. Verify recording, file import/recovery, and share/open-file flows on a supported Android device or emulator. Hosted JVM tests and instrumented-test compilation do not establish actual OS or Flutter-engine behavior.
 

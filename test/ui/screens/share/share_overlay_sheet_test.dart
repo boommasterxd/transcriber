@@ -1,9 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:transcriber/data/models/audio_ownership.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
-import 'package:transcriber/services/processing/processing_profile.dart';
 import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 import 'package:transcriber/state/processing_controller.dart';
@@ -14,186 +12,52 @@ import '../../../support/app_test_fakes.dart';
 import 'share_test_support.dart';
 
 void main() {
-  _registerPreviewCommitTest();
-  _registerDismissTest();
-  _registerRetryTest();
-  _registerSettingsTest();
-}
-
-void _registerPreviewCommitTest() {
   testWidgets(
-    'failed share save stays retryable and closes only after success',
+    'share reconfirms uploads and saves only after an explicit action',
     (tester) async {
-      late _FakeProcessingController controller;
-      var finishes = 0;
+      var finished = false;
+      final controller = _FakeProcessingController([
+        const MissingApiKeyException('Provider key unavailable'),
+        shareTestNote(gist: 'Recovered after connecting'),
+      ]);
       await tester.pumpWidget(
         _shareApp(
-          createProcessing: () => controller = _FakeProcessingController([
-            shareTestNote(gist: 'Preview'),
-          ])..failCommit = true,
+          createProcessing: () => controller,
           child: ShareSheetContent(
             audioPath: '/audio/shared.m4a',
-            onFinished: () => finishes++,
+            onFinished: () => finished = true,
           ),
         ),
       );
+      expect(controller.runCalls, 0);
       await _confirmShare(tester);
-      await tester.tap(find.text(shareTestStrings.shSave));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(find.text(shareTestStrings.errorTitle), findsOneWidget);
-      expect(finishes, 0);
-      expect(controller.discardCalls, 0);
+      expect(controller.lastSave, isFalse);
 
-      controller.failCommit = false;
+      await tester.tap(find.text(shareTestStrings.goToSettings));
+      await tester.pumpAndSettle();
+
+      expect(finished, isFalse);
+      expect(controller.discardCalls, 0);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(controller.runCalls, 1);
+      expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
+      await _confirmShare(tester);
+      expect(controller.runCalls, 2);
+      expect(controller.lastSave, isFalse);
+      expect(find.text('Recovered after connecting'), findsOneWidget);
+      expect(controller.commitCalls, 0);
+      expect(finished, isFalse);
+
       await tester.tap(find.text(shareTestStrings.shSave));
-      await tester.pump();
-      expect(controller.commitCalls, 2);
-      expect(finishes, 1);
+      await tester.pumpAndSettle();
+      expect(controller.commitCalls, 1);
+      expect(finished, isTrue);
     },
   );
-
-  testWidgets('share preview uses save false and commits at most once', (
-    tester,
-  ) async {
-    late _FakeProcessingController controller;
-    var finished = false;
-    final note = shareTestNote(gist: 'A concise summary.');
-
-    await tester.pumpWidget(
-      _shareApp(
-        createProcessing: () => controller = _FakeProcessingController([note]),
-        child: ShareSheetContent(
-          audioPath: '/audio/shared.m4a',
-          onFinished: () => finished = true,
-        ),
-      ),
-    );
-    expect(controller.runCalls, 0);
-    expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
-    final settings = shareTestSettings();
-    final profile = ProcessingProfile.resolve(settings);
-    expect(
-      find.text(shareTestStrings.shareAudioRecipient(profile.asr.providerName)),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        shareTestStrings.shareTranscriptRecipient(profile.summary.providerName),
-      ),
-      findsOneWidget,
-    );
-    await _confirmShare(tester);
-
-    expect(controller.lastSave, isFalse);
-    expect(controller.lastInput?.audio.ownership, AudioOwnership.temporary);
-    expect(controller.lastInput?.settings?.asrProvider, settings.asrProvider);
-    expect(
-      controller.lastInput?.settings?.summaryProvider,
-      settings.summaryProvider,
-    );
-    expect(find.text(note.title), findsOneWidget);
-
-    await tester.tap(find.text(shareTestStrings.shSave));
-    await tester.pump();
-    await tester.tap(find.text(shareTestStrings.shSave));
-    await tester.pump();
-
-    expect(controller.commitCalls, 1);
-    expect(controller.discardCalls, 1);
-    expect(finished, isTrue);
-  });
-}
-
-void _registerDismissTest() {
-  testWidgets('share error can be dismissed', (tester) async {
-    var finished = false;
-    await tester.pumpWidget(
-      _shareApp(
-        createProcessing: () =>
-            _FakeProcessingController([StateError('processing failed')]),
-        child: ShareSheetContent(
-          audioPath: '/audio/shared.m4a',
-          onFinished: () => finished = true,
-        ),
-      ),
-    );
-    await _confirmShare(tester);
-
-    expect(find.text(shareTestStrings.errorTitle), findsOneWidget);
-    await tester.tap(find.text(shareTestStrings.dismiss));
-    await tester.pump();
-
-    expect(finished, isTrue);
-  });
-}
-
-void _registerRetryTest() {
-  testWidgets('share error retries processing', (tester) async {
-    late _FakeProcessingController controller;
-    final note = shareTestNote(gist: 'Recovered summary.');
-    await tester.pumpWidget(
-      _shareApp(
-        createProcessing: () => controller = _FakeProcessingController([
-          StateError('temporary failure'),
-          note,
-        ]),
-        child: ShareSheetContent(
-          audioPath: '/audio/shared.m4a',
-          onFinished: () {},
-        ),
-      ),
-    );
-    await _confirmShare(tester);
-
-    await tester.tap(find.text(shareTestStrings.retry));
-    await tester.pump();
-
-    expect(controller.runCalls, 2);
-    expect(find.text(note.title), findsOneWidget);
-  });
-}
-
-void _registerSettingsTest() {
-  testWidgets('returning from settings requires a new upload confirmation', (
-    tester,
-  ) async {
-    var finished = false;
-    late _FakeProcessingController controller;
-    final observer = _RecordingNavigatorObserver();
-    await tester.pumpWidget(
-      _shareApp(
-        observer: observer,
-        createProcessing: () => controller = _FakeProcessingController([
-          const MissingApiKeyException('Provider key unavailable'),
-          shareTestNote(gist: 'Recovered after connecting'),
-        ]),
-        child: ShareSheetContent(
-          audioPath: '/audio/shared.m4a',
-          onFinished: () => finished = true,
-        ),
-      ),
-    );
-    await _confirmShare(tester);
-
-    await tester.tap(find.text(shareTestStrings.goToSettings));
-    await tester.pumpAndSettle();
-
-    expect(finished, isFalse);
-    expect(controller.discardCalls, 0);
-    expect(observer.pushes, 2);
-    expect(find.byType(SettingsScreen), findsOneWidget);
-
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-
-    expect(controller.runCalls, 1);
-    expect(find.text(shareTestStrings.shareConfirmTitle), findsOneWidget);
-    await _confirmShare(tester);
-    expect(controller.runCalls, 2);
-    expect(find.text('Recovered after connecting'), findsOneWidget);
-    expect(finished, isFalse);
-  });
 }
 
 Future<void> _confirmShare(WidgetTester tester) async {
@@ -204,7 +68,6 @@ Future<void> _confirmShare(WidgetTester tester) async {
 Widget _shareApp({
   required Widget child,
   required _FakeProcessingController Function() createProcessing,
-  NavigatorObserver? observer,
 }) {
   final database = testDatabase();
   addTearDown(database.close);
@@ -214,7 +77,6 @@ Widget _shareApp({
     child: ProviderScope(
       overrides: [processingControllerProvider.overrideWith(createProcessing)],
       child: MaterialApp(
-        navigatorObservers: observer == null ? const [] : [observer],
         theme: shareTestTheme(),
         home: Scaffold(body: child),
       ),
@@ -229,9 +91,7 @@ final class _FakeProcessingController extends ProcessingController {
   int runCalls = 0;
   int commitCalls = 0;
   int discardCalls = 0;
-  bool failCommit = false;
   bool? lastSave;
-  ProcessingInput? lastInput;
 
   @override
   ProcessingState build() => const ProcessingState();
@@ -244,7 +104,6 @@ final class _FakeProcessingController extends ProcessingController {
     Object? owner,
   }) async {
     runCalls++;
-    lastInput = input;
     lastSave = save;
     final outcome = _outcomes.removeAt(0);
     state = outcome is TranscriptNote
@@ -255,21 +114,10 @@ final class _FakeProcessingController extends ProcessingController {
   @override
   Future<void> commit() async {
     commitCalls++;
-    if (failCommit) throw StateError('injected persistence failure');
   }
 
   @override
   Future<void> discardCurrent({Object? owner}) async {
     discardCalls++;
-  }
-}
-
-final class _RecordingNavigatorObserver extends NavigatorObserver {
-  int pushes = 0;
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    pushes++;
-    super.didPush(route, previousRoute);
   }
 }

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:transcriber/services/dictation/live_socket.dart';
@@ -10,8 +9,6 @@ final class FakeLiveSocket implements LiveSocket {
   final controller = StreamController<Object?>.broadcast();
   final List<String> sent = [];
   bool closed = false;
-  int closeCount = 0;
-  Completer<void>? closeGate;
   Completer<void>? sendGate;
 
   @override
@@ -31,15 +28,7 @@ final class FakeLiveSocket implements LiveSocket {
 
   @override
   Future<void> close() async {
-    closeCount++;
     closed = true;
-    await closeGate?.future;
-    if (!controller.isClosed) await controller.close();
-  }
-
-  Future<void> disconnect({int? code, String? reason}) async {
-    closeCode = code;
-    closeReason = reason;
     if (!controller.isClosed) await controller.close();
   }
 }
@@ -77,36 +66,6 @@ Future<void> connectLiveClient(
   socket.controller.add(jsonEncode(readyMessage));
   await connecting;
   await pumpEventQueue();
-}
-
-void expectProviderRejectedAndClosed(
-  LiveSocketTranscriptionClient client,
-  FakeLiveSocket socket,
-  List<LiveTranscriptionEvent> events,
-) {
-  expect(
-    events.whereType<LiveTranscriptionFailure>().single.code,
-    'provider_rejected',
-  );
-  expect(client.isClosed, isTrue);
-  expect(socket.closed, isTrue);
-}
-
-Uint8List encodeLiveJsonFrame(Object? message) =>
-    Uint8List.fromList(utf8.encode(jsonEncode(message)));
-
-Uint8List encodeLiveTextFrame(String message) =>
-    Uint8List.fromList(utf8.encode(message));
-
-String oversizedLiveJsonFrame() {
-  final frame = StringBuffer('{"payload":"');
-  final chunk = 'x'.padRight(1024, 'x');
-  final chunks = LiveTranscriptionLimits.maximumFrameBytes ~/ chunk.length + 1;
-  for (var index = 0; index < chunks; index++) {
-    frame.write(chunk);
-  }
-  frame.write('"}');
-  return frame.toString();
 }
 
 final class LiveClientTestHarness<T extends LiveTranscriptionClient> {
