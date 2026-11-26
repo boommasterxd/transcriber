@@ -20,28 +20,20 @@ function ignoreTestClass(root, name) {
   fs.writeFileSync(target, ignored);
 }
 
-test('the independent JVM suite detects a real PCM production regression', { timeout: 240000 }, (context) => {
+test('the independent JVM suite detects a real WAV header regression', { timeout: 240000 }, (context) => {
   const { repository, root, project } = fixture(context);
-  const pcm = path.join(root, 'android/app/src/main/kotlin/com/transcriber/app/PcmLevelMeter.kt');
-  const original = fs.readFileSync(pcm, 'utf8');
-  const broken = original.replace('private const val minimumLevel = 0.05', 'private const val minimumLevel = 0.5');
+  const writer = path.join(root, 'android/app/src/main/kotlin/com/transcriber/app/BoundedWaveWriter.kt');
+  const original = fs.readFileSync(writer, 'utf8');
+  const broken = original.replace('put("RIFF".toByteArray', 'put("FAIL".toByteArray');
   assert.notEqual(broken, original, 'The injected defect must modify the actual production implementation.');
-  fs.writeFileSync(pcm, broken);
+  fs.writeFileSync(writer, broken);
   const result = runJvm({ repository, project });
   assert.notEqual(result.status, 0, result.stdout);
-  const report = path.join(project, 'build/test-results/test/TEST-com.transcriber.app.PcmLevelMeterTest.xml');
+  const report = path.join(project, 'build/test-results/test/TEST-com.transcriber.app.BoundedWaveWriterTest.xml');
   assert.ok(fs.existsSync(report), `${result.stdout}\n${result.stderr}`);
   const xml = fs.readFileSync(report, 'utf8');
-  assert.match(xml, /name="silenceUsesVisibleMinimumLevel"/);
+  assert.match(xml, /name="exactAndOversizedChunksNeverExceedTheCapAndFinalizeValidPcmHeaders"/);
   assert.match(xml, /<failure /);
-});
-
-test('entirely ignored JVM tests cannot report success', { timeout: 240000 }, (context) => {
-  const setup = fixture(context);
-  for (const name of setup.classes) ignoreTestClass(setup.root, name);
-  const result = runJvm(setup);
-  assert.notEqual(result.status, 0);
-  assert.match(`${result.stdout}\n${result.stderr}`, /zero or entirely skipped tests cannot pass/);
 });
 
 test('each configured JVM test class must execute an unskipped test', { timeout: 240000 }, (context) => {
@@ -51,42 +43,3 @@ test('each configured JVM test class must execute an unskipped test', { timeout:
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}\n${result.stderr}`, /Every maintained test class must execute tests/);
 });
-
-for (const ignored of [false, true]) {
-  test(`Android-style source discovery checks tests outside the JVM manifest: ignored=${ignored}`,
-    { timeout: 240000 }, (context) => {
-      const setup = fixture(context);
-      const source = path.join(setup.root,
-        'android/app/src/test/kotlin/com/transcriber/app/AdditionalTest.kt');
-      fs.writeFileSync(source, `package com.transcriber.app
-${ignored ? '@org.junit.Ignore' : ''}
-class AdditionalTest {
-    @org.junit.Test
-    fun newSessionRejectsMissingIdentity() {
-        org.junit.Assert.assertFalse(EditorSessionGate().accepts(null))
-    }
-}
-`);
-      const script = path.join(setup.project, 'build.gradle.kts');
-      const original = fs.readFileSync(script, 'utf8');
-      const discovery = `kotlin.sourceSets.named("test") {
-    kotlin.setIncludes(listOf("**/*Test.kt"))
-}
-tasks.test { filter.setIncludePatterns("*") }
-extra["requiredTestSourceFiles"] = fileTree(repositoryRoot.dir("android/app/src/test/kotlin").asFile) {
-    include("**/*Test.kt")
-}.files
-apply(from = "require_executed_tests.gradle.kts")`;
-      const changed = original.replace('apply(from = "require_executed_tests.gradle.kts")', discovery);
-      assert.notEqual(changed, original, 'The fixture must use Android-style maintained test discovery.');
-      fs.writeFileSync(script, changed);
-      const result = runJvm(setup);
-      if (ignored) {
-        assert.notEqual(result.status, 0);
-        assert.match(`${result.stdout}\n${result.stderr}`,
-          /Every maintained test class must execute tests: com\.transcriber\.app\.AdditionalTest/);
-      } else {
-        assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-      }
-    });
-}

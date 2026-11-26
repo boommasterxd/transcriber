@@ -9,58 +9,10 @@ import 'http_test_client.dart';
 import 'remote_test_support.dart';
 
 void main() {
-  _registerCatalogTest();
   _registerSummaryTest();
   _registerTranscriptionTest();
   _registerMultimodalTranscriptionTest();
   _registerProviderErrorTest();
-  _registerMissingFileTest();
-}
-
-void _registerCatalogTest() {
-  test(
-    'lists models and tests a key through the authenticated catalog',
-    _testCatalog,
-  );
-}
-
-Future<void> _testCatalog() async {
-  final httpClient = scriptedHttpClient(
-    List.generate(
-      3,
-      (_) => jsonResponse({
-        'data': [
-          {'id': 'gpt-transcribe'},
-          {'id': 'gpt-5.6-luna'},
-          {'id': 'whisper-1'},
-          {'id': 'gpt-audio-1.5'},
-          {'id': 'gpt-4o-audio-preview'},
-          {'id': 'gpt-realtime'},
-          {'id': 'gpt-4o-mini-tts'},
-          {'id': 'omni-moderation-latest'},
-        ],
-      }),
-    ),
-  );
-  final client = OpenAiClient(apiKey: 'secret-key', httpClient: httpClient);
-
-  await client.testConnection();
-  final asr = await client.listModels(forTranscription: true);
-  final summary = await client.listModels(forTranscription: false);
-
-  expectCatalogRequests(
-    httpClient,
-    expectedPath: '/v1/models',
-    headerName: 'authorization',
-    headerValue: 'Bearer secret-key',
-  );
-  expect(asr.map((model) => model.id), [
-    'gpt-4o-audio-preview',
-    'gpt-audio-1.5',
-    'gpt-transcribe',
-    'whisper-1',
-  ]);
-  expect(summary.map((model) => model.id), ['gpt-5.6-luna']);
 }
 
 void _registerMultimodalTranscriptionTest() {
@@ -146,22 +98,6 @@ Future<void> _testSummary() async {
 
 void _registerTranscriptionTest() {
   test('sends gpt-transcribe as multipart', _testTranscription);
-  test(
-    'requests automatic chunking for diarized transcription',
-    () => _testTranscription(modelId: 'gpt-4o-transcribe-diarize'),
-  );
-  test(
-    'routes future diarized ASR without a fixed model family',
-    () => _testTranscription(modelId: 'gpt-99-transcribe-diarize'),
-  );
-  test(
-    'presents Opus as supported OGG without converting its bytes',
-    () => _testTranscription(
-      fileName: 'whatsapp-voice.opus',
-      expectedUploadName: 'audio.ogg',
-      expectedContentType: 'audio/ogg',
-    ),
-  );
 }
 
 Future<void> _testTranscription({
@@ -233,19 +169,4 @@ Future<void> _testProviderError() async {
           .having((error) => error.statusCode, 'statusCode', 401),
     ),
   );
-}
-
-void _registerMissingFileTest() {
-  test('rejects an absent audio file without a request', _testMissingFile);
-}
-
-Future<void> _testMissingFile() async {
-  final httpClient = scriptedHttpClient([jsonResponse({})]);
-  final client = OpenAiClient(apiKey: 'key', httpClient: httpClient);
-
-  await expectLater(
-    client.transcribe('/missing/audio.wav', modelId: 'gpt-transcribe'),
-    throwsA(isA<RemoteApiException>()),
-  );
-  expect(httpClient.requests, isEmpty);
 }

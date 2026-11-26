@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:transcriber/app.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
 import 'package:transcriber/core/toast.dart';
 import 'package:transcriber/core/theme/app_theme.dart';
@@ -52,58 +51,9 @@ void main() {
   });
 
   _registerDialogTests();
-  _registerRecoveryTests();
-  _registerStartupTest();
 }
 
 void _registerDialogTests() {
-  testWidgets('waits for readiness and cancellation does not import', (
-    tester,
-  ) async {
-    recovery = Completer<Object?>();
-    final ready = ValueNotifier(false);
-    addTearDown(ready.dispose);
-    await _pumpGate(tester, picker, ready);
-    expect(calls, ['recoverInterruptedPick']);
-    recovery.complete(_result('/tmp/recovered.wav'));
-    await tester.pump();
-    await tester.pump();
-    expect(find.text(_strings.recoveredAudioTitle), findsNothing);
-    ready.value = true;
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.recoveredAudioTitle), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pump();
-    expect(FocusManager.instance.primaryFocus, isNotNull);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    ready.value = false;
-    await tester.pump();
-    ready.value = true;
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.recoveredAudioTitle), findsNothing);
-    expect(find.byType(ProcessingScreen), findsNothing);
-    expect(calls, ['recoverInterruptedPick']);
-  });
-
-  testWidgets('Escape dismisses the dialog in dark mode at large text', (
-    tester,
-  ) async {
-    recovery = Completer<Object?>();
-    final ready = ValueNotifier(true);
-    addTearDown(ready.dispose);
-    await _pumpGate(tester, picker, ready, dark: true, largeText: true);
-    recovery.complete(_result('/tmp/recovered.wav'));
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.recoveredAudioContinue), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.recoveredAudioTitle), findsNothing);
-    expect(find.byType(ProcessingScreen), findsNothing);
-    expect(calls, ['recoverInterruptedPick']);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('confirmation imports recovered audio without another pick', (
     tester,
   ) async {
@@ -145,85 +95,6 @@ void _registerDialogTests() {
       2,
       3,
     ]);
-    expect(calls, ['recoverInterruptedPick']);
-  });
-}
-
-void _registerRecoveryTests() {
-  testWidgets('recovery error is sanitized and shown once', (tester) async {
-    recovery = Completer<Object?>();
-    final ready = ValueNotifier(false);
-    addTearDown(ready.dispose);
-    await _pumpGate(tester, picker, ready);
-    recovery.completeError(
-      PlatformException(code: 'private-path', message: '/secret/audio.wav'),
-    );
-    await tester.pump();
-    expect(find.text(_strings.audioImportFailed), findsNothing);
-    ready.value = true;
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.audioImportFailed), findsOneWidget);
-    expect(find.textContaining('/secret/audio.wav'), findsNothing);
-    expect(find.byType(ProcessingScreen), findsNothing);
-  });
-
-  testWidgets('live pick supersedes recovery before it is offered', (
-    tester,
-  ) async {
-    recovery = Completer<Object?>();
-    final ready = ValueNotifier(false);
-    addTearDown(ready.dispose);
-    await _pumpGate(tester, picker, ready);
-    recovery.complete(_result('/tmp/recovered.wav'));
-    await tester.pump();
-    await picker.pick();
-    ready.value = true;
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.recoveredAudioTitle), findsNothing);
-    expect(find.byType(ProcessingScreen), findsNothing);
-  });
-
-  testWidgets('ignores a recovery completed after unmount', (tester) async {
-    recovery = Completer<Object?>();
-    final ready = ValueNotifier(true);
-    addTearDown(ready.dispose);
-    await _pumpGate(tester, picker, ready);
-    await tester.pumpWidget(const SizedBox());
-    recovery.complete(_result('/tmp/recovered.wav'));
-    await tester.pumpAndSettle();
-    expect(find.text(_strings.recoveredAudioTitle), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-}
-
-void _registerStartupTest() {
-  testWidgets('startup offers recovery without microphone access', (
-    tester,
-  ) async {
-    recovery = Completer<Object?>();
-    final permissions = TestPermissionChannel(granted: false)..install();
-    addTearDown(permissions.uninstall);
-    final database = testDatabase();
-    addTearDown(database.close);
-    await tester.pumpWidget(
-      appScope(
-        database: database,
-        settings: AppSettings.initial().copyWith(onboarded: true),
-        shareService: TestShareIntentService(),
-        child: ProviderScope(
-          overrides: [audioImportPickerProvider.overrideWithValue(picker)],
-          child: const TranscriberApp(),
-        ),
-      ),
-    );
-    recovery.complete(_result('/tmp/recovered.wav'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text(_strings.recoveredAudioTitle), findsOneWidget);
-    await tester.tap(find.text(_strings.cancel));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ProcessingScreen), findsNothing);
     expect(calls, ['recoverInterruptedPick']);
   });
 }

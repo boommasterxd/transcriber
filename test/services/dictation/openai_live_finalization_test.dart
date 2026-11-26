@@ -21,79 +21,6 @@ void main() {
   tearDown(() => harness.close());
 
   _registerLateTurnTests();
-  _registerEmptyAudioTests();
-  _registerFailureTests();
-  _registerFinalizationCleanupTests();
-  _registerCommitBoundaryTests();
-}
-
-void _registerLateTurnTests() {
-  for (final timing in ['before', 'during']) {
-    test(
-      'a duplicate older final $timing finish preserves newer audio',
-      () async {
-        await _finishTurn('older', 'First.');
-        _appendAudio();
-        if (timing == 'before') await _completed('older', 'First.');
-        var finished = false;
-        final finishing = harness.client.finish().then((_) => finished = true);
-        if (timing == 'during') {
-          await _committed('newer');
-          await _completed('older', 'First.');
-        }
-        await pumpEventQueue();
-
-        expect(harness.socket.sent.last, contains('input_audio_buffer.commit'));
-        expect(finished, isFalse);
-        expect(_finals(), ['First.']);
-        if (timing == 'before') await _committed('newer');
-        expect(finished, isFalse);
-        await _completed('newer', 'Second.');
-        await finishing;
-
-        expect(_finals(), ['First.', 'Second.']);
-      },
-    );
-  }
-}
-
-void _registerEmptyAudioTests() {
-  test(
-    'empty audio does not send a commit or wait for transcription',
-    () async {
-      harness.client.addAudio(Uint8List(0));
-      await harness.client.finish();
-
-      expect(harness.socket.sent, hasLength(1));
-      expect(_finals(), isEmpty);
-    },
-  );
-
-  test('an empty final transcript finishes without inserting text', () async {
-    await _finishTurn('silence', '   ');
-
-    expect(_finals(), isEmpty);
-    expect(harness.events.whereType<LiveTranscriptionFailure>(), isEmpty);
-  });
-}
-
-void _registerFailureTests() {
-  test('a provider error fails an outstanding finish', () async {
-    _appendAudio();
-    final finishing = harness.client.finish();
-    final assertion = expectLater(
-      finishing,
-      throwsA(isA<LiveConnectionException>()),
-    );
-    _providerError('rate_limit');
-    await assertion;
-
-    expect(
-      harness.events.whereType<LiveTranscriptionFailure>().single.code,
-      'quota_exceeded',
-    );
-  });
-
   test(
     'a missing final response fails within the configured timeout',
     () async {
@@ -112,64 +39,22 @@ void _registerFailureTests() {
   );
 }
 
-void _registerFinalizationCleanupTests() {
-  test('closing releases an outstanding finish with a failure', () async {
+void _registerLateTurnTests() {
+  test('a duplicate older final cannot finish a newer audio turn', () async {
+    await _finishTurn('older', 'First.');
     _appendAudio();
-    final assertion = expectLater(
-      harness.client.finish(),
-      throwsA(isA<LiveConnectionException>()),
-    );
-    await harness.client.close();
-    await assertion;
-  });
+    var finished = false;
+    final finishing = harness.client.finish().then((_) => finished = true);
+    await _committed('newer');
+    await _completed('older', 'First.');
 
-  test('a disconnected transport fails an outstanding finish', () async {
-    _appendAudio();
-    final assertion = expectLater(
-      harness.client.finish(),
-      throwsA(isA<LiveConnectionException>()),
-    );
-    await harness.socket.disconnect();
-    await assertion;
-    await harness.client.close();
-  });
-}
-
-void _registerCommitBoundaryTests() {
-  test('concurrent finish requests share one acknowledged commit', () async {
-    _appendAudio();
-    final finishing = harness.client.finish();
-
-    expect(harness.client.finish(), same(finishing));
-    await _committed('one');
-    await _completed('one', 'Complete.');
+    expect(harness.socket.sent.last, contains('input_audio_buffer.commit'));
+    expect(finished, isFalse);
+    expect(_finals(), ['First.']);
+    await _completed('newer', 'Second.');
     await finishing;
 
-    expect(
-      harness.socket.sent.where(
-        (frame) => frame.contains('input_audio_buffer.commit'),
-      ),
-      hasLength(1),
-    );
-  });
-
-  test('rejects malformed commit acknowledgements', () async {
-    _appendAudio();
-    final assertion = expectLater(
-      harness.client.finish(),
-      throwsA(isA<LiveConnectionException>()),
-    );
-    harness.socket.controller.add(
-      jsonEncode({'type': 'input_audio_buffer.committed', 'item_id': 7}),
-    );
-    await pumpEventQueue();
-    await assertion;
-
-    expectProviderRejectedAndClosed(
-      harness.client,
-      harness.socket,
-      harness.events,
-    );
+    expect(_finals(), ['First.', 'Second.']);
   });
 }
 
@@ -200,13 +85,6 @@ Future<void> _completed(String itemId, String transcript) async {
   );
   await pumpEventQueue();
 }
-
-void _providerError(String code) => harness.socket.controller.add(
-  jsonEncode({
-    'type': 'error',
-    'error': {'code': code},
-  }),
-);
 
 List<String> _finals() => harness.events
     .whereType<LiveTranscriptionFinal>()

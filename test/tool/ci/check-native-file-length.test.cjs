@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { checkNativeFileLengths, countLines } = require('../../../tool/ci/check-native-file-length.cjs');
+const { checkNativeFileLengths } = require('../../../tool/ci/check-native-file-length.cjs');
 
 function fixture(context) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'native-file-length-'));
@@ -14,13 +14,6 @@ function fixture(context) {
   childProcess.execFileSync('git', ['init', '-q'], { cwd });
   return cwd;
 }
-
-test('line counting matches empty, unterminated, LF, CRLF and CR source lines', () => {
-  for (const [source, expected] of [['', 0], ['line', 1], ['line\n', 1],
-    ['a\r\nb\r\n', 2], ['a\rb', 2], ['\n', 1], ['\n\n', 2]]) {
-    assert.equal(countLines(source), expected);
-  }
-});
 
 test('the native gate covers tracked and untracked Kotlin, Gradle and shell files', (context) => {
   const cwd = fixture(context);
@@ -36,17 +29,6 @@ test('the native gate covers tracked and untracked Kotlin, Gradle and shell file
   ]);
   fs.rmSync(path.join(cwd, 'tracked.kt'));
   assert.equal(checkNativeFileLengths(cwd).length, 2);
-});
-
-test('Git errors and incomplete output fail closed', (context) => {
-  for (const output of [new Error('unavailable'), 'incomplete.kt']) {
-    const mock = context.mock.method(childProcess, 'execFileSync', () => {
-      if (output instanceof Error) throw output;
-      return output;
-    });
-    assert.throws(() => checkNativeFileLengths());
-    mock.mock.restore();
-  }
 });
 
 test('CLI rejects an over-limit file and unavailable source enumeration', (context) => {

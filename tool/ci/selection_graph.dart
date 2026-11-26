@@ -7,11 +7,7 @@ import 'selection_git.dart';
 
 typedef ImportGraph = Map<String, Set<String>>;
 
-Future<ImportGraph> snapshotGraph(
-  SelectionGit git,
-  String revision, {
-  ImportGraph? partOwners,
-}) async {
+Future<ImportGraph> snapshotGraph(SelectionGit git, String revision) async {
   final files = (await git.paths(revision)).where(isGraphSource).toSet();
   if (files.length > 3000) {
     throw const FormatException('Source graph exceeds its resource limit.');
@@ -31,13 +27,7 @@ Future<ImportGraph> snapshotGraph(
     if (source.length > 2 * 1024 * 1024 || totalSize > 32 * 1024 * 1024) {
       throw const FormatException('Source graph exceeds its size limit.');
     }
-    graph[file] = sourceDependencies(
-      file,
-      source,
-      package,
-      files,
-      partOwners: partOwners,
-    );
+    graph[file] = sourceDependencies(file, source, package, files);
   }
   return graph;
 }
@@ -49,9 +39,8 @@ Set<String> sourceDependencies(
   String file,
   String source,
   String package,
-  Set<String> files, {
-  ImportGraph? partOwners,
-}) {
+  Set<String> files,
+) {
   final result = parseString(
     content: source,
     path: file,
@@ -70,9 +59,6 @@ Set<String> sourceDependencies(
         throw FormatException('Unresolved local dependency in $file');
       }
       dependencies.add(dependency);
-      if (directive is PartDirective) {
-        partOwners?.putIfAbsent(dependency, () => {}).add(file);
-      }
     }
   }
   return dependencies;

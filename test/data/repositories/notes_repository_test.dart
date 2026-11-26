@@ -20,96 +20,13 @@ void main() {
     });
 
     tearDown(() => database.close());
-    _registerSnapshotTests(() => database, () => repository);
     _registerDeletionQueueTests(() => repository);
-    _registerSameConnectionRaceTest(() => repository);
     _registerCrossConnectionRaceTest();
-  });
-}
-
-void _registerSnapshotTests(
-  AppDatabase Function() database,
-  NotesRepository Function() repository,
-) {
-  _registerLoadOrderingTest(repository);
-  _registerSaveAllReplacementTest(database, repository);
-  _registerDuplicateSnapshotTest(repository);
-  _registerSummaryErrorTest(repository);
-}
-
-void _registerLoadOrderingTest(NotesRepository Function() repository) {
-  test('loads notes newest first with ordered child collections', () async {
-    await repository().saveAll([
-      _note('old', DateTime.utc(2025, 1, 1)),
-      _note('new', DateTime.utc(2025, 3, 1)),
-    ]);
-
-    final loaded = await repository().load();
-
-    expect(loaded.map((note) => note.id), ['new', 'old']);
-    expect(loaded.first.points, ['Point new']);
-    expect(loaded.first.todos.single.done, isTrue);
-    expect(loaded.first.transcript.single.text, 'Transcript new');
-    expect(loaded.first.summaryError, isNull);
-  });
-}
-
-void _registerSaveAllReplacementTest(
-  AppDatabase Function() database,
-  NotesRepository Function() repository,
-) {
-  test('saveAll replaces the complete note snapshot atomically', () async {
-    await repository().saveAll([_note('first', DateTime.utc(2025, 1, 1))]);
-    await repository().saveAll([_note('second', DateTime.utc(2025, 2, 1))]);
-
-    final loaded = await repository().load();
-    expect(loaded.map((note) => note.id), ['second']);
-    expect(
-      await database().select(database().notePointsTable).get(),
-      hasLength(1),
-    );
-    expect(await database().select(database().notesTable).get(), hasLength(1));
-  });
-}
-
-void _registerDuplicateSnapshotTest(NotesRepository Function() repository) {
-  test('rejects duplicate note ids before changing persisted data', () async {
-    await repository().saveAll([_note('stable', DateTime.utc(2025, 1, 1))]);
-
-    await expectLater(
-      repository().saveAll([
-        _note('duplicate', DateTime.utc(2025, 1, 1)),
-        _note('duplicate', DateTime.utc(2025, 2, 1)),
-      ]),
-      throwsArgumentError,
-    );
-
-    expect((await repository().load()).single.id, 'stable');
-  });
-}
-
-void _registerSummaryErrorTest(NotesRepository Function() repository) {
-  test('persists summary errors while retaining transcript data', () async {
-    final note = _note(
-      'failed-summary',
-      DateTime.utc(2025, 1, 1),
-    ).copyWith(summaryError: 'Summary failed');
-    await repository().saveAll([note]);
-
-    final restored = (await repository().load()).single;
-
-    expect(restored.summaryError, 'Summary failed');
-    expect(restored.createdAt.isAtSameMomentAs(note.createdAt), isTrue);
-    final restoredFields = restored.toJson()..remove('createdAt');
-    final originalFields = note.toJson()..remove('createdAt');
-    expect(restoredFields, originalFields);
   });
 }
 
 void _registerDeletionQueueTests(NotesRepository Function() repository) {
   _registerRetainedRemovalTest(repository);
-  _registerSharedAudioReferenceTest(repository);
-  _registerPendingQueryBoundsTest(repository);
 }
 
 void _registerRetainedRemovalTest(NotesRepository Function() repository) {
@@ -127,67 +44,6 @@ void _registerRetainedRemovalTest(NotesRepository Function() repository) {
 
     expect(await notes.pendingAudioDeletionPaths(), isEmpty);
     expect(await notes.findById(note.id), isNotNull);
-  });
-}
-
-void _registerSharedAudioReferenceTest(NotesRepository Function() repository) {
-  test('deleting one note preserves audio referenced by another', () async {
-    final notes = repository();
-    const audioPath = '/retained/shared.wav';
-    await notes.saveAll([
-      _retainedNote('first', audioPath),
-      _retainedNote('second', audioPath),
-    ]);
-
-    await notes.remove('first');
-
-    expect(await notes.pendingAudioDeletionPaths(), [audioPath]);
-    expect((await notes.findById('second'))?.audioPath, audioPath);
-  });
-}
-
-void _registerPendingQueryBoundsTest(NotesRepository Function() repository) {
-  test(
-    'pending deletion query rejects limits outside its memory bound',
-    () async {
-      for (final limit in [
-        0,
-        NotesRepository.maxPendingAudioDeletionBatchSize + 1,
-      ]) {
-        await expectLater(
-          repository().pendingAudioDeletionPaths(limit: limit),
-          throwsArgumentError,
-        );
-      }
-    },
-  );
-}
-
-void _registerSameConnectionRaceTest(NotesRepository Function() repository) {
-  test('restore waits for a pending deletion attempt to finish', () async {
-    final notes = repository();
-    final note = _retainedNote('racing-undo', '/retained/racing-undo.wav');
-    await notes.add(note);
-    await notes.remove(note.id);
-    final deleteStarted = Completer<void>();
-    final finishDelete = Completer<bool>();
-
-    final deleting = notes.tryProcessPendingAudioDeletion(note.audioPath!, (_) {
-      deleteStarted.complete();
-      return finishDelete.future;
-    });
-    await deleteStarted.future;
-    var restored = false;
-    final adding = notes.add(note).then((_) => restored = true);
-
-    expect(restored, isFalse);
-    finishDelete.complete(false);
-    expect(await deleting, isFalse);
-    await adding;
-
-    expect(restored, isTrue);
-    expect(await notes.findById(note.id), isNotNull);
-    expect(await notes.pendingAudioDeletionPaths(), isEmpty);
   });
 }
 

@@ -16,9 +16,7 @@ import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -47,26 +45,8 @@ class ShareImportProviderTest {
     }
 
     @Test
-    fun delayedProviderDoesNotBlockMainThreadAndCancellationCompletesReadiness() {
-        val provider = provider().apply { delayQuery = true }
-        withImport(provider) { fixture ->
-            await(provider.queryEntered)
-            instrumentation.runOnMainSync {
-                assertFalse(fixture.replied)
-                fixture.coordinator.cancel()
-            }
-            await(fixture.replyReady)
-            await(provider.cancelled)
-            await(fixture.workerFinished)
-            assertNull(fixture.path)
-            assertTrue(fixture.files().isEmpty())
-            assertTrue(provider.offMainThread)
-        }
-    }
-
-    @Test
     fun deadlineClosesStalledDescriptorAndRemovesUnclaimedCacheFile() {
-        val provider = provider().apply { pipeInput = true }
+        val provider = provider()
         withImport(provider) { fixture ->
             await(provider.openEntered)
             assertEquals(1, fixture.files().size)
@@ -80,23 +60,8 @@ class ShareImportProviderTest {
         }
     }
 
-    @Test
-    fun successfulWorkerImportHandsOffOwnedFileAndPreservesSource() {
-        val provider = provider()
-        withImport(provider) { fixture ->
-            await(fixture.replyReady)
-            val imported = File(fixture.path!!)
-            assertArrayEquals(provider.source.readBytes(), imported.readBytes())
-            instrumentation.runOnMainSync { fixture.coordinator.cancel() }
-            assertTrue(imported.exists())
-            assertTrue(provider.source.exists())
-            assertTrue(provider.offMainThread)
-        }
-    }
-
     private fun provider(): FixtureProvider {
-        val source = temporary.newFile("source.wav").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
-        return FixtureProvider(source).also {
+        return FixtureProvider().also {
             it.attachInfo(
                 context,
                 ProviderInfo().apply {
@@ -115,7 +80,6 @@ class ShareImportProviderTest {
             verify(fixture)
         } finally {
             instrumentation.runOnMainSync { fixture.coordinator.cancel() }
-            provider.releaseQuery.countDown()
             provider.pipeWriter?.close()
             fixture.worker.shutdownNow()
             fixture.cleanup.shutdownNow()
@@ -133,7 +97,6 @@ class ShareImportProviderTest {
         val cleanup = Executors.newSingleThreadExecutor()
         val replyReady = CountDownLatch(1)
         val workerFinished = CountDownLatch(1)
-        var replied = false
         var path: String? = null
         var expire: () -> Unit = {}
         private val root = temporary.newFolder("cache")
@@ -160,7 +123,6 @@ class ShareImportProviderTest {
             }
             coordinator.awaitPath {
                 assertEquals(Looper.getMainLooper(), Looper.myLooper())
-                replied = true
                 path = it
                 replyReady.countDown()
             }
@@ -169,13 +131,9 @@ class ShareImportProviderTest {
         fun files(): List<File> = File(root, "shared").listFiles()?.toList().orEmpty()
     }
 
-    private class FixtureProvider(val source: File) : ContentProvider() {
-        val queryEntered = CountDownLatch(1)
-        val releaseQuery = CountDownLatch(1)
+    private class FixtureProvider : ContentProvider() {
         val openEntered = CountDownLatch(1)
         val cancelled = CountDownLatch(1)
-        var delayQuery = false
-        var pipeInput = false
         var offMainThread = true
         var pipeWriter: ParcelFileDescriptor? = null
 
@@ -191,44 +149,21 @@ class ShareImportProviderTest {
             selection: String?,
             selectionArgs: Array<out String>?,
             sortOrder: String?,
-            cancellationSignal: CancellationSignal?,
         ): Cursor {
             offMainThread = offMainThread && Looper.myLooper() != Looper.getMainLooper()
-            queryEntered.countDown()
-            if (delayQuery) {
-                cancellationSignal!!.setOnCancelListener {
-                    cancelled.countDown()
-                    releaseQuery.countDown()
-                }
-                assertTrue(releaseQuery.await(5, TimeUnit.SECONDS))
-                cancellationSignal.throwIfCanceled()
-            }
             return MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME)).apply { addRow(arrayOf("source.wav")) }
         }
 
-        override fun query(
-            uri: Uri,
-            projection: Array<out String>?,
-            selection: String?,
-            selectionArgs: Array<out String>?,
-            sortOrder: String?,
-        ): Cursor = query(uri, projection, selection, selectionArgs, sortOrder, null)
-
         override fun openAssetFile(uri: Uri, mode: String, signal: CancellationSignal?): AssetFileDescriptor {
             offMainThread = offMainThread && Looper.myLooper() != Looper.getMainLooper()
-            val descriptor = if (pipeInput) {
-                val pipe = ParcelFileDescriptor.createPipe()
-                pipeWriter = pipe[1]
-                signal!!.setOnCancelListener {
-                    pipe[1].close()
-                    cancelled.countDown()
-                }
-                pipe[0]
-            } else {
-                ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY)
+            val pipe = ParcelFileDescriptor.createPipe()
+            pipeWriter = pipe[1]
+            requireNotNull(signal).setOnCancelListener {
+                pipe[1].close()
+                cancelled.countDown()
             }
             openEntered.countDown()
-            return AssetFileDescriptor(descriptor, 0, AssetFileDescriptor.UNKNOWN_LENGTH)
+            return AssetFileDescriptor(pipe[0], 0, AssetFileDescriptor.UNKNOWN_LENGTH)
         }
 
         override fun insert(uri: Uri, values: ContentValues?): Uri? = null

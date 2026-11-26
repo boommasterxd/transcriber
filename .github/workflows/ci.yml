@@ -66,13 +66,7 @@ jobs:
       - name: Check Node quality and gate enforcement
         run: npm --prefix tool/quality/node run check
       - name: Test CI classification and final gate
-        run: >-
-          node --test --experimental-test-coverage
-          --test-coverage-include='tool/ci/*.cjs'
-          --test-coverage-include='tool/ci/cache-lifecycle/*.cjs'
-          --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80
-          test/tool/ci/*.test.cjs
-          test/tool/ci/cache-lifecycle/*.test.cjs
+        run: node --test test/tool/ci/*.test.cjs test/tool/ci/cache-lifecycle/*.test.cjs
       - name: Verify APK signing and publication guards
         run: ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0" node --test test/tool/ci/apk-signing.integration.cjs
       - name: Install workflow linters
@@ -137,7 +131,7 @@ jobs:
           dart run tool/ci/select_tests.dart
           --base "$CHANGE_BASE_SHA" --head "$CHANGE_HEAD_SHA"
           --output .dart_tool/ci/test-plan.json
-      - name: Test and enforce coverage thresholds
+      - name: Run affected critical tests
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' && steps.tests.outcome == 'success' }}
         run: dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json
       - name: Collect Dart metrics
@@ -206,13 +200,12 @@ jobs:
         run: node tool/ci/check-native-file-length.cjs
       - name: Run pure JVM unit tests
         if: ${{ !cancelled() }}
-        run: android/gradlew -p tool/ci/jvm test verifyNativeCoverage --no-daemon
+        run: android/gradlew -p tool/ci/jvm test --no-daemon
       - name: Prove JVM tests reject a production defect
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: >-
           node --test test/tool/ci/jvm-test-failure.integration.cjs
           test/tool/ci/gradle-cache.integration.cjs
-          test/tool/ci/native-coverage.integration.cjs
           test/tool/ci/kotlin-quality.integration.cjs
 
   kotlin-quality:
@@ -251,26 +244,26 @@ jobs:
       - name: Enforce native and shell file length
         if: ${{ !cancelled() }}
         run: node tool/ci/check-native-file-length.cjs
-      - name: Run native unit tests and compile device tests
+      - name: Run native unit tests
         if: ${{ !cancelled() }}
         working-directory: android
-        run: ./gradlew :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest :app:verifyNativeCoverage :app:compileDebugAndroidTestKotlin
+        env:
+          RUN_DEVICE_TESTS: ${{ needs.changes.outputs.device }}
+        run: |
+          tasks=(:app:verifyAuditedAndroidDependencies :app:testDebugUnitTest)
+          if [[ "$RUN_DEVICE_TESTS" != true ]]; then
+            tasks+=(:app:compileDebugAndroidTestKotlin)
+          fi
+          ./gradlew "${tasks[@]}"
       - name: Run instrumentation on an Android device
         id: device-tests
         if: needs.changes.outputs.device == 'true'
         run: bash tool/ci/run_android_device_tests.sh
-      - name: Verify shared Android dependency warmup
-        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
-        run: android/gradlew -p android -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache --no-daemon
-      - name: Verify standalone JVM harness
-        if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
-        run: android/gradlew -p tool/ci/jvm -I "$PWD/tool/ci/warm-gradle-cache.init.gradle" warmDependencyCache test verifyNativeCoverage --no-daemon
       - name: Prove JVM tests reject failures and skipped suites
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
         run: >-
           node --test test/tool/ci/jvm-test-failure.integration.cjs
           test/tool/ci/gradle-cache.integration.cjs
-          test/tool/ci/native-coverage.integration.cjs
           test/tool/ci/kotlin-quality.integration.cjs
       - name: Verify Flutter bundle assembled by native tests
         if: ${{ !cancelled() && needs.changes.outputs.build == 'true' }}

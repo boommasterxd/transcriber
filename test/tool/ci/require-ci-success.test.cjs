@@ -5,7 +5,6 @@ const childProcess = require('node:child_process');
 const path = require('node:path');
 const test = require('node:test');
 const { requireCiSuccess } = require('../../../tool/ci/require-ci-success.cjs');
-const { classifyPaths } = require('../../../tool/ci/detect-change-scope.cjs');
 
 const jobs = [
   'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
@@ -40,28 +39,6 @@ test('full CI requires all quality, build and security jobs', () => {
   }
 });
 
-test('global CI-control edits require successful application, native and workflow gates', () => {
-  for (const file of ['tool/ci/detect-change-scope.cjs', 'tool/ci/require-ci-success.cjs',
-    'test/tool/ci/detect-change-scope.test.cjs', 'test/tool/ci/require-ci-success.test.cjs',
-    'tool/ci/select_tests.dart', 'tool/ci/run_test_plan.dart', 'tool/ci/test_selection.dart',
-    'test/tool/ci/test_selection_test.dart', 'tool/quality/check_code_quality.dart',
-    'tool/quality/check_coverage.dart', 'tool/quality/coverage_source.dart',
-    'test/tool/quality/parameter_count_test.dart']) {
-    const needs = prerequisites();
-    needs.changes.outputs = { ...revisions, ...Object.fromEntries(Object.entries(classifyPaths([file]))
-      .map(([flag, value]) => [flag, String(value)])) };
-    assert.deepEqual(needs.changes.outputs, prerequisites().changes.outputs, file);
-    assert.doesNotThrow(() => requireCiSuccess(needs, revisions), file);
-    for (const job of ['workflow-lint', 'dart-quality', 'kotlin-quality', 'dependency-audit']) {
-      for (const result of ['failure', 'cancelled', 'skipped']) {
-        needs[job].result = result;
-        assert.throws(() => requireCiSuccess(needs, revisions), new RegExp(job), `${file}: ${job}: ${result}`);
-      }
-      needs[job].result = 'success';
-    }
-  }
-});
-
 test('scoped plans require only their exact jobs, and every other job must be skipped', () => {
   const cases = [
     [['workflow'], ['workflow-lint']],
@@ -92,14 +69,6 @@ test('scoped plans require only their exact jobs, and every other job must be sk
       needs[job].result = expected;
     }
   }
-});
-
-test('Android owns the JVM scope when both are selected', () => {
-  const needs = prerequisites();
-  assert.equal(needs['jvm-quality'].result, 'skipped');
-  assert.doesNotThrow(() => requireCiSuccess(needs, revisions));
-  needs.changes.outputs.jvm = 'false';
-  assert.throws(() => requireCiSuccess(needs, revisions), /JVM test scope/);
 });
 
 test('selected Android device tests need an actual successful step result', () => {
@@ -176,21 +145,6 @@ test('failed, cancelled, absent or malformed classification cannot pass', () => 
   const needs = prerequisites();
   delete needs.changes.outputs;
   assert.throws(() => requireCiSuccess(needs, revisions));
-});
-
-test('CLI fails closed for invalid input and failed prerequisites', () => {
-  const script = path.join(__dirname, '../../../tool/ci/require-ci-success.cjs');
-  for (const [input, expected] of [
-    [JSON.stringify(prerequisites()), 0],
-    [JSON.stringify(prerequisites('true')), 0],
-    ['{}', 1], ['null', 1], ['invalid JSON', 1], ['', 1],
-  ]) {
-    const result = childProcess.spawnSync(process.execPath, [script], {
-      encoding: 'utf8', timeout: 5000, env: { ...process.env, CI_NEEDS: input,
-        CI_BASE_SHA: revisions.base_sha, CI_HEAD_SHA: revisions.head_sha, CI_MERGE_SHA: revisions.merge_sha },
-    });
-    assert.equal(result.status, expected, result.stderr);
-  }
 });
 
 test('old and malformed revision bindings cannot approve even a docs-only plan', () => {

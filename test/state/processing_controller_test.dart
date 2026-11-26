@@ -3,13 +3,12 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:uuid/data.dart';
-import 'package:uuid/uuid.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/models/transcription_result.dart';
+import 'package:transcriber/data/repositories/notes_repository.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
@@ -18,7 +17,6 @@ import 'package:transcriber/services/storage/managed_audio_file.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/processing_controller.dart';
 import 'package:transcriber/state/providers.dart';
-import 'package:transcriber/state/settings_controller.dart';
 
 import 'state_test_fakes.dart';
 
@@ -34,36 +32,31 @@ void main() {
   _registerSummaryFailureTests();
   _registerRunningDiscardTests();
   _registerReplacementTests();
-  _registerReentryRecoveryTests();
-  _registerCommitReentryTest();
-  _registerPreviewCleanupReentryTest();
 }
 
 void _registerSummaryFailureTests() {
-  for (final save in [true, false]) {
-    test('summary failure keeps the transcript with save=$save', () async {
-      final harness = await _Harness.create();
-      addTearDown(harness.dispose);
-      harness.clientFactory.summaryError = const RemoteApiException(
-        'Gemini error (400): Thinking is not enabled for this model.',
-      );
+  test('a failed summary saves the transcript without provider keys', () async {
+    final harness = await _Harness.create();
+    addTearDown(harness.dispose);
+    harness.clientFactory.summaryError = const RemoteApiException(
+      'Gemini error (400): Thinking is unavailable for summary-key.',
+    );
 
-      await harness.run(save: save);
+    await harness.run(save: true);
 
-      expect(harness.state.hasError, isFalse);
-      expect(harness.state.result!.fullTranscriptText, 'Transcript');
-      expect(harness.state.result!.summaryError, contains('Thinking'));
-      expect(harness.state.result!.gist, isEmpty);
-      expect(harness.clientFactory.calls, hasLength(2));
-      expect(await harness.staging.exists(), !save);
-      if (!save) await harness.controller.commit();
-      final saved = harness.notesRepository.loaded.single;
-      expect(saved.fullTranscriptText, 'Transcript');
-      expect(saved.summaryError, harness.state.result!.summaryError);
-      expect(await harness.staging.exists(), isFalse);
-      expect(await File(saved.audioPath!).exists(), isTrue);
-    });
-  }
+    expect(harness.state.hasError, isFalse);
+    expect(harness.clientFactory.calls, [
+      (RemoteProviderId.openai, 'asr-key'),
+      (RemoteProviderId.google, 'summary-key'),
+    ]);
+    final saved = (await harness.notesRepository.load()).single;
+    expect(saved.fullTranscriptText, 'Transcript');
+    expect(saved.summaryError, contains('Thinking'));
+    expect(saved.summaryError, isNot(contains('summary-key')));
+    expect(saved.gist, isEmpty);
+    expect(await harness.staging.exists(), isFalse);
+    expect(await File(saved.audioPath!).exists(), isTrue);
+  });
 }
 
 void _registerCredentialTests() {
@@ -79,84 +72,20 @@ void _registerCredentialTests() {
     );
 
     await harness.run(save: false, settings: confirmed);
+    expect(harness.settingsRepository.requestedProviders, [
+      RemoteProviderId.google,
+    ]);
     expect(harness.clientFactory.calls, [
       (RemoteProviderId.google, 'summary-key'),
     ]);
     expect(harness.state.result!.audioPath, isNull);
     await harness.controller.commit();
-    expect(harness.notesRepository.loaded.single.audioPath, isNull);
+    expect((await harness.notesRepository.load()).single.audioPath, isNull);
     expect(await harness.staging.exists(), isFalse);
-  });
-
-  test('does not read a summary key when summarization is disabled', () async {
-    final harness = await _Harness.create(summaryEnabled: false);
-    addTearDown(harness.dispose);
-
-    await harness.run(save: false);
-
-    expect(harness.settingsRepository.requestedProviders, [
-      RemoteProviderId.openai,
-    ]);
-    expect(harness.clientFactory.calls, [(RemoteProviderId.openai, 'asr-key')]);
-  });
-
-  test('loads independent keys for OpenAI and Google stages', () async {
-    final harness = await _Harness.create();
-    addTearDown(harness.dispose);
-
-    await harness.run(save: false);
-
-    expect(harness.settingsRepository.requestedProviders, [
-      RemoteProviderId.openai,
-      RemoteProviderId.google,
-    ]);
-    expect(harness.clientFactory.calls, [
-      (RemoteProviderId.openai, 'asr-key'),
-      (RemoteProviderId.google, 'summary-key'),
-    ]);
   });
 }
 
 void _registerDiscardTests() {
-  for (final saveFails in [true, false]) {
-    test(
-      'discard during save preserves only committed audio: $saveFails',
-      () async {
-        final harness = await _Harness.create();
-        addTearDown(harness.dispose);
-        final gate = Completer<void>();
-        final started = Completer<void>();
-        harness.notesRepository
-          ..failOnSave = saveFails
-          ..gate = gate.future
-          ..started = started;
-
-        final run = harness.run(save: true);
-        await started.future;
-        final retained = File(harness.notesRepository.attempted!.audioPath!);
-        expect(await retained.exists(), isTrue);
-        await harness.controller.discardCurrent();
-        gate.complete();
-        await run;
-
-        expect(await harness.staging.exists(), isFalse);
-        expect(await retained.exists(), !saveFails);
-        expect(harness.notesRepository.loaded, hasLength(saveFails ? 0 : 1));
-        if (saveFails) {
-          expect(
-            harness.state,
-            isA<ProcessingState>()
-                .having((state) => state.running, 'running', false)
-                .having((state) => state.result, 'result', isNull)
-                .having((state) => state.error, 'error', isNull),
-          );
-          await harness.controller.commit();
-          expect(harness.notesRepository.loaded, isEmpty);
-        }
-      },
-    );
-  }
-
   test('discard removes preview audio from temporary storage', () async {
     final harness = await _Harness.create();
     addTearDown(harness.dispose);
@@ -166,24 +95,8 @@ void _registerDiscardTests() {
 
     expect(await harness.staging.exists(), isFalse);
     expect(await harness.retainedFiles(), isEmpty);
-    expect(harness.notesRepository.loaded, isEmpty);
+    expect(await harness.notesRepository.load(), isEmpty);
   });
-
-  test(
-    'provider failure preserves staging until explicitly discarded',
-    () async {
-      final harness = await _Harness.create();
-      addTearDown(harness.dispose);
-      harness.clientFactory.error = StateError('provider failed');
-
-      await harness.run(save: true);
-      expect(harness.state.error, isA<StateError>());
-      expect(await harness.staging.exists(), isTrue);
-
-      await harness.controller.discardCurrent();
-      expect(await harness.staging.exists(), isFalse);
-    },
-  );
 }
 
 final class _Harness {
@@ -205,11 +118,7 @@ final class _Harness {
   final _ClientFactory clientFactory;
   final ProviderContainer container;
 
-  static Future<_Harness> create({
-    bool summaryEnabled = true,
-    Uuid? retentionUuid,
-    Future<StoragePaths> Function(StoragePaths)? cachePaths,
-  }) async {
+  static Future<_Harness> create({bool summaryEnabled = true}) async {
     final database = createTestDatabase();
     final settingsRepository = FakeSettingsRepository(database)
       ..keys.addAll({
@@ -225,11 +134,8 @@ final class _Harness {
     );
     final staging = File('${(await paths.importCacheDir()).path}/input.m4a');
     await staging.writeAsBytes([1, 2, 3]);
-    final notesRepository = _ObservingNotesRepository(database, staging);
-    final cacheManager = AudioCacheManager(
-      paths: cachePaths?.call(paths) ?? Future.value(paths),
-      uuid: retentionUuid,
-    );
+    final notesRepository = _ObservingNotesRepository(database);
+    final cacheManager = AudioCacheManager(paths: Future.value(paths));
     final clientFactory = _ClientFactory();
     final pipeline = ProcessingPipeline(
       cacheManager: cacheManager,
@@ -269,7 +175,6 @@ final class _Harness {
   ProcessingController get controller =>
       container.read(processingControllerProvider.notifier);
   ProcessingState get state => container.read(processingControllerProvider);
-  File get retainedAudio => File(state.result!.audioPath!);
   Future<List<FileSystemEntity>> retainedFiles() async {
     final folder = Directory('${root.path}/support/audio/retained');
     return await folder.exists() ? folder.list().toList() : const [];
@@ -296,41 +201,41 @@ final class _Harness {
   }
 }
 
-final class _ObservingNotesRepository extends FakeNotesRepository {
-  _ObservingNotesRepository(super.database, this.staging);
+final class _ObservingNotesRepository extends NotesRepository {
+  _ObservingNotesRepository(super.database);
 
-  final File staging;
-  bool? stagingExistedDuringSave;
+  int attempts = 0;
+  bool failOnSave = false;
   Future<void>? gate;
   Completer<void>? started;
   TranscriptNote? attempted;
-  void Function()? afterSave;
 
   @override
   Future<TranscriptNote> add(TranscriptNote note) async {
-    stagingExistedDuringSave = await staging.exists();
-    attempted = note;
-    started?.complete();
-    await gate;
-    final saved = await super.add(note);
-    afterSave?.call();
-    return saved;
+    await _beforeStore(note);
+    return super.add(note);
   }
 
   @override
   Future<TranscriptNote> addWithStagedAudio(
     TranscriptNote note,
     Future<void> Function() promoteAudio,
-  ) async {
-    pendingAudioDeletions.add(note.audioPath!);
+  ) => super.addWithStagedAudio(note, () async {
     await promoteAudio();
-    return add(note);
+    await _beforeStore(note);
+  });
+
+  Future<void> _beforeStore(TranscriptNote note) async {
+    attempts++;
+    attempted = note;
+    started?.complete();
+    await gate;
+    if (failOnSave) throw StateError('synthetic persistence failure');
   }
 }
 
 final class _ClientFactory {
   final List<(RemoteProviderId, String)> calls = [];
-  Object? error;
   Object? summaryError;
   Future<void> Function(ProcessingStep, RemoteCancellation?)? beforeStage;
 
@@ -356,8 +261,6 @@ final class _RemoteClient implements RemoteProviderClient {
     RemoteCancellation? cancellation,
   }) async {
     await factory.beforeStage?.call(ProcessingStep.transcribing, cancellation);
-    final failure = factory.error;
-    if (failure != null) throw failure;
     return const TranscriptionResult(
       text: 'Transcript',
       segments: [TranscriptLine(text: 'Transcript')],

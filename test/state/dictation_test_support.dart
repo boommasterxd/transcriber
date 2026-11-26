@@ -5,30 +5,20 @@ import 'package:transcriber/services/dictation/dictation_platform.dart';
 import 'package:transcriber/services/dictation/live_transcription.dart';
 
 final class FakeDictationPlatform implements DictationPlatform {
-  FakeDictationPlatform({KeyboardEditorState? editor})
-    : currentEditor =
-          editor ??
-          const KeyboardEditorState(
-            sessionId: 'editor-1',
-            visible: true,
-            supported: true,
-            microphoneGranted: true,
-          );
-
   final controller = StreamController<DictationPlatformEvent>.broadcast();
-  KeyboardEditorState currentEditor;
+  KeyboardEditorState currentEditor = const KeyboardEditorState(
+    sessionId: 'editor-1',
+    visible: true,
+    supported: true,
+    microphoneGranted: true,
+  );
   final List<({String sessionId, int sampleRate})> starts = [];
   final List<({String sessionId, String text})> compositions = [];
   final List<({String sessionId, String text})> commits = [];
   final List<String> clears = [];
-  final List<String> deletes = [];
-  int stopCount = 0;
   int pauseCount = 0;
   int resumeCount = 0;
-  int switchCount = 0;
-  bool acceptEdits = true;
   Completer<bool>? compositionGate;
-  Completer<void>? resumeGate;
 
   @override
   Stream<DictationPlatformEvent> get events => controller.stream;
@@ -47,12 +37,10 @@ final class FakeDictationPlatform implements DictationPlatform {
   @override
   Future<void> resumeRecording(String sessionId) async {
     resumeCount++;
-    await resumeGate?.future;
   }
 
   @override
   Future<bool> stopRecording(String sessionId) async {
-    stopCount++;
     return currentEditor.sessionId == sessionId;
   }
 
@@ -61,32 +49,26 @@ final class FakeDictationPlatform implements DictationPlatform {
     compositions.add((sessionId: sessionId, text: text));
     final gate = compositionGate;
     if (gate != null) return gate.future;
-    return acceptEdits;
+    return true;
   }
 
   @override
   Future<bool> commitText(String sessionId, String text) async {
     commits.add((sessionId: sessionId, text: text));
-    return acceptEdits;
+    return true;
   }
 
   @override
   Future<bool> clearComposingText(String sessionId) async {
     clears.add(sessionId);
-    return acceptEdits;
-  }
-
-  @override
-  Future<int> deleteBackward(String sessionId) async {
-    deletes.add(sessionId);
-    return acceptEdits ? 1 : 0;
-  }
-
-  @override
-  Future<bool> switchToPreviousInputMethod() async {
-    switchCount++;
     return true;
   }
+
+  @override
+  Future<int> deleteBackward(String sessionId) async => 1;
+
+  @override
+  Future<bool> switchToPreviousInputMethod() async => true;
 
   void emitAudio(List<int> bytes, {double level = 0.5}) {
     controller.add(
@@ -103,10 +85,6 @@ final class FakeDictationPlatform implements DictationPlatform {
     controller.add(DictationEditorChanged(editor));
   }
 
-  void emitFailure(String code) {
-    controller.add(DictationPlatformFailure(currentEditor.sessionId, code));
-  }
-
   Future<void> close() => controller.close();
 }
 
@@ -115,23 +93,13 @@ final class FakeLiveTranscriptionClient implements LiveTranscriptionClient {
     sync: true,
   );
   final List<Uint8List> audio = [];
-  Completer<void>? connectGate;
-  Object? connectError;
-  bool connected = false;
-  bool finished = false;
   bool closed = false;
-  String? finalTextOnFinish;
-  Completer<void>? closeGate;
 
   @override
   Stream<LiveTranscriptionEvent> get events => controller.stream;
 
   @override
   Future<void> connect() async {
-    await connectGate?.future;
-    final error = connectError;
-    if (error != null) throw error;
-    connected = true;
     controller.add(const LiveTranscriptionReady());
   }
 
@@ -139,16 +107,10 @@ final class FakeLiveTranscriptionClient implements LiveTranscriptionClient {
   void addAudio(Uint8List pcm) => audio.add(Uint8List.fromList(pcm));
 
   @override
-  Future<void> finish() async {
-    finished = true;
-    if (finalTextOnFinish case final text?) {
-      controller.add(LiveTranscriptionFinal(text));
-    }
-  }
+  Future<void> finish() async {}
 
   @override
   Future<void> close() async {
     closed = true;
-    await closeGate?.future;
   }
 }

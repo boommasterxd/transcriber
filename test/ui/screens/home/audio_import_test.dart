@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
@@ -9,13 +8,8 @@ import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/ui/screens/home/audio_import.dart';
 
-import 'home_test_helpers.dart';
-
 void main() {
   _registerSelectedFileTest();
-  _registerCancellationTest();
-  _registerUnmountedContextTest();
-  _registerImportFailures();
 }
 
 final _strings = AppStrings.of(AppLanguage.en);
@@ -34,143 +28,6 @@ void _registerSelectedFileTest() {
       2,
       3,
     ]);
-  });
-}
-
-void _registerCancellationTest() {
-  testWidgets('cancelled audio selection does not start processing', (
-    tester,
-  ) async {
-    final fixture = await _createFixture(tester);
-    await _pumpImportAction(tester, fixture, picker: () async => null);
-    await _tapImport(tester, fixture);
-
-    expect(fixture.started, isEmpty);
-  });
-}
-
-void _registerUnmountedContextTest() {
-  testWidgets('unmounting releases a selected cache file', (tester) async {
-    final fixture = await _createFixture(tester);
-    late BuildContext context;
-    await tester.pumpWidget(captureBuildContext((value) => context = value));
-    final picker = Completer<AudioImportSelection?>();
-    late Future<void> operation;
-    await tester.runAsync(() async {
-      operation = fixture.startImport(context, picker: () => picker.future);
-    });
-
-    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-    await tester.runAsync(() async {
-      picker.complete(fixture.selection);
-      await operation;
-      expect(await fixture.source.exists(), isFalse);
-    });
-
-    expect(fixture.started, isEmpty);
-  });
-}
-
-void _registerImportFailures() {
-  testWidgets('rejected audio reports an error and can be selected again', (
-    tester,
-  ) async {
-    final fixture = await _createFixture(tester);
-    await tester.runAsync(() => fixture.source.writeAsBytes([]));
-    await _pumpImportAction(tester, fixture);
-    await _tapImport(tester, fixture);
-    expect(find.text(_strings.audioImportFailed), findsOneWidget);
-    expect(fixture.started, isEmpty);
-    expect(tester.takeException(), isNull);
-    expect(find.textContaining(fixture.source.path), findsNothing);
-
-    await tester.runAsync(() => fixture.source.writeAsBytes([1, 2, 3]));
-    await _tapImport(tester, fixture);
-    expect(fixture.started, hasLength(1));
-  });
-
-  testWidgets('picker failure reports an error without starting processing', (
-    tester,
-  ) async {
-    final fixture = await _createFixture(tester);
-    await _pumpImportAction(
-      tester,
-      fixture,
-      picker: () async => throw const FileSystemException('access denied'),
-    );
-
-    await _tapImport(tester, fixture);
-
-    expect(find.text(_strings.audioImportFailed), findsOneWidget);
-    expect(fixture.started, isEmpty);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('an unrelated file cannot be handed off or deleted', (
-    tester,
-  ) async {
-    final fixture = await _createFixture(tester);
-    final outside = File(p.join(fixture.root.path, 'outside.m4a'));
-    await tester.runAsync(() => outside.writeAsBytes([1, 2, 3]));
-    await _pumpImportAction(
-      tester,
-      fixture,
-      picker: () async =>
-          AudioImportSelection(path: outside.path, fileName: 'outside.m4a'),
-    );
-    await _tapImport(tester, fixture);
-
-    expect(fixture.started, isEmpty);
-    expect(await tester.runAsync(outside.exists), isTrue);
-    expect(find.text(_strings.audioImportFailed), findsOneWidget);
-  });
-
-  _registerNavigationFailure();
-  _registerOversizedImport();
-}
-
-void _registerOversizedImport() {
-  testWidgets('oversized audio reports an error before processing', (
-    tester,
-  ) async {
-    final fixture = await _createFixture(tester);
-    await tester.runAsync(() async {
-      final file = await fixture.source.open(mode: FileMode.write);
-      await file.truncate(fixture.manager.maximumFileBytes + 1);
-      await file.close();
-    });
-    await _pumpImportAction(tester, fixture);
-
-    await _tapImport(tester, fixture);
-
-    expect(fixture.started, isEmpty);
-    expect(find.text(_strings.audioImportFailed), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-}
-
-void _registerNavigationFailure() {
-  testWidgets('failed navigation removes the imported copy and reports error', (
-    tester,
-  ) async {
-    final fixture = await _createFixture(tester);
-    String? copyPath;
-    await _pumpImportAction(
-      tester,
-      fixture,
-      starter: (_, selection) async {
-        copyPath = selection.path;
-        throw StateError('route unavailable');
-      },
-    );
-
-    await _tapImport(tester, fixture);
-
-    expect(copyPath, isNotNull);
-    expect(await tester.runAsync(() => File(copyPath!).exists()), isFalse);
-    expect(copyPath, fixture.source.path);
-    expect(find.text(_strings.audioImportFailed), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }
 

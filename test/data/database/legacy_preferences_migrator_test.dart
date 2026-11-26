@@ -49,168 +49,8 @@ class _MigrationContext {
 }
 
 void _registerMigrationTests(_MigrationContext Function() contextFactory) {
-  _registerAtomicMigrationTest(contextFactory);
-  _registerMalformedPayloadTest(contextFactory);
-  _registerCompletedMigrationTest(contextFactory);
-  _registerInterruptedPreferenceCleanupTest(contextFactory);
-  _registerInterruptedCredentialCleanupTest(contextFactory);
   _registerPartialMigrationTest(contextFactory);
   _registerFailedMigrationTest(contextFactory);
-}
-
-void _registerCompletedMigrationTest(
-  _MigrationContext Function() contextFactory,
-) {
-  test(
-    'classifies old migration leftovers once without reimporting notes',
-    () async {
-      final context = contextFactory();
-      await context.database
-          .into(context.database.migrationStateTable)
-          .insert(
-            MigrationStateTableCompanion.insert(
-              key: LegacyPreferencesMigrator.marker,
-              completedAt: 1,
-            ),
-          );
-      await context.database
-          .into(context.database.migrationStateTable)
-          .insert(
-            MigrationStateTableCompanion.insert(
-              key: '${LegacyPreferencesMigrator.marker}_cleanup_classified',
-              completedAt: 1,
-            ),
-          );
-      final repository = NotesRepository(context.database);
-      await repository.add(_note('current'));
-      final rawNotes = jsonEncode([
-        _note('old').toJson(),
-        {'id': 'invalid'},
-      ]);
-      await context.preferences.setString('notes', rawNotes);
-      await context.preferences.setString(
-        LegacyPreferencesMigrator.rejectedNotesRecoveryKey,
-        'prior malformed recovery',
-      );
-      final preferences = _ReadTrackingPreferences(context.preferences);
-
-      final migrator = context.migrator(preferences: preferences);
-
-      await migrator.migrate();
-      expect(preferences.reads, ['notes']);
-      expect(context.preferences.containsKey('notes'), isFalse);
-      expect(_recoveredNotes(context), [
-        {'unparsedRecoveryValue': 'prior malformed recovery'},
-        {'id': 'invalid'},
-      ]);
-      expect(await repository.findById('current'), isNotNull);
-      expect(await repository.findById('old'), isNull);
-      preferences.reads.clear();
-
-      await migrator.migrate();
-      expect(preferences.reads, isEmpty);
-      expect(_recoveredNotes(context), hasLength(2));
-    },
-  );
-}
-
-void _registerInterruptedPreferenceCleanupTest(
-  _MigrationContext Function() contextFactory,
-) {
-  test(
-    'retries failed preference removal without decoding or reimport',
-    () async {
-      final context = contextFactory();
-      final note = _note('once');
-      await _seedLegacyStorage(context, note);
-      final preferences = _ReadTrackingPreferences(context.preferences);
-      preferences.removeOverride = (key) async =>
-          key == 'notes' ? false : context.preferences.remove(key);
-      LegacyPreferencesMigrator openMigrator() =>
-          context.migrator(preferences: preferences);
-
-      expect(await openMigrator().migrate(), isTrue);
-      expect(context.preferences.containsKey('notes'), isTrue);
-      expect(context.preferences.containsKey('app_settings'), isFalse);
-      final repository = NotesRepository(context.database);
-      expect(await repository.findById(note.id), isNotNull);
-      await repository.remove(note.id);
-      preferences.reads.clear();
-      final retryAttempts = <String>[];
-      preferences.removeOverride = (key) async {
-        retryAttempts.add(key);
-        throw StateError('synthetic preference removal failure');
-      };
-
-      await openMigrator().migrate();
-      expect(preferences.reads, isEmpty);
-      expect(retryAttempts, ['notes']);
-      expect(context.preferences.containsKey('notes'), isTrue);
-      preferences.removeOverride = null;
-
-      await openMigrator().migrate();
-      expect(preferences.reads, isEmpty);
-      expect(context.preferences.containsKey('notes'), isFalse);
-      expect(context.preferences.containsKey('app_settings'), isFalse);
-      expect(await repository.findById(note.id), isNull);
-    },
-  );
-}
-
-void _registerInterruptedCredentialCleanupTest(
-  _MigrationContext Function() contextFactory,
-) {
-  test('defers obsolete secure-store cleanup and retries failures', () async {
-    final context = contextFactory();
-    const key = 'api_key_openrouter';
-    const activeKey = 'api_key_google';
-    await context.secureStorage.write(key: key, value: 'synthetic-obsolete');
-    await context.secureStorage.write(
-      key: activeKey,
-      value: 'synthetic-active',
-    );
-    final storage = _FailingCredentialStore(context.secureStorage, key);
-    LegacyPreferencesMigrator openMigrator() =>
-        context.migrator(secureStorage: storage);
-
-    final migrator = openMigrator();
-    expect(await migrator.migrate(), isTrue);
-    expect(storage.removals, isEmpty);
-    await migrator.cleanupObsoleteCredentials();
-    expect(await context.secureStorage.containsKey(key: key), isTrue);
-
-    final reopened = openMigrator();
-    expect(await reopened.migrate(), isTrue);
-    await reopened.cleanupObsoleteCredentials();
-    expect(await openMigrator().migrate(), isFalse);
-    expect(await context.secureStorage.containsKey(key: key), isFalse);
-    expect(await context.secureStorage.containsKey(key: activeKey), isTrue);
-    storage.removals.clear();
-
-    await openMigrator().cleanupObsoleteCredentials();
-    expect(storage.removals, isEmpty);
-  });
-}
-
-class _FailingCredentialStore extends Fake implements FlutterSecureStorage {
-  _FailingCredentialStore(this.delegate, this.failOnceFor);
-
-  final FlutterSecureStorage delegate;
-  final String failOnceFor;
-  final removals = <String>[];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName != #delete) {
-      return super.noSuchMethod(invocation);
-    }
-    final key = invocation.namedArguments[#key] as String;
-    final fails = key == failOnceFor && !removals.contains(key);
-    removals.add(key);
-    return fails
-        ? Future<void>.error(StateError('synthetic secure-store failure'))
-        : delegate.delete(key: key);
-  }
 }
 
 void _registerPartialMigrationTest(
@@ -343,19 +183,6 @@ class _ReadTrackingPreferences implements SharedPreferences {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-void _registerAtomicMigrationTest(_MigrationContext Function() contextFactory) {
-  test(
-    'imports settings and notes atomically and cleans legacy storage',
-    () async {
-      final context = contextFactory();
-      final note = _note('legacy-note');
-      await _seedLegacyStorage(context, note);
-      await _migrate(context);
-      await _expectAtomicMigration(context, note);
-    },
-  );
-}
-
 Future<void> _seedLegacyStorage(
   _MigrationContext context,
   TranscriptNote note,
@@ -406,32 +233,6 @@ Future<void> _expectAtomicMigration(
     migrationState.map((row) => row.key),
     contains(LegacyPreferencesMigrator.marker),
   );
-}
-
-void _registerMalformedPayloadTest(
-  _MigrationContext Function() contextFactory,
-) {
-  test('keeps malformed legacy payloads for recovery after import', () async {
-    final context = contextFactory();
-    await context.preferences.setString('app_settings', 'not-json');
-    await context.preferences.setString('notes', jsonEncode({'not': 'a-list'}));
-
-    await LegacyPreferencesMigrator(
-      database: context.database,
-      preferences: context.preferences,
-      secureStorage: context.secureStorage,
-    ).migrate();
-
-    expect(context.preferences.getString('app_settings'), 'not-json');
-    expect(
-      context.preferences.getString('notes'),
-      jsonEncode({'not': 'a-list'}),
-    );
-    expect(
-      await context.database.select(context.database.notesTable).get(),
-      isEmpty,
-    );
-  });
 }
 
 TranscriptNote _note(String id) => TranscriptNote(

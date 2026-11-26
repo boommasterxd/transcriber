@@ -8,7 +8,6 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
 
 import 'parameter_count.dart';
-import 'coverage_source_kind.dart';
 
 const _fileLengthLimit = 500;
 const _cognitiveComplexityLimit = 25;
@@ -176,7 +175,9 @@ bool _isGeneratedDart(String path) {
   if (!path.endsWith('.g.dart')) return false;
   final file = File(path);
   if (!file.existsSync()) return false;
-  return isGeneratedDartSource(path, file.readAsStringSync());
+  return file.readAsStringSync().startsWith(
+    '// GENERATED CODE - DO NOT MODIFY BY HAND',
+  );
 }
 
 final class CognitiveMeasurement {

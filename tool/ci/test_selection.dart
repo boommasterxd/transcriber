@@ -4,9 +4,8 @@ import 'dart:io';
 import 'selection_assets.dart';
 import 'selection_git.dart';
 import 'selection_graph.dart';
-import 'selection_metrics.dart';
 
-const testPlanVersion = 1;
+const testPlanVersion = 2;
 
 Future<Map<String, Object?>> createTestPlan({
   required String root,
@@ -53,6 +52,9 @@ Future<Map<String, Object?>> _select(
     throw const FormatException('Invalid merge base.');
   }
   identity['mergeBase'] = mergeBase;
+  if ((await git.read(['merge-base', head, checkout])).trim() != head) {
+    return _fullPlan(identity, 'The comparison head is absent from checkout.');
+  }
   final changed = (await git.changed(
     mergeBase,
     head,
@@ -61,26 +63,18 @@ Future<Map<String, Object?>> _select(
     return _fullPlan(identity, 'Global, native, asset, or unknown dependency.');
   }
   final before = await snapshotGraph(git, mergeBase);
-  final partOwners = <String, Set<String>>{};
-  final after = await snapshotGraph(
-    git,
-    head,
-    partOwners: checkout == head ? partOwners : null,
-  );
+  final after = await snapshotGraph(git, head);
   if (before.keys.any(
-    (file) =>
-        file.startsWith('test/') &&
-        file.endsWith('_test.dart') &&
-        !after.containsKey(file),
+    (file) => isTestSuite(file) && !after.containsKey(file),
   )) {
     return _fullPlan(
       identity,
-      'A deleted or renamed test suite requires full production coverage.',
+      'A deleted or renamed suite requires full test discovery.',
     );
   }
   final execution = checkout == head
       ? after
-      : await snapshotGraph(git, checkout, partOwners: partOwners);
+      : await snapshotGraph(git, checkout);
   final graph = unionGraphs(unionGraphs(before, after), execution);
   if (changed.any(knownAssetOwners.containsKey) &&
       !addAssetDependencies(
@@ -94,19 +88,7 @@ Future<Map<String, Object?>> _select(
       'A known asset dependency is missing from the checkout.',
     );
   }
-  final plan = _graphPlan(identity, graph, execution, changed, partOwners);
-  if (plan['mode'] == 'selected' &&
-      !await supportsScopedMetrics(
-        git,
-        checkout,
-        (plan['affectedSources']! as List).cast<String>(),
-      )) {
-    return _fullPlan(
-      identity,
-      'Restricted coverage metrics cannot be established.',
-    );
-  }
-  return plan;
+  return _graphPlan(identity, graph, execution, changed);
 }
 
 Future<bool> _checkoutIsDirty(SelectionGit git) async {
@@ -125,6 +107,8 @@ Future<bool> _checkoutIsDirty(SelectionGit git) async {
       'tool',
       'assets',
       'android',
+      'flutter_test_config.dart',
+      'dart_test.yaml',
     ]),
   );
   return untracked.isNotEmpty;
@@ -135,69 +119,42 @@ Map<String, Object?> _graphPlan(
   ImportGraph graph,
   ImportGraph execution,
   List<String> changed,
-  ImportGraph partOwners,
 ) {
   final impacted = reachable(reverseGraph(graph), changed);
-  final tests =
-      execution.keys
-          .where(
-            (file) =>
-                file.startsWith('test/') &&
-                file.endsWith('_test.dart') &&
-                impacted.contains(file),
-          )
-          .toList()
-        ..sort();
-  if (tests.isEmpty) {
-    return _fullPlan(identity, 'No reliable nonempty impacted test selection.');
+  final inventory = execution.keys.where(isTestSuite).toList();
+  if (inventory.isEmpty) {
+    return _fullPlan(identity, 'The maintained test inventory is empty.');
   }
-  final covered = reachable(graph, tests);
-  if (changed.any(
-    (file) => knownAssetOwners.containsKey(file) && !covered.contains(file),
-  )) {
-    return _fullPlan(
-      identity,
-      'A changed asset has no selected consumer test.',
-    );
-  }
+  final tests = inventory.where(impacted.contains).toList()..sort();
+  final dependencies = reachable(graph, tests);
   if (changed.any(
     (file) =>
-        file.startsWith('test/') &&
-        !file.endsWith('_test.dart') &&
-        !covered.contains(file),
+        (knownAssetOwners.containsKey(file) ||
+            (file.startsWith('test/') && !isTestSuite(file))) &&
+        !dependencies.contains(file),
   )) {
     return _fullPlan(
       identity,
-      'A changed test input has no reliable import edge.',
+      'A changed asset or test input has no reliable test dependency.',
     );
   }
-  final production = reachable(
-    unionGraphs(partOwners, reverseGraph(partOwners)),
-    changed,
-  ).where((file) => file.startsWith('lib/'));
-  if (production.any(
-    (file) => execution.containsKey(file) && !covered.contains(file),
+  if (changed.any(
+    (file) => isTestSuite(file) && !execution.containsKey(file),
   )) {
-    return _fullPlan(
-      identity,
-      'An affected production source has no selected test.',
-    );
+    return _fullPlan(identity, 'A changed test suite is absent from checkout.');
   }
-  final sources =
-      production
-          .where(
-            (file) => file.startsWith('lib/') && execution.containsKey(file),
-          )
-          .toList()
-        ..sort();
   return {
     ...identity,
-    'mode': 'selected',
-    'reason': 'Transitive dependencies in the base and head source graphs.',
+    'mode': tests.isEmpty ? 'no-impact' : 'selected',
+    'reason': tests.isEmpty
+        ? 'No critical test depends on the changed Dart sources.'
+        : 'Transitive dependencies in the base, head and checkout graphs.',
     'tests': tests,
-    'affectedSources': sources,
   };
 }
+
+bool isTestSuite(String file) =>
+    file.startsWith('test/') && file.endsWith('_test.dart');
 
 // Unknown assets, pubspec dependencies, native channels, configuration, and
 // CI/test tooling have contracts that Dart imports alone cannot represent.
@@ -208,13 +165,7 @@ bool _isSelectiveChange(String file) =>
         (file.startsWith('lib/') || file.startsWith('test/')));
 
 Map<String, Object?> _fullPlan(Map<String, Object?> identity, String reason) =>
-    {
-      ...identity,
-      'mode': 'full',
-      'reason': reason,
-      'tests': <String>[],
-      'affectedSources': <String>[],
-    };
+    {...identity, 'mode': 'full', 'reason': reason, 'tests': <String>[]};
 
 Future<Map<String, Object?>> validateTestPlan({
   required String root,
@@ -237,19 +188,11 @@ Future<Map<String, Object?>> validateTestPlan({
     );
   }
   if (expected['mode'] == 'selected') {
-    final git = SelectionGit(root);
-    final checkedHead = (await git.read([
-      'merge-base',
-      expected['head']! as String,
-      'HEAD',
-    ])).trim();
-    if (checkedHead != expected['head']) {
-      throw const FormatException('Test plan does not describe this checkout.');
-    }
     for (final test in (expected['tests']! as List).cast<String>()) {
-      if (!File('$root/$test').existsSync()) {
+      final type = FileSystemEntity.typeSync('$root/$test', followLinks: false);
+      if (type != FileSystemEntityType.file) {
         throw const FormatException(
-          'A selected test is missing from the checkout.',
+          'A selected test must be a regular file in the checkout.',
         );
       }
     }

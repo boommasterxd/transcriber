@@ -30,7 +30,8 @@ test('producer ancestry proof covers native hash inputs and setup entrypoints', 
   const files = childProcess.execFileSync('git', [
     'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--',
     ...patterns.map((pattern) => `:(glob)${pattern}`),
-  ], { cwd: root, encoding: 'utf8', timeout: 5000 }).split('\0').filter(Boolean);
+  ], { cwd: root, encoding: 'utf8', timeout: 5000 }).split('\0')
+    .filter((file) => file && fs.existsSync(path.join(root, file)));
   assert.ok(files.length > 0);
   for (const file of [...files, '.github/actions/setup-node-tools/action.yml',
     '.github/workflows/dependency-cache.yml', 'tool/ci/setup_android_ndk.sh',

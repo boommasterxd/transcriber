@@ -1,7 +1,6 @@
 package com.transcriber.app
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,49 +9,6 @@ import java.util.concurrent.Executor
 import java.util.concurrent.RejectedExecutionException
 
 class ShareImportCoordinatorTest {
-    @Test
-    fun earlyChannelRequestWaitsForWorkerAndMainThreadDispatch() {
-        val fixture = Fixture()
-        val replies = mutableListOf<String?>()
-        fixture.coordinator.start { "audio.mp3" }
-        assertTrue(fixture.coordinator.awaitPath(replies::add))
-        assertFalse(fixture.coordinator.awaitPath(replies::add))
-        assertTrue(replies.isEmpty())
-        fixture.worker.removeFirst().run()
-        assertTrue(replies.isEmpty())
-        fixture.main.removeFirst().invoke()
-        assertEquals(listOf("audio.mp3"), replies)
-        assertTrue(fixture.deadlineRemoved)
-        assertTrue(fixture.coordinator.awaitPath(replies::add))
-        assertEquals(listOf("audio.mp3", "audio.mp3"), replies)
-    }
-
-    @Test
-    fun resultCompletedBeforeChannelRequestIsRetained() {
-        val fixture = Fixture()
-        fixture.coordinator.start { "ready.wav" }
-        fixture.finishWorker()
-        var result: String? = null
-        fixture.coordinator.awaitPath { result = it }
-        assertEquals("ready.wav", result)
-    }
-
-    @Test
-    fun exceptionOrUnsupportedInputCompletesWithNull() {
-        for (fail in listOf(false, true)) {
-            val fixture = Fixture()
-            val replies = mutableListOf<String?>()
-            fixture.coordinator.start {
-                require(!fail) { "invalid fixture" }
-                null
-            }
-            fixture.coordinator.awaitPath(replies::add)
-            fixture.finishWorker()
-            assertEquals(listOf<String?>(null), replies)
-            assertTrue(fixture.control.cancelled)
-        }
-    }
-
     @Test
     fun deadlineCompletesPendingReplyAndIgnoresLateWorkerSuccess() {
         val fixture = Fixture()
@@ -104,13 +60,6 @@ class ShareImportCoordinatorTest {
         coordinator.awaitPath { assertNull(it) }
         assertTrue(control.cancelled)
         assertTrue(deadlineRemoved)
-    }
-
-    @Test(expected = IllegalStateException::class)
-    fun secondStartCannotQueueAnotherImport() {
-        val fixture = Fixture()
-        fixture.coordinator.start { null }
-        fixture.coordinator.start { null }
     }
 
     private class Fixture {

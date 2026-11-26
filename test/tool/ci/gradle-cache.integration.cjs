@@ -32,12 +32,12 @@ dependencies.add('releaseRuntimeClasspath', 'example:cache-fixture:1.0')
 `);
   fs.writeFileSync(path.join(root, 'build.gradle'), `
 allprojects { repositories { maven { url = rootProject.file('repo').toURI() } } }
-configurations { compileClasspath; debugRuntimeClasspath; robolectricSdk0; jacocoAgent }
+configurations { compileClasspath; debugRuntimeClasspath; robolectricSdk0; lintClassPath }
 dependencies {
     compileClasspath project(path: ':plugin', configuration: 'exported')
     debugRuntimeClasspath 'example:cache-fixture:1.0'
     robolectricSdk0 'example:cache-fixture:1.0'
-    jacocoAgent 'example:cache-fixture:1.0'
+    lintClassPath 'example:cache-fixture:1.0'
 }
 if (providers.gradleProperty('missingDependency').isPresent()) {
     dependencies.add('debugRuntimeClasspath', 'example:missing:1.0')
@@ -48,7 +48,7 @@ if (providers.gradleProperty('missingDependency').isPresent()) {
   const result = runJvmFixture(setup, ['warmDependencyCache'], args);
   assert.equal(result.status, 0, result.stdout + result.stderr);
   for (const configuration of ['::compileClasspath', '::debugRuntimeClasspath',
-    '::robolectricSdk0', '::jacocoAgent', ':plugin:releaseRuntimeClasspath']) {
+    '::robolectricSdk0', '::lintClassPath', ':plugin:releaseRuntimeClasspath']) {
     assert.ok(result.stdout.includes(`Warming ${configuration}`), result.stdout);
   }
   assert.equal(fs.existsSync(path.join(root, 'plugin/build/plugin.jar')), false);

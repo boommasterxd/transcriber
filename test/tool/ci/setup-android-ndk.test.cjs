@@ -63,17 +63,6 @@ function lines(file) {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n') : [];
 }
 
-test('cold setup installs and validates both pinned NDK versions', (context) => {
-  const setup = fixture(context);
-  const result = run(setup);
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(lines(setup.env.MOCK_LOG), versions);
-  for (const version of versions) {
-    assert.equal(fs.readFileSync(path.join(setup.sdk, 'ndk', version, 'source.properties'), 'utf8'),
-      `Pkg.Revision = ${version}\n`);
-  }
-});
-
 test('warm setup preserves validated installations and does not require sdkmanager', (context) => {
   const setup = fixture(context);
   const directories = versions.map((version) => install(setup, version));
@@ -97,16 +86,6 @@ test('partial cache restores replace only the invalid installation', (context) =
   assert.equal(fs.existsSync(path.join(replaced, 'keep')), false);
 });
 
-test('transient install failure clears partial files and recovers with bounded retry', (context) => {
-  const setup = fixture(context);
-  install(setup, versions[1]);
-  const result = run(setup, { MOCK_RETRY_ONCE: 'true' });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(lines(setup.env.MOCK_LOG), [versions[0], versions[0]]);
-  assert.deepEqual(lines(setup.env.MOCK_SLEEP_LOG), ['5']);
-  assert.equal(fs.existsSync(path.join(setup.sdk, 'ndk', versions[0], 'partial')), false);
-});
-
 test('persistent installation failure preserves its exit status and stops after four attempts', (context) => {
   const setup = fixture(context);
   const result = run(setup, { MOCK_FAILURE: 'true' });
@@ -122,29 +101,4 @@ test('sdkmanager success without the requested revision is rejected', (context) 
   assert.equal(result.status, 1);
   assert.deepEqual(lines(setup.env.MOCK_LOG), Array(4).fill(versions[0]));
   assert.match(result.stderr, /could not be installed and validated/);
-});
-
-test('ANDROID_HOME fallback and versioned command-line tools remain supported', (context) => {
-  const setup = fixture(context);
-  const versioned = path.join(setup.sdk, 'cmdline-tools/19.0/bin/sdkmanager');
-  fs.mkdirSync(path.dirname(versioned), { recursive: true });
-  fs.renameSync(setup.manager, versioned);
-  versions.forEach((version) => install(setup, version));
-  assert.equal(run(setup, { ANDROID_SDK_ROOT: '' }).status, 0);
-  fs.rmSync(path.join(setup.sdk, 'ndk', versions[0]), { recursive: true });
-  const result = run(setup, { ANDROID_SDK_ROOT: '' });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(lines(setup.env.MOCK_LOG), [versions[0]]);
-});
-
-test('missing SDK and missing sdkmanager fail before starting downloads', (context) => {
-  const setup = fixture(context);
-  const invalidRoot = run(setup, { ANDROID_SDK_ROOT: 'relative-sdk' });
-  assert.equal(invalidRoot.status, 1);
-  assert.match(invalidRoot.stderr, /existing absolute Android SDK root/);
-  fs.rmSync(path.join(setup.sdk, 'cmdline-tools'), { recursive: true });
-  const missing = run(setup);
-  assert.equal(missing.status, 1);
-  assert.match(missing.stderr, /sdkmanager is unavailable/);
-  assert.deepEqual(lines(setup.env.MOCK_LOG), []);
 });

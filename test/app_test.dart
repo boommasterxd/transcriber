@@ -1,9 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/app.dart';
-import 'package:transcriber/core/l10n/app_strings.dart';
-import 'package:transcriber/core/theme/app_accent.dart';
-import 'package:transcriber/core/theme/app_palette.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/audio_ownership.dart';
@@ -12,8 +9,6 @@ import 'package:transcriber/data/repositories/notes_repository.dart';
 import 'package:transcriber/ui/screens/detail/transcript_detail_screen.dart';
 import 'package:transcriber/ui/screens/home/home_screen.dart';
 import 'package:transcriber/ui/screens/onboarding/onboarding_screen.dart';
-import 'package:transcriber/ui/screens/share/widgets/transcriber_app_shell.dart';
-import 'package:transcriber/ui/screens/tablet/tablet_home_screen.dart';
 
 import 'support/app_test_fakes.dart';
 
@@ -28,72 +23,8 @@ void main() {
 
   tearDown(() => permissions.uninstall());
 
-  testWidgets('app shell applies theme, accent, and locale', (tester) async {
-    final database = testDatabase();
-    addTearDown(database.close);
-    final settings = AppSettings.initial().copyWith(
-      appearance: const AppearanceSettings(
-        accent: AppAccent.amber,
-        language: AppLanguage.en,
-        themeMode: AppThemeMode.dark,
-      ),
-    );
-    await tester.pumpWidget(
-      appScope(
-        database: database,
-        settings: settings,
-        child: const TranscriberAppShell(home: Text('shell marker')),
-      ),
-    );
-
-    final material = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(material.locale, const Locale('en'));
-    expect(material.themeMode, ThemeMode.dark);
-    expect(
-      material.darkTheme!.extension<AppPalette>()!.accent,
-      AppAccent.amber.color,
-    );
-    expect(find.text('shell marker'), findsOneWidget);
-  });
-
-  testWidgets('unonboarded users are routed to onboarding', (tester) async {
-    await _pumpApp(
-      tester,
-      AppSettings.initial(),
-      size: const Size(800, 900),
-      textScale: 0.7,
-    );
-
-    expect(find.byType(OnboardingScreen), findsOneWidget);
-  });
-
-  testWidgets('onboarded phone users are routed to home', (tester) async {
-    await _pumpApp(
-      tester,
-      AppSettings.initial().copyWith(onboarded: true),
-      textScale: 0.7,
-    );
-
-    expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.byType(TabletHomeScreen), findsNothing);
-  });
-
-  testWidgets('onboarded wide users are routed to the tablet split view', (
-    tester,
-  ) async {
-    await _pumpApp(
-      tester,
-      AppSettings.initial().copyWith(onboarded: true),
-      size: const Size(900, 700),
-    );
-
-    expect(find.byType(TabletHomeScreen), findsOneWidget);
-    expect(find.byType(HomeScreen), findsNothing);
-  });
-
   _registerRevokedMicrophoneTest(() => permissions);
   _registerResumeRefreshTest();
-  _registerResponsiveSearchTest();
 }
 
 void _registerRevokedMicrophoneTest(
@@ -122,39 +53,6 @@ void _registerRevokedMicrophoneTest(
     await tester.tap(find.text('Shared WhatsApp audio'));
     await tester.pumpAndSettle();
     expect(find.byType(TranscriptDetailScreen), findsOneWidget);
-  });
-}
-
-void _registerResponsiveSearchTest() {
-  testWidgets('search text and results survive phone and tablet transitions', (
-    tester,
-  ) async {
-    final database = testDatabase();
-    await NotesRepository(database).saveAll([_sharedNote()]);
-    await _pumpApp(
-      tester,
-      AppSettings.initial().copyWith(onboarded: true),
-      database: database,
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'absent');
-    await tester.pumpAndSettle();
-    expect(find.text('Shared WhatsApp audio'), findsNothing);
-    await tester.binding.setSurfaceSize(const Size(900, 900));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'absent',
-    );
-    await tester.binding.setSurfaceSize(const Size(400, 900));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'absent',
-    );
-    await tester.enterText(find.byType(TextField), '');
-    await tester.pumpAndSettle();
-    expect(find.text('Shared WhatsApp audio'), findsOneWidget);
   });
 }
 

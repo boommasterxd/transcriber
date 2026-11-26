@@ -8,42 +8,15 @@ import org.junit.Test
 
 class EditorFieldPolicyTest {
     @Test
-    fun acceptsOrdinaryAndMultilineText() {
+    fun permitsTextButBlocksPasswordPinAndPrivateEditors() {
         assertTrue(EditorFieldPolicy.isSupported(InputType.TYPE_CLASS_TEXT, 0))
-        assertTrue(
-            EditorFieldPolicy.isSupported(
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE,
-                0,
-            ),
+        val sensitiveFields = listOf(
+            InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD,
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
         )
-    }
-
-    @Test
-    fun rejectsNonTextAndSensitiveText() {
-        assertFalse(EditorFieldPolicy.isSupported(InputType.TYPE_NULL, 0))
-        assertFalse(EditorFieldPolicy.isSupported(InputType.TYPE_CLASS_NUMBER, 0))
-        assertFalse(
-            EditorFieldPolicy.isSupported(
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
-                0,
-            ),
-        )
-        assertFalse(
-            EditorFieldPolicy.isSupported(
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
-                0,
-            ),
-        )
-        assertFalse(
-            EditorFieldPolicy.isSupported(
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
-                0,
-            ),
-        )
-    }
-
-    @Test
-    fun rejectsEditorsThatDisallowPersonalizedLearning() {
+        sensitiveFields.forEach { assertFalse(EditorFieldPolicy.isSupported(it, 0)) }
         assertFalse(
             EditorFieldPolicy.isSupported(
                 InputType.TYPE_CLASS_TEXT,

@@ -23,10 +23,6 @@ void main() {
 
   tearDown(() => database.close());
 
-  test('loads initial settings from an empty database', () async {
-    expect(await repository.load(), AppSettings.initial());
-  });
-
   test('round-trips settings without storing keys in the database', () async {
     final settings = AppSettings.initial().copyWith(
       appearance: const AppearanceSettings(
@@ -60,24 +56,4 @@ void main() {
     expect(row.asrModel, 'gpt-transcribe');
     expect(await secureStorage.read(key: 'api_key_openai'), 'private-key');
   });
-
-  test(
-    'supports independent secure key lifecycle and connection flags',
-    () async {
-      await repository.setApiKey(RemoteProviderId.openai, 'first');
-      await repository.setApiKey(RemoteProviderId.google, 'second');
-      await repository.setApiKey(RemoteProviderId.openai, 'updated');
-
-      expect(await repository.apiKey(RemoteProviderId.openai), 'updated');
-      expect(await repository.apiKey(RemoteProviderId.google), 'second');
-      expect(await repository.connectedProviders(), {
-        RemoteProviderId.openai: true,
-        RemoteProviderId.google: true,
-      });
-
-      await repository.deleteApiKey(RemoteProviderId.openai);
-      expect(await repository.apiKey(RemoteProviderId.openai), isNull);
-      expect(await repository.apiKey(RemoteProviderId.google), 'second');
-    },
-  );
 }

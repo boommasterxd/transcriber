@@ -9,17 +9,6 @@ class HistoryGroup {
   final List<NoteHistoryEntry> notes;
 }
 
-List<NoteHistoryEntry> filterNotesByTitle(
-  Iterable<NoteHistoryEntry> notes,
-  String query,
-) {
-  if (query.isEmpty) return List<NoteHistoryEntry>.of(notes);
-  final normalizedQuery = query.toLowerCase();
-  return notes
-      .where((note) => note.title.toLowerCase().contains(normalizedQuery))
-      .toList();
-}
-
 List<HistoryGroup> groupNotesByAge(
   Iterable<NoteHistoryEntry> notes, {
   required DateTime now,

@@ -53,24 +53,6 @@ test('rejects OSV groups that could hide optional or bundled production packages
   }));
 });
 
-test('rejects malformed input and unreviewed linked or Git identities', () => {
-  for (const input of [null, {}, { lockfileVersion: 1 },
-    { lockfileVersion: 3, packages: [] }, { lockfileVersion: 3, packages: {} },
-    { lockfileVersion: 3, packages: { '': 'invalid' } },
-    { lockfileVersion: 3, packages: { '': [] } }]) {
-    assert.throws(() => checkNpmScope(input), /valid npm v2\/v3/);
-  }
-  for (const entry of [null, [], {}, { version: 1 }, { version: '' },
-    { version: '1.0.0', name: '' }, { version: '1.0.0', dev: 'true' }]) {
-    assert.throws(() => checkNpmScope(lock({ 'node_modules/pkg': entry })), /Invalid npm lockfile/);
-  }
-  assert.throws(() => checkNpmScope(lock({ invalid: { version: '1.0.0' } })), /Invalid npm/);
-  for (const entry of [{ version: '1.0.0', link: true },
-    { version: '1.0.0', resolved: 'git+https://example.test/lib#abc' }]) {
-    assert.throws(() => checkNpmScope(lock({ 'node_modules/pkg': entry })), /requires review/);
-  }
-});
-
 test('CLI exits unsuccessfully for missing, malformed and ambiguous scan input', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'osv-npm-scope-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));

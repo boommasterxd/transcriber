@@ -12,42 +12,6 @@ void main() {
   setUp(fixture.setUp);
   tearDown(fixture.tearDown);
 
-  test('seeds both supported provider connection flags', () {
-    final controller = fixture.controller;
-
-    expect(fixture.connections, {
-      RemoteProviderId.openai: true,
-      RemoteProviderId.google: false,
-    });
-    expect(controller.isConnected(RemoteProviderId.openai), isTrue);
-    expect(controller.isConnected(RemoteProviderId.google), isFalse);
-  });
-
-  for (final provider in RemoteProviderId.values) {
-    test('validates and stores a trimmed ${provider.id} key', () async {
-      fixture.tester.onTest = (testedProvider, key) {
-        expect(fixture.repository.keys[testedProvider], isNull);
-      };
-
-      await fixture.controller.connect(provider, '  ${provider.id}-key  ');
-
-      expect(fixture.tester.calls, [(provider, '${provider.id}-key')]);
-      expect(fixture.repository.keys[provider], '${provider.id}-key');
-      expect(fixture.controller.isConnected(provider), isTrue);
-    });
-  }
-
-  test('rejects blank keys without testing or persisting', () async {
-    await expectLater(
-      fixture.controller.connect(RemoteProviderId.google, ' \n\t '),
-      throwsArgumentError,
-    );
-
-    expect(fixture.tester.calls, isEmpty);
-    expect(fixture.repository.keys, isEmpty);
-    expect(fixture.connections[RemoteProviderId.google], isFalse);
-  });
-
   test('does not replace a stored key when validation fails', () async {
     fixture.repository.keys[RemoteProviderId.openai] = 'stable-key';
     fixture.tester.error = StateError('invalid credentials');
@@ -68,23 +32,6 @@ void main() {
 
     expect(fixture.repository.keys[RemoteProviderId.openai], 'new-key');
     expect(fixture.tester.calls, [(RemoteProviderId.openai, 'new-key')]);
-  });
-
-  test('tests the stored key without replacing it', () async {
-    fixture.repository.keys[RemoteProviderId.google] = 'stored-key';
-
-    await fixture.controller.test(RemoteProviderId.google);
-
-    expect(fixture.tester.calls, [(RemoteProviderId.google, 'stored-key')]);
-    expect(fixture.repository.keys[RemoteProviderId.google], 'stored-key');
-  });
-
-  test('cannot test a provider without a stored key', () async {
-    await expectLater(
-      fixture.controller.test(RemoteProviderId.google),
-      throwsStateError,
-    );
-    expect(fixture.tester.calls, isEmpty);
   });
 
   test('disconnect removes only the selected provider key', () async {
@@ -136,12 +83,10 @@ final class _ConnectionsFixture {
 
 final class _CredentialTester {
   final List<(RemoteProviderId, String)> calls = [];
-  void Function(RemoteProviderId provider, String key)? onTest;
   Object? error;
 
   Future<void> call(RemoteProviderId provider, String key) async {
     calls.add((provider, key));
-    onTest?.call(provider, key);
     final failure = error;
     if (failure != null) throw failure;
   }

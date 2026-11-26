@@ -10,7 +10,7 @@
     "android/gradle/", "android/gradlew", "android/gradlew.bat",
     "android/app/build.gradle.kts", "android/app/gradle.lockfile",
     "tool/ci/jvm/build.gradle.kts", "tool/ci/jvm/settings.gradle.kts",
-    "tool/ci/jvm/native_coverage.gradle.kts", "tool/ci/jvm/require_executed_tests.gradle.kts",
+    "tool/ci/jvm/require_executed_tests.gradle.kts",
     "tool/ci/jvm/gradle.lockfile", "tool/ci/jvm/gradle/",
     "tool/ci/warm-gradle-cache.init.gradle", "tool/ci/setup_android_ndk.sh",
     ".github/actions/", ".github/workflows/dependency-cache.yml", "tool/ci/cache-lifecycle/"
