@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../services/processing/processing_pipeline.dart';
 import '../../../../services/processing/processing_profile.dart';
 import '../../../../state/processing_controller.dart';
@@ -178,7 +179,7 @@ class ProcessingFileChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         border: Border.all(color: palette.line),
         boxShadow: [
           BoxShadow(

@@ -33,7 +33,7 @@
 
 1. Download the Android APK from the [latest release](https://github.com/boommasterxd/transcriber/releases/latest). The latest release also includes a `SHA256SUMS` file for checksum verification.
 2. Install it on an **Android 8.0+ arm64-v8a** device. Android may ask you to allow installation from your browser or file manager.
-3. Connect an OpenAI or Google Gemini API key during onboarding, choose a transcription model, and enable summaries if you want them.
+3. Review the [provider requirements and billing setup](docs/provider-setup.md). During onboarding, connect an OpenAI or Google Gemini API key, choose a transcription model, and enable summaries if you want them.
 4. Record or import audio in Transcriber, or share one audio file at a time from another app and confirm its processing recipients.
 
 For live dictation, open **Settings > Transcriber keyboard** and follow the Android keyboard setup. Dictation uses the selected transcription provider and a separate compatible live model.
@@ -46,11 +46,11 @@ See [provider key setup](docs/provider-setup.md) for credential instructions and
 
 Notes and settings are stored locally in SQLite through Drift. API keys use Android-backed `FlutterSecureStorage`. The note database is **not encrypted by the app**. App data is excluded from Android cloud backup and device transfer. Audio retention is configurable, and external original files are never deleted by Transcriber.
 
-Provider billing, quotas, and data handling follow your provider account and terms. Review AI-generated transcripts and summaries before relying on them. See the [privacy policy (German)](docs/privacy-policy.md), [provider setup](docs/provider-setup.md), [security and privacy](docs/security.md), and [audio lifecycle](docs/cache-lifecycle.md).
+Provider billing, quotas, and data handling follow your provider account and terms. Review AI-generated transcripts and summaries before relying on them. See the privacy policy in [English](docs/privacy-policy-en.md) or [German](docs/privacy-policy.md), [provider setup](docs/provider-setup.md), [security and privacy](docs/security.md), and [audio lifecycle](docs/cache-lifecycle.md).
 
 ## Development
 
-Use the exact Flutter SDK in [`.fvmrc`](.fvmrc), **JDK 17**, and the Android SDK. The Android build configuration defines the required SDK and NDK versions; install those components before building. Device builds target arm64-v8a.
+Put the Flutter SDK pinned in [`.fvmrc`](.fvmrc) on `PATH` and use **JDK 17**. Check the Flutter version with `flutter --version` and the Java runtime Flutter selected with `flutter doctor -v` before continuing. Install the SDK and NDK components specified by the Android build configuration. Device builds target arm64-v8a.
 
 ```bash
 git clone https://github.com/boommasterxd/transcriber.git

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import '../onboarding_step_gate.dart';
@@ -172,7 +173,7 @@ class _ProgressBar extends StatelessWidget {
               height: 7,
               decoration: BoxDecoration(
                 color: index <= step ? palette.accent : palette.line2,
-                borderRadius: BorderRadius.circular(9999),
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
               ),
             ),
           ),

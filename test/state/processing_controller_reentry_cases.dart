@@ -43,6 +43,34 @@ void _registerReplacementTests() {
       expect(harness.state.error, isNull);
     },
   );
+  test('discarding a queued run cleans up a cancelled save retry', () async {
+    final harness = await _Harness.create(summaryEnabled: false);
+    addTearDown(harness.dispose);
+    final owner = Object();
+    final nextOwner = Object();
+    final next = await _newInput(harness, 'next.m4a');
+    harness.notesRepository.failOnSave = true;
+    await harness.run(save: true, owner: owner);
+
+    final storing = Completer<void>();
+    final release = Completer<void>();
+    harness.notesRepository
+      ..started = storing
+      ..gate = release.future;
+    final retry = harness.controller.retryLocalSave(owner);
+    await storing.future;
+    final discardRetry = harness.controller.discardCurrent(owner: owner);
+    final queued = harness.controller.run(next, owner: nextOwner);
+    await harness.controller.discardCurrent(owner: nextOwner);
+    release.complete();
+
+    expect(await retry, isTrue);
+    await Future.wait([discardRetry, queued]);
+    expect(await harness.staging.exists(), isFalse);
+    expect(await File(next.audioPath).exists(), isFalse);
+    expect(await harness.notesRepository.load(), isEmpty);
+    expect(harness.clientFactory.calls, hasLength(1));
+  });
 }
 
 ProcessingInput _originalInput(_Harness harness) => ProcessingInput(

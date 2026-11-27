@@ -11,78 +11,81 @@ class RemoteModelOptions extends StatelessWidget {
   const RemoteModelOptions({
     super.key,
     required this.catalog,
-    required this.onRetry,
+    required this.selectedModelId,
+    required this.onSelect,
+    required this.onRefresh,
     required this.strings,
   });
 
   final AsyncValue<List<RemoteModelInfo>> catalog;
-  final VoidCallback onRetry;
+  final String? selectedModelId;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onRefresh;
   final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
-    if (catalog.isLoading) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: CircularProgressIndicator(
-              semanticsLabel: strings.modelsLoading,
+    final models = catalog.isLoading || catalog.hasError
+        ? const <RemoteModelInfo>[]
+        : catalog.requireValue;
+    final message = _statusMessage(models);
+    final retry = message != null && !catalog.isLoading;
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(retry ? strings.retry : strings.refreshModels),
             ),
           ),
         ),
-      );
-    }
-    if (catalog.hasError) {
-      return SliverToBoxAdapter(
-        child: _CatalogMessage(
-          message: strings.modelLoadFailed,
-          retry: (label: strings.retry, action: onRetry),
-        ),
-      );
-    }
-    final models = catalog.requireValue;
-    if (models.isEmpty) {
-      return SliverToBoxAdapter(
-        child: _CatalogMessage(
-          message: strings.noModels,
-          retry: (label: strings.retry, action: onRetry),
-        ),
-      );
-    }
-    return SliverList.separated(
-      itemCount: models.length,
-      separatorBuilder: (_, _) => Divider(color: context.palette.line),
-      itemBuilder: (context, index) => RemoteModelOption(
-        key: ValueKey(models[index].id),
-        model: models[index],
-      ),
+        if (message != null)
+          SliverToBoxAdapter(child: _CatalogMessage(message: message))
+        else
+          SliverList.separated(
+            itemCount: models.length,
+            separatorBuilder: (_, _) => Divider(color: context.palette.line),
+            itemBuilder: (context, index) {
+              final model = models[index];
+              return RemoteModelOption(
+                key: ValueKey(model.id),
+                model: model,
+                selected: model.id == selectedModelId,
+                onActivate: () => onSelect(model.id),
+              );
+            },
+          ),
+      ],
     );
+  }
+
+  String? _statusMessage(List<RemoteModelInfo> models) {
+    if (catalog.isLoading) return strings.modelsLoading;
+    if (catalog.hasError) return strings.modelLoadFailed;
+    return models.isEmpty ? strings.noModels : null;
   }
 }
 
 class _CatalogMessage extends StatelessWidget {
-  const _CatalogMessage({required this.message, required this.retry});
+  const _CatalogMessage({required this.message});
 
   final String message;
-  final ({String label, VoidCallback action}) retry;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: context.palette.body),
-        ),
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    liveRegion: true,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: TextStyle(color: context.palette.body),
       ),
-      TextButton.icon(
-        onPressed: retry.action,
-        icon: const Icon(Icons.refresh_rounded),
-        label: Text(retry.label),
-      ),
-    ],
+    ),
   );
 }

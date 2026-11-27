@@ -51,6 +51,7 @@ class _MigrationContext {
 void _registerMigrationTests(_MigrationContext Function() contextFactory) {
   _registerPartialMigrationTest(contextFactory);
   _registerFailedMigrationTest(contextFactory);
+  _registerConcurrentMigrationTest(contextFactory);
 }
 
 void _registerPartialMigrationTest(
@@ -61,10 +62,9 @@ void _registerPartialMigrationTest(
     () async {
       final context = contextFactory();
       final note = _note('valid');
-      final raw = jsonEncode([
-        note.toJson(),
-        {'id': 'invalid'},
-      ]);
+      final invalid = {'id': 'invalid'};
+      final duplicate = note.toJson();
+      final raw = jsonEncode([note.toJson(), invalid, duplicate, invalid]);
       await context.preferences.setString('notes', raw);
       final preferences = _ReadTrackingPreferences(context.preferences);
       final migrator = context.migrator(preferences: preferences);
@@ -81,23 +81,25 @@ void _registerPartialMigrationTest(
       await NotesRepository(context.database).remove(note.id);
       preferences.reads.clear();
 
+      final previous = {'id': 'previously rejected'};
+      await context.preferences.setString(
+        LegacyPreferencesMigrator.rejectedNotesRecoveryKey,
+        jsonEncode([previous]),
+      );
+      final expectedRecovery = [previous, invalid, duplicate];
       preferences.setOverride = null;
       preferences.removeOverride = (_) async => false;
       await migrator.migrate();
       expect(preferences.reads, ['notes']);
       expect(context.preferences.getString('notes'), raw);
-      expect(_recoveredNotes(context), [
-        {'id': 'invalid'},
-      ]);
+      expect(_recoveredNotes(context), expectedRecovery);
       preferences.reads.clear();
       preferences.removeOverride = null;
 
       await migrator.migrate();
       expect(preferences.reads, isEmpty);
       expect(context.preferences.containsKey('notes'), isFalse);
-      expect(_recoveredNotes(context), [
-        {'id': 'invalid'},
-      ]);
+      expect(_recoveredNotes(context), expectedRecovery);
       expect(
         await context.database.select(context.database.notesTable).get(),
         isEmpty,
@@ -149,6 +151,35 @@ void _registerFailedMigrationTest(_MigrationContext Function() contextFactory) {
       await _expectAtomicMigration(context, note);
     },
   );
+}
+
+void _registerConcurrentMigrationTest(
+  _MigrationContext Function() contextFactory,
+) {
+  test('concurrent preparations import the legacy snapshot once', () async {
+    final context = contextFactory();
+    final note = _note('concurrent');
+    await context.preferences.setString('notes', jsonEncode([note.toJson()]));
+    // A second replacement would attempt to delete the note already imported.
+    await context.database.customStatement('''
+      CREATE TRIGGER reject_legacy_replacement BEFORE DELETE ON notes
+      BEGIN SELECT RAISE(ABORT, 'legacy snapshot already imported'); END
+    ''');
+    final first = _ReadTrackingPreferences(context.preferences);
+    final second = _ReadTrackingPreferences(context.preferences);
+
+    await Future.wait([
+      context.migrator(preferences: first).migrate(),
+      context.migrator(preferences: second).migrate(),
+    ]);
+
+    expect(first.reads, ['app_settings', 'notes']);
+    expect(second.reads, ['app_settings', 'notes']);
+    final imported = await context.database
+        .select(context.database.notesTable)
+        .getSingle();
+    expect(imported.id, note.id);
+  });
 }
 
 class _ReadTrackingPreferences implements SharedPreferences {

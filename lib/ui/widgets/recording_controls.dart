@@ -218,8 +218,7 @@ class _CircularAction extends StatelessWidget {
                 SizedBox(height: size >= 70 ? 8 : 4),
                 Text(
                   label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: labelSize,
                     fontWeight: FontWeight.w700,

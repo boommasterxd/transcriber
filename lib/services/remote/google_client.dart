@@ -7,6 +7,7 @@ import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
 import 'gemini_upload_uri.dart';
+import 'gemini_uploaded_file_cleanup.dart';
 import 'mime_utils.dart';
 import 'model_catalog_listing.dart';
 import 'provider_model_capabilities.dart';
@@ -27,6 +28,7 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
   final String apiKey;
   final http.Client _http;
   final bool _ownsHttp;
+  late final _fileCleanup = GeminiUploadedFileCleanup(_http);
   bool _closed = false;
   final Duration pollInterval;
   final Duration pollTimeout;
@@ -35,7 +37,7 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
   void close() {
     if (_closed) return;
     _closed = true;
-    if (_ownsHttp) _http.close();
+    if (_ownsHttp) _fileCleanup.closeWhenIdle();
   }
 
   static const _apiHost = 'generativelanguage.googleapis.com';
@@ -49,8 +51,8 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
   }
 
   @override
-  Future<ProviderModelCatalog> loadModelCatalog() async =>
-      ProviderModelCatalog.google(await _listModelCatalog());
+  Future<ProviderModelCatalog> loadModelCatalog() =>
+      ProviderModelCatalog.loadGooglePages(_modelCatalogPages());
 
   @override
   Future<String> summarize({
@@ -69,6 +71,7 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
     final json = await _postJson(
       '/models/$modelId:generateContent',
       {
+        'store': false,
         'systemInstruction': {
           'parts': [
             {'text': systemPrompt},
@@ -124,8 +127,13 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
       file,
       cancellation: cancellation,
     );
-    final uploaded = await _uploadFile(file, length, cancellation);
+    cancellation?.throwIfCancelled();
+    if (_closed) throw StateError('The Gemini client is closed.');
+    _fileCleanup.reserve();
+    String? uploadedName;
     try {
+      final uploaded = await _uploadFile(file, length, cancellation);
+      uploadedName = uploaded.name;
       if (uploaded.uri.isEmpty) {
         throw const RemoteApiException('Gemini returned an incomplete file.');
       }
@@ -166,12 +174,11 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
         segments: text.isEmpty ? const [] : [TranscriptLine(text: text)],
       );
     } finally {
-      await _deleteFile(uploaded.name);
+      _fileCleanup.finish(_deleteRequest(uploadedName));
     }
   }
 
-  Future<List<Map>> _listModelCatalog() async {
-    final models = <Map>[];
+  Stream<Iterable<Map>> _modelCatalogPages() async* {
     final seenTokens = <String>{};
     String? pageToken;
     for (var page = 0; page < _maxModelPages; page++) {
@@ -180,10 +187,10 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
       final path = Uri(path: '/models', queryParameters: query).toString();
       final json = await _getJson(path, timeout: remoteListTimeout);
       final pageModels = json['models'];
-      if (pageModels is List) models.addAll(pageModels.whereType<Map>());
+      if (pageModels is List) yield pageModels.whereType<Map>();
 
       final next = json['nextPageToken'];
-      if (next == null || next == '') return models;
+      if (next == null || next == '') return;
       if (next is! String || next.length > 2048 || !seenTokens.add(next)) {
         throw const RemoteApiException(
           'Gemini returned invalid model pagination.',
@@ -327,18 +334,11 @@ class GoogleClient with ModelCatalogListing implements RemoteProviderClient {
     return remaining;
   }
 
-  Future<void> _deleteFile(String name) async {
-    try {
-      final response = await _send(
-        http.Request('DELETE', Uri.parse('$_baseUrl/$name'))
-          ..headers['x-goog-api-key'] = apiKey,
-        timeout: remoteListTimeout,
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) return;
-    } catch (_) {
-      // Cleanup must not hide a transcription result or its primary error.
-    }
-  }
+  http.Request? _deleteRequest(String? name) => name == null
+      ? null
+      : (http.Request('DELETE', Uri.parse('$_baseUrl/$name'))
+          ..followRedirects = false
+          ..headers['x-goog-api-key'] = apiKey);
 
   Future<Map<String, dynamic>> _getJson(
     String path, {

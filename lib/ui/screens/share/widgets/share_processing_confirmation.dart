@@ -1,11 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/app_settings.dart';
-import '../../../../services/processing/processing_profile.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../widgets/buttons.dart';
+import '../../../widgets/processing_recipients.dart';
 
 class ShareProcessingConfirmation extends ConsumerWidget {
   const ShareProcessingConfirmation({
@@ -22,8 +21,6 @@ class ShareProcessingConfirmation extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
-    final palette = context.palette;
-    final profile = ProcessingProfile.resolve(settings);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(28, 12, 28, 20),
       child: Column(
@@ -37,15 +34,7 @@ class ShareProcessingConfirmation extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            strings.shareAudioRecipient(profile.asr.providerName),
-            style: TextStyle(color: palette.body),
-          ),
-          if (settings.summarizeEnabled)
-            Text(
-              strings.shareTranscriptRecipient(profile.summary.providerName),
-              style: TextStyle(color: palette.body),
-            ),
+          ProcessingRecipients(settings: settings, strings: strings),
           const SizedBox(height: 20),
           PillButton(label: strings.shareConfirmAction, onTap: onConfirm),
           const SizedBox(height: 8),

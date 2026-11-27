@@ -10,7 +10,7 @@
 
 ## Trust Boundaries
 
-External URIs, filenames, audio bytes, provider responses, legacy JSON, editor metadata, and model output are untrusted. OpenAI and Google are external API providers selected through the user's own account. Their privacy roles depend on the applicable terms and account. For batch processing, audio goes to the selected transcription provider, and optional transcript text goes to the selected summary provider. Live keyboard dictation adds an Android editor boundary and sends microphone PCM to the selected live transcription provider while recording is active.
+External URIs, filenames, audio bytes, provider responses, legacy JSON, editor metadata, and model output are untrusted. OpenAI and Google are external API providers selected through the user's own account. Their privacy roles depend on the applicable terms and account. Before a recording, file import or share is sent for batch processing, the app identifies the recipient of the audio and the recipient of transcript text when summaries are enabled. Processing uses the approved settings snapshot. Live keyboard dictation adds an Android editor boundary and sends microphone PCM to the selected live transcription provider while recording is active.
 
 ## Credentials
 
@@ -34,7 +34,7 @@ The pinned Gitleaks release scans history and the current tree with these except
 
 GitHub repository secret scanning and push protection are enabled. Public fork workflows require maintainer approval for all external contributors; approval does not grant secrets or write permissions to untrusted code. The required Gitleaks workflow remains a separate tree/history control.
 
-External pull requests are accepted. Before approving an external workflow run and before merging, maintainers must review changes to workflows, classifiers, scanner download manifests/checksums, detector configuration and exclusions. The scanner reads those controls from the PR checkout: a matching archive checksum or green check alone does not establish that the supplied scanning policy is trusted. Keep this targeted control review separate from the zero-required-reviews ruleset.
+External pull requests are accepted. Before approving an external workflow run and before merging, maintainers must review changes to workflows, classifiers, scanner download manifests and checksums, detector configuration, and exclusions. The Gitleaks workflow loads the scanner version, checksum, detector configuration, exceptions, and regression suite from the exact PR base commit. It scans the merge checkout and the PR commit range. GitHub runs the PR's workflow definition, so review changes to that definition even when the scan succeeds. Keep this targeted control review separate from the zero-required-reviews ruleset.
 
 The repository-owned CodeQL workflow prepares the pinned Flutter/Android environment and explicitly compiles Kotlin for analysis, alongside JavaScript and GitHub Actions. It replaces default setup, whose Kotlin autobuild could not create the required `android/local.properties`. Keep one active configuration. The PR's matching analysis results establish hosted extraction; local compilation alone does not.
 
@@ -42,7 +42,7 @@ The repository-owned CodeQL workflow prepares the pinned Flutter/Android environ
 
 External originals are never deleted. Destructive operations require explicit app ownership and a path inside a known app-private directory. Share filenames are sanitized, stream copies are limited to 250 MiB, symlinks are not followed during cleanup, and partial copies are removed after failures.
 
-Temporary picker, share and recording copies expire after 24 hours and have a combined 512 MiB quota enforced by the normal app. Retention stages expire under the same TTL. Each engine protects its active paths. Deleting a note queues its retained audio, and startup retries recorded candidates after checking current note references and storage ownership. The same queue tracks unreferenced promotion destinations after save failures or process death. Unsaved share previews keep temporary audio. See [audio lifecycle](cache-lifecycle.md).
+The process-wide cache reserves space before temporary picker, share and recording writes. Engine leases protect active files and restrict access to completed copies. The 24-hour expiration rule applies during cleanup to eligible files. Deleting a note queues its retained audio, and startup retries recorded candidates after checking note references and storage ownership. The queue also tracks unreferenced promotion destinations after save failures or process death. See [audio lifecycle](cache-lifecycle.md).
 
 ## Database
 
@@ -56,9 +56,9 @@ Schema upgrades commit their changes and version marker atomically. An older par
 - request timeouts prevent indefinite hangs;
 - deadlines and local user cancellation abort supported HTTP transports and cancel response consumption;
 - response size is capped;
-- audio size and extension are validated before upload, and remote file names use neutral labels;
-- Gemini Files uploads are streamed, with a bounded best-effort deletion request for a known uploaded file;
-- Gemini transcription Interactions set `store: false`;
+- audio size and extension are validated before upload, with endpoint-specific limits and a duration check for native Gemini transcription. Remote file names use neutral labels;
+- Gemini Files uploads are streamed. Each isolate allows up to four outstanding upload or cleanup slots. For a known file, a bounded best-effort deletion attempt runs independently of the processing result.
+- Gemini transcription Interactions and summary requests send `store: false`. Provider handling and any separate retention remain subject to the applicable service terms.
 - Gemini file polling uses one deadline across wait and status requests;
 - provider output is parsed defensively before it reaches application state.
 
@@ -72,13 +72,13 @@ The Android manifest disables backup and supplies explicit exclusion rules for o
 
 The transcript copy action marks the Android clipboard item as sensitive so supported systems can hide its text in the clipboard preview. The contents still go to the system clipboard. Pasting or sharing transfers the contents to the chosen destination, where that application's handling applies.
 
-The main activity is exported for the launcher. Audio `VIEW` and share filters target the translucent `ShareActivity`; explicit media intents addressed to `MainActivity` are hidden from Flutter plugins and forwarded to the share activity. The share activity validates schemes and MIME type, sanitizes names, bounds copies, and stores data in application cache before processing.
+The main activity is exported for the launcher. Audio `VIEW` and share filters target the translucent `ShareActivity`. Explicit media intents addressed to `MainActivity` are forwarded to the share activity, which is the sole native share importer. It validates schemes and MIME type, sanitizes names, bounds copies, and stores data in application cache before processing.
 
 Document-picker and share imports use one background slot and a 60-second readiness deadline. Before native content reads, Android must grant temporary access and resolve the URI to a foreign provider. A bounded cleanup executor handles lifecycle cancellation, stream closure and partial-file deletion on a best-effort basis. An external provider that ignores cancellation can hold the slot until its I/O returns.
 
 The exported input-method service is protected by Android's `BIND_INPUT_METHOD` permission. It records only while its keyboard window is visible and a supported editor is active. Password variations, numeric PINs, non-text editors, and editors that prohibit personalized learning are rejected before recording. Each editor transition invalidates the previous session and discards late events. The service writes composing spans and commits the final text through `commitText`. It clears its previous composition when Android confirms the candidate span and cursor position. Some editors omit or delay these callbacks, which can leave draft text in the editor. The service does not request surrounding text.
 
-Keyboard audio remains in memory and is never written to application storage. Stopping, cancelling, hiding the keyboard, changing editor, unbinding the input connection, losing the active session, or destroying the service stops `AudioRecord`, closes the WebSocket, and clears queued audio. Session-checked stop calls prevent stale Flutter cleanup from stopping a newer recording. No foreground service is used because background dictation is intentionally prohibited. A hard process termination has no guaranteed lifecycle callback; Android reclaims native resources and the provider connection expires without preserving the active dictation session.
+Keyboard audio remains in memory and is never written to application storage. Stopping, reaching an app session limit, cancelling, hiding the keyboard, changing editor, unbinding the input connection, losing the active session, or destroying the service ends capture and releases the connection and queued audio. Session-checked stop calls prevent stale Flutter cleanup from stopping a newer recording. No foreground service is used because background dictation is intentionally prohibited. On hard process termination Android reclaims native resources, and the provider connection expires without preserving the active dictation session.
 
 Live WebSocket payloads are limited to 5 MiB before JSON decoding, with compression disabled and a separate transport read budget. Invalid JSON or event fields terminate the session through a controlled error path. Native PCM handoff, provider partials and item IDs, the complete transcript and pending composition updates are bounded. Newer composing text replaces an older waiting update, while final writes complete in order.
 

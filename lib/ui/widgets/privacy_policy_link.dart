@@ -10,22 +10,24 @@ import '../../state/settings_controller.dart';
 class PrivacyPolicyLink extends ConsumerWidget {
   const PrivacyPolicyLink({super.key});
 
-  static final _policyUri = Uri.https(
-    'github.com',
-    '/boommasterxd/transcriber/blob/main/docs/privacy-policy.md',
-  );
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
+    final fileName = strings.isDe
+        ? 'privacy-policy.md'
+        : 'privacy-policy-en.md';
+    final policyUri = Uri.https(
+      'github.com',
+      '/boommasterxd/transcriber/blob/main/docs/$fileName',
+    );
     return MergeSemantics(
       child: Semantics(
         link: true,
-        linkUrl: _policyUri,
+        linkUrl: policyUri,
         child: TextButton(
           isSemanticButton: false,
           onPressed: () =>
-              _openPolicy(context, strings.openPrivacyPolicyFailed),
+              _openPolicy(context, policyUri, strings.openPrivacyPolicyFailed),
           style: TextButton.styleFrom(
             foregroundColor: context.palette.accentDeep,
             minimumSize: const Size(48, 48),
@@ -39,9 +41,13 @@ class PrivacyPolicyLink extends ConsumerWidget {
     );
   }
 
-  Future<void> _openPolicy(BuildContext context, String failureMessage) async {
+  Future<void> _openPolicy(
+    BuildContext context,
+    Uri policyUri,
+    String failureMessage,
+  ) async {
     try {
-      if (await launchUrl(_policyUri, mode: LaunchMode.externalApplication)) {
+      if (await launchUrl(policyUri, mode: LaunchMode.externalApplication)) {
         return;
       }
     } on PlatformException {

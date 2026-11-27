@@ -8,6 +8,14 @@ abstract final class LiveTranscriptionLimits {
   static const maximumTranscriptCharacters = 250000;
   static const maximumPartialItems = 8;
   static const maximumItemIdCharacters = 256;
+
+  // App limits leave time for finalization before Gemini Live's connection
+  // and model audio limits. They apply to both providers across reconnects.
+  static const maximumSessionDuration = Duration(minutes: 8);
+  static const maximumIdleDuration = Duration(minutes: 1);
+
+  static int maximumPcmBytes(int sampleRate) =>
+      maximumSessionDuration.inSeconds * sampleRate * 2; // Mono PCM16.
 }
 
 /// Live models are intentionally separate from the file-transcription catalog.

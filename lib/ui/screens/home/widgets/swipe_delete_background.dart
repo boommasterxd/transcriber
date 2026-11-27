@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/note_history.dart';
-import '../../../../state/providers.dart';
-import '../../../../core/toast.dart';
 import '../../../widgets/note_actions.dart';
 
 enum SwipeDeleteStyle { phone, tablet }
@@ -56,16 +54,7 @@ class DismissibleHistoryNote extends ConsumerWidget {
       key: ValueKey(note.id),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
-        try {
-          final detail = await ref
-              .read(notesRepositoryProvider)
-              .findById(note.id);
-          if (detail != null && context.mounted) {
-            await deleteNoteWithUndo(ref, detail, strings);
-          }
-        } catch (_) {
-          showAppToast(strings.errorTitle, isError: true);
-        }
+        await deleteNoteWithUndo(context, ref, note.id, strings);
         return false;
       },
       background: SwipeDeleteBackground(style: style),

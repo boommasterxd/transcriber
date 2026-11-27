@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/models/transcript_note.dart';
 import '../../../widgets/buttons.dart';
@@ -42,13 +43,16 @@ class NoteSummaryCard extends StatelessWidget {
               Icon(Icons.auto_awesome, size: 17, color: palette.accent),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  label.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: palette.accentDeep,
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    label.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: palette.accentDeep,
+                    ),
                   ),
                 ),
               ),
@@ -128,7 +132,7 @@ class NotePillChip extends StatelessWidget {
     final palette = context.palette;
     final action = onTap;
     final color = highlight ? palette.mintInk : palette.body;
-    final radius = BorderRadius.circular(9999);
+    final radius = BorderRadius.circular(AppTheme.radiusPill);
     final content = Container(
       constraints: BoxConstraints(minHeight: action == null ? 0 : 48),
       padding: EdgeInsets.symmetric(

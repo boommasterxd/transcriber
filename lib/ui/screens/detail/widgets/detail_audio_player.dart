@@ -91,9 +91,15 @@ class DetailAudioPlayer extends StatefulWidget {
 
 class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
   DetailAudioPlayerPort? _player;
+  Future<DetailAudioPlayerPort?>? _initialization;
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<DetailPlaybackState>? _playbackSubscription;
-  bool _ready = false;
+  Future<void>? _completionOperation;
+  Future<void>? _seekOperation;
+  double? _pendingSeek;
+  int _sourceGeneration = 0;
+  bool _sourceAvailable = false;
+  bool _preparingPlayback = false;
   bool _playing = false;
   Duration _position = Duration.zero;
   Duration _total = Duration.zero;
@@ -111,26 +117,61 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
   @override
   void initState() {
     super.initState();
-    if (File(widget.audioPath).existsSync()) unawaited(_initialize());
+    unawaited(_checkSource());
   }
 
-  Future<void> _initialize() async {
-    final player = widget.playerFactory();
-    _player = player;
+  @override
+  void didUpdateWidget(covariant DetailAudioPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.audioPath == widget.audioPath) return;
+    _sourceGeneration++;
+    _releasePlayer();
+    _sourceAvailable = false;
+    _preparingPlayback = false;
+    _seekOperation = null;
+    _pendingSeek = null;
+    _playing = false;
+    _position = Duration.zero;
+    _total = Duration.zero;
+    _bucket = -1;
+    unawaited(_checkSource());
+  }
+
+  Future<void> _checkSource() async {
+    final generation = _sourceGeneration;
     try {
+      if (await File(widget.audioPath).exists() && _isCurrent(generation)) {
+        setState(() => _sourceAvailable = true);
+      }
+    } on FileSystemException {
+      // An inaccessible file leaves playback disabled.
+    }
+  }
+
+  bool _isCurrent(int generation) => mounted && _sourceGeneration == generation;
+
+  Future<DetailAudioPlayerPort?> _loadPlayer() =>
+      _initialization ??= _initialize(_sourceGeneration);
+
+  Future<DetailAudioPlayerPort?> _initialize(int generation) async {
+    try {
+      final player = _player = widget.playerFactory();
       final duration = await player.load(widget.audioPath);
-      if (!mounted || !identical(_player, player)) return;
-      _total = duration ?? Duration(seconds: widget.durationSec);
-      _positionSubscription = player.positionStream.listen(_handlePosition);
+      if (!_isCurrent(generation)) return null;
+      _positionSubscription = player.positionStream.listen((position) {
+        if (identical(_player, player)) _handlePosition(position);
+      });
       _playbackSubscription = player.playbackStateStream.listen(
         (state) => _handlePlaybackState(player, state),
       );
-      setState(() => _ready = true);
+      setState(() => _total = duration ?? Duration.zero);
+      return player;
     } catch (_) {
-      if (!identical(_player, player)) return;
-      _player = null;
-      await player.dispose();
-      if (mounted) setState(() => _ready = false);
+      if (_isCurrent(generation)) {
+        _releasePlayer();
+        setState(() => _sourceAvailable = false);
+      }
+      return null;
     }
   }
 
@@ -159,7 +200,11 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
         _bucket = 0;
       }
     });
-    if (state.completed) unawaited(_resetCompletedPlayback(player));
+    if (state.completed) {
+      _completionOperation ??= _resetCompletedPlayback(player).whenComplete(() {
+        if (identical(_player, player)) _completionOperation = null;
+      });
+    }
   }
 
   Future<void> _resetCompletedPlayback(DetailAudioPlayerPort player) async {
@@ -182,30 +227,92 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
 
   @override
   void dispose() {
-    unawaited(_positionSubscription?.cancel());
-    unawaited(_playbackSubscription?.cancel());
-    final player = _player;
-    _player = null;
-    if (player != null) unawaited(player.dispose());
+    _sourceGeneration++;
+    _releasePlayer();
     super.dispose();
   }
 
-  Future<void> _toggle() async {
+  void _releasePlayer() {
     final player = _player;
-    if (player == null || !_ready) return;
-    if (_playing) {
-      await player.pause();
-      return;
+    _player = null;
+    _initialization = null;
+    _completionOperation = null;
+    unawaited(_positionSubscription?.cancel());
+    unawaited(_playbackSubscription?.cancel());
+    _positionSubscription = null;
+    _playbackSubscription = null;
+    if (player != null) unawaited(_disposePlayer(player));
+  }
+
+  Future<void> _disposePlayer(DetailAudioPlayerPort player) async {
+    try {
+      await player.dispose();
+    } catch (_) {
+      // A platform load may still be unwinding during disposal.
     }
-    if (_position >= _effectiveTotal) await player.seek(Duration.zero);
-    await player.play();
+  }
+
+  Future<void> _toggle() async {
+    if (!_sourceAvailable || _preparingPlayback) return;
+    final generation = _sourceGeneration;
+    final player = await _preparePlayback(generation);
+    if (!_isCurrent(generation) || player == null) return;
+    try {
+      await player.play();
+    } catch (_) {
+      // Playback may be interrupted when the route or source changes.
+    }
+  }
+
+  Future<DetailAudioPlayerPort?> _preparePlayback(int generation) async {
+    _preparingPlayback = true;
+    try {
+      final player = await _loadPlayer();
+      await _completionOperation;
+      if (player == null || !_isCurrent(generation)) return null;
+      if (_playing) {
+        await player.pause();
+        return null;
+      }
+      await _seekOperation;
+      if (!_isCurrent(generation)) return null;
+      if (_effectiveTotal > Duration.zero && _position >= _effectiveTotal) {
+        await player.seek(Duration.zero);
+      }
+      return player;
+    } catch (_) {
+      return null;
+    } finally {
+      if (_isCurrent(generation)) _preparingPlayback = false;
+    }
   }
 
   void _seek(double fraction) {
-    final player = _player;
-    if (player == null || !_ready) return;
-    final clampedFraction = fraction.clamp(0.0, 1.0);
-    unawaited(player.seek(_effectiveTotal * clampedFraction));
+    if (!_sourceAvailable) return;
+    _pendingSeek = fraction.clamp(0.0, 1.0);
+    _seekOperation ??= _applySeeks(_sourceGeneration);
+  }
+
+  Future<void> _applySeeks(int generation) async {
+    try {
+      final player = await _loadPlayer();
+      await _completionOperation;
+      if (player == null) return;
+      while (_isCurrent(generation) && _pendingSeek != null) {
+        final fraction = _pendingSeek!;
+        _pendingSeek = null;
+        try {
+          await player.seek(_effectiveTotal * fraction);
+        } catch (_) {
+          // A later input can still be applied if this seek was interrupted.
+        }
+      }
+    } finally {
+      if (_isCurrent(generation)) {
+        _seekOperation = null;
+        _pendingSeek = null;
+      }
+    }
   }
 
   @override
@@ -236,7 +343,7 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           IconButton.filled(
-            onPressed: _ready ? _toggle : null,
+            onPressed: _sourceAvailable ? _toggle : null,
             tooltip: _playing ? strings.audioPause : strings.audioPlay,
             style:
                 IconButton.styleFrom(
@@ -263,7 +370,9 @@ class _DetailAudioPlayerState extends State<DetailAudioPlayer> {
                   label: strings.audioPosition,
                   semanticFormatterCallback: (fraction) => strings
                       .audioPositionValue(positionLabel(fraction), totalLabel),
-                  onSeek: _ready && total > Duration.zero ? _seek : null,
+                  onSeek: _sourceAvailable && total > Duration.zero
+                      ? _seek
+                      : null,
                 ),
                 ExcludeSemantics(
                   child: Text(

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/note_history.dart';
+import '../../../widgets/ai_provenance_widgets.dart';
 import '../../../widgets/waveforms.dart';
 import '../note_presentation.dart';
 import 'note_badges.dart';
@@ -90,6 +91,8 @@ class _NoteText extends StatelessWidget {
             color: palette.ink,
           ),
         ),
+        if (note.titleIsAiGenerated == true)
+          AiProvenanceLabel(strings.aiGeneratedTitle),
         const SizedBox(height: 2),
         Text(
           noteSubtitle(note, strings: strings),

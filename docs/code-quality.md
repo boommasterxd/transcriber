@@ -2,28 +2,28 @@
 
 ## Policy
 
-All quality limits are strict. The repository has no legacy baseline, no grandfathered violations, and no accepted duplication percentage. Existing violations intentionally fail CI until the code is corrected.
+All quality limits are strict. The repository has no legacy baseline or grandfathered violations. The duplication limit is zero for Dart and 5% for Node tooling. Existing violations intentionally fail CI until the code is corrected.
 
 Review thresholds guide refactoring before CI limits are reached. CI limits are hard failures:
 
 | Metric | Review threshold | CI limit | Implementation |
 |---|---:|---:|---|
-| Function length | over 50 lines | 100 lines | Dart Code Linter `lines-of-code`; Detekt `LongMethod` |
+| Function length | over 50 lines | 100 lines | Dart Code Linter `lines-of-code` and Dart AST closure checks, plus Detekt `LongMethod` |
 | File length | over 300 lines | 500 lines | `tool/quality/check_code_quality.dart`; equivalent `tool/ci/check-native-file-length.cjs` for native-only CI |
-| Cyclomatic complexity | over 15 | 20 | Dart Code Linter `cyclomatic-complexity`; Detekt `CyclomaticComplexMethod` |
+| Cyclomatic complexity | over 15 | 20 | Dart Code Linter `cyclomatic-complexity` and Dart AST checks, plus Detekt `CyclomaticComplexMethod` |
 | Cognitive complexity | over 15 | 25 | Dart analyzer AST traversal; Detekt `CognitiveComplexMethod` |
 | Parameters | over 4 | 6 | Complete analyzer AST parameter counts; Detekt `LongParameterList` |
-| Nesting depth | over 3 | 4 | Dart Code Linter `maximum-nesting-level`; Detekt `NestedBlockDepth` |
+| Nesting depth | over 3 | 4 | Dart Code Linter `maximum-nesting-level` and Dart AST closure checks, plus Detekt `NestedBlockDepth` |
 
 Permanent tests protect the critical outcomes listed in [repository instructions](../AGENTS.md#testing-requirements). Verify changed app interactions directly, including relevant contrast, focus visibility, reduced motion, touch targets, overflow, scrolling, and keyboard behavior.
 
-The parameter gate walks every analyzer `FormalParameterList`, including constructors, factories, `copyWith`, functions, closures, callbacks, and function types. DCL omits some of those declarations, so its parameter metric is not authoritative. Remaining DCL size/cyclomatic/nesting measurements must be present exactly once and contain valid numeric values for each reported function; malformed or incomplete reports fail.
+The parameter gate walks every analyzer `FormalParameterList`, including constructors, factories, `copyWith`, functions, closures, callbacks, and function types. Analyzer AST checks also measure cyclomatic and cognitive complexity, including collection branches and switch expressions, and cover closure length and block depth. DCL size, cyclomatic complexity, and nesting measurements must be present exactly once and contain valid numeric values for each reported function. Malformed or incomplete reports fail.
 
-`analysis_options.yaml` explicitly excludes generated build output and platform roots from Dart analysis. These are language and tool-scope boundaries, not a quality baseline: CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Detekt inventories every maintained `.kt` and `.kts` file through Git, including unit tests, instrumented tests, and Gradle scripts. Required complexity rules explicitly include test paths. Generated and ignored build output is outside the maintained inventory; an unavailable or empty inventory fails.
+`analysis_options.yaml` excludes generated build output and platform roots from Dart analysis. CI explicitly formats and analyzes maintained Dart code in `lib/`, `test/`, and `tool/`. Detekt inventories every maintained `.kt` and `.kts` file through Git, including unit tests, instrumented tests, and Gradle scripts. Required complexity rules include test paths. The native file-size check also covers Java fixtures and shell scripts. Generated and ignored build output is outside the maintained inventory. An unavailable or empty inventory fails.
 
 Maintained Node `.cjs`, `.js`, and `.mjs` sources and tests under `tool/` and `test/tool/` use ESLint with the same 500/100-line, 20/25-complexity, six-parameter and four-level nesting limits. Recommended correctness and unused-code rules and stylistic rules are blocking; inline suppressions cannot disable them. Node duplication uses at least 50 tokens and the general 5% limit; the existing Dart duplication limit remains zero.
 
-Drift generates `lib/data/database/app_database.g.dart`. The file is checked into source control so builds do not depend on code generation, but it is excluded from direct analyzer, size, complexity, and duplication measurements only when it carries Drift's generated-code header. It remains compiled through `app_database.dart`. Maintained database declarations, queries, repositories, and migrations remain fully subject to every quality gate.
+The sole generated Dart source exception is `lib/data/database/app_database.g.dart`. The checked-in adapter lets builds run without generation and remains compiled through `app_database.dart`. Analyzer and Dart duplication exclusions name its exact path. The quality gate requires that file to be regular and to carry the generated header and the `app_database.dart` part declaration before omitting it from direct metrics. Maintained database declarations, queries, repositories, and migrations remain fully subject to the gates.
 
 The pinned Flutter SDK requires `test_api` 0.7.14, compatible with the `test` 1.32.0 package used by the pure Dart tests. The project resolves Analyzer 14.7.0 and Build Runner 2.17.1. Test 1.33.0 requires `test_api` 0.7.15 and cannot be adopted with the current SDK pin. Compiler-tool upgrades must preserve the repository-owned AST consumers, code generation, and quality checks without dependency overrides.
 
@@ -90,7 +90,7 @@ JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:compileDebugAndroidTestKotlin
 ```
 
-Run `:app:connectedDebugAndroidTest` on an attached Android device or emulator with API 29 or later and `arm64-v8a` support. The test-report guard requires an executed, unskipped test from every maintained instrumentation class. CI compiles the sources in the Android quality job and executes them with the document-picker recovery fixture when the plan selects device checks. Samsung and Pixel keyboard behavior remains part of the [device release procedure](operations.md#keyboard-dictation-verification).
+Follow the [local device prerequisites and commands](operations.md#validation) for `:app:connectedDebugAndroidTest` and the separate document-picker recovery check. The test-report guard requires an executed, unskipped test from every maintained instrumentation class. The Android quality job executes both device checks when selected. Samsung and Pixel keyboard behavior remains part of the [device release procedure](operations.md#keyboard-dictation-verification).
 
 Run the manifest-listed pure Kotlin tests without Flutter or an Android SDK:
 
@@ -137,14 +137,16 @@ All Flutter jobs, including manual APK validation and releases, use `.github/act
 
 `.github/workflows/ci.yml` starts only jobs required by the complete change scope:
 
-- `Workflow lint` resolves locked Node quality tools, enforces Node static quality and duplication, and runs the CI and release helper regressions. The APK signing fixture uses a synthetic signing key and the Android SDK tools. The job checks workflows and the package, quality and CI shell scripts with pinned linters. Downloaded linters must match their checksums.
+- `Workflow lint` resolves locked Node quality tools and enforces Node static quality and duplication. The narrow Gitleaks updater test plan adds just the dedicated parser test. The regular workflow lint path runs CI and release helper regressions and checks workflows and shell scripts with pinned linters. Its APK signing fixture uses a synthetic signing key and the Android SDK tools. Downloaded linters must match their checksums.
 - `Dart quality, tests and bundle` shares one Flutter installation and locked dependency resolution across formatting, analysis, critical tests, size and complexity, unused code and files, duplication, and applicable bundle builds. Independent checks still run after a failure, and the job fails.
-- `JVM quality and tests` runs the manifest-listed pure Kotlin tests without Flutter/Android, plus the existing Detekt and Kotlin/Gradle/shell file-length gates, only when the plan excludes Android. CI-tool changes additionally exercise real defect/skip fixtures; ordinary pure-test changes skip those fixtures.
-- `Android quality and tests` resolves the audited dependency graphs and runs the maintained native unit tests with the same Detekt and file-length gates. When device checks apply, the instrumentation command compiles and runs those tests on an Android emulator. The job otherwise compiles the instrumentation sources. Global or workflow changes run focused Gradle regression fixtures on the same runner.
+- `JVM quality and tests` runs the manifest-listed pure Kotlin tests without Flutter or an Android SDK, plus Detekt and the native file-length gate, only when the plan excludes Android. CI-tool changes additionally exercise the JVM defect and skip fixtures.
+- `Android quality and tests` resolves the audited dependency graphs and runs the maintained native unit tests with the same Detekt and file-length gates. When device checks apply, the isolated hosted runner starts the unit tests during emulator boot and then runs instrumentation and picker recovery. The job otherwise compiles the instrumentation sources. Global or workflow changes run focused Gradle regression fixtures on the same runner.
 - Duplication still rejects every Dart clone of at least 50 tokens; static Dart checks retain their full source scope.
 - Bundle verification runs for Dart production changes, assets, dependencies, packaging and global configuration, and unknown impact. When Gradle assembles the debug bundle, the native job verifies its kernel and asset manifest.
 
-`.github/workflows/dependency-audit.yml` scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile`, its dependency verification metadata, and `tool/quality/node/package-lock.json` with the pinned OSV Scanner reusable workflow. The explicitly loaded [npm override](../tool/quality/node/osv-scanner.toml) excludes the npm `dev` group, including transitive dev-only packages, from vulnerability blocking. Shared production and development packages remain scanned. Pub and Gradle scanning include development and test dependencies.
+`.github/workflows/dependency-audit.yml` runs a pinned, checksum-verified OSV Scanner binary directly with read-only repository permissions. It scans `pubspec.lock`, `android/app/gradle.lockfile`, the independent JVM `gradle.lockfile` and its dependency verification metadata, and `tool/quality/node/package-lock.json`. The explicitly loaded [npm override](../tool/quality/node/osv-scanner.toml) excludes the npm `dev` group, including transitive dev-only packages, from vulnerability blocking. Shared production and development packages remain scanned. Pub and Gradle scanning include development and test dependencies.
+
+The audit verifies that each input is a readable, nonempty file at its expected checkout path. Before invoking OSV, it validates the two Gradle lockfiles for well-formed module and configuration entries, at least one module, and exactly one empty-configuration marker. Invalid inputs and scanner failures block the job.
 
 The npm preflight validates dependency groups and audits the locked production graph with `npm audit --omit=dev --audit-level=high --package-lock-only`. The [group validator](../tool/ci/check-osv-npm-scope.cjs) rejects malformed lockfiles and classifications that the pinned scanner cannot safely distinguish, including `devOptional`, ambiguous shared optional or bundled identities, and unreviewed Git or link packages. High and critical npm production findings and audit execution errors block CI. OSV fails on configuration or scanner errors and known vulnerabilities within its scope. The PR checks apply to every non-documentation change because advisory data changes independently of dependency versions. Weekly and manual scans apply the same dependency policy.
 
@@ -154,7 +156,7 @@ PR CI runs the npm preflight in its change-classification job. After that job su
 
 The only historical exceptions are three commit/path/rule/line fingerprints in [`.gitleaksignore`](../.gitleaksignore), covering Google keys the project owner confirmed are no longer usable. Their rationale and limits are recorded in [security](security.md#historical-scanner-exceptions). Scanner regressions also prove that the same synthetic credential in a later commit remains blocked.
 
-Lightweight classification, final gates, scanning, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. Workflow/Node and Dart/native quality/build jobs and container-based OSV scanning retain regular runners. Actual hosted execution remains separate from local workflow validation; no savings are inferred from runner selection alone.
+Lightweight classification, final gates, Gitleaks, metadata and publication jobs use `ubuntu-slim` with five- or ten-minute timeouts. The dedicated Gitleaks updater test-only plan also uses `ubuntu-slim` for workflow lint. Broader workflow lint, Dart and native quality/build jobs, and the direct OSV scan use regular runners.
 
 ### Local Node Dependency Review
 
@@ -176,7 +178,7 @@ lifecycle: only a successful current-main snapshot from the exact run attempt ca
 older matching configuration/language/tool/cache-version snapshots. See
 [cache lifecycle](ci-test-selection.md#runner-work-and-caches) for metadata trust and recovery.
 
-The project uses Kotlin 2.4.21, which is beyond the 2.4.20 limit in the [CodeQL language support table](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/). When upgrading Kotlin or CodeQL, verify that the hosted bundle extracts and analyzes the maintained Kotlin sources with the supported application toolchain.
+The pinned CodeQL Action defaults to CLI 2.27.4. Its [version-specific language support table](https://github.com/github/codeql/blob/codeql-cli/v2.27.4/docs/codeql/reusables/supported-versions-compilers.rst) lists Kotlin support through 2.4.20. The project uses Kotlin 2.4.21. When upgrading Kotlin or CodeQL, verify from the hosted run that the selected bundle extracts and analyzes the maintained Kotlin sources with the application toolchain.
 
 APK-build workflows default to `contents: read`. Release compilation produces an unsigned artifact. Signing uses the established key in the protected `release-signing` environment and verifies the package and exact certificate. The separate protected publication job receives write permissions to publish verified assets and remove the intermediate artifacts. The preview uses its own package ID and the runner's debug key. See [release operations](operations.md#release).
 

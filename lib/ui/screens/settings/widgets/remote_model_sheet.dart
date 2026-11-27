@@ -11,20 +11,31 @@ import '../../../../services/remote/remote_api_client.dart';
 import '../../../../state/connections_controller.dart';
 import '../../../../state/remote_models_provider.dart';
 import '../../../../state/settings_controller.dart';
-import '../../../widgets/surfaces.dart';
 import '../../../widgets/app_bottom_sheet.dart';
 import 'remote_model_options.dart';
 import 'remote_stage.dart';
 
-/// Returns a live, connected model choice immediately when it is selected.
-Future<RemoteModelSelection?> showRemoteModelSheet(
+typedef RemoteModelChoice = ({
+  RemoteProviderId provider,
+  String modelId,
+  int credentialRevision,
+});
+
+/// Returns a live, connected model choice when the user activates it.
+Future<RemoteModelChoice?> showRemoteModelSheet(
   BuildContext context, {
   required RemoteStage stage,
   required RemoteModelSelection selection,
   required List<RemoteProviderId> allowedProviders,
 }) {
-  FocusManager.instance.primaryFocus?.unfocus();
-  return showAppBottomSheet<RemoteModelSelection>(
+  final container = ProviderScope.containerOf(context, listen: false);
+  final providers = _connectedProviders(
+    allowedProviders,
+    container.read(connectionsControllerProvider),
+  );
+  final provider = _activeProvider(selection.provider, providers);
+  if (provider != null) refreshRemoteModelCatalog(container, provider);
+  return showAppBottomSheet<RemoteModelChoice>(
     context,
     useSafeArea: true,
     builder: (_) => RemoteModelSheet(
@@ -34,6 +45,16 @@ Future<RemoteModelSelection?> showRemoteModelSheet(
     ),
   );
 }
+
+List<RemoteProviderId> _connectedProviders(
+  List<RemoteProviderId> allowed,
+  Map<RemoteProviderId, bool> connections,
+) => allowed.where((provider) => connections[provider] ?? false).toList();
+
+RemoteProviderId? _activeProvider(
+  RemoteProviderId selection,
+  List<RemoteProviderId> connected,
+) => connected.contains(selection) ? selection : connected.firstOrNull;
 
 class RemoteModelSheet extends ConsumerStatefulWidget {
   const RemoteModelSheet({
@@ -53,9 +74,10 @@ class RemoteModelSheet extends ConsumerStatefulWidget {
 
 class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
   late RemoteProviderId _provider;
-  late String _modelId;
   bool _completed = false;
 
+  ProviderContainer get _container =>
+      ProviderScope.containerOf(context, listen: false);
   bool get _transcription => widget.stage.forTranscription;
   RemoteModelsQuery get _query =>
       (provider: _provider, forTranscription: _transcription);
@@ -64,51 +86,50 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
   void initState() {
     super.initState();
     _provider = widget.selection.provider;
-    _modelId = widget.selection.modelId;
   }
 
   void _selectProvider(RemoteProviderId provider) {
-    if (_completed || provider == _provider) return;
-    setState(() {
-      _provider = provider;
-      _modelId = widget.selection.provider == provider
-          ? widget.selection.modelId
-          : '';
-    });
+    if (_completed || provider == _provider || !_canLoad(provider)) return;
+    refreshRemoteModelCatalog(_container, provider);
+    setState(() => _provider = provider);
   }
 
-  void _selectModel(String? modelId) {
-    if (_completed || modelId == null) return;
-    final connected =
-        ref.read(connectionsControllerProvider)[_provider] ?? false;
-    final catalog = ref.read(remoteModelsProvider(_query));
-    if (!connected ||
-        !widget.allowedProviders.contains(_provider) ||
-        catalog.isLoading ||
+  void _selectModel(
+    RemoteModelsQuery query,
+    AsyncValue<List<RemoteModelInfo>> displayed,
+    String modelId,
+  ) {
+    if (_completed || query != _query || !_canLoad(query.provider)) return;
+    if (refreshRemoteModelCatalog(_container, query.provider)) return;
+    final catalog = ref.read(remoteModelsProvider(query));
+    if (catalog.isLoading ||
         catalog.hasError ||
-        !(catalog.asData?.value.any((model) => model.id == modelId) ?? false)) {
+        !identical(catalog.asData?.value, displayed.asData?.value)) {
       return;
     }
+    final revision = ref
+        .read(connectionsControllerProvider.notifier)
+        .catalogRevision(query.provider);
     _completed = true;
-    Navigator.of(context).pop((provider: _provider, modelId: modelId));
+    Navigator.of(context).pop((
+      provider: query.provider,
+      modelId: modelId,
+      credentialRevision: revision,
+    ));
   }
+
+  bool _canLoad(RemoteProviderId provider) =>
+      widget.allowedProviders.contains(provider) &&
+      (ref.read(connectionsControllerProvider)[provider] ?? false);
 
   Future<void> _refreshModels() async {
     final query = _query;
     if (_completed ||
-        !widget.allowedProviders.contains(query.provider) ||
-        !(ref.read(connectionsControllerProvider)[query.provider] ?? false)) {
+        !_canLoad(query.provider) ||
+        !refreshRemoteModelCatalog(_container, query.provider, force: true)) {
       return;
     }
     try {
-      ref.invalidate(remoteModelCatalogProvider(query.provider));
-      ref.invalidate(remoteModelsProvider(query));
-      ref.invalidate(
-        remoteModelsProvider((
-          provider: query.provider,
-          forTranscription: !query.forTranscription,
-        )),
-      );
       await ref.read(remoteModelsProvider(query).future);
     } catch (_) {
       // Catalog errors are rendered through the existing sanitized error state.
@@ -119,25 +140,18 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
     AppStrings strings,
     List<RemoteProviderId> providers,
     AsyncValue<List<RemoteModelInfo>>? catalog,
-  ) => RadioGroup<String>(
-    groupValue: _modelId,
-    onChanged: _selectModel,
-    child: CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.f5): _refreshModels},
-      child: Semantics(
-        customSemanticsActions: {
+    RemoteModelsQuery query,
+  ) => CallbackShortcuts(
+    bindings: {const SingleActivator(LogicalKeyboardKey.f5): _refreshModels},
+    child: Semantics(
+      customSemanticsActions: {
+        if (catalog != null)
           CustomSemanticsAction(label: strings.refreshModels): _refreshModels,
-        },
-        child: RefreshIndicator(
-          onRefresh: _refreshModels,
-          semanticsLabel: strings.refreshModels,
-          child: FadeEdges(
-            shrinkWrap: true,
-            color: context.palette.surface,
-            builder: (_, controller) =>
-                _catalogScrollView(strings, providers, catalog, controller),
-          ),
-        ),
+      },
+      child: RefreshIndicator(
+        onRefresh: _refreshModels,
+        semanticsLabel: strings.refreshModels,
+        child: _catalogScrollView(strings, providers, catalog, query),
       ),
     ),
   );
@@ -146,9 +160,8 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
     AppStrings strings,
     List<RemoteProviderId> providers,
     AsyncValue<List<RemoteModelInfo>>? catalog,
-    ScrollController controller,
+    RemoteModelsQuery query,
   ) => CustomScrollView(
-    controller: controller,
     shrinkWrap: true,
     physics: const AlwaysScrollableScrollPhysics(),
     slivers: [
@@ -186,7 +199,11 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
       else
         RemoteModelOptions(
           catalog: catalog,
-          onRetry: _refreshModels,
+          selectedModelId: _provider == widget.selection.provider
+              ? widget.selection.modelId
+              : null,
+          onSelect: (modelId) => _selectModel(query, catalog, modelId),
+          onRefresh: _refreshModels,
           strings: strings,
         ),
     ],
@@ -196,19 +213,23 @@ class _RemoteModelSheetState extends ConsumerState<RemoteModelSheet> {
   Widget build(BuildContext context) {
     final strings = ref.watch(stringsProvider);
     final connections = ref.watch(connectionsControllerProvider);
-    final providers = widget.allowedProviders
-        .where((provider) => connections[provider] ?? false)
-        .toList();
-    if (providers.isNotEmpty && !providers.contains(_provider)) {
-      _provider = providers.first;
-      _modelId = '';
-    }
-    final catalog = providers.isEmpty
+    ref.listen(connectionsControllerProvider, (_, next) {
+      final providers = _connectedProviders(widget.allowedProviders, next);
+      final provider = _activeProvider(_provider, providers);
+      if (provider != null && provider != _provider) {
+        refreshRemoteModelCatalog(_container, provider);
+      }
+    });
+    final providers = _connectedProviders(widget.allowedProviders, connections);
+    final provider = _activeProvider(_provider, providers);
+    if (provider != null) _provider = provider;
+    final query = _query;
+    final catalog = provider == null
         ? null
-        : ref.watch(remoteModelsProvider(_query));
+        : ref.watch(remoteModelsProvider(query));
     return AppBottomSheetFrame(
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-      child: _catalogBody(strings, providers, catalog),
+      child: _catalogBody(strings, providers, catalog, query),
     );
   }
 }

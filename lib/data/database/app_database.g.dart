@@ -925,6 +925,19 @@ class $NotesTableTable extends NotesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _titleIsAiGeneratedMeta =
+      const VerificationMeta('titleIsAiGenerated');
+  @override
+  late final GeneratedColumn<bool> titleIsAiGenerated = GeneratedColumn<bool>(
+    'title_is_ai_generated',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("title_is_ai_generated" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -944,6 +957,7 @@ class $NotesTableTable extends NotesTable
     summaryError,
     audioPath,
     audioOwnership,
+    titleIsAiGenerated,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1102,6 +1116,15 @@ class $NotesTableTable extends NotesTable
     } else if (isInserting) {
       context.missing(_audioOwnershipMeta);
     }
+    if (data.containsKey('title_is_ai_generated')) {
+      context.handle(
+        _titleIsAiGeneratedMeta,
+        titleIsAiGenerated.isAcceptableOrUnknown(
+          data['title_is_ai_generated']!,
+          _titleIsAiGeneratedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1179,6 +1202,10 @@ class $NotesTableTable extends NotesTable
         DriftSqlType.string,
         data['${effectivePrefix}audio_ownership'],
       )!,
+      titleIsAiGenerated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}title_is_ai_generated'],
+      ),
     );
   }
 
@@ -1206,6 +1233,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   final String? summaryError;
   final String? audioPath;
   final String audioOwnership;
+  final bool? titleIsAiGenerated;
   const NotesTableData({
     required this.id,
     required this.title,
@@ -1224,6 +1252,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     this.summaryError,
     this.audioPath,
     required this.audioOwnership,
+    this.titleIsAiGenerated,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1249,6 +1278,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       map['audio_path'] = Variable<String>(audioPath);
     }
     map['audio_ownership'] = Variable<String>(audioOwnership);
+    if (!nullToAbsent || titleIsAiGenerated != null) {
+      map['title_is_ai_generated'] = Variable<bool>(titleIsAiGenerated);
+    }
     return map;
   }
 
@@ -1275,6 +1307,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           ? const Value.absent()
           : Value(audioPath),
       audioOwnership: Value(audioOwnership),
+      titleIsAiGenerated: titleIsAiGenerated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(titleIsAiGenerated),
     );
   }
 
@@ -1301,6 +1336,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       summaryError: serializer.fromJson<String?>(json['summaryError']),
       audioPath: serializer.fromJson<String?>(json['audioPath']),
       audioOwnership: serializer.fromJson<String>(json['audioOwnership']),
+      titleIsAiGenerated: serializer.fromJson<bool?>(
+        json['titleIsAiGenerated'],
+      ),
     );
   }
   @override
@@ -1324,6 +1362,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       'summaryError': serializer.toJson<String?>(summaryError),
       'audioPath': serializer.toJson<String?>(audioPath),
       'audioOwnership': serializer.toJson<String>(audioOwnership),
+      'titleIsAiGenerated': serializer.toJson<bool?>(titleIsAiGenerated),
     };
   }
 
@@ -1345,6 +1384,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     Value<String?> summaryError = const Value.absent(),
     Value<String?> audioPath = const Value.absent(),
     String? audioOwnership,
+    Value<bool?> titleIsAiGenerated = const Value.absent(),
   }) => NotesTableData(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -1363,6 +1403,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     summaryError: summaryError.present ? summaryError.value : this.summaryError,
     audioPath: audioPath.present ? audioPath.value : this.audioPath,
     audioOwnership: audioOwnership ?? this.audioOwnership,
+    titleIsAiGenerated: titleIsAiGenerated.present
+        ? titleIsAiGenerated.value
+        : this.titleIsAiGenerated,
   );
   NotesTableData copyWithCompanion(NotesTableCompanion data) {
     return NotesTableData(
@@ -1395,6 +1438,9 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       audioOwnership: data.audioOwnership.present
           ? data.audioOwnership.value
           : this.audioOwnership,
+      titleIsAiGenerated: data.titleIsAiGenerated.present
+          ? data.titleIsAiGenerated.value
+          : this.titleIsAiGenerated,
     );
   }
 
@@ -1417,7 +1463,8 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           ..write('gist: $gist, ')
           ..write('summaryError: $summaryError, ')
           ..write('audioPath: $audioPath, ')
-          ..write('audioOwnership: $audioOwnership')
+          ..write('audioOwnership: $audioOwnership, ')
+          ..write('titleIsAiGenerated: $titleIsAiGenerated')
           ..write(')'))
         .toString();
   }
@@ -1441,6 +1488,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     summaryError,
     audioPath,
     audioOwnership,
+    titleIsAiGenerated,
   );
   @override
   bool operator ==(Object other) =>
@@ -1462,7 +1510,8 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           other.gist == this.gist &&
           other.summaryError == this.summaryError &&
           other.audioPath == this.audioPath &&
-          other.audioOwnership == this.audioOwnership);
+          other.audioOwnership == this.audioOwnership &&
+          other.titleIsAiGenerated == this.titleIsAiGenerated);
 }
 
 class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
@@ -1483,6 +1532,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   final Value<String?> summaryError;
   final Value<String?> audioPath;
   final Value<String> audioOwnership;
+  final Value<bool?> titleIsAiGenerated;
   final Value<int> rowid;
   const NotesTableCompanion({
     this.id = const Value.absent(),
@@ -1502,6 +1552,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     this.summaryError = const Value.absent(),
     this.audioPath = const Value.absent(),
     this.audioOwnership = const Value.absent(),
+    this.titleIsAiGenerated = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesTableCompanion.insert({
@@ -1522,6 +1573,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     this.summaryError = const Value.absent(),
     this.audioPath = const Value.absent(),
     required String audioOwnership,
+    this.titleIsAiGenerated = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -1555,6 +1607,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     Expression<String>? summaryError,
     Expression<String>? audioPath,
     Expression<String>? audioOwnership,
+    Expression<bool>? titleIsAiGenerated,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1575,6 +1628,8 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
       if (summaryError != null) 'summary_error': summaryError,
       if (audioPath != null) 'audio_path': audioPath,
       if (audioOwnership != null) 'audio_ownership': audioOwnership,
+      if (titleIsAiGenerated != null)
+        'title_is_ai_generated': titleIsAiGenerated,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1597,6 +1652,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     Value<String?>? summaryError,
     Value<String?>? audioPath,
     Value<String>? audioOwnership,
+    Value<bool?>? titleIsAiGenerated,
     Value<int>? rowid,
   }) {
     return NotesTableCompanion(
@@ -1617,6 +1673,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
       summaryError: summaryError ?? this.summaryError,
       audioPath: audioPath ?? this.audioPath,
       audioOwnership: audioOwnership ?? this.audioOwnership,
+      titleIsAiGenerated: titleIsAiGenerated ?? this.titleIsAiGenerated,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1675,6 +1732,9 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     if (audioOwnership.present) {
       map['audio_ownership'] = Variable<String>(audioOwnership.value);
     }
+    if (titleIsAiGenerated.present) {
+      map['title_is_ai_generated'] = Variable<bool>(titleIsAiGenerated.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1701,6 +1761,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
           ..write('summaryError: $summaryError, ')
           ..write('audioPath: $audioPath, ')
           ..write('audioOwnership: $audioOwnership, ')
+          ..write('titleIsAiGenerated: $titleIsAiGenerated, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3419,6 +3480,7 @@ typedef $$NotesTableTableCreateCompanionBuilder = NotesTableCompanion Function({
   Value<String?> summaryError,
   Value<String?> audioPath,
   required String audioOwnership,
+  Value<bool?> titleIsAiGenerated,
   Value<int> rowid,
 });
 typedef $$NotesTableTableUpdateCompanionBuilder = NotesTableCompanion Function({
@@ -3439,6 +3501,7 @@ typedef $$NotesTableTableUpdateCompanionBuilder = NotesTableCompanion Function({
   Value<String?> summaryError,
   Value<String?> audioPath,
   Value<String> audioOwnership,
+  Value<bool?> titleIsAiGenerated,
   Value<int> rowid,
 });
 
@@ -3601,6 +3664,11 @@ class $$NotesTableTableFilterComposer
 
   ColumnFilters<String> get audioOwnership => $composableBuilder(
     column: $table.audioOwnership,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get titleIsAiGenerated => $composableBuilder(
+    column: $table.titleIsAiGenerated,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3774,6 +3842,11 @@ class $$NotesTableTableOrderingComposer
     column: $table.audioOwnership,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get titleIsAiGenerated => $composableBuilder(
+    column: $table.titleIsAiGenerated,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NotesTableTableAnnotationComposer
@@ -3845,6 +3918,11 @@ class $$NotesTableTableAnnotationComposer
 
   GeneratedColumn<String> get audioOwnership => $composableBuilder(
     column: $table.audioOwnership,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get titleIsAiGenerated => $composableBuilder(
+    column: $table.titleIsAiGenerated,
     builder: (column) => column,
   );
 
@@ -3975,6 +4053,7 @@ class $$NotesTableTableTableManager
                 Value<String?> summaryError = const Value.absent(),
                 Value<String?> audioPath = const Value.absent(),
                 Value<String> audioOwnership = const Value.absent(),
+                Value<bool?> titleIsAiGenerated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesTableCompanion(
                 id: id,
@@ -3994,6 +4073,7 @@ class $$NotesTableTableTableManager
                 summaryError: summaryError,
                 audioPath: audioPath,
                 audioOwnership: audioOwnership,
+                titleIsAiGenerated: titleIsAiGenerated,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4015,6 +4095,7 @@ class $$NotesTableTableTableManager
                 Value<String?> summaryError = const Value.absent(),
                 Value<String?> audioPath = const Value.absent(),
                 required String audioOwnership,
+                Value<bool?> titleIsAiGenerated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesTableCompanion.insert(
                 id: id,
@@ -4034,6 +4115,7 @@ class $$NotesTableTableTableManager
                 summaryError: summaryError,
                 audioPath: audioPath,
                 audioOwnership: audioOwnership,
+                titleIsAiGenerated: titleIsAiGenerated,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/toast.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/connections_controller.dart';
 import '../../../../state/remote_models_provider.dart';
@@ -35,28 +36,48 @@ class RemoteStageSettings extends ConsumerWidget {
       allowedProviders: providers,
     );
     if (choice == null || !context.mounted) return;
-    final connected =
-        ref.read(connectionsControllerProvider)[choice.provider] ?? false;
+    final connections = ref.read(connectionsControllerProvider.notifier);
+    bool credentialIsCurrent() =>
+        connections.isConnected(choice.provider) &&
+        connections.catalogRevision(choice.provider) ==
+            choice.credentialRevision;
+
     final catalog = ref.read(
       remoteModelsProvider((
         provider: choice.provider,
         forTranscription: stage.forTranscription,
       )),
     );
-    if (!connected ||
+    if (!credentialIsCurrent() ||
         catalog.isLoading ||
         catalog.hasError ||
         !(catalog.asData?.value.any((model) => model.id == choice.modelId) ??
             false)) {
+      _showUnavailable(context, ref);
       return;
     }
     final controller = ref.read(settingsControllerProvider.notifier);
-    if (stage.forTranscription) {
-      await controller.setAsrSelection(choice.provider, choice.modelId);
-    } else {
-      await controller.setSummarySelection(choice.provider, choice.modelId);
+    final saved = stage.forTranscription
+        ? await controller.setAsrSelection(
+            choice.provider,
+            choice.modelId,
+            credentialRevision: choice.credentialRevision,
+          )
+        : await controller.setSummarySelection(
+            choice.provider,
+            choice.modelId,
+            credentialRevision: choice.credentialRevision,
+          );
+    if (!saved && context.mounted && !credentialIsCurrent()) {
+      _showUnavailable(context, ref);
     }
   }
+
+  void _showUnavailable(BuildContext context, WidgetRef ref) => showAppToast(
+    ref.read(stringsProvider).modelLoadFailed,
+    isError: true,
+    messenger: ScaffoldMessenger.maybeOf(context),
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

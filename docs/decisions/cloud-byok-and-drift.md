@@ -11,9 +11,9 @@ The application requires personal OpenAI and Gemini keys, independent providers 
 
 ## Decision
 
-Support only OpenAI and Google Gemini through direct REST clients over the existing HTTP stack. Keep separate transcription and summary provider contracts. Store API keys only in `FlutterSecureStorage`.
+Support only OpenAI and Google Gemini. Use direct REST clients over the existing HTTP stack for batch processing, with separate transcription and summary provider contracts. Live dictation, added later, uses a separate WebSocket client contract with the same providers. Store API keys only in `FlutterSecureStorage`.
 
-Use Drift with SQLite for settings, notes, points, to-dos, transcript segments, and migration state. Import the old SharedPreferences payload once inside a Drift transaction, then remove only successfully imported source values.
+Use Drift with SQLite for settings, notes, points, to-dos, transcript segments, and migration state. Import valid SharedPreferences data once in a Drift transaction. Follow the [legacy cleanup rules](../architecture.md#persistence) to preserve rejected records and remove eligible source values after the commit.
 
 Remove local models, downloads, FFmpeg, Hugging Face settings, background download infrastructure, and the processing foreground isolate. Use provider-supported audio formats and explicit app-file ownership with bounded cleanup.
 

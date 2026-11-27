@@ -44,23 +44,27 @@ final class DictationController extends ChangeNotifier {
   final LiveTranscriptionClientFactory _clientFactory;
   final List<Duration> _reconnectDelays;
   final Queue<Uint8List> _pendingAudio = Queue();
+  final _waveformLevels = ValueNotifier<List<double>>(_idleWaveform);
   DictationState _state = DictationState.initial();
   StreamSubscription<DictationPlatformEvent>? _platformSubscription;
   StreamSubscription<LiveTranscriptionEvent>? _clientSubscription;
   LiveTranscriptionClient? _client;
   LiveTranscriptionConfig? _config;
   KeyboardEditorState? _editor;
-  Timer? _timer;
+  KeyboardEditorState? _reportedEditor;
+  Timer? _elapsedTimer;
+  Timer? _sessionDeadline;
+  Timer? _pauseDeadline;
   Timer? _reconnectTimer;
   Completer<void>? _reconnectDelay;
-  DateTime? _startedAt;
-  Duration _elapsedBeforeSegment = Duration.zero;
+  final Stopwatch _captureElapsed = Stopwatch();
+  Duration _lastPcmAt = Duration.zero;
   Future<void> _editorWrites = Future.value();
   Future<void> _editorTransitions = Future.value();
   Future<void> _clientCleanup = Future.value();
   Future<void>? _sessionCleanup;
   Future<void>? _recordingChange;
-  Future<void>? _recordingStop;
+  Future<bool>? _recordingStop;
   ({String sessionId, String text, int generation})? _pendingComposition;
   String _finalized = '';
   String _partial = '';
@@ -68,16 +72,20 @@ final class DictationController extends ChangeNotifier {
   int _sessionGeneration = 0;
   int _textGeneration = 0;
   int _reconnectAttempt = 0;
+  int _remainingPcmBytes = 0;
   bool _compositionWorkerRunning = false;
   bool _connected = false;
   bool _capturePaused = false;
+  bool _stoppingAtLimit = false;
   bool _disposed = false;
 
   DictationState get state => _state;
+  ValueListenable<List<double>> get waveformLevels => _waveformLevels;
 
   Future<void> initialize() async {
     _platformSubscription ??= _platform.events.listen(_handlePlatformEvent);
-    await _applyEditor(await _platform.editorState());
+    final editor = await _platform.editorState();
+    await _applyEditor(_reportedEditor ?? editor);
     await _refreshConfigurationLabel();
   }
 
@@ -95,6 +103,7 @@ final class DictationController extends ChangeNotifier {
     }
     final sessionId = editor.sessionId;
     final generation = ++_sessionGeneration;
+    _waveformLevels.value = _idleWaveform;
     _setState(
       _state.copyWith(
         phase: DictationPhase.connecting,
@@ -115,21 +124,15 @@ final class DictationController extends ChangeNotifier {
         ),
       );
       if (!_ownsSession(sessionId, generation)) return;
+      _startSessionLimits(sessionId, generation, config.sampleRate);
       await _connect(sessionId);
       if (!_ownsSession(sessionId, generation)) return;
       await _changeRecording(
         () => _platform.startRecording(sessionId, config.sampleRate),
       );
       if (!_ownsSession(sessionId, generation)) return;
-      _startTimer();
-      _setState(
-        _state.copyWith(
-          phase: DictationPhase.recording,
-          progress: _state.progress.copyWith(
-            levels: List.filled(maximumLevels, initialWaveformLevel),
-          ),
-        ),
-      );
+      _startCaptureTimer(sessionId, generation);
+      _setState(_state.copyWith(phase: DictationPhase.recording));
     } on LiveConnectionException catch (error) {
       await _handleStartFailure(sessionId, generation, error.code);
     } on PlatformException catch (error) {
@@ -139,37 +142,44 @@ final class DictationController extends ChangeNotifier {
     }
   }
 
-  Future<void> stop() async {
-    if (!_state.isActive ||
-        _state.phase == DictationPhase.stopping ||
-        _sessionCleanup != null) {
-      return;
-    }
+  Future<void> stop() => _stop();
+
+  Future<void> _stop({bool atLimit = false}) async {
+    final sessionId = _editor?.sessionId;
+    final generation = _sessionGeneration;
+    if (sessionId == null || !_canChangePause(sessionId, generation)) return;
     if (_state.phase == DictationPhase.connecting) {
       await cancel();
       return;
     }
-    final sessionId = _editor!.sessionId;
-    final generation = _sessionGeneration;
-    _setState(_state.copyWith(phase: DictationPhase.stopping));
-    _stopTimer();
+    _stoppingAtLimit = atLimit;
+    _stopSessionTimers();
+    _setState(
+      _state.copyWith(
+        phase: DictationPhase.stopping,
+        progress: _state.progress.copyWith(elapsed: _captureElapsed.elapsed),
+      ),
+    );
     _releaseReconnectDelay();
     try {
-      if (_ownsSession(sessionId, generation)) {
-        await _stopRecording(sessionId);
-      }
       if (!_ownsSession(sessionId, generation)) return;
-      if (_connected) {
-        await _client?.finish();
-      } else {
-        await _disconnectClient();
+      final stopped = await _stopRecording(sessionId);
+      if (!_ownsSession(sessionId, generation)) return;
+      if (!stopped) {
+        await cancel();
+        return;
       }
+      await _finishClient();
       if (!_ownsSession(sessionId, generation)) return;
       await _editorWrites;
       if (!_ownsSession(sessionId, generation)) return;
       final transcript = _sessionTranscript;
       if (transcript.isNotEmpty) {
-        await _platform.commitText(sessionId, transcript);
+        final committed = await _platform.commitText(sessionId, transcript);
+        if (!committed && _ownsSession(sessionId, generation)) {
+          await _abortWithError('finalization_failed');
+          return;
+        }
       }
       if (!_ownsSession(sessionId, generation)) return;
       await _endSession();
@@ -195,7 +205,7 @@ final class DictationController extends ChangeNotifier {
         await _changeRecording(() => _platform.resumeRecording(sessionId));
         if (!_canChangePause(sessionId, generation)) return;
         _capturePaused = false;
-        _startTimer();
+        _startCaptureTimer(sessionId, generation);
         if (_state.phase != DictationPhase.reconnecting) {
           _setState(_state.copyWith(phase: DictationPhase.recording));
         }
@@ -204,10 +214,17 @@ final class DictationController extends ChangeNotifier {
         await _changeRecording(() => _platform.pauseRecording(sessionId));
         if (!_canChangePause(sessionId, generation)) return;
         _capturePaused = true;
-        _pauseTimer();
-        if (_state.phase != DictationPhase.reconnecting) {
-          _setState(_state.copyWith(phase: DictationPhase.paused));
-        }
+        _pauseCaptureTimer(sessionId, generation);
+        _setState(
+          _state.copyWith(
+            phase: _state.phase == DictationPhase.reconnecting
+                ? DictationPhase.reconnecting
+                : DictationPhase.paused,
+            progress: _state.progress.copyWith(
+              elapsed: _captureElapsed.elapsed,
+            ),
+          ),
+        );
       }
     } on PlatformException catch (error) {
       if (_canChangePause(sessionId, generation)) {
@@ -252,6 +269,8 @@ final class DictationController extends ChangeNotifier {
   }
 
   void _queueEditorTransition(KeyboardEditorState editor) {
+    // Stop audio and text delivery before asynchronous editor cleanup begins.
+    _reportedEditor = editor;
     final transition = _editorTransitions.then((_) => _applyEditor(editor));
     _editorTransitions = transition.onError((_, _) {});
     unawaited(_editorTransitions);
@@ -259,13 +278,23 @@ final class DictationController extends ChangeNotifier {
 
   void _handleAudio(String sessionId, Uint8List pcm, double level) {
     final generation = _sessionGeneration;
+    if (pcm.isEmpty ||
+        _capturePaused ||
+        !_canChangePause(sessionId, generation)) {
+      return;
+    }
+    if (pcm.length > _remainingPcmBytes) {
+      _finishAtLimit(sessionId, generation);
+      return;
+    }
+    _waveformLevels.value = List.unmodifiable([
+      ..._waveformLevels.value.skip(1),
+      level,
+    ]);
     if (_capturePaused || !_canChangePause(sessionId, generation)) return;
-    final levels = [..._state.levels, level];
-    if (levels.length > maximumLevels) levels.removeAt(0);
-    _setState(
-      _state.copyWith(progress: _state.progress.copyWith(levels: levels)),
-    );
-    if (!_canChangePause(sessionId, generation)) return;
+    // Audio queued during reconnect has already been charged when it is sent.
+    _remainingPcmBytes -= pcm.length;
+    _lastPcmAt = _captureElapsed.elapsed;
     if (_connected) {
       _client?.addAudio(pcm);
     } else {
@@ -274,6 +303,7 @@ final class DictationController extends ChangeNotifier {
       }
       _pendingAudio.addLast(Uint8List.fromList(pcm));
     }
+    if (_remainingPcmBytes == 0) _finishAtLimit(sessionId, generation);
   }
 
   Future<void> _applyEditor(KeyboardEditorState editor) async {
@@ -314,47 +344,6 @@ final class DictationController extends ChangeNotifier {
     );
   }
 
-  void _startTimer() {
-    _timer?.cancel();
-    _elapsedBeforeSegment = _state.elapsed;
-    _startedAt = DateTime.now();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final startedAt = _startedAt;
-      if (startedAt != null) {
-        _setState(
-          _state.copyWith(
-            progress: _state.progress.copyWith(
-              elapsed:
-                  _elapsedBeforeSegment + DateTime.now().difference(startedAt),
-            ),
-          ),
-        );
-      }
-    });
-  }
-
-  void _pauseTimer() {
-    final startedAt = _startedAt;
-    if (startedAt != null) {
-      _elapsedBeforeSegment += DateTime.now().difference(startedAt);
-      _setState(
-        _state.copyWith(
-          progress: _state.progress.copyWith(elapsed: _elapsedBeforeSegment),
-        ),
-      );
-    }
-    _timer?.cancel();
-    _timer = null;
-    _startedAt = null;
-  }
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
-    _startedAt = null;
-    _elapsedBeforeSegment = Duration.zero;
-  }
-
   void _setReadyState() {
     final editor = _editor;
     final available = editor?.visible == true && editor?.supported == true;
@@ -373,9 +362,13 @@ final class DictationController extends ChangeNotifier {
 
   bool _isCurrent(String sessionId) =>
       !_disposed &&
-      _editor?.sessionId == sessionId &&
-      _editor?.visible == true &&
-      _editor?.supported == true;
+      _acceptsEditor(_editor, sessionId) &&
+      (_reportedEditor == null || _acceptsEditor(_reportedEditor, sessionId));
+
+  bool _acceptsEditor(KeyboardEditorState? editor, String sessionId) =>
+      editor?.sessionId == sessionId &&
+      editor?.visible == true &&
+      editor?.supported == true;
 
   bool _ownsSession(String sessionId, int generation) =>
       generation == _sessionGeneration &&
@@ -400,12 +393,12 @@ final class DictationController extends ChangeNotifier {
     final platformSubscription = _platformSubscription;
     _platformSubscription = null;
     unawaited(platformSubscription?.cancel());
+    _waveformLevels.dispose();
     super.dispose();
   }
 
-  static const int maximumLevels = 42;
+  static final _idleWaveform = List<double>.unmodifiable(List.filled(42, 0.12));
   static const int maximumPendingChunks = 12;
-  static const double initialWaveformLevel = 0.12;
 
   String get _sessionTranscript => _joinTranscript(_finalized, _partial);
 }

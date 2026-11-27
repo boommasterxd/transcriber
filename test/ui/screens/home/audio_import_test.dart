@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'dart:io';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:transcriber/core/l10n/app_strings.dart';
+import 'package:transcriber/core/theme/app_theme.dart';
+import 'package:transcriber/data/models/app_accent.dart';
+import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
+import 'package:transcriber/ui/processing_navigation.dart';
 import 'package:transcriber/ui/screens/home/audio_import.dart';
 
 void main() {
@@ -15,19 +21,32 @@ void main() {
 final _strings = AppStrings.of(AppLanguage.en);
 
 void _registerSelectedFileTest() {
-  testWidgets('selected audio is forwarded to processing once', (tester) async {
+  testWidgets('selected audio uses the settings approved before processing', (
+    tester,
+  ) async {
     final fixture = await _createFixture(tester);
     await _pumpImportAction(tester, fixture);
     await _tapImport(tester, fixture);
 
-    final selection = fixture.started.single;
-    expect(selection.fileName, 'meeting.m4a');
-    expect(selection.path, fixture.source.path);
-    expect(await tester.runAsync(() => File(selection.path).readAsBytes()), [
-      1,
-      2,
-      3,
-    ]);
+    final approvedSettings = fixture.settings;
+    expect(fixture.started, isEmpty);
+    expect(find.text(_strings.shareAudioRecipient('OpenAI')), findsOneWidget);
+    expect(
+      find.text(_strings.shareTranscriptRecipient('Google Gemini')),
+      findsOneWidget,
+    );
+    fixture.settings = AppSettings.initial();
+    await tester.runAsync(() async {
+      await tester.tap(find.text(_strings.shareConfirmAction));
+      await fixture.operation.timeout(const Duration(seconds: 10));
+    });
+    await tester.pump();
+
+    final request = fixture.started.single;
+    expect(request.settings, same(approvedSettings));
+    expect(request.fileName, 'meeting.m4a');
+    expect(request.audio.path, fixture.source.path);
+    expect(await tester.runAsync(fixture.source.readAsBytes), [1, 2, 3]);
   });
 }
 
@@ -39,20 +58,15 @@ Future<_AudioImportFixture> _createFixture(WidgetTester tester) async {
 
 Future<void> _pumpImportAction(
   WidgetTester tester,
-  _AudioImportFixture fixture, {
-  AudioImportPicker? picker,
-  AudioImportStarter? starter,
-}) => tester.pumpWidget(
+  _AudioImportFixture fixture,
+) => tester.pumpWidget(
   MaterialApp(
+    theme: AppTheme.build(Brightness.light, AppAccent.blue),
     home: Scaffold(
       body: Builder(
         builder: (context) => TextButton(
           onPressed: () {
-            fixture.operation = fixture.startImport(
-              context,
-              picker: picker,
-              starter: starter,
-            );
+            fixture.operation = fixture.startImport(context);
           },
           child: const Text('Import'),
         ),
@@ -67,9 +81,9 @@ Future<void> _tapImport(
 ) async {
   await tester.runAsync(() async {
     await tester.tap(find.text('Import'));
-    await fixture.operation;
+    await fixture.settingsRead.future.timeout(const Duration(seconds: 10));
   });
-  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
 final class _AudioImportFixture {
@@ -82,22 +96,26 @@ final class _AudioImportFixture {
   final Directory root;
   final File source;
   final AudioCacheManager manager;
-  Future<void>? operation;
-  final started = <AudioImportSelection>[];
+  late Future<void> operation;
+  final settingsRead = Completer<void>();
+  final started = <ProcessingNavigationRequest>[];
+  AppSettings settings = const AppSettings(
+    appearance: AppearanceSettings(language: AppLanguage.en),
+    transcription: TranscriptionSettings(provider: RemoteProviderId.openai),
+  );
 
   AudioImportSelection get selection =>
       AudioImportSelection(path: source.path, fileName: 'meeting.m4a');
 
-  Future<void> startImport(
-    BuildContext context, {
-    AudioImportPicker? picker,
-    AudioImportStarter? starter,
-  }) => startAudioImport(
+  Future<void> startImport(BuildContext context) => startAudioImport(
     context,
     cacheManager: manager,
-    strings: _strings,
-    picker: picker ?? () async => selection,
-    starter: starter ?? (_, selection) async => started.add(selection),
+    readSettings: () async {
+      if (!settingsRead.isCompleted) settingsRead.complete();
+      return settings;
+    },
+    picker: () async => selection,
+    starter: (_, request) async => started.add(request),
   );
 
   static Future<_AudioImportFixture> create() async {

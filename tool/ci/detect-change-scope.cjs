@@ -11,6 +11,7 @@ function isCommitSha(value) {
 }
 
 const CHECKS = ['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'];
+const GITLEAKS_UPDATER_TEST = 'test/tool/ci/gitleaks-release.test.cjs';
 
 function parseJvmClasses(source) {
   const names = source.split(/\r?\n/).filter((name) => name.length > 0);
@@ -24,12 +25,17 @@ function parseJvmClasses(source) {
 const JVM_CLASSES = parseJvmClasses(fs.readFileSync(path.join(__dirname, 'jvm/sources.txt'), 'utf8'));
 
 function fullScope() {
-  return { docs_only: false, ...Object.fromEntries(CHECKS.map((name) => [name, true])) };
+  return { docs_only: false, gitleaks_updater_only: false,
+    ...Object.fromEntries(CHECKS.map((name) => [name, true])) };
+}
+
+function isDocsPath(path) {
+  return path.startsWith('docs/') && path.length > 5;
 }
 
 /** A deliberately closed allowlist: new, unrecognized paths run every check. */
 function checksForPath(path) {
-  if (path.startsWith('docs/') && path.length > 5) return [];
+  if (isDocsPath(path)) return [];
   if (path.endsWith('/flutter_test_config.dart')) return CHECKS;
   // Selection, execution and quality gates control the complete CI contract.
   if (/^(tool|test\/tool)\/(ci|quality)\/[^/]+\.dart$/.test(path)) return CHECKS;
@@ -56,12 +62,15 @@ function checksForPath(path) {
   if (path === 'tool/quality/check_kotlin_quality.sh') return ['workflow', 'native'];
   if (/^tool\/package\/.*\.sh$/.test(path)) return ['workflow', 'dart', 'build'];
   // Native entrypoints, channel payloads and the picker recovery journey require an actual Android runtime.
-  if (['lib/main.dart', 'lib/app.dart', 'lib/app_bootstrap.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
-    'lib/services/dictation/dictation_platform.dart',
-    'lib/data/models/audio_import_selection.dart', 'lib/services/audio/audio_import_picker.dart',
-    'lib/ui/screens/home/home_screen.dart', 'lib/ui/screens/home/audio_import.dart',
-    'lib/ui/screens/home/audio_import_recovery_gate.dart',
-    'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'device', 'build'];
+  if (/^lib\/ui\/(keyboard|screens\/share)\/.+\.dart$/.test(path)
+    || ['lib/main.dart', 'lib/app.dart', 'lib/app_bootstrap.dart', 'lib/share_entrypoint.dart', 'lib/keyboard_entrypoint.dart',
+      'lib/services/dictation/dictation_platform.dart',
+      'lib/data/models/audio_import_selection.dart', 'lib/services/audio/audio_import_picker.dart',
+      'lib/ui/screens/home/home_screen.dart', 'lib/ui/screens/home/audio_import.dart',
+      'lib/ui/screens/home/audio_import_recovery_gate.dart',
+      'lib/ui/widgets/buttons.dart', 'lib/ui/widgets/keyboard_action_target.dart',
+      'lib/ui/widgets/recording_controls.dart',
+      'lib/services/audio/audio_recorder_service.dart'].includes(path)) return ['dart', 'native', 'device', 'build'];
   if (/^lib\/.*\.dart$/.test(path)) return ['dart', 'build'];
   if (/^(test|tool)\/.*\.dart$/.test(path)) return ['dart'];
   if (path.startsWith('assets/')) return ['dart', 'build'];
@@ -84,15 +93,36 @@ function nativeChecksForPath(path) {
   return null;
 }
 
-function classifyPaths(paths) {
+function classifyPaths(paths, updaterTestModified = false) {
   if (paths.length === 0 || paths.some((path) => !path)) return fullScope();
+  const includesUpdaterTest = paths.includes(GITLEAKS_UPDATER_TEST);
+  const updaterOnly = updaterTestModified && includesUpdaterTest
+    && paths.every((path) => isDocsPath(path) || path === GITLEAKS_UPDATER_TEST);
+  if (includesUpdaterTest && !updaterOnly) return fullScope();
   const required = new Set(paths.flatMap(checksForPath));
   // Advisory databases change independently of the lockfile and import graph.
   if (required.size !== 0) required.add('dependency_audit');
   // The complete Android test task also fulfills the pure JVM test scope.
   if (required.has('native')) required.add('jvm');
-  return { docs_only: required.size === 0,
+  return { docs_only: required.size === 0, gitleaks_updater_only: updaterOnly,
     ...Object.fromEntries(CHECKS.map((name) => [name, required.has(name)])) };
+}
+
+function classifyGitDiff(output, event) {
+  if (!output.endsWith('\0')) return fullScope();
+  const fields = output.slice(0, -1).split('\0');
+  if (fields.length % 2 !== 0) return fullScope();
+  const paths = [];
+  let updaterTestModified = false;
+  for (let index = 0; index < fields.length; index += 2) {
+    const [status, path] = fields.slice(index, index + 2);
+    if (!/^[ADMT]$/.test(status) || !path) return fullScope();
+    paths.push(path);
+    if (event === 'pull_request' && status === 'M' && path === GITLEAKS_UPDATER_TEST) {
+      updaterTestModified = true;
+    }
+  }
+  return classifyPaths(paths, updaterTestModified);
 }
 
 /** Unknown or incomplete scope must run full CI, never an optimistic partial plan. */
@@ -104,10 +134,9 @@ function detectChangeScope(event, baseSha, headSha, cwd = process.cwd()) {
   try {
     // Disabling rename detection keeps both endpoints visible at directory boundaries.
     const output = childProcess.execFileSync('git', [
-      'diff', '--name-only', '--no-renames', '-z', `${baseSha}${separator}${headSha}`, '--',
+      'diff', '--name-status', '--no-renames', '-z', `${baseSha}${separator}${headSha}`, '--',
     ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000, maxBuffer: 256 * 1024 });
-    if (!output || !output.endsWith('\0')) return fullScope();
-    return classifyPaths(output.slice(0, -1).split('\0'));
+    return classifyGitDiff(output, event);
   } catch {
     return fullScope();
   }

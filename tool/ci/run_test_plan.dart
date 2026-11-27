@@ -8,11 +8,8 @@ import 'test_selection.dart';
 
 Future<void> main(List<String> arguments) async {
   try {
-    if (arguments.length > 1) {
-      throw const FormatException('Expected at most one test plan path.');
-    }
     final root = Directory.current.path;
-    final tests = await _resolveTests(root, arguments.firstOrNull);
+    final tests = await _resolveTests(root, arguments);
     if (tests != null) {
       exitCode = await _runTests(tests);
     }
@@ -22,11 +19,27 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-Future<List<String>?> _resolveTests(String root, String? planPath) async {
-  if (planPath == null) return _discoverTests(root);
+Future<List<String>?> _resolveTests(String root, List<String> arguments) async {
+  if (arguments.isEmpty) return _discoverTests(root);
+  final (planPath, revisions) = switch (arguments) {
+    [
+      final planPath,
+      '--base',
+      final base,
+      '--head',
+      final head,
+      '--checkout',
+      final checkout,
+    ] =>
+      (planPath, (base: base, head: head, checkout: checkout)),
+    _ => throw const FormatException(
+      'Expected a plan path followed by --base, --head and --checkout.',
+    ),
+  };
   final plan = await validateTestPlan(
     root: root,
     input: jsonDecode(await File(planPath).readAsString()),
+    revisions: revisions,
   );
   stdout.writeln('Test mode: ${plan['mode']}. ${plan['reason']}');
   return switch (plan['mode']) {

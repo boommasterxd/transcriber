@@ -3,14 +3,15 @@ import 'dart:io';
 
 import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
-import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:analyzer/source/line_info.dart';
+import 'package:path/path.dart' as p;
 
+import 'dart_function_metrics.dart';
 import 'parameter_count.dart';
 
 const _fileLengthLimit = 500;
-const _cognitiveComplexityLimit = 25;
+const _driftAdapter = 'lib/data/database/app_database.g.dart';
+const _generatedHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
+const _databasePart = "part of 'app_database.dart';";
 const _metricLimits = <String, num>{
   'cyclomatic-complexity': 20,
   'lines-of-code': 100,
@@ -28,9 +29,11 @@ void main(List<String> arguments) {
     return;
   }
 
+  final generatedAdapterViolation = _checkGeneratedDriftAdapter();
   final violations = <String>[
+    ?generatedAdapterViolation,
     ...checkFileLengths(),
-    ...checkCognitiveComplexity(),
+    ..._checkDartFunctionMetrics(),
     ...checkParameterCounts(),
     ...checkDclMetrics(metricsPath),
   ];
@@ -51,7 +54,7 @@ List<String> checkParameterCounts() {
   if (files.error case final error?) return [error];
   return [
     for (final path in files.paths)
-      if (!_isGeneratedDart(path))
+      if (!_isDriftAdapter(path))
         ...parameterCountViolations(File(path).readAsStringSync(), path),
   ];
 }
@@ -63,12 +66,12 @@ String? _option(List<String> arguments, String name) {
 }
 
 List<String> checkFileLengths() {
-  final files = _projectFiles(['*.dart', '*.kt', '*.kts', '*.sh']);
+  final files = _projectFiles(['*.dart', '*.kt', '*.kts', '*.java', '*.sh']);
   if (files.error case final error?) return [error];
 
   final violations = <String>[];
   for (final path in files.paths) {
-    if (_isGeneratedDart(path)) continue;
+    if (_isDriftAdapter(path)) continue;
     final lineCount = File(path).readAsLinesSync().length;
     if (lineCount <= _fileLengthLimit) continue;
     violations.add('$path has $lineCount lines (limit $_fileLengthLimit).');
@@ -76,31 +79,25 @@ List<String> checkFileLengths() {
   return violations;
 }
 
-List<String> checkCognitiveComplexity() {
+List<String> _checkDartFunctionMetrics() {
   final files = _projectFiles(['*.dart']);
   if (files.error case final error?) return [error];
 
   final violations = <String>[];
   for (final path in files.paths) {
-    if (_isGeneratedDart(path)) continue;
+    if (_isDriftAdapter(path)) continue;
     final parsed = parseFile(
       path: path,
       featureSet: FeatureSet.latestLanguageVersion(),
       throwIfDiagnostics: false,
     );
     if (parsed.errors.isNotEmpty) {
-      violations.add('$path could not be parsed for cognitive complexity.');
+      violations.add('$path could not be parsed for function metrics.');
       continue;
     }
-    final collector = _FunctionCollector(path, parsed.lineInfo);
-    parsed.unit.accept(collector);
-    for (final measurement in collector.measurements) {
-      if (measurement.value <= _cognitiveComplexityLimit) continue;
-      violations.add(
-        '${measurement.key} has cognitive complexity ${measurement.value} '
-        '(limit $_cognitiveComplexityLimit).',
-      );
-    }
+    violations.addAll(
+      dartFunctionMetricViolations(parsed.unit, parsed.lineInfo, path),
+    );
   }
   return violations;
 }
@@ -136,7 +133,7 @@ List<String> checkDclMetrics(String metricsPath) {
   for (final recordValue in records) {
     final record = recordValue as Map<String, dynamic>;
     final path = record['path'] as String;
-    if (_isGeneratedDart(path)) continue;
+    if (_isDriftAdapter(path)) continue;
     final functions = record['functions'] as Map<String, dynamic>;
     for (final functionEntry in functions.entries) {
       final function = functionEntry.value as Map<String, dynamic>;
@@ -171,116 +168,20 @@ List<String> _checkFunctionMetrics(String key, List<dynamic> metrics) {
   return violations;
 }
 
-bool _isGeneratedDart(String path) {
-  if (!path.endsWith('.g.dart')) return false;
-  final file = File(path);
-  if (!file.existsSync()) return false;
-  return file.readAsStringSync().startsWith(
-    '// GENERATED CODE - DO NOT MODIFY BY HAND',
-  );
-}
+bool _isDriftAdapter(String path) =>
+    p.equals(p.absolute(path), p.absolute(_driftAdapter));
 
-final class CognitiveMeasurement {
-  const CognitiveMeasurement(this.key, this.value);
-
-  final String key;
-  final int value;
-}
-
-final class _FunctionCollector extends RecursiveAstVisitor<void> {
-  _FunctionCollector(this.path, this.lineInfo);
-
-  final String path;
-  final LineInfo lineInfo;
-  final List<CognitiveMeasurement> measurements = [];
-
-  @override
-  void visitFunctionDeclaration(FunctionDeclaration node) {
-    _measure(node.name.lexeme, node.functionExpression.body);
-    super.visitFunctionDeclaration(node);
+String? _checkGeneratedDriftAdapter() {
+  if (FileSystemEntity.typeSync(_driftAdapter, followLinks: false) !=
+      FileSystemEntityType.file) {
+    return 'Expected a regular Drift adapter at $_driftAdapter.';
   }
-
-  @override
-  void visitMethodDeclaration(MethodDeclaration node) {
-    _measure(node.name.lexeme, node.body);
-    super.visitMethodDeclaration(node);
+  final lines = File(_driftAdapter).readAsLinesSync();
+  if (lines.length < 3 ||
+      lines[0] != _generatedHeader ||
+      lines[1].isNotEmpty ||
+      lines[2] != _databasePart) {
+    return 'Expected the generated header and $_databasePart in $_driftAdapter.';
   }
-
-  @override
-  void visitConstructorDeclaration(ConstructorDeclaration node) {
-    final name = node.name?.lexeme ?? 'new';
-    _measure(name, node.body);
-    super.visitConstructorDeclaration(node);
-  }
-
-  @override
-  void visitFunctionExpression(FunctionExpression node) {
-    if (node.parent is! FunctionDeclaration) {
-      final line = lineInfo.getLocation(node.offset).lineNumber;
-      _measure('<closure@$line>', node.body);
-    }
-    super.visitFunctionExpression(node);
-  }
-
-  void _measure(String name, FunctionBody body) {
-    final visitor = _CognitiveVisitor();
-    body.accept(visitor);
-    final line = lineInfo.getLocation(body.offset).lineNumber;
-    measurements.add(CognitiveMeasurement('$path|$name@$line', visitor.score));
-  }
-}
-
-final class _CognitiveVisitor extends RecursiveAstVisitor<void> {
-  int score = 0;
-  int _nesting = 0;
-
-  @override
-  void visitIfStatement(IfStatement node) => _nested(node);
-
-  @override
-  void visitForStatement(ForStatement node) => _nested(node);
-
-  @override
-  void visitWhileStatement(WhileStatement node) => _nested(node);
-
-  @override
-  void visitDoStatement(DoStatement node) => _nested(node);
-
-  @override
-  void visitSwitchStatement(SwitchStatement node) => _nested(node);
-
-  @override
-  void visitCatchClause(CatchClause node) => _nested(node);
-
-  @override
-  void visitConditionalExpression(ConditionalExpression node) => _nested(node);
-
-  @override
-  void visitBinaryExpression(BinaryExpression node) {
-    final operator = node.operator.lexeme;
-    if (operator == '&&' || operator == '||') score++;
-    super.visitBinaryExpression(node);
-  }
-
-  @override
-  void visitBreakStatement(BreakStatement node) {
-    if (node.label != null) score++;
-    super.visitBreakStatement(node);
-  }
-
-  @override
-  void visitContinueStatement(ContinueStatement node) {
-    if (node.label != null) score++;
-    super.visitContinueStatement(node);
-  }
-
-  @override
-  void visitFunctionExpression(FunctionExpression node) {}
-
-  void _nested(AstNode node) {
-    score += 1 + _nesting;
-    _nesting++;
-    node.visitChildren(this);
-    _nesting--;
-  }
+  return null;
 }

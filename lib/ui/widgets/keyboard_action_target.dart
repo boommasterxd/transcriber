@@ -1,5 +1,6 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
 
@@ -68,11 +69,16 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
 
   Widget _semantics(BuildContext context) => Semantics(
     container: true,
-    button: true,
+    button: !widget.action.inMutuallyExclusiveGroup,
     enabled: _enabled,
     liveRegion: widget.liveRegion,
     label: widget.action.label,
-    selected: widget.action.selected,
+    selected: widget.action.inMutuallyExclusiveGroup
+        ? null
+        : widget.action.selected,
+    checked: widget.action.inMutuallyExclusiveGroup
+        ? widget.action.selected
+        : null,
     inMutuallyExclusiveGroup: widget.action.inMutuallyExclusiveGroup,
     onTap: widget.action.onActivate,
     child: ExcludeSemantics(child: _gesture(context)),
@@ -84,28 +90,39 @@ class _KeyboardActionTargetState extends State<KeyboardActionTarget> {
     onTapDown: _enabled ? widget.pressFeedback?.onDown : null,
     onTapUp: _enabled ? widget.pressFeedback?.onUp : null,
     onTapCancel: _enabled ? widget.pressFeedback?.onCancel : null,
-    child: DecoratedBox(
-      position: DecorationPosition.foreground,
-      decoration: _focusDecoration(context),
+    child: CustomPaint(
+      foregroundPainter: _enabled && _showFocusHighlight
+          ? _FocusOutline(
+              radius: widget.action.focusBorderRadius,
+              colors: context.palette.focusIndicatorColors,
+            )
+          : null,
       child: widget.child,
     ),
   );
+}
 
-  BoxDecoration _focusDecoration(BuildContext context) => BoxDecoration(
-    borderRadius: widget.action.focusBorderRadius,
-    boxShadow: _enabled && _showFocusHighlight
-        ? [
-            for (
-              var index = 0;
-              index < context.palette.focusIndicatorColors.length;
-              index++
-            )
-              BoxShadow(
-                color: context.palette.focusIndicatorColors[index],
-                spreadRadius: (index + 1) * 2,
-                blurRadius: 0,
-              ),
-          ]
-        : null,
-  );
+class _FocusOutline extends CustomPainter {
+  const _FocusOutline({required this.radius, required this.colors});
+
+  final BorderRadius radius;
+  final List<Color> colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 2.0;
+    final bounds = radius.toRRect(Offset.zero & size).scaleRadii();
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    for (var index = 0; index < colors.length; index++) {
+      final inset = (index + 0.5) * stroke;
+      paint.color = colors[index];
+      canvas.drawRRect(bounds.deflate(inset), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FocusOutline oldDelegate) =>
+      radius != oldDelegate.radius || !listEquals(colors, oldDelegate.colors);
 }

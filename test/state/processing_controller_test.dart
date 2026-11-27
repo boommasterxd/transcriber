@@ -9,6 +9,7 @@ import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/models/transcription_result.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
+import 'package:transcriber/services/audio/audio_metadata.dart';
 import 'package:transcriber/services/processing/processing_pipeline.dart';
 import 'package:transcriber/services/remote/remote_api_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
@@ -32,6 +33,25 @@ void main() {
   _registerSummaryFailureTests();
   _registerRunningDiscardTests();
   _registerReplacementTests();
+
+  test(
+    'rejects audio just over the Gemini Transcribe limit before upload',
+    () async {
+      final harness = await _Harness.create(
+        metadata: const _LongAudioMetadata(),
+      );
+      addTearDown(harness.dispose);
+      await harness.run(
+        save: true,
+        settings: AppSettings.initial(),
+        knownDurationSec: null,
+      );
+
+      expect(harness.state.error, isA<RemoteApiException>());
+      expect(harness.clientFactory.calls, isEmpty);
+      expect(await harness.notesRepository.load(), isEmpty);
+    },
+  );
 }
 
 void _registerSummaryFailureTests() {
@@ -71,7 +91,8 @@ void _registerCredentialTests() {
       autoDeleteAudio: true,
     );
 
-    await harness.run(save: false, settings: confirmed);
+    await harness.run(save: false, settings: confirmed, knownDurationSec: 3600);
+    expect(harness.state.settings, same(confirmed));
     expect(harness.settingsRepository.requestedProviders, [
       RemoteProviderId.google,
     ]);
@@ -86,17 +107,31 @@ void _registerCredentialTests() {
 }
 
 void _registerDiscardTests() {
-  test('discard removes preview audio from temporary storage', () async {
+  test('current settings prevent an unwanted summary before discard', () async {
     final harness = await _Harness.create();
     addTearDown(harness.dispose);
+    await harness.settingsRepository.update(
+      (settings) =>
+          settings.copyWith(summary: settings.summary.copyWith(enabled: false)),
+    );
     await harness.run(save: false);
 
+    expect(harness.state.settings?.summarizeEnabled, isFalse);
+    expect(harness.clientFactory.calls, [(RemoteProviderId.openai, 'asr-key')]);
     await harness.controller.discardCurrent();
 
     expect(await harness.staging.exists(), isFalse);
     expect(await harness.retainedFiles(), isEmpty);
     expect(await harness.notesRepository.load(), isEmpty);
   });
+}
+
+final class _LongAudioMetadata extends AudioMetadata {
+  const _LongAudioMetadata();
+
+  @override
+  Future<Duration> duration(String path) async =>
+      const Duration(hours: 1, milliseconds: 1);
 }
 
 final class _Harness {
@@ -118,7 +153,10 @@ final class _Harness {
   final _ClientFactory clientFactory;
   final ProviderContainer container;
 
-  static Future<_Harness> create({bool summaryEnabled = true}) async {
+  static Future<_Harness> create({
+    bool summaryEnabled = true,
+    AudioMetadata? metadata,
+  }) async {
     final database = createTestDatabase();
     final settingsRepository = FakeSettingsRepository(database)
       ..keys.addAll({
@@ -138,6 +176,7 @@ final class _Harness {
     final cacheManager = AudioCacheManager(paths: Future.value(paths));
     final clientFactory = _ClientFactory();
     final pipeline = ProcessingPipeline(
+      metadata: metadata,
       cacheManager: cacheManager,
       clientBuilder: clientFactory.create,
     );
@@ -151,6 +190,7 @@ final class _Harness {
       ),
       autoDeleteAudio: false,
     );
+    await settingsRepository.save(settings);
     final container = ProviderContainer(
       overrides: [
         initialSettingsProvider.overrideWithValue(settings),
@@ -184,14 +224,17 @@ final class _Harness {
     required bool save,
     AudioOwnership ownership = AudioOwnership.temporary,
     AppSettings? settings,
+    int? knownDurationSec = 1,
+    Object? owner,
   }) => controller.run(
     ProcessingInput(
       audio: ManagedAudioFile(path: staging.path, ownership: ownership),
       source: NoteSource.file,
-      knownDurationSec: 1,
+      knownDurationSec: knownDurationSec,
       settings: settings,
     ),
     save: save,
+    owner: owner,
   );
 
   Future<void> dispose() async {

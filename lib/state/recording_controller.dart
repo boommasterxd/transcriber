@@ -91,9 +91,11 @@ class RecordingController extends Notifier<RecordingState> {
       return false;
     }
     if (!ref.mounted || generation != _generation) return false;
-    final limits = RecordingLimits.fromSettings(
-      ref.read(settingsControllerProvider),
-    );
+    final settings = await ref
+        .read(settingsControllerProvider.notifier)
+        .readCurrent();
+    if (!ref.mounted || generation != _generation) return false;
+    final limits = RecordingLimits.fromSettings(settings);
     final path = await recorder.start(maxBytes: limits.maxBytes);
     if (!ref.mounted || generation != _generation) {
       await recorder.cancel();

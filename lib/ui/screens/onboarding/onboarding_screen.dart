@@ -22,6 +22,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   final PageController _pageController = PageController();
   int _step = 0;
+  bool _selectingProviders = false;
 
   @override
   void dispose() {
@@ -31,23 +32,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _next() async {
     if (_step == 1) {
+      if (_selectingProviders) return;
       final connections = ref.read(connectionsControllerProvider);
       final connected = RemoteProviderId.values
           .where((provider) => connections[provider] ?? false)
           .toList();
       if (connected.isEmpty) return;
-      final settings = ref.read(settingsControllerProvider);
       final controller = ref.read(settingsControllerProvider.notifier);
-      if (!connected.contains(settings.asrProvider)) {
-        await controller.setAsrProvider(connected.first);
-      }
-      if (!connected.contains(settings.summaryProvider)) {
-        await controller.setSummaryProvider(connected.first);
+      _selectingProviders = true;
+      try {
+        if (!await controller.selectConnectedProviders(connected)) return;
+      } finally {
+        _selectingProviders = false;
       }
       if (!mounted || _step != 1) return;
     }
     if (_step == OnboardingLayout.stepCount - 1) {
-      ref.read(settingsControllerProvider.notifier).completeOnboarding();
+      await ref.read(settingsControllerProvider.notifier).completeOnboarding();
       return;
     }
     _pageController.nextPage(duration: _slide, curve: _curve);

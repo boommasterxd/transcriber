@@ -95,35 +95,13 @@ class _AudioImportRecoveryGateState
       return;
     }
     if (selection == null) return;
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(strings.recoveredAudioTitle),
-        content: Text(strings.recoveredAudioBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(strings.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(strings.recoveredAudioContinue),
-          ),
-        ],
-      ),
-    );
-    if (accepted != true ||
-        !mounted ||
-        !widget.ready ||
-        picker.recoverySuperseded) {
-      await discardPickedAudio(_cacheManager, selection);
-      return;
-    }
     await startAudioImport(
       context,
       cacheManager: _cacheManager,
-      strings: ref.read(stringsProvider),
+      readSettings: () =>
+          ref.read(settingsControllerProvider.notifier).readCurrent(),
       picker: () async => selection,
+      recoveryIsCurrent: () => widget.ready && !picker.recoverySuperseded,
     );
   }
 

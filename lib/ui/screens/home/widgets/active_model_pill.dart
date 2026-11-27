@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 
 /// Small pill showing the active processing model; taps through to settings.
 /// Turns into a coral warning state when a cloud stage isn't connected.
@@ -58,7 +59,7 @@ class _ModelStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: BoxDecoration(
         color: warning ? palette.coralSoft : palette.accentSoft,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

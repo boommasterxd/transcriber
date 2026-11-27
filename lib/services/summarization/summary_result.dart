@@ -5,9 +5,11 @@ class SummaryResult {
     required this.gist,
     required this.points,
     required this.todos,
+    this.titleIsAiGenerated = false,
   });
 
   final String title;
+  final bool titleIsAiGenerated;
   final String gist;
   final List<String> points;
   final List<String> todos;

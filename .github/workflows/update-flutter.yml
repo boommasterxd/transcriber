@@ -22,26 +22,41 @@ jobs:
 
       - name: Resolve versions
         id: v
+        shell: bash
         run: |
-          latest=$(curl -s https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json \
-            | jq -r '.current_release.stable as $s | .releases[] | select(.hash==$s) | .version')
-          current=$(jq -r '.flutter' .fvmrc)
+          latest=$(curl --fail --silent --show-error --max-time 30 \
+            https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json \
+            | jq -ser '
+                select(length == 1) | .[0]
+                | .current_release.stable as $stable
+                | select($stable | type == "string" and length > 0)
+                | [.releases[] | select(.hash == $stable and .channel == "stable") | .version]
+                | select(length == 1) | .[0]
+                | select(type == "string" and test("\\A[0-9]+\\.[0-9]+\\.[0-9]+\\z"))
+              ')
+          current=$(jq -ser '
+            select(length == 1) | .[0].flutter
+            | select(type == "string" and test("\\A[0-9]+\\.[0-9]+\\.[0-9]+\\z"))
+          ' .fvmrc)
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "Current: $current | Latest stable: $latest"
 
       - name: Open PR if outdated
-        if: steps.v.outputs.latest != steps.v.outputs.current && steps.v.outputs.latest != ''
+        if: steps.v.outputs.latest != steps.v.outputs.current
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LATEST: ${{ steps.v.outputs.latest }}
           CURRENT: ${{ steps.v.outputs.current }}
         run: |
           branch="chore/flutter-${LATEST}"
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+          lookup=0
+          git ls-remote --exit-code --heads origin "$branch" >/dev/null || lookup=$?
+          if [[ "$lookup" == 0 ]]; then
             echo "Branch $branch already exists - nothing to do."
             exit 0
           fi
+          if [[ "$lookup" != 2 ]]; then exit "$lookup"; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"

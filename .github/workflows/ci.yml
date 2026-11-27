@@ -28,6 +28,7 @@ jobs:
       device: ${{ steps.scope.outputs.device }}
       build: ${{ steps.scope.outputs.build }}
       dependency_audit: ${{ steps.scope.outputs.dependency_audit }}
+      gitleaks_updater_only: ${{ steps.scope.outputs.gitleaks_updater_only }}
       base_sha: ${{ steps.scope.outputs.base_sha }}
       head_sha: ${{ steps.scope.outputs.head_sha }}
       merge_sha: ${{ steps.scope.outputs.merge_sha }}
@@ -35,6 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26.x"
@@ -58,18 +60,33 @@ jobs:
     name: Workflow lint
     needs: changes
     if: needs.changes.outputs.workflow == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.changes.outputs.gitleaks_updater_only == 'true' && 'ubuntu-slim' || 'ubuntu-latest' }}
     timeout-minutes: 10
+    outputs:
+      gitleaks_updater_tests: ${{ steps.gitleaks-updater-tests.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-node-tools
       - name: Check Node quality and gate enforcement
+        if: needs.changes.outputs.gitleaks_updater_only != 'true'
         run: npm --prefix tool/quality/node run check
+      - name: Check Node quality for the Gitleaks updater test
+        if: needs.changes.outputs.gitleaks_updater_only == 'true'
+        run: |
+          npm --prefix tool/quality/node run lint
+          npm --prefix tool/quality/node run duplicates
+      - name: Test the Gitleaks updater release parser
+        id: gitleaks-updater-tests
+        if: needs.changes.outputs.gitleaks_updater_only == 'true'
+        run: node --test test/tool/ci/gitleaks-release.test.cjs
       - name: Test CI classification and final gate
+        if: needs.changes.outputs.gitleaks_updater_only != 'true'
         run: node --test test/tool/ci/*.test.cjs test/tool/ci/cache-lifecycle/*.test.cjs
       - name: Verify APK signing and publication guards
+        if: needs.changes.outputs.gitleaks_updater_only != 'true'
         run: ANDROID_BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0" node --test test/tool/ci/apk-signing.integration.cjs
       - name: Install workflow linters
+        if: needs.changes.outputs.gitleaks_updater_only != 'true'
         env:
           ACTIONLINT_VERSION: 1.7.12
           ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
@@ -95,9 +112,11 @@ jobs:
           fi
           printf 'SHELLCHECK_PATH=%s\n' "$shellcheck_path" >> "$GITHUB_ENV"
       - name: Check workflows
+        if: needs.changes.outputs.gitleaks_updater_only != 'true'
         run: |
           "$RUNNER_TEMP/actionlint" -color=false -shellcheck="$SHELLCHECK_PATH"
       - name: Check shell scripts
+        if: needs.changes.outputs.gitleaks_updater_only != 'true'
         run: |
           "$SHELLCHECK_PATH" tool/package/*.sh tool/quality/*.sh tool/ci/*.sh
 
@@ -121,19 +140,18 @@ jobs:
       - name: Analyze
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: flutter analyze --fatal-infos --no-pub
-      - name: Select affected tests
-        id: tests
+      - name: Select and run affected critical tests
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         env:
-          CHANGE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CHANGE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: >-
-          dart run tool/ci/select_tests.dart
-          --base "$CHANGE_BASE_SHA" --head "$CHANGE_HEAD_SHA"
-          --output .dart_tool/ci/test-plan.json
-      - name: Run affected critical tests
-        if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' && steps.tests.outcome == 'success' }}
-        run: dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json
+          CHANGE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          CHANGE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CHANGE_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          dart run tool/ci/select_tests.dart \
+            --base "$CHANGE_BASE_SHA" --head "$CHANGE_HEAD_SHA" \
+            --output .dart_tool/ci/test-plan.json
+          dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json \
+            --base "$CHANGE_BASE_SHA" --head "$CHANGE_HEAD_SHA" --checkout "$CHANGE_CHECKOUT_SHA"
       - name: Collect Dart metrics
         if: ${{ !cancelled() && needs.changes.outputs.dart == 'true' }}
         run: |
@@ -244,21 +262,15 @@ jobs:
       - name: Enforce native and shell file length
         if: ${{ !cancelled() }}
         run: node tool/ci/check-native-file-length.cjs
-      - name: Run native unit tests
-        if: ${{ !cancelled() }}
+      - name: Run native unit tests and compile device tests
+        if: ${{ !cancelled() && needs.changes.outputs.device != 'true' }}
         working-directory: android
-        env:
-          RUN_DEVICE_TESTS: ${{ needs.changes.outputs.device }}
         run: |
-          tasks=(:app:verifyAuditedAndroidDependencies :app:testDebugUnitTest)
-          if [[ "$RUN_DEVICE_TESTS" != true ]]; then
-            tasks+=(:app:compileDebugAndroidTestKotlin)
-          fi
-          ./gradlew "${tasks[@]}"
-      - name: Run instrumentation on an Android device
+          ./gradlew :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin
+      - name: Run native unit tests and Android instrumentation
         id: device-tests
-        if: needs.changes.outputs.device == 'true'
-        run: bash tool/ci/run_android_device_tests.sh
+        if: ${{ !cancelled() && needs.changes.outputs.device == 'true' }}
+        run: bash tool/ci/run_android_device_tests.sh --with-native-unit-tests
       - name: Resolve dependencies for offline JVM fixtures
         id: prepare-jvm-fixtures
         if: ${{ !cancelled() && needs.changes.outputs.workflow == 'true' }}
@@ -281,23 +293,13 @@ jobs:
           done
           echo 'No complete native Flutter debug bundle was found.' >&2
           exit 1
-      - name: Release build scratch space before saving caches
-        run: |
-          df -h .
-          android/gradlew -p android --stop
-          rm -rf build android/app/build .dart_tool/flutter_build android/.gradle
-          find "$HOME/.gradle/caches" -mindepth 1 -maxdepth 1 \
-            ! -name modules-2 -exec rm -rf -- {} +
-          df -h .
 
   dependency-audit:
     name: Dependency audit
     needs: changes
     if: needs.changes.outputs.dependency_audit == 'true'
     permissions:
-      actions: read
       contents: read
-      security-events: write
     uses: ./.github/workflows/dependency-audit.yml
     with:
       npm-preflight-passed: true

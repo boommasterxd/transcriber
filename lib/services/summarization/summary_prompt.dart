@@ -75,9 +75,10 @@ $transcript
         ? v.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
         : const [];
 
-    final title = _trimmedString(map['title']);
+    final title = _trimmedString(map['title']) ?? '';
     return SummaryResult(
-      title: (title == null || title.isEmpty) ? fallbackTitle : title,
+      title: title.isEmpty ? fallbackTitle : title,
+      titleIsAiGenerated: title.isNotEmpty,
       gist: _trimmedString(map['gist']) ?? '',
       points: list(map['points']),
       todos: list(map['todos']),

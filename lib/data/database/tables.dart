@@ -46,6 +46,7 @@ class NotesTable extends Table {
   TextColumn get summaryError => text().nullable()();
   TextColumn get audioPath => text().nullable()();
   TextColumn get audioOwnership => text()();
+  BoolColumn get titleIsAiGenerated => boolean().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

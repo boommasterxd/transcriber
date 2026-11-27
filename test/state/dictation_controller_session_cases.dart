@@ -1,24 +1,42 @@
 part of 'dictation_controller_test.dart';
 
 void _registerSessionLifecycleTests() {
-  _registerStopFinalizedTextTest();
+  _registerAutomaticFinalizationTest();
   _registerCompositionSessionChangeTest();
 }
 
-void _registerStopFinalizedTextTest() {
-  test('stop commits all finalized segments as one transcript', () async {
+void _registerAutomaticFinalizationTest() {
+  test('pause expiry commits staged segments to the active editor', () async {
     await controller.start();
     clients.single.controller.add(const LiveTranscriptionFinal('Erster Satz.'));
     clients.single.controller.add(
       const LiveTranscriptionFinal('Zweiter Satz.'),
     );
+    clients.single.controller.add(const LiveTranscriptionPartial('Rest'));
     await pumpEventQueue();
 
-    await controller.stop();
+    // Advancing only this timer keeps editor I/O and finalization in one zone.
+    await runZoned(
+      controller.togglePause,
+      zoneSpecification: ZoneSpecification(
+        createTimer: (self, parent, zone, duration, callback) =>
+            parent.createTimer(
+              zone,
+              duration == LiveTranscriptionLimits.maximumIdleDuration
+                  ? Duration.zero
+                  : duration,
+              callback,
+            ),
+      ),
+    );
+    expect(platform.commits, isEmpty);
+    await pumpEventQueue();
 
-    expect(platform.compositions.last.text, 'Erster Satz. Zweiter Satz.');
-    expect(platform.commits.single.text, 'Erster Satz. Zweiter Satz.');
+    const transcript = 'Erster Satz. Zweiter Satz. Rest';
+    expect(platform.compositions.last.text, transcript);
+    expect(platform.commits.single, (sessionId: 'editor-1', text: transcript));
     expect(platform.clears, isEmpty);
+    expect(controller.state.phase, DictationPhase.ready);
   });
 }
 

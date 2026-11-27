@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_theme.dart';
 import 'keyboard_action_target.dart';
 
 /// One option in an [AnimatedSegmentedControl].
@@ -38,7 +39,7 @@ class AnimatedSegmentedControl extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: palette.chip,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       ),
       child: Stack(
         children: [
@@ -54,7 +55,7 @@ class AnimatedSegmentedControl extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: palette.surface,
-                    borderRadius: BorderRadius.circular(9999),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                     boxShadow: [
                       BoxShadow(
                         color: palette.shadow,
@@ -75,7 +76,9 @@ class AnimatedSegmentedControl extends StatelessWidget {
                     action: (
                       label: options[i].label,
                       onActivate: () => onChanged(i),
-                      focusBorderRadius: BorderRadius.circular(9999),
+                      focusBorderRadius: BorderRadius.circular(
+                        AppTheme.radiusPill,
+                      ),
                       selected: i == selectedIndex,
                       inMutuallyExclusiveGroup: true,
                     ),
@@ -102,7 +105,7 @@ class _Segment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final color = selected ? palette.accent : palette.muted;
+    final color = selected ? palette.accentDeep : palette.muted;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Row(

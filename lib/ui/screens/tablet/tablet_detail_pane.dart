@@ -5,9 +5,9 @@ import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/utils/formatting.dart';
 import '../../../data/models/transcript_note.dart';
-import '../../../state/notes_controller.dart';
 import '../../../state/note_detail_provider.dart';
 import '../../../state/settings_controller.dart';
+import '../../widgets/ai_provenance_widgets.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/surfaces.dart';
 import '../../widgets/waveforms.dart';
@@ -40,16 +40,16 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
     final detail = ref.watch(noteDetailProvider(widget.noteId));
-    if (detail.isLoading || detail.hasError) {
-      return NoteDetailStatus(
-        loading: detail.isLoading,
-        strings: t,
-        retry: () => ref.invalidate(noteDetailProvider(widget.noteId)),
-      );
+    final note = watchNote(widget.noteId) ?? detail.value;
+    Widget status() => NoteDetailStatus(
+      loading: detail.isLoading,
+      strings: t,
+      retry: () => ref.invalidate(noteDetailProvider(widget.noteId)),
+    );
+    if (note == null) {
+      if (!detail.isLoading && !detail.hasError) return const SizedBox.shrink();
+      return status();
     }
-    final note = watchNote(widget.noteId);
-    if (note == null) return const SizedBox.shrink();
-
     return Column(
       children: [
         _Header(
@@ -58,6 +58,7 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
           onShare: () => shareNote(note),
           onDelete: () => confirmAndDeleteNote(note, t),
         ),
+        if (detail.hasError && !detail.isLoading) status(),
         Expanded(child: _noteScroll(note, t)),
       ],
     );
@@ -132,6 +133,13 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
     );
     final right = SliverMainAxisGroup(
       slivers: [
+        SliverToBoxAdapter(
+          child: AiSummaryItemsProvenance(
+            note: note,
+            strings: strings,
+            padding: const EdgeInsets.only(bottom: 8),
+          ),
+        ),
         if (note.summaryError == null && note.points.isNotEmpty) ...[
           NoteKeyPoints(
             points: note.points,
@@ -146,8 +154,8 @@ class _TabletDetailPaneState extends ConsumerState<TabletDetailPane>
             todos: note.todos,
             strings: strings,
             onToggle: (index) => ref
-                .read(notesControllerProvider.notifier)
-                .toggleTodo(note.id, index),
+                .read(noteDetailProvider(note.id).notifier)
+                .toggleTodo(index),
           ),
       ],
     );
@@ -251,6 +259,8 @@ class _HeaderIdentity extends StatelessWidget {
                   color: palette.ink,
                 ),
               ),
+              if (note.titleIsAiGenerated == true)
+                AiProvenanceLabel(strings.aiGeneratedTitle),
               Text(
                 '${note.speaker} · ${timeAgo(note.createdAt, t: strings)}',
                 style: TextStyle(fontSize: 13, color: palette.muted),

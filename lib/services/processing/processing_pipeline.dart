@@ -5,6 +5,7 @@ import '../../data/models/remote_provider.dart';
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../audio/audio_metadata.dart';
+import '../remote/provider_model_capabilities.dart';
 import '../remote/remote_api_client.dart';
 import '../remote/remote_client_factory.dart';
 import '../remote/remote_http.dart';
@@ -60,16 +61,38 @@ final class ProcessingPipeline {
     callbacks.throwIfCancelled();
     _cacheManager.markActive(request.input.audio);
     try {
-      final duration =
-          request.input.knownDurationSec ??
-          await _metadata.durationSeconds(request.input.audioPath);
+      final knownDurationSec = request.input.knownDurationSec;
+      final duration = knownDurationSec == null
+          ? await _metadata.duration(request.input.audioPath)
+          : Duration(seconds: knownDurationSec);
       callbacks.throwIfCancelled();
+      _validateTranscriptionDuration(request, duration);
       return await _process(
-        request.withKnownDuration(duration),
+        request.withKnownDuration(duration?.inSeconds ?? 0),
         callbacks: callbacks,
       );
     } finally {
       _cacheManager.markInactive(request.input.audio);
+    }
+  }
+
+  void _validateTranscriptionDuration(
+    ProcessingRequest request,
+    Duration? duration,
+  ) {
+    final settings = request.settings;
+    final provider = settings.asrProvider;
+    if (provider != RemoteProviderId.google ||
+        !ProviderModelCapabilities.usesGeminiNativeTranscription(
+          settings.asrModelId(provider),
+        )) {
+      return;
+    }
+    if (duration == null || duration <= Duration.zero) {
+      throw RemoteApiException(request.strings.geminiAudioDurationUnknown);
+    }
+    if (duration > const Duration(hours: 1)) {
+      throw RemoteApiException(request.strings.geminiAudioTooLong);
     }
   }
 
@@ -222,6 +245,7 @@ final class ProcessingPipeline {
         todos: summary.todos.map((text) => TodoItem(text: text)).toList(),
         transcript: transcription.segments,
       ),
+      titleIsAiGenerated: summary.titleIsAiGenerated,
     );
   }
 

@@ -7,9 +7,10 @@ typedef RequestHandler = Future<http.StreamedResponse> Function(
 );
 
 class RecordingHttpClient extends http.BaseClient {
-  RecordingHttpClient(this._handler);
+  RecordingHttpClient(this._handler, {this.readBody});
 
   final RequestHandler _handler;
+  final Future<void> Function(http.ByteStream)? readBody;
   final List<http.BaseRequest> requests = [];
   int closeCalls = 0;
 
@@ -19,8 +20,9 @@ class RecordingHttpClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     requests.add(request);
-    final response = _handler(request);
-    await request.finalize().drain<void>();
+    final response = await _handler(request);
+    final body = request.finalize();
+    await (readBody?.call(body) ?? body.drain<void>());
     return response;
   }
 }

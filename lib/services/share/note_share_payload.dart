@@ -7,17 +7,24 @@ const _generatedSourceType =
     'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia';
 
 String noteShareText(TranscriptNote note, AppStrings strings) {
+  final generatedTitle = note.titleIsAiGenerated == true;
+  final hasSummary = note.summaryError == null && note.gist.trim().isNotEmpty;
+  final generatedSummary = hasSummary && note.hasAiGeneratedSummary;
   final sections = <String>[];
-  if (note.hasAiGeneratedSummary) {
+  if (generatedTitle || generatedSummary) {
     final metadata = jsonEncode({
-      'version': 1,
-      'summary': {'digitalSourceType': _generatedSourceType},
+      'version': 2,
+      if (generatedTitle) 'title': {'digitalSourceType': _generatedSourceType},
+      if (generatedSummary)
+        'summary': {'digitalSourceType': _generatedSourceType},
     });
     sections.add('Transcriber-Provenance: $metadata');
   }
-  sections.add(note.title);
-  if (note.summaryError == null && note.gist.trim().isNotEmpty) {
-    final label = note.hasAiGeneratedSummary
+  sections.add(
+    generatedTitle ? '${strings.aiGeneratedTitle}\n${note.title}' : note.title,
+  );
+  if (hasSummary) {
+    final label = generatedSummary
         ? strings.aiGeneratedSummary
         : strings.unknownSummaryOrigin;
     sections.add('$label\n${note.gist}');

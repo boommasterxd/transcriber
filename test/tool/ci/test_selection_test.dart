@@ -44,17 +44,10 @@ void main() {
     expect(plan['tests'], ['test/first_test.dart', 'test/second_test.dart']);
   });
 
-  test('validates no test impact for independent Dart code', () async {
-    final plan = await fixture.plan({
-      'lib/independent.dart': fixtureSource('independent', 1),
-    });
-    expect(plan['mode'], 'no-impact');
-    expect(plan['tests'], isEmpty);
-    expect(
-      await validateTestPlan(root: fixture.directory.path, input: plan),
-      plan,
-    );
-  });
+  test(
+    'validates no test impact for independent Dart code',
+    () => _verifyNoImpactPlan(fixture),
+  );
 
   test('falls back when a test disappears or a global input changes', () async {
     await fixture.remove('test/first_test.dart');
@@ -92,13 +85,40 @@ void main() {
       final plan = await fixture.plan({
         'lib/first.dart': fixtureSource('first', 3),
       });
+      final head = await fixture.git(['rev-parse', 'HEAD']);
       await expectLater(
         validateTestPlan(
           root: fixture.directory.path,
           input: {...plan, 'mode': 'no-impact', 'tests': <String>[]},
+          revisions: (base: fixture.base, head: head, checkout: head),
         ),
         throwsFormatException,
       );
     },
+  );
+}
+
+Future<void> _verifyNoImpactPlan(GitFixture fixture) async {
+  final plan = await fixture.plan({
+    'lib/independent.dart': fixtureSource('independent', 1),
+  });
+  expect(plan['mode'], 'no-impact');
+  expect(plan['tests'], isEmpty);
+  final head = await fixture.git(['rev-parse', 'HEAD']);
+  expect(
+    await validateTestPlan(
+      root: fixture.directory.path,
+      input: plan,
+      revisions: (base: fixture.base, head: head, checkout: head),
+    ),
+    plan,
+  );
+  await expectLater(
+    validateTestPlan(
+      root: fixture.directory.path,
+      input: plan,
+      revisions: (base: head, head: head, checkout: head),
+    ),
+    throwsFormatException,
   );
 }

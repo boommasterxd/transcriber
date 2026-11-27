@@ -15,13 +15,14 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.recTitle: 'Aufnahme',
   _StringKey.recording: 'Nimmt auf',
   _StringKey.recPaused: 'Pausiert',
-  _StringKey.recHint: 'Wird nach dem Stoppen sicher hochgeladen',
+  _StringKey.recHint: 'Nach dem Stoppen bestätigst du die Übertragung.',
   _StringKey.previousPage: 'Vorherige Seite',
   _StringKey.nextPage: 'Nächste Seite',
   _StringKey.recLimit: 'Automatischer Stopp bei {duration}',
   _StringKey.recLimitWarning:
       'Aufnahmegrenze bald erreicht. Verbleibend: {duration}',
   _StringKey.recLimitReached: 'Aufnahmegrenze erreicht. Audio bleibt erhalten. Mit Stopp fortfahren oder verwerfen.',
+  _StringKey.recStartFailure: 'Aufnahme konnte nicht gestartet werden.',
   _StringKey.recFailure: 'Aufnahme unterbrochen. Audio bleibt erhalten. Stopp erneut versuchen oder verwerfen.',
   _StringKey.recResume: 'Fortsetzen',
   _StringKey.recPause: 'Pause',
@@ -116,6 +117,11 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.shFrom: 'Sprachnachricht von',
   _StringKey.shSummary: 'Zusammenfassung',
   _StringKey.aiGeneratedSummary: 'KI-Zusammenfassung',
+  _StringKey.aiGeneratedTitle: 'Titel von KI erstellt',
+  _StringKey.aiGeneratedPoints: 'Kernpunkte von KI erstellt',
+  _StringKey.aiGeneratedActions: 'To-dos von KI erstellt',
+  _StringKey.aiGeneratedPointsAndActions:
+      'Kernpunkte und To-dos von KI erstellt',
   _StringKey.unknownSummaryOrigin: '{summary} (Herkunft unbekannt)',
   _StringKey.shPoints: 'Kernpunkte',
   _StringKey.shActions: 'To-dos',
@@ -141,9 +147,14 @@ const Map<_StringKey, Object> _deStrings = {
   _StringKey.errorTitle: 'Etwas ist schiefgelaufen',
   _StringKey.processingFailedBody:
       'Die Audioverarbeitung konnte nicht abgeschlossen werden.',
+  _StringKey.geminiAudioDurationUnknown:
+      'Die Audiodauer ist unbekannt. Wähle eine andere Datei.',
+  _StringKey.geminiAudioTooLong:
+      'Wähle für Gemini Transcribe eine Audiodatei von höchstens einer Stunde.',
   _StringKey.audioImportFailed: 'Audio konnte nicht importiert werden. Prüfe Format, Größe und Zugriff und versuche es erneut.',
   _StringKey.recoveredAudioTitle: 'Audioauswahl wiederhergestellt',
-  _StringKey.recoveredAudioBody: 'Die App wurde während der Dateiauswahl beendet. Möchtest du das ausgewählte Audio jetzt verarbeiten? Dabei wird es an deinen gewählten Cloud-Anbieter gesendet.',
+  _StringKey.recoveredAudioBody:
+      'Die App wurde während der Dateiauswahl beendet.',
   _StringKey.recoveredAudioContinue: 'Audio verarbeiten',
   _StringKey.retry: 'Erneut versuchen',
   _StringKey.dismiss: 'Schließen',

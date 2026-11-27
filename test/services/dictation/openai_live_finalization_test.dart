@@ -41,6 +41,27 @@ void main() {
 
 void _registerLateTurnTests() {
   test('a duplicate older final cannot finish a newer audio turn', () async {
+    expect(
+      harness.connector.uri,
+      Uri.parse('wss://api.openai.com/v1/realtime?intent=transcription'),
+    );
+    expect(jsonDecode(harness.socket.sent.first), {
+      'type': 'session.update',
+      'session': {
+        'type': 'transcription',
+        'audio': {
+          'input': {
+            'format': {'type': 'audio/pcm', 'rate': 24000},
+            'transcription': {
+              'model': 'gpt-live-transcribe',
+              'delay': 'low',
+              'languages': ['de'],
+            },
+            'turn_detection': null,
+          },
+        },
+      },
+    });
     await _finishTurn('older', 'First.');
     _appendAudio();
     var finished = false;
