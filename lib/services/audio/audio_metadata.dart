@@ -4,13 +4,12 @@ import 'package:just_audio/just_audio.dart';
 class AudioMetadata {
   const AudioMetadata();
 
-  Future<int> durationSeconds(String path) async {
+  Future<Duration?> duration(String path) async {
     final player = AudioPlayer();
     try {
-      final duration = await player.setFilePath(path);
-      return duration?.inSeconds ?? 0;
+      return await player.setFilePath(path);
     } catch (_) {
-      return 0;
+      return null;
     } finally {
       await player.dispose();
     }

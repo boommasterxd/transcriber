@@ -7,6 +7,7 @@ import '../../../../data/models/note_history.dart';
 import '../../../../state/history_controller.dart';
 import '../../../../state/settings_controller.dart';
 import '../../../navigation.dart';
+import '../../../widgets/ai_provenance_widgets.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import '../../../widgets/waveforms.dart';
@@ -44,8 +45,10 @@ class TabletSidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(stringsProvider);
     final page = ref.watch(historyControllerProvider);
+    final history = ref.read(historyControllerProvider.notifier);
+    final visiblePage = history.pageForQuery(page);
     final groups = groupNotesByAge(
-      page.asData?.value.entries ?? const [],
+      visiblePage?.entries ?? const [],
       now: DateTime.now(),
     );
 
@@ -57,11 +60,11 @@ class TabletSidebar extends ConsumerWidget {
       child: Column(
         children: [
           _TabletControls(
-            noteCount: page.asData?.value.totalCount ?? 0,
+            noteCount: visiblePage?.totalCount,
             strings: strings,
             status: ref.watch(homeModelStatusProvider),
             actions: actions,
-            query: ref.read(historyControllerProvider.notifier).query,
+            query: history.query,
           ),
           Expanded(
             child: _TabletHistory(
@@ -87,7 +90,7 @@ class _TabletControls extends StatelessWidget {
     required this.query,
   });
 
-  final int noteCount;
+  final int? noteCount;
   final AppStrings strings;
   final HomeModelStatus status;
   final TabletSidebarActions actions;
@@ -126,7 +129,7 @@ class _TabletControls extends StatelessWidget {
 class _TabletHeader extends StatelessWidget {
   const _TabletHeader({required this.noteCount, required this.strings});
 
-  final int noteCount;
+  final int? noteCount;
   final AppStrings strings;
 
   @override
@@ -150,7 +153,10 @@ class _TabletHeader extends StatelessWidget {
                 ),
               ),
               Text(
-                strings.homeSub(noteCount),
+                switch (noteCount) {
+                  final count? => strings.homeSub(count),
+                  null => '',
+                },
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12.5, color: palette.muted),
@@ -263,13 +269,17 @@ class _TabletGroupLabel extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
     child: Align(
       alignment: Alignment.centerLeft,
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-          color: context.palette.faint,
+      child: Semantics(
+        container: true,
+        header: true,
+        child: Text(
+          text.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: context.palette.faint,
+          ),
         ),
       ),
     ),
@@ -293,46 +303,58 @@ class TabletHistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return InkWell(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(bottom: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: selected ? palette.accentSoft : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: palette.accentSoft,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: const Center(child: MiniWave()),
+    final row = AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
+      margin: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: selected ? palette.accentSoft : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: palette.accentSoft,
+              borderRadius: BorderRadius.circular(13),
             ),
-            const SizedBox(width: 12),
-            Expanded(child: _TabletNoteText(note: note)),
-            const SizedBox(width: 8),
-            TodoCountBadge(
-              count: note.todoCount,
-              strings: strings,
-              density: TodoBadgeDensity.compact,
+            child: Center(
+              child: selected
+                  ? Icon(Icons.check_rounded, color: palette.accentDeep)
+                  : const MiniWave(),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _TabletNoteText(note: note, strings: strings),
+          ),
+          const SizedBox(width: 8),
+          TodoCountBadge(
+            count: note.todoCount,
+            strings: strings,
+            density: TodoBadgeDensity.compact,
+          ),
+        ],
+      ),
+    );
+    return MergeSemantics(
+      child: Semantics(
+        selected: selected,
+        child: InkWell(onTap: onTap, child: row),
       ),
     );
   }
 }
 
 class _TabletNoteText extends StatelessWidget {
-  const _TabletNoteText({required this.note});
+  const _TabletNoteText({required this.note, required this.strings});
 
   final NoteHistoryEntry note;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -348,6 +370,8 @@ class _TabletNoteText extends StatelessWidget {
           color: context.palette.ink,
         ),
       ),
+      if (note.titleIsAiGenerated == true)
+        AiProvenanceLabel(strings.aiGeneratedTitle),
       const SizedBox(height: 3),
       NoteModelBadge(note: note),
     ],

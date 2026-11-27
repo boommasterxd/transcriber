@@ -33,6 +33,14 @@ class KeyboardScreen extends StatelessWidget {
     builder: (context, _) => KeyboardView(
       state: controller.state,
       strings: strings,
+      waveform: ValueListenableBuilder(
+        valueListenable: controller.waveformLevels,
+        builder: (context, levels, _) => RecordWave(
+          levels: levels,
+          paused: controller.state.phase == DictationPhase.paused,
+          barWidth: 5,
+        ),
+      ),
       actions: KeyboardActions(
         start: controller.start,
         recording: RecordingActions(
@@ -72,11 +80,13 @@ class KeyboardView extends StatelessWidget {
     required this.state,
     required this.strings,
     required this.actions,
+    required this.waveform,
   });
 
   final DictationState state;
   final AppStrings strings;
   final KeyboardActions actions;
+  final Widget waveform;
 
   @override
   Widget build(BuildContext context) {
@@ -85,24 +95,45 @@ class KeyboardView extends StatelessWidget {
       backgroundColor: palette.bg,
       body: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 2, 14, 2),
-          child: Column(
-            children: [
-              _TopBar(
+        child: LayoutBuilder(
+          builder: (context, constraints) => _layout(context, constraints),
+        ),
+      ),
+    );
+  }
+
+  Widget _layout(BuildContext context, BoxConstraints constraints) {
+    const padding = EdgeInsets.fromLTRB(14, 2, 14, 2);
+    final showWave =
+        constraints.maxHeight >= 240 &&
+        MediaQuery.textScalerOf(context).scale(13) <= 18;
+    return SingleChildScrollView(
+      primary: false,
+      padding: padding,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: constraints.deflate(padding).maxHeight,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _TopBar(
+              state: state,
+              strings: strings,
+              onBack: actions.switchBack,
+              onDelete: actions.deleteBackward,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _StatusPanel(
                 state: state,
                 strings: strings,
-                onBack: actions.switchBack,
-                onDelete: actions.deleteBackward,
+                showWave: showWave,
+                waveform: waveform,
               ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: _StatusPanel(state: state, strings: strings),
-              ),
-              const SizedBox(height: 4),
-              _Controls(state: state, strings: strings, actions: actions),
-            ],
-          ),
+            ),
+            _Controls(state: state, strings: strings, actions: actions),
+          ],
         ),
       ),
     );
@@ -110,9 +141,17 @@ class KeyboardView extends StatelessWidget {
 }
 
 class _StatusPanel extends StatelessWidget {
-  const _StatusPanel({required this.state, required this.strings});
+  const _StatusPanel({
+    required this.state,
+    required this.strings,
+    required this.showWave,
+    required this.waveform,
+  });
+
   final DictationState state;
   final AppStrings strings;
+  final bool showWave;
+  final Widget waveform;
 
   @override
   Widget build(BuildContext context) {
@@ -122,16 +161,15 @@ class _StatusPanel extends StatelessWidget {
         state.phase == DictationPhase.unavailable;
     final paused = state.phase == DictationPhase.paused;
     return Semantics(
+      container: true,
       liveRegion: true,
-      label: status,
-      child: LayoutBuilder(
-        builder: (context, constraints) => _StatusPanelContent(
-          state: state,
-          status: status,
-          isError: isError,
-          paused: paused,
-          showWave: constraints.maxHeight >= 58,
-        ),
+      child: _StatusPanelContent(
+        state: state,
+        status: status,
+        isError: isError,
+        paused: paused,
+        showWave: showWave,
+        waveform: waveform,
       ),
     );
   }
@@ -144,6 +182,7 @@ class _StatusPanelContent extends StatelessWidget {
     required this.isError,
     required this.paused,
     required this.showWave,
+    required this.waveform,
   });
 
   final DictationState state;
@@ -151,6 +190,7 @@ class _StatusPanelContent extends StatelessWidget {
   final bool isError;
   final bool paused;
   final bool showWave;
+  final Widget waveform;
 
   @override
   Widget build(BuildContext context) {
@@ -158,18 +198,11 @@ class _StatusPanelContent extends StatelessWidget {
       return _ConnectingStatus(status: status);
     }
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _statusRow(),
         if (state.isActive && showWave) ...[
           const SizedBox(height: 4),
-          Expanded(
-            child: RecordWave(
-              levels: state.levels.isEmpty ? _keyboardIdleLevels : state.levels,
-              paused: paused,
-              barWidth: 5,
-            ),
-          ),
+          waveform,
         ],
       ],
     );
@@ -222,8 +255,6 @@ class _KeyboardStatusPill extends StatelessWidget {
           Flexible(
             child: Text(
               status,
-              maxLines: isError ? 3 : 1,
-              overflow: isError ? null : TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: foreground,

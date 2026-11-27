@@ -44,7 +44,6 @@ class DictationState {
   bool get editorSupported => editor.supported;
   bool get microphoneGranted => editor.microphoneGranted;
   Duration get elapsed => progress.elapsed;
-  List<double> get levels => progress.levels;
   String get preview => progress.preview;
   RemoteProviderId? get provider => selection.provider;
   String get modelId => selection.modelId;
@@ -90,25 +89,16 @@ class DictationEditorStatus {
 
 /// Transient capture feedback, reset together at session boundaries.
 class DictationProgress {
-  const DictationProgress({
-    this.elapsed = Duration.zero,
-    this.levels = const [],
-    this.preview = '',
-  });
+  const DictationProgress({this.elapsed = Duration.zero, this.preview = ''});
 
   final Duration elapsed;
-  final List<double> levels;
   final String preview;
 
-  DictationProgress copyWith({
-    Duration? elapsed,
-    List<double>? levels,
-    String? preview,
-  }) => DictationProgress(
-    elapsed: elapsed ?? this.elapsed,
-    levels: levels ?? this.levels,
-    preview: preview ?? this.preview,
-  );
+  DictationProgress copyWith({Duration? elapsed, String? preview}) =>
+      DictationProgress(
+        elapsed: elapsed ?? this.elapsed,
+        preview: preview ?? this.preview,
+      );
 }
 
 /// Provider and model label are updated atomically without retaining credentials.

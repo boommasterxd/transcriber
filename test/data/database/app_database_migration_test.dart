@@ -7,7 +7,7 @@ import 'package:transcriber/data/repositories/notes_repository.dart';
 
 void main() {
   test(
-    'v1 to v6 removes segment timestamps without losing note content',
+    'v1 to v7 preserves note content and leaves title provenance unknown',
     () async {
       final database = AppDatabase(
         NativeDatabase.memory(
@@ -23,15 +23,16 @@ void main() {
           )
           .get();
       final note = await database
-          .customSelect('SELECT id, title FROM notes')
+          .customSelect('SELECT id, title, title_is_ai_generated FROM notes')
           .getSingle();
       final columns = await database
           .customSelect('PRAGMA table_info(transcript_segments)')
           .get();
 
-      expect(database.schemaVersion, 6);
+      expect(database.schemaVersion, 7);
       expect(note.read<String>('id'), 'note-1');
       expect(note.read<String>('title'), 'Preserved note');
+      expect(note.readNullable<bool>('title_is_ai_generated'), isNull);
       expect(
         segments.map(
           (row) => (
@@ -137,7 +138,7 @@ void _registerBackfillRollbackTest() {
     expect(note?.points, ['Original point']);
     expect(note?.todos.single.text, 'Original todo');
     expect(note?.fullTranscriptText, 'Original transcript');
-    expect(restarted.schemaVersion, 6);
+    expect(restarted.schemaVersion, 7);
     expect(
       (await restarted.customSelect('PRAGMA foreign_keys').getSingle())
           .read<int>('foreign_keys'),
@@ -146,7 +147,7 @@ void _registerBackfillRollbackTest() {
     expect(
       (await restarted.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      6,
+      7,
     );
   });
 }
@@ -174,7 +175,7 @@ void _registerPartialMigrationTests() {
     final note = await NotesRepository(database)
         .loadHistoryPage(query: 'preserved');
     expect(note.entries.single.id, 'note-1');
-    expect(database.schemaVersion, 6);
+    expect(database.schemaVersion, 7);
     expect(
       await database
           .customSelect('SELECT path FROM pending_audio_deletions')

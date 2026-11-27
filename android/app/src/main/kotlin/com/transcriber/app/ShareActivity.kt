@@ -16,6 +16,7 @@ import java.util.Locale
 class ShareActivity : FlutterActivity() {
     private lateinit var importCoordinator: ShareImportCoordinator
     private var channel: MethodChannel? = null
+    private var audioCacheChannel: AudioCacheChannel? = null
 
     // shareMain lives in lib/main.dart so the default resolution works in AOT.
     override fun getDartEntrypointFunctionName(): String = "shareMain"
@@ -33,13 +34,19 @@ class ShareActivity : FlutterActivity() {
         }
         val mimeType = intent?.type
         val context = applicationContext
-        val cache = ShareAudioCache(context.cacheDir, context.contentResolver, ::logShareFailure)
-        importCoordinator.start { uri?.let { cache.copy(it, mimeType, control) } }
+        val owner = audioCacheChannel?.owner
+        importCoordinator.start {
+            if (uri == null || owner == null) {
+                null
+            } else {
+                ShareAudioCache(context.cacheDir, context.contentResolver, owner, ::logShareFailure)
+                    .copy(uri, mimeType, control)
+            }
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        // Hide the dedicated share intent while generic plugins attach, avoiding
-        // a second unbounded copy by receive_sharing_intent.
+        // Hide the share intent from plugins so only the bounded importer can read it.
         val sharedIntent = intent
         setIntent(Intent())
         try {
@@ -47,11 +54,14 @@ class ShareActivity : FlutterActivity() {
         } finally {
             setIntent(sharedIntent)
         }
-        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app/share").also {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        val owner = AudioCacheQuota.shared.owner(cacheDir)
+        audioCacheChannel = AudioCacheChannel(messenger, owner).also { it.register() }
+        channel = MethodChannel(messenger, "app/share").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getInitialSharedPath" -> {
-                        if (!importCoordinator.awaitPath(result::success)) {
+                        if (!importCoordinator.takePath(result::success)) {
                             result.error("share_request_pending", "Share import is pending", null)
                         }
                     }
@@ -67,10 +77,17 @@ class ShareActivity : FlutterActivity() {
         }
     }
 
-    override fun onDestroy() {
-        importCoordinator.cancel()
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        if (::importCoordinator.isInitialized) importCoordinator.cancel()
         channel?.setMethodCallHandler(null)
         channel = null
+        audioCacheChannel?.dispose()
+        audioCacheChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onDestroy() {
+        importCoordinator.cancel()
         super.onDestroy()
     }
 

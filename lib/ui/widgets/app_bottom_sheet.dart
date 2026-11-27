@@ -15,7 +15,7 @@ Future<T?> showAppBottomSheet<T>(
   showDragHandle: false,
   backgroundColor: Colors.transparent,
   barrierColor: Colors.black.withValues(alpha: 0.45),
-  constraints: MediaQuery.sizeOf(context).width >= 720
+  constraints: MediaQuery.sizeOf(context).width >= AppTheme.tabletMinWidth
       ? const BoxConstraints(maxWidth: 600)
       : null,
   builder: builder,

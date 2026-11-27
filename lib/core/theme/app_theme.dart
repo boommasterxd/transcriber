@@ -8,6 +8,7 @@ import 'app_palette.dart';
 class AppTheme {
   const AppTheme._();
 
+  static const double tabletMinWidth = 720;
   static const double radiusPill = 9999;
   static const double radiusCard = 22;
   static const double radiusSheet = 30;

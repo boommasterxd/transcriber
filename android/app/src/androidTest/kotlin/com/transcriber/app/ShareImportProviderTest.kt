@@ -10,6 +10,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Build
 import android.os.CancellationSignal
+import android.os.FileObserver
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
@@ -49,6 +50,7 @@ class ShareImportProviderTest {
         val provider = provider()
         withImport(provider) { fixture ->
             await(provider.openEntered)
+            fixture.awaitOutput()
             assertEquals(1, fixture.files().size)
             instrumentation.runOnMainSync { fixture.expire() }
             await(fixture.replyReady)
@@ -129,6 +131,21 @@ class ShareImportProviderTest {
         }
 
         fun files(): List<File> = File(root, "shared").listFiles()?.toList().orEmpty()
+
+        fun awaitOutput() {
+            val created = CountDownLatch(1)
+            val observer = object : FileObserver(File(root, "shared"), CREATE) {
+                override fun onEvent(event: Int, path: String?) {
+                    created.countDown()
+                }
+            }
+            observer.startWatching()
+            try {
+                if (files().isEmpty()) await(created)
+            } finally {
+                observer.stopWatching()
+            }
+        }
     }
 
     private class FixtureProvider : ContentProvider() {

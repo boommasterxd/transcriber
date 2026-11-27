@@ -4,6 +4,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/utils/formatting.dart';
 import '../../../../data/models/transcript_note.dart';
+import '../../../widgets/ai_provenance_widgets.dart';
 import '../../../widgets/buttons.dart';
 
 class DetailHeaderActions {
@@ -56,6 +57,8 @@ class DetailHeader extends StatelessWidget {
                     color: palette.ink,
                   ),
                 ),
+                if (note.titleIsAiGenerated == true)
+                  AiProvenanceLabel(strings.aiGeneratedTitle),
                 Text(
                   '${note.speaker} · ${timeAgo(note.createdAt, t: strings)}',
                   style: TextStyle(fontSize: 12.5, color: palette.muted),

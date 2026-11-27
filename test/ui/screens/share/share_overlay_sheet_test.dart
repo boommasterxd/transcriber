@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/service_exceptions.dart';
+import 'package:transcriber/services/storage/managed_audio_file.dart';
 import 'package:transcriber/state/processing_controller.dart';
 import 'package:transcriber/ui/screens/settings/settings_screen.dart';
 import 'package:transcriber/ui/screens/share/share_overlay_sheet.dart';
@@ -24,7 +25,10 @@ void main() {
         _shareApp(
           createProcessing: () => controller,
           child: ShareSheetContent(
-            audioPath: '/audio/shared.m4a',
+            audio: const ManagedAudioFile(
+              path: '/audio/shared.m4a',
+              ownership: AudioOwnership.temporary,
+            ),
             onFinished: () => finished = true,
           ),
         ),

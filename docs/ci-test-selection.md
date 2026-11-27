@@ -4,9 +4,9 @@
 
 The required `CI` workflow runs on pull requests to `main`. It compares the complete pull-request head with its merge base, rather than the latest commit or a truncated changed-files API response. Disabling rename detection exposes both endpoints as additions/deletions. A nonempty diff entirely under root `docs/` skips application checks and still runs the final `CI` gate. Empty, unknown, incomplete, or unreadable changes require full checks.
 
-The final gate validates the change plan, required job results and the expected device test step outcome. The outer job plan includes `base_sha`, `head_sha`, and the actual checkout's `merge_sha`; the final gate compares all three with the current GitHub event. Manual runs bind all three to the dispatched checkout and select full checks. Failures, cancellations, missing outputs, malformed or stale plans, and unexpected skips fail the gate. Existing `gitleaks`, PR-title requirements, branch freshness, and squash-only merge protection remain independent and unchanged. There is no additional full test run before merge or on the resulting `main` push.
+The final gate validates the change plan, required job results, and the expected outcomes of the device test and dedicated Gitleaks updater test steps. The outer job plan includes `base_sha`, `head_sha`, and the actual checkout's `merge_sha`. The final gate compares all three with the current GitHub event. Manual runs bind all three to the dispatched checkout and select full checks. Failures, cancellations, missing outputs, malformed or stale plans, and unexpected skips fail the gate. Existing `gitleaks`, PR-title requirements, branch freshness, and squash-only merge protection remain independent and unchanged. There is no additional full test run before merge or on the resulting `main` push.
 
-Dependency vulnerability scanning remains mandatory on every non-documentation PR: advisory databases can change even when the dependency files do not. The final gate rejects a plan that omits this security check.
+Dependency vulnerability scanning remains mandatory on every non-documentation PR because advisory databases can change independently of lockfiles. The final gate rejects a plan that omits this check. The audit uses the [pinned OSV binary and input validation](code-quality.md#ci-jobs).
 
 The change-classification job validates npm dependency groups and runs the locked production npm audit whenever the plan selects dependency auditing. A failing preflight blocks the audit caller. Only this successful caller passes `npm-preflight-passed: true` to the reusable audit workflow. Scheduled, manual, and other reusable calls run the same preflight by default. OSV requires either successful validation and auditing or the explicitly prevalidated skip.
 
@@ -14,21 +14,26 @@ Changes to the central CJS classifier and final gate, top-level Dart CI and qual
 
 Any GitHub Actions workflow YAML or Dependabot configuration change also selects the full Dart, JVM, Android, and bundle checks. These files control global build, release, and security behavior, so workflow lint and the dependency audit alone do not provide sufficient verification.
 
+A PR that modifies the existing `test/tool/ci/gitleaks-release.test.cjs` and otherwise touches only root `docs/` uses the `gitleaks_updater_only` plan. Workflow lint runs Node lint and duplication checks plus that parser test on `ubuntu-slim`, and the dependency audit still runs. Adding, deleting, or renaming that test, or mixing its change with other code or configuration, selects full checks.
+
 ## Flutter dependency graph
 
 The selector parses maintained Dart sources with the analyzer. It follows imports, exports, conditional directives, and library parts from the merge base, head, and simulated merge checkout. The combined graph finds direct and transitive test consumers, including those of deleted or renamed files. A changed test selects itself. A changed shared test helper selects its consumers.
 
-The versioned plan records the comparison revisions, checkout, mode, reason, and selected test files. A `selected` plan contains at least one test. A verified `no-impact` plan skips test execution when the graph proves no critical test depends on the changed Dart sources. The selector uses `full` for deleted or renamed test suites, global inputs, an incomplete graph, unknown impact, a dirty checkout, or an unusable comparison. The runner recomputes the plan against the execution checkout and rejects altered or stale plans.
+The versioned plan records the comparison revisions, checkout, mode, reason, and selected test files. A `selected` plan contains at least one test. A verified `no-impact` plan skips test execution when the graph proves no critical test depends on the changed Dart sources. The selector uses `full` for deleted or renamed test suites, global inputs, an incomplete graph, unknown impact, a dirty checkout, or an unusable comparison. The runner requires the expected base, head, and checkout SHAs independently of the plan, recomputes the plan against the actual checkout, and rejects altered or stale plans. In CI the expected revisions come from the workflow event.
 
 To inspect and execute the same selection locally, use a clean checkout and complete Git history with the pinned Flutter SDK:
 
 ```bash
 flutter pub get --enforce-lockfile
+test_plan_base_sha="$(git rev-parse origin/main)"
+test_plan_head_sha="$(git rev-parse HEAD)"
 dart run tool/ci/select_tests.dart \
-  --base "$(git rev-parse origin/main)" --head "$(git rev-parse HEAD)" \
+  --base "$test_plan_base_sha" --head "$test_plan_head_sha" \
   --output .dart_tool/ci/test-plan.json
 cat .dart_tool/ci/test-plan.json
-dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json
+dart run tool/ci/run_test_plan.dart .dart_tool/ci/test-plan.json \
+  --base "$test_plan_base_sha" --head "$test_plan_head_sha" --checkout "$test_plan_head_sha"
 ```
 
 ## Flutter test execution
@@ -50,25 +55,25 @@ The conservative mappings intentionally include broader suites when a reliable n
 | Pure Kotlin test changes | Tests corresponding to classes in the [JVM source manifest](../tool/ci/jvm/sources.txt) require only the independent JVM quality/test job and dependency audit. |
 | Pure Kotlin production changes | Classes in the [JVM source manifest](../tool/ci/jvm/sources.txt) select Android compilation, JVM and device tests for transitive consumers. |
 | Android instrumentation source changes | Native compilation, JVM tests and instrumented-test execution. |
-| Dart entrypoint/channel contracts | `lib/main.dart`, `lib/share_entrypoint.dart`, `lib/keyboard_entrypoint.dart`, `lib/services/dictation/dictation_platform.dart`, and `lib/services/audio/audio_recorder_service.dart` also select native and device checks and bundle verification. Maintain this mapping when adding or relocating native bridges. |
+| Dart entrypoints and device contracts | App, share and keyboard entrypoints, picker and recording bridges, share and keyboard UI trees, and designated shared controls select native and device checks in addition to Dart checks and bundle verification. Maintain the [explicit mapping](../tool/ci/detect-change-scope.cjs) when adding or relocating these contracts. |
 | Filesystem, HTTP, and platform contracts | Import consumers include mocked boundary tests; unknown fixtures or contract files require the full suite. |
 | Shared test support and setup | Transitive test consumers; global setup requires full tests. |
 | CI/quality tooling | Central classification/acceptance helpers, top-level Dart CI/quality helpers and mirrored regressions require full checks; unknown tooling also requires full checks. Bounded native length and JVM failure fixtures retain explicit scopes. |
 | CSS or unrecognized asset/contract formats | No CSS is currently used; unknown inputs require full checks. |
 
-Device-selected changes use an isolated API 35 Google APIs emulator with KVM. The runner checks ARM64 compatibility before installing the APK and runs the guest offline. The instrumentation guard rejects missing reports and requires at least one executed, unskipped test per maintained class. The fixtures exercise Android share/open-file delivery, content-provider cancellation and the keyboard's editor boundary. The same emulator runs the system document picker recovery test across process death with the existing debug APK. The [device release procedure](operations.md#keyboard-dictation-verification) also covers physical Samsung and Pixel devices.
+Device-selected changes use an isolated API 35 Google APIs emulator with KVM. The runner checks ARM64 compatibility before installing the APK and runs the guest offline. The instrumentation guard rejects missing reports and requires at least one executed, unskipped test per maintained class. The fixtures exercise Android share/open-file delivery, content-provider cancellation, and composing, committing, and discarding synthetic text in an external editor. The same emulator runs the system document picker recovery test across process death with the existing debug APK. See the [local device prerequisites](operations.md#validation) and [device release procedure](operations.md#keyboard-dictation-verification).
 
 ## Runner work and caches
 
-Change classification, final `CI`, title validation, Gitleaks, Dependabot metadata and merge, version updaters, and release publication use `ubuntu-slim` with explicit five- or ten-minute timeouts. Workflow lint, Dart and native checks, APK builds, and container-based OSV scans use regular runners.
+Change classification, final `CI`, title validation, Gitleaks, Dependabot metadata and merge, version updaters, and release publication use `ubuntu-slim` with explicit five- or ten-minute timeouts. The narrow Gitleaks updater test plan also uses `ubuntu-slim` for workflow lint. Broader workflow lint, Dart and native checks, APK builds, and the direct OSV scan use regular runners.
 
 Formatting, analysis, size and complexity checks, dead-code detection, duplication, critical tests, and applicable asset-bundle builds share a runner and one locked dependency resolution. Dart static checks keep their complete source scope. A production Dart change builds the bundle even when no critical test is affected. When native checks assemble the Flutter debug bundle, CI verifies its nonempty kernel and asset manifest on the native runner.
 
-Native tests, Detekt settings, and changes exclusively to manifest-listed Kotlin helpers, `EditorFieldPolicy.kt`, or `ImeNavigationBarAppearance.kt` use native checks. The JVM or Android job runs Detekt and the dependency-free Node gate for the 500-line Kotlin, Gradle, and shell limit.
+Native tests, Detekt settings, and changes exclusively to manifest-listed Kotlin helpers, `EditorFieldPolicy.kt`, or `ImeNavigationBarAppearance.kt` use native checks. The JVM or Android job runs Detekt for Kotlin and the dependency-free Node gate for the 500-line Kotlin, Gradle, Java, and shell limit.
 
 `tool/ci/jvm/sources.txt` is the single manifest for the independent Gradle source sets and Node classification. The JVM project references the actual Kotlin sources and tests; it copies no production code and needs neither Flutter nor an Android SDK. Its JDK, Kotlin plugin, JUnit version, dependency locks, and artifact checksums are pinned. Both Gradle builds validate their JUnit reports with the same execution guard: every configured test class must execute an unskipped test. Android discovers all maintained `src/test/kotlin/**/*Test.kt` files; the independent build uses its manifest. Missing reports, empty tasks, and entirely skipped classes fail.
 
-The independent JVM job runs only when the plan excludes Android checks. The Android unit test command runs the full maintained Kotlin suite, including the standalone subset. For global or workflow changes, the Android job resolves standalone JVM dependencies before running the offline Gradle fixtures. Robolectric uses the locked API 35 sandbox offline.
+The independent JVM job runs only when the plan excludes Android checks. The Android unit test command runs the full maintained Kotlin suite, including the standalone subset. When device tests apply, the hosted runner starts dependency verification and unit tests while the emulator boots. Instrumentation waits for both, then reuses Gradle state from the unit-test build. For global or workflow changes, the Android job resolves standalone JVM dependencies before running the offline Gradle fixtures. Robolectric uses the locked API 35 sandbox offline.
 
 JVM regression fixtures reuse one Gradle daemon per Node test process. Each session owns a temporary Gradle home and daemon registry and links the existing dependency and compiler caches and the wrapper. Individual cases use separate source and build directories. Teardown stops the session's daemons before deleting its temporary home, with a 60-second daemon idle timeout as a fallback.
 

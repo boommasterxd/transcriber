@@ -29,14 +29,17 @@ class PhoneHomeView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(historyControllerProvider);
+    final history = ref.read(historyControllerProvider.notifier);
+    final visiblePage = history.pageForQuery(page);
     final strings = ref.watch(stringsProvider);
     final data = _HomeData(
       page: page,
-      query: ref.read(historyControllerProvider.notifier).query,
+      query: history.query,
+      noteCount: visiblePage?.totalCount,
       strings: strings,
       modelStatus: ref.watch(homeModelStatusProvider),
       groups: groupNotesByAge(
-        page.asData?.value.entries ?? const [],
+        visiblePage?.entries ?? const [],
         now: DateTime.now(),
       ),
     );
@@ -61,6 +64,7 @@ class _HomeData {
   const _HomeData({
     required this.page,
     required this.query,
+    required this.noteCount,
     required this.strings,
     required this.modelStatus,
     required this.groups,
@@ -68,7 +72,7 @@ class _HomeData {
 
   final AsyncValue<HistoryPage> page;
   final String query;
-  int get noteCount => page.asData?.value.totalCount ?? 0;
+  final int? noteCount;
   final AppStrings strings;
   final HomeModelStatus modelStatus;
   final List<HistoryGroup> groups;
@@ -174,7 +178,7 @@ class _HomeControls extends StatelessWidget {
 class _HomeHeader extends StatelessWidget {
   const _HomeHeader({required this.noteCount, required this.strings});
 
-  final int noteCount;
+  final int? noteCount;
   final AppStrings strings;
 
   @override
@@ -199,10 +203,10 @@ class _HomeHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  strings.homeSub(noteCount),
-                  style: TextStyle(fontSize: 13.5, color: palette.muted),
-                ),
+                Text(switch (noteCount) {
+                  final count? => strings.homeSub(count),
+                  null => '',
+                }, style: TextStyle(fontSize: 13.5, color: palette.muted)),
               ],
             ),
           ),

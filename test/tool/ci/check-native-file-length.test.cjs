@@ -39,9 +39,11 @@ test('CLI rejects an over-limit file and unavailable source enumeration', (conte
   });
   assert.equal(run().status, 0);
   fs.writeFileSync(path.join(cwd, 'oversized.kt'), 'line\n'.repeat(501));
+  fs.writeFileSync(path.join(cwd, 'fixture.java'), 'line\n'.repeat(501));
   const oversized = run();
   assert.equal(oversized.status, 1);
   assert.match(oversized.stderr, /oversized.kt has 501 lines/);
+  assert.match(oversized.stderr, /fixture.java has 501 lines/);
   fs.rmSync(path.join(cwd, '.git'), { recursive: true });
   const unavailable = run();
   assert.equal(unavailable.status, 1);

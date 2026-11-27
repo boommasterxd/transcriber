@@ -14,6 +14,7 @@ class RecordLimitHint extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    const warningSeconds = 60;
     final boundary = ref.watch(
       recordingControllerProvider.select((state) => state.boundary),
     );
@@ -25,24 +26,62 @@ class RecordLimitHint extends ConsumerWidget {
       0,
       boundary.maxDurationSec,
     );
-    final warning = remaining <= 60;
-    final text = boundary.failed
-        ? strings.recFailure
+    final phase = boundary.failed
+        ? _LimitPhase.failed
         : boundary.reached
-        ? strings.recLimitReached
-        : warning
-        ? strings.recLimitWarning(formatDuration(remaining))
-        : strings.recLimit(formatDuration(boundary.maxDurationSec));
+        ? _LimitPhase.reached
+        : remaining <= warningSeconds
+        ? _LimitPhase.warning
+        : _LimitPhase.normal;
+    final text = switch (phase) {
+      _LimitPhase.failed => strings.recFailure,
+      _LimitPhase.reached => strings.recLimitReached,
+      _LimitPhase.warning => strings.recLimitWarning(formatDuration(remaining)),
+      _LimitPhase.normal => strings.recLimit(
+        formatDuration(boundary.maxDurationSec),
+      ),
+    };
+    return _LimitStatus(phase: phase, text: text);
+  }
+}
+
+enum _LimitPhase { normal, warning, reached, failed }
+
+class _LimitStatus extends StatefulWidget {
+  const _LimitStatus({required this.phase, required this.text});
+
+  final _LimitPhase phase;
+  final String text;
+
+  @override
+  State<_LimitStatus> createState() => _LimitStatusState();
+}
+
+class _LimitStatusState extends State<_LimitStatus> {
+  late bool _announce = widget.phase != _LimitPhase.normal;
+
+  @override
+  void didUpdateWidget(_LimitStatus oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The countdown stays readable without interrupting TalkBack every second.
+    _announce =
+        widget.phase != _LimitPhase.normal && widget.phase != oldWidget.phase;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
     return Semantics(
-      liveRegion: boundary.reached || boundary.failed,
+      container: true,
+      liveRegion: _announce,
       child: Text(
-        text,
+        widget.text,
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 13,
-          color: warning || boundary.failed
-              ? context.palette.coralInk
-              : context.palette.muted,
+          color: widget.phase == _LimitPhase.normal
+              ? palette.muted
+              : palette.coralInk,
         ),
       ),
     );

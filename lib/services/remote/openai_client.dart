@@ -4,14 +4,16 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../data/models/remote_provider.dart';
 import '../../data/models/transcript_note.dart';
 import '../../data/models/transcription_result.dart';
 import '../service_exceptions.dart';
 import 'mime_utils.dart';
 import 'model_catalog_listing.dart';
+import 'openai_inline_audio_request.dart';
 import 'provider_model_capabilities.dart';
-import 'remote_audio_limits.dart';
 import 'remote_api_client.dart';
+import 'remote_audio_limits.dart';
 import 'remote_http.dart';
 import 'transcription_prompt.dart';
 
@@ -85,6 +87,7 @@ class OpenAiClient with ModelCatalogListing implements RemoteProviderClient {
     final file = File(audioPath);
     final length = await validateRemoteAudioFile(
       file,
+      maxBytes: remoteAudioLimit(RemoteProviderId.openai, modelId),
       cancellation: cancellation,
     );
 
@@ -186,33 +189,18 @@ class OpenAiClient with ModelCatalogListing implements RemoteProviderClient {
         'This OpenAI multimodal model requires WAV or MP3 audio.',
       );
     }
-    if (length > maxInlineAudioBytes) {
-      throw const RemoteApiException(
-        'This OpenAI multimodal model requires audio up to 20 MiB.',
-      );
-    }
     cancellation?.throwIfCancelled();
-    final bytes = await file.readAsBytes();
-    cancellation?.throwIfCancelled();
-    final json = await _postJson(
-      '/chat/completions',
-      {
-        'model': modelId,
-        'modalities': ['text'],
-        'messages': [
-          {
-            'role': 'user',
-            'content': [
-              {'type': 'text', 'text': buildTranscriptionPrompt(languageCode)},
-              {
-                'type': 'input_audio',
-                'input_audio': {'data': base64Encode(bytes), 'format': format},
-              },
-            ],
-          },
-        ],
-      },
-      timeout: remoteTranscribeTimeout,
+    final request = OpenAiInlineAudioRequest(
+      Uri.parse('$_baseUrl/chat/completions'),
+      file,
+      length,
+      modelId: modelId,
+      prompt: buildTranscriptionPrompt(languageCode),
+      format: format,
+    )..headers['Authorization'] = 'Bearer $apiKey';
+    final json = await _requestJson(
+      request,
+      remoteTranscribeTimeout,
       cancellation: cancellation,
     );
     return _transcriptionResult(_messageText(json));

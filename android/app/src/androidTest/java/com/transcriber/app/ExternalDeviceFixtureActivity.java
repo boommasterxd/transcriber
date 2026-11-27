@@ -15,6 +15,8 @@ import android.widget.LinearLayout;
 
 /** Runs as the separate test APK, using only its own Android framework libraries. */
 public final class ExternalDeviceFixtureActivity extends Activity {
+    static final String EDITOR_PREFIX = "Fixture prefix:";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -29,7 +31,10 @@ public final class ExternalDeviceFixtureActivity extends Activity {
         }
         String target = getIntent().getStringExtra("target");
         if (target == null) {
-            controls.addView(editor("Ordinary fixture editor", InputType.TYPE_TEXT_VARIATION_NORMAL));
+            EditText ordinary = editor("Ordinary fixture editor", InputType.TYPE_TEXT_VARIATION_NORMAL);
+            ordinary.setText(EDITOR_PREFIX);
+            ordinary.setSelection(ordinary.length());
+            controls.addView(ordinary);
             controls.addView(editor("Protected fixture editor", InputType.TYPE_TEXT_VARIATION_PASSWORD));
         } else {
             controls.addView(action("Send fixture audio", () -> share(target, Intent.ACTION_SEND)));

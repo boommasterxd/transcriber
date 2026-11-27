@@ -22,7 +22,7 @@ final class ProcessingInput {
   final NoteSource source;
   final int? knownDurationSec;
 
-  /// Settings shown when the user confirmed an inbound share.
+  /// Settings shown when the user approved cloud processing.
   final AppSettings? settings;
 
   String get audioPath => audio.path;
@@ -34,6 +34,12 @@ final class ProcessingInput {
     settings: settings,
   );
 }
+
+bool hasSameProcessingRecipients(AppSettings approved, AppSettings candidate) =>
+    approved.asrProvider == candidate.asrProvider &&
+    approved.summarizeEnabled == candidate.summarizeEnabled &&
+    (!approved.summarizeEnabled ||
+        approved.summaryProvider == candidate.summaryProvider);
 
 /// Credentials required by the independently configured cloud stages.
 final class ProcessingCredentials {

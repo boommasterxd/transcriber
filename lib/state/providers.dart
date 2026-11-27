@@ -10,7 +10,6 @@ import '../services/audio/audio_import_picker.dart';
 import '../services/audio/audio_recorder_service.dart';
 import '../services/processing/processing_pipeline.dart';
 import '../services/remote/remote_client_factory.dart';
-import '../services/share/share_intent_service.dart';
 import '../services/storage/audio_cache_manager.dart';
 import '../services/storage/pending_audio_deletion_recovery.dart';
 
@@ -81,12 +80,6 @@ final audioRecorderProvider = Provider<AudioRecorderService>((ref) {
   final service = AudioRecorderService(
     cacheManager: ref.watch(audioCacheManagerProvider),
   );
-  ref.onDispose(service.dispose);
-  return service;
-});
-
-final shareIntentServiceProvider = Provider<ShareIntentService>((ref) {
-  final service = ShareIntentService();
   ref.onDispose(service.dispose);
   return service;
 });

@@ -15,7 +15,7 @@ final class NotesHistoryQuery {
       'SELECT rowid FROM notes_title_search WHERE notes_title_search MATCH ?';
 
   final AppDatabase database;
-  ({String filter, int revision, int total, bool useIndex})? _knownCount;
+  _HistoryFilter? _lastFilter;
 
   Future<HistoryPage> load({
     String query = '',
@@ -29,9 +29,9 @@ final class NotesHistoryQuery {
     if (previous && cursor == null) {
       throw ArgumentError('Previous pages require a cursor');
     }
-    final (count, clauses, variables) = await _prepareFilter(
-      query.toLowerCase(),
-    );
+    final filter = await _prepareFilter(query.toLowerCase());
+    final clauses = [...filter.clauses];
+    final variables = [...filter.variables];
     if (cursor != null) {
       final comparison = previous ? '>' : '<';
       clauses.add('(n.created_at, n.id) $comparison (?, ?)');
@@ -46,7 +46,7 @@ final class NotesHistoryQuery {
         .customSelect(
           'SELECT n.id, n.title, n.speaker, n.source, n.duration_sec, '
           'n.created_at, n.asr_is_local, n.summary_is_local, n.asr_name, '
-          'n.asr_sub, n.llm_name, n.llm_sub, '
+          'n.asr_sub, n.llm_name, n.llm_sub, n.title_is_ai_generated, '
           '(SELECT COUNT(*) FROM note_todos t WHERE t.note_id = n.id) AS todo_count '
           'FROM notes n $where ORDER BY n.created_at $direction, n.id $direction '
           'LIMIT ?',
@@ -59,49 +59,47 @@ final class NotesHistoryQuery {
       entries: List.unmodifiable(previous ? entries.reversed : entries),
       hasNext: previous ? cursor != null : hasMore,
       hasPrevious: previous ? hasMore : cursor != null,
-      totalCount: count,
+      filter: filter.text,
+      revision: filter.revision,
+      totalCount: filter.total,
     );
   }
 
-  Future<(int, List<String>, List<Variable>)> _prepareFilter(
-    String filter,
-  ) async {
-    final snapshot = await database
-        .customSelect('SELECT revision, title_index FROM notes_history_state')
-        .getSingle();
-    final revision = snapshot.read<int>('revision');
-    final cached = _cachedCount(filter, revision);
-    final phrase = _indexPhrase(filter, snapshot.read<int>('title_index') == 1);
-    final useIndex = cached?.useIndex ?? await _shouldSearchIndex(phrase);
-    final (clauses, variables) = _titleFilter(filter, useIndex ? phrase : null);
-    final count = cached?.total ?? await _readTotal(clauses, variables);
-    _knownCount = (
-      filter: filter,
-      revision: revision,
-      total: count,
-      useIndex: useIndex,
-    );
-    return (count, clauses, variables);
+  Future<_HistoryFilter> _prepareFilter(
+    String text, {
+    QueryRow? snapshot,
+  }) async {
+    final current = snapshot ?? await _readSnapshot();
+    final revision = current.read<int>('revision');
+    final previous = _lastFilter;
+    if (previous != null &&
+        previous.text == text &&
+        previous.revision == revision) {
+      return previous;
+    }
+    final phrase = _indexPhrase(text, current.read<bool>('title_index'));
+    final useIndex = await _shouldSearchIndex(phrase);
+    final (clauses, variables) = _titleFilter(text, useIndex ? phrase : null);
+    return _lastFilter = _HistoryFilter(text, revision, clauses, variables);
   }
 
-  ({String filter, int revision, int total, bool useIndex})? _cachedCount(
-    String filter,
-    int revision,
-  ) {
-    final cached = _knownCount;
-    return cached?.filter == filter && cached?.revision == revision
-        ? cached
-        : null;
-  }
+  Future<QueryRow> _readSnapshot() => database
+      .customSelect('SELECT revision, title_index FROM notes_history_state')
+      .getSingle();
 
-  Future<int> _readTotal(List<String> clauses, List<Variable> variables) async {
+  Future<int?> loadTotal(HistoryPage page) async {
+    final snapshot = await _readSnapshot();
+    if (snapshot.read<int>('revision') != page.revision) return null;
+    final filter = await _prepareFilter(page.filter, snapshot: snapshot);
+    final cached = filter.total;
+    if (cached != null) return cached;
     final row = await database
         .customSelect(
-          'SELECT COUNT(*) AS total FROM notes n ${_where(clauses)}',
-          variables: variables,
+          'SELECT COUNT(*) AS total FROM notes n ${_where(filter.clauses)}',
+          variables: filter.variables,
         )
         .getSingle();
-    return row.read<int>('total');
+    return filter.total = row.read<int>('total');
   }
 
   String? _indexPhrase(String filter, bool indexed) {
@@ -114,16 +112,13 @@ final class NotesHistoryQuery {
 
   Future<bool> _shouldSearchIndex(String? phrase) async {
     if (phrase == null) return false;
-    final row = await database
+    final overflow = await database
         .customSelect(
-          'SELECT COUNT(*) AS candidates FROM ($_titleMatches LIMIT ?)',
-          variables: [
-            Variable(phrase),
-            const Variable(_indexedCandidateLimit + 1),
-          ],
+          '$_titleMatches LIMIT 1 OFFSET ?',
+          variables: [Variable(phrase), const Variable(_indexedCandidateLimit)],
         )
-        .getSingle();
-    return row.read<int>('candidates') <= _indexedCandidateLimit;
+        .getSingleOrNull();
+    return overflow == null;
   }
 
   (List<String>, List<Variable>) _titleFilter(String filter, String? phrase) {
@@ -163,5 +158,16 @@ final class NotesHistoryQuery {
       llmSub: row.read<String>('llm_sub'),
     ),
     todoCount: row.read<int>('todo_count'),
+    titleIsAiGenerated: row.readNullable<bool>('title_is_ai_generated'),
   );
+}
+
+final class _HistoryFilter {
+  _HistoryFilter(this.text, this.revision, this.clauses, this.variables);
+
+  final String text;
+  final int revision;
+  final List<String> clauses;
+  final List<Variable> variables;
+  int? total;
 }

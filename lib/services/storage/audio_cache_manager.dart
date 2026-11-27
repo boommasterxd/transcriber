@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
-import 'bounded_audio_copy.dart';
+import 'audio_cache_quota.dart';
 import 'managed_audio_file.dart';
 import 'staged_audio_retention.dart';
 import 'storage_paths.dart';
@@ -20,10 +20,12 @@ final class AudioCacheManager {
     this.cacheQuotaBytes = 512 * 1024 * 1024,
     this.temporaryTtl = const Duration(hours: 24),
   }) : _paths = paths ?? StoragePaths.create(),
+       _quota = paths == null ? const AudioCacheQuota() : null,
        _now = now ?? DateTime.now,
        _uuid = uuid ?? const Uuid();
 
   final Future<StoragePaths> _paths;
+  final AudioCacheQuota? _quota;
   final DateTime Function() _now;
   final Uuid _uuid;
   final int maximumFileBytes;
@@ -44,32 +46,6 @@ final class AudioCacheManager {
     '.webm',
   };
 
-  Future<ManagedAudioFile> importExternal(
-    String sourcePath, {
-    String? displayName,
-  }) async {
-    final source = File(sourcePath);
-    await _validateSource(source);
-    final extension = _validatedExtension(displayName ?? sourcePath);
-    final directory = await (await _paths).importCacheDir();
-    final destination = File(
-      p.join(
-        directory.path,
-        '${_now().millisecondsSinceEpoch}_${_uuid.v4()}$extension',
-      ),
-    );
-    try {
-      await copyAudioWithinLimit(source, destination, maximumFileBytes);
-      return ManagedAudioFile(
-        path: destination.path,
-        ownership: AudioOwnership.temporary,
-      );
-    } catch (_) {
-      await _deleteQuietly(destination);
-      rethrow;
-    }
-  }
-
   Future<ManagedAudioFile> registerShared(String path) async {
     final file = File(path);
     await _validateSource(file);
@@ -77,6 +53,7 @@ final class AudioCacheManager {
     if (!await _isWithin(sharedDirectory, file)) {
       throw const FileSystemException('Shared audio is outside app cache');
     }
+    await _requireOwnedTemporaryFile(path);
     return ManagedAudioFile(path: path, ownership: AudioOwnership.temporary);
   }
 
@@ -95,6 +72,7 @@ final class AudioCacheManager {
     if (!await _isWithin(directory, file)) {
       throw const FileSystemException('Recording is outside app cache');
     }
+    await _requireOwnedTemporaryFile(path);
     return ManagedAudioFile(path: path, ownership: AudioOwnership.temporary);
   }
 
@@ -133,6 +111,16 @@ final class AudioCacheManager {
         !await _isOwned(file, audio.ownership)) {
       throw const FileSystemException('Audio is outside app-owned storage');
     }
+    if (audio.ownership == AudioOwnership.temporary) {
+      await _requireOwnedTemporaryFile(audio.path);
+    }
+  }
+
+  Future<void> _requireOwnedTemporaryFile(String path) async {
+    final quota = _quota;
+    if (quota != null && !await quota.owns(path)) {
+      throw const FileSystemException('Temporary audio is no longer available');
+    }
   }
 
   Future<void> discard(ManagedAudioFile audio) async {
@@ -147,6 +135,10 @@ final class AudioCacheManager {
     if (audio.ownership == AudioOwnership.external) return true;
     final file = File(audio.path);
     if (_activePaths.contains(_canonicalPath(file))) return false;
+    final quota = _quota;
+    if (quota != null && audio.ownership == AudioOwnership.temporary) {
+      return quota.discard(audio.path);
+    }
     if (!await file.exists()) return true;
     if (!await _isOwned(file, audio.ownership)) return false;
     return _tryDeleteQuietly(file);
@@ -166,24 +158,43 @@ final class AudioCacheManager {
 
   Future<void> cleanup({bool enforceQuota = true}) async {
     final paths = await _paths;
+    final now = _now();
+    final expiry = now.subtract(temporaryTtl);
+    try {
+      final quota = _quota;
+      if (quota != null) {
+        await quota.cleanup(enforceQuota: enforceQuota);
+      } else {
+        await _cleanupFixtureCache(paths, now, enforceQuota: enforceQuota);
+      }
+    } finally {
+      await for (final file in _cacheFiles([
+        await paths.retentionStagingDir(),
+      ])) {
+        if (file.modified.isBefore(expiry)) await _deleteCacheEntry(file);
+      }
+    }
+  }
+
+  Future<void> _cleanupFixtureCache(
+    StoragePaths paths,
+    DateTime now, {
+    required bool enforceQuota,
+  }) async {
     final directories = [
       await paths.importCacheDir(),
       await paths.sharedCacheDir(),
       await paths.recordingCacheDir(),
     ];
-    final now = _now();
     final expiry = now.subtract(temporaryTtl);
     final eligible = <_CacheFile>[];
     await for (final file in _cacheFiles(directories)) {
       if (file.modified.isBefore(expiry) && await _deleteCacheEntry(file)) {
         continue;
       }
-      if (enforceQuota && file.modified.isBefore(now)) eligible.add(file);
+      if (enforceQuota) eligible.add(file);
     }
     if (enforceQuota) await _enforceQuota(eligible);
-    await for (final file in _cacheFiles([await paths.retentionStagingDir()])) {
-      if (file.modified.isBefore(expiry)) await _deleteCacheEntry(file);
-    }
   }
 
   Future<void> _validateSource(File file) async {
@@ -232,9 +243,7 @@ final class AudioCacheManager {
   Stream<_CacheFile> _cacheFiles(List<Directory> directories) async* {
     for (final directory in directories) {
       await for (final entity in directory.list(followLinks: false)) {
-        if (entity is! File || _activePaths.contains(_canonicalPath(entity))) {
-          continue;
-        }
+        if (entity is! File) continue;
         final stat = await entity.stat();
         yield _CacheFile(
           file: entity,
@@ -258,10 +267,6 @@ final class AudioCacheManager {
   Future<bool> _deleteCacheEntry(_CacheFile entry) async {
     if (_activePaths.contains(_canonicalPath(entry.file))) return false;
     return _tryDeleteQuietly(entry.file);
-  }
-
-  Future<void> _deleteQuietly(File file) async {
-    await _tryDeleteQuietly(file);
   }
 
   Future<bool> _tryDeleteQuietly(File file) async {

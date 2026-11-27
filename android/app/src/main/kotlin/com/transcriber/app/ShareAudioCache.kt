@@ -1,6 +1,7 @@
 package com.transcriber.app
 
 import android.content.ContentResolver
+import android.content.res.AssetFileDescriptor
 import android.net.Uri
 import android.os.CancellationSignal
 import android.os.OperationCanceledException
@@ -15,12 +16,14 @@ import java.util.UUID
 
 /** Worker-only import of one external audio URI into app-private storage. */
 internal class ShareAudioCache(
-    private val cacheDirectory: File,
+    cacheDirectory: File,
     private val contentResolver: ContentResolver,
+    private val owner: AudioCacheQuota.Owner = AudioCacheQuota.shared.owner(cacheDirectory),
     private val onFailure: (Throwable) -> Unit,
 ) {
+    private val paths = AudioCachePaths(cacheDirectory)
+
     fun copy(uri: Uri, intentMimeType: String?, control: ShareImportControl): String? {
-        var outputFile: File? = null
         var result: String? = null
         try {
             val signal = CancellationSignal()
@@ -29,10 +32,7 @@ internal class ShareAudioCache(
             } else {
                 null
             }
-            outputFile = candidate
-            if (candidate != null && control.track(candidate) && copyStream(uri, candidate, signal, control)) {
-                result = candidate.canonicalPath
-            }
+            if (candidate != null) result = copyStream(uri, candidate, signal, control)
         } catch (error: IOException) {
             onFailure(error)
         } catch (error: SecurityException) {
@@ -42,7 +42,7 @@ internal class ShareAudioCache(
         } catch (error: OperationCanceledException) {
             onFailure(error)
         } finally {
-            if (result == null || control.cancelled) outputFile?.delete()
+            if (result == null || control.cancelled) control.discardLocalOutput()
         }
         return result.takeUnless { control.cancelled }
     }
@@ -53,13 +53,13 @@ internal class ShareAudioCache(
         signal: CancellationSignal,
         control: ShareImportControl,
     ): File? {
-        val directory = createSharedDirectory() ?: return null
+        val directory = paths.sharedDirectory() ?: return null
         val mimeType = contentResolver.getType(uri) ?: intentMimeType
         val name = canonicalAudioName(
             ShareFileNamePolicy.sanitize(displayName(uri, signal)),
             mimeType,
         )
-        return name?.takeUnless { control.cancelled }?.let { createOutputFile(directory, it) }
+        return name?.takeUnless { control.cancelled }?.let { destination(directory, it) }
     }
 
     private fun copyStream(
@@ -67,61 +67,59 @@ internal class ShareAudioCache(
         outputFile: File,
         signal: CancellationSignal,
         control: ShareImportControl,
-    ): Boolean {
-        val descriptor = contentResolver.openAssetFileDescriptor(uri, "r", signal) ?: return false
+    ): String? {
+        val descriptor = contentResolver.openAssetFileDescriptor(uri, "r", signal) ?: return null
         return descriptor.use {
-            control.register(it) && copyInput(it.createInputStream(), outputFile, control)
+            if (control.register(it)) copyToCache(it, outputFile, control) else null
         }
     }
 
-    private fun copyInput(input: InputStream, outputFile: File, control: ShareImportControl): Boolean {
-        return input.use {
-            control.register(input) && outputFile.outputStream().use { output ->
-                control.register(output) && copyWithinLimit(input, output, control) &&
-                    outputFile.length() in 1..maximumAudioBytes
-            }
+    private fun copyToCache(descriptor: AssetFileDescriptor, output: File, control: ShareImportControl): String? {
+        val declared = descriptor.declaredLength
+        if (control.cancelled || declared == 0L || declared > AudioCacheQuota.maximumImportBytes) return null
+        val lease = if (declared > 0) {
+            owner.reserve(output, declared)
+        } else {
+            owner.reserve(output, AudioCacheQuota.maximumImportBytes, unknownImportMinimumBytes)
+        }
+        try {
+            val copied = copyInput(descriptor.createInputStream(), lease, control)
+            return lease.file.path.takeIf { copied && !control.cancelled }
+        } finally {
+            if (!lease.file.exists()) lease.abandon()
+            lease.finishWriting()
         }
     }
+
+    private fun copyInput(input: InputStream, lease: AudioCacheQuota.Lease, control: ShareImportControl): Boolean =
+        input.use {
+            if (!control.register(input)) return@use false
+            control.openOutput(lease.file, lease::requestDiscard)?.use {
+                copyWithinLimit(input, it, control, lease.maximum)
+            } ?: false
+        }
 
     private fun copyWithinLimit(
         input: InputStream,
         output: OutputStream,
         control: ShareImportControl,
+        maximumBytes: Long,
     ): Boolean {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         var total = 0L
         var count = if (control.cancelled) -1 else input.read(buffer)
-        while (count >= 0 && total <= maximumAudioBytes && !control.cancelled) {
+        while (count >= 0 && total <= maximumBytes && !control.cancelled) {
             if (count == 0) throw IOException("Empty provider read")
             total += count
-            val canContinue = total <= maximumAudioBytes && !control.cancelled
+            val canContinue = total <= maximumBytes && !control.cancelled
             if (canContinue) output.write(buffer, 0, count)
             count = if (canContinue) input.read(buffer) else -1
         }
-        return !control.cancelled && total in 1..maximumAudioBytes
+        return !control.cancelled && total in 1..maximumBytes
     }
 
-    private fun createSharedDirectory(): File? {
-        val directory = File(cacheDirectory, "shared")
-        if (!directory.exists() && !directory.mkdirs()) return null
-        return directory.takeIf { it.isDirectory }
-    }
-
-    private fun createOutputFile(directory: File, name: String): File? {
-        val cacheRoot = cacheDirectory.canonicalFile
-        val directoryRoot = directory.canonicalFile
-        if (!isWithin(cacheRoot, directoryRoot)) return null
-        val output = File(directory, "${System.currentTimeMillis()}_${UUID.randomUUID()}_$name")
-        val outputPath = output.canonicalFile
-        return output.takeIf {
-            isWithin(directoryRoot, outputPath) && it.createNewFile()
-        }
-    }
-
-    private fun isWithin(root: File, candidate: File): Boolean {
-        val rootPath = root.path.trimEnd(File.separatorChar) + File.separator
-        return candidate.path.startsWith(rootPath)
-    }
+    private fun destination(directory: File, name: String): File =
+        File(directory, "${System.currentTimeMillis()}_${UUID.randomUUID()}_$name")
 
     private fun displayName(uri: Uri, signal: CancellationSignal): String? {
         val providerName = if (uri.scheme.equals("file", ignoreCase = true)) {
@@ -147,7 +145,7 @@ internal class ShareAudioCache(
     companion object {
         fun displayNameFromPath(path: String): String = File(path).name.split('_', limit = 3).last()
 
-        private const val maximumAudioBytes = 250L * 1024L * 1024L
+        private const val unknownImportMinimumBytes = 1024L * 1024L
         private val supportedExtensions = setOf(
             "flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "opus", "wav", "webm",
         )

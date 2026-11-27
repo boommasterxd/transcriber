@@ -8,11 +8,11 @@ import '../models/app_accent.dart';
 import '../models/app_language.dart';
 import '../models/app_settings.dart';
 import '../models/remote_provider.dart';
-import '../models/transcript_note.dart';
 import '../models/transcription_language.dart';
 import '../repositories/notes_repository.dart';
 import '../repositories/settings_repository.dart';
 import 'app_database.dart';
+import 'legacy_notes_decoder.dart';
 
 /// Imports the pre-Drift SharedPreferences payload exactly once.
 class LegacyPreferencesMigrator {
@@ -45,7 +45,7 @@ class LegacyPreferencesMigrator {
 
   /// Imports legacy data and returns whether deferred credential cleanup is due.
   Future<bool> migrate() async {
-    final markers = await database.transaction(_classifyLegacyPreferences);
+    final markers = await _prepareAndClassify();
 
     final removed = <String>[];
     for (final entry in _pendingPreferenceMarkers.entries) {
@@ -61,14 +61,37 @@ class LegacyPreferencesMigrator {
     return !markers.contains(_credentialsCleaned);
   }
 
-  Future<Set<String>> _classifyLegacyPreferences() async {
+  Future<Set<String>> _prepareAndClassify() async {
     final markers = await _readMarkers();
     final checkSettings = !markers.contains(_cleanupClassified);
     final checkNotes = !markers.contains(_notesClassified);
     if (!checkSettings && !checkNotes) return markers;
 
     final settings = checkSettings ? _readSettings() : null;
-    final notes = checkNotes ? _readNotes() : null;
+    final notes = checkNotes
+        ? await decodeLegacyNotes(
+            _readRawNotes(),
+            includeValues: !markers.contains(marker),
+          )
+        : null;
+    return database.transaction(
+      () => _classifyLegacyPreferences(settings, notes),
+    );
+  }
+
+  Future<Set<String>> _classifyLegacyPreferences(
+    _LegacyValue<AppSettings>? preparedSettings,
+    LegacyNotes? preparedNotes,
+  ) async {
+    // A peer engine may have committed while the notes were being decoded.
+    // Read the durable markers again under the same write lock as the import.
+    final markers = await _readMarkers();
+    final settings = markers.contains(_cleanupClassified)
+        ? null
+        : preparedSettings;
+    final notes = markers.contains(_notesClassified) ? null : preparedNotes;
+    if (settings == null && notes == null) return markers;
+
     final needsImport = !markers.contains(marker);
     if (needsImport) {
       await SettingsRepository(database).save(settings!.value);
@@ -81,10 +104,10 @@ class LegacyPreferencesMigrator {
     // it commits, a retry only partitions and removes legacy preferences.
     final added = [
       if (needsImport) marker,
-      if (checkSettings) _cleanupClassified,
+      if (settings != null) _cleanupClassified,
       if (settings?.canRemove ?? false)
         _pendingPreferenceMarkers[_settingsKey]!,
-      if (checkNotes && ready) _notesClassified,
+      if (notes != null && ready) _notesClassified,
       if (rejected != null && ready) _pendingPreferenceMarkers[_notesKey]!,
     ];
     await _recordMarkers(added);
@@ -193,30 +216,11 @@ class LegacyPreferencesMigrator {
     }
   }
 
-  _LegacyNotes _readNotes() {
+  String? _readRawNotes() {
     try {
-      final raw = preferences.getString(_notesKey);
-      if (raw == null) return (values: const [], rejected: null);
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) throw const FormatException('notes list');
-      final result = <TranscriptNote>[];
-      final rejected = <Object?>[];
-      final ids = <String>{};
-      for (final value in decoded) {
-        final note = _tryReadNote(value, ids);
-        if (note == null) {
-          rejected.add(value);
-        } else {
-          result.add(note);
-        }
-      }
-      result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return (
-        values: result,
-        rejected: result.isEmpty && rejected.isNotEmpty ? null : rejected,
-      );
+      return preferences.getString(_notesKey);
     } catch (_) {
-      return (values: const [], rejected: null);
+      return null;
     }
   }
 
@@ -226,57 +230,14 @@ class LegacyPreferencesMigrator {
       // Another engine may already have written the recovery preference.
       await preferences.reload();
       final current = preferences.get(rejectedNotesRecoveryKey);
-      final existing = _readRecoveryRecords(current);
-      final seen = existing.map(jsonEncode).toSet();
-      final additions = rejected.where(
-        (record) => seen.add(jsonEncode(record)),
-      );
       // Commit a readable recovery copy before marking the original removable.
       return await preferences.setString(
         rejectedNotesRecoveryKey,
-        jsonEncode([...existing, ...additions]),
+        await mergeLegacyRecoveryRecords(current, rejected),
       );
     } catch (_) {
       return false;
     }
-  }
-
-  List<Object?> _readRecoveryRecords(Object? value) {
-    if (value == null) return [];
-    if (value is String) {
-      try {
-        final decoded = jsonDecode(value);
-        if (decoded is List) return decoded;
-      } on FormatException {
-        // Preserve unfamiliar prior recovery data as a separate record.
-      }
-    }
-    return [
-      {'unparsedRecoveryValue': value.toString()},
-    ];
-  }
-
-  TranscriptNote? _tryReadNote(Object? value, Set<String> ids) {
-    try {
-      final json = _validatedNoteJson(value);
-      final note = TranscriptNote.fromJson(json);
-      if (!ids.add(note.id)) throw const FormatException('duplicate note id');
-      return note;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Map<String, dynamic> _validatedNoteJson(Object? value) {
-    if (value is! Map) throw const FormatException('note object');
-    final json = value.cast<String, dynamic>();
-    final id = json['id'];
-    if (id is! String || id.isEmpty) throw const FormatException('note id');
-    final createdAt = json['createdAt'];
-    if (createdAt is! String || DateTime.tryParse(createdAt) == null) {
-      throw const FormatException('note timestamp');
-    }
-    return json;
   }
 
   Map<RemoteProviderId, String> _selectedModel(
@@ -317,5 +278,3 @@ final class _LegacyValue<T> {
   final T value;
   final bool canRemove;
 }
-
-typedef _LegacyNotes = ({List<TranscriptNote> values, List<Object?>? rejected});

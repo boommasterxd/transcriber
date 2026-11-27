@@ -8,22 +8,57 @@ import '../../core/toast.dart';
 import '../../data/models/transcript_note.dart';
 import '../../state/notes_controller.dart';
 
-/// Deletes [note] and shows an "undo" snackbar via the app-wide messenger, so it
-/// works whether or not the originating screen is still mounted (e.g. after the
-/// detail screen pops). Undo re-adds the note in its original place.
-Future<void> deleteNoteWithUndo(
+Future<void> Function()? _dismissOpenUndo;
+
+/// Offers undo for the version that was actually removed from storage.
+Future<bool> deleteNoteWithUndo(
+  BuildContext context,
   WidgetRef ref,
-  TranscriptNote note,
+  String noteId,
   AppStrings strings,
 ) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
   final controller = ref.read(notesControllerProvider.notifier);
-  await controller.delete(note.id, deleteAudio: false);
+  final TranscriptNote? note;
+  try {
+    note = await controller.deleteForUndo(noteId);
+  } catch (_) {
+    showAppToast(strings.errorTitle, isError: true);
+    return false;
+  }
+  if (note == null) return false;
   final messenger = scaffoldMessengerKey.currentState;
   if (messenger == null) {
-    await controller.deleteNoteAudio(note);
-    return;
+    await _finalizeDeletion(controller, note);
+    return true;
   }
+  _offerUndo(messenger, navigator, controller, note, strings);
+  return true;
+}
+
+void _offerUndo(
+  ScaffoldMessengerState messenger,
+  NavigatorState navigator,
+  NotesController controller,
+  TranscriptNote note,
+  AppStrings strings,
+) {
+  unawaited(_dismissOpenUndo?.call());
   messenger.clearSnackBars();
+  var resolved = false;
+
+  Future<void> resolveUndo({required bool restore}) async {
+    if (resolved) return;
+    resolved = true;
+    _dismissOpenUndo = null;
+    if (restore) {
+      await _restoreOrRetry(controller, note, navigator, strings);
+    } else {
+      await _finalizeDeletion(controller, note);
+    }
+  }
+
+  _dismissOpenUndo = () => resolveUndo(restore: false);
   final snackbar = messenger.showSnackBar(
     SnackBar(
       content: Text(strings.noteDeleted),
@@ -31,17 +66,70 @@ Future<void> deleteNoteWithUndo(
       duration: const Duration(seconds: 4),
       action: SnackBarAction(
         label: strings.undo,
-        onPressed: () => controller.add(note),
+        onPressed: () => unawaited(resolveUndo(restore: true)),
       ),
     ),
   );
   unawaited(
     snackbar.closed.then((reason) {
       if (reason != SnackBarClosedReason.action) {
-        return controller.deleteNoteAudio(note);
+        return resolveUndo(restore: false);
       }
     }),
   );
+}
+
+Future<void> _restoreOrRetry(
+  NotesController controller,
+  TranscriptNote note,
+  NavigatorState navigator,
+  AppStrings strings,
+) async {
+  while (navigator.mounted) {
+    try {
+      await controller.restoreDeletedNote(note);
+      return;
+    } catch (_) {
+      final overlay = navigator.overlay;
+      if (overlay == null || !overlay.mounted) return;
+      if (!await _retryRestore(overlay.context, strings)) {
+        await _finalizeDeletion(controller, note);
+        return;
+      }
+    }
+  }
+}
+
+Future<bool> _retryRestore(BuildContext context, AppStrings strings) async {
+  return await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(strings.errorTitle),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(strings.dismiss),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(strings.retry),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+Future<void> _finalizeDeletion(
+  NotesController controller,
+  TranscriptNote note,
+) async {
+  try {
+    await controller.finalizeDeletion(note);
+  } catch (_) {
+    // The durable deletion candidate can be recovered on the next startup.
+  }
 }
 
 /// Confirms deletion in a dialog. Returns true if the user chose to delete.

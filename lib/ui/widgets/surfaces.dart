@@ -50,13 +50,17 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: padding ?? const EdgeInsets.fromLTRB(6, 22, 6, 9),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-          color: context.palette.faint,
+      child: Semantics(
+        container: true,
+        header: true,
+        child: Text(
+          text.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: context.palette.faint,
+          ),
         ),
       ),
     );

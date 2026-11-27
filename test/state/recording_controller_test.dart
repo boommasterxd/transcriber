@@ -4,15 +4,19 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
+import 'package:transcriber/data/repositories/settings_repository.dart';
 import 'package:transcriber/services/audio/audio_recorder_service.dart';
 import 'package:transcriber/services/remote/remote_audio_limits.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/recording_controller.dart';
+import 'package:transcriber/state/settings_controller.dart';
 
+import '../support/app_test_fakes.dart' show TestSettingsController;
 import 'state_test_fakes.dart';
 
 void main() {
@@ -25,30 +29,29 @@ void main() {
 }
 
 void _registerLimitTests(_RecordingFixture fixture) {
-  test(
-    'resolves and freezes the selected model budget before capture',
-    () async {
-      fixture.container.dispose();
-      fixture.container = ProviderContainer(
-        overrides: [
-          audioRecorderProvider.overrideWithValue(fixture.recorder),
-          initialSettingsProvider.overrideWithValue(
-            const AppSettings(
-              transcription: TranscriptionSettings(
-                provider: RemoteProviderId.openai,
-                models: {RemoteProviderId.openai: 'gpt-audio'},
-              ),
-            ),
-          ),
-        ],
-      );
-      await fixture.controller.start();
-      expect(fixture.recorder.recordingMaxBytes, maxInlineAudioBytes);
-      expect(fixture.state.boundary.maxDurationSec, 655);
-      await fixture.controller.start();
-      expect(fixture.recorder.startCalls, 1);
-    },
-  );
+  test('resolves the persisted model budget before capture', () async {
+    fixture.container.dispose();
+    await SettingsRepository(fixture.database).save(
+      const AppSettings(
+        transcription: TranscriptionSettings(
+          provider: RemoteProviderId.openai,
+          models: {RemoteProviderId.openai: 'gpt-transcribe'},
+        ),
+      ),
+    );
+    fixture.container = ProviderContainer(
+      overrides: [
+        audioRecorderProvider.overrideWithValue(fixture.recorder),
+        databaseProvider.overrideWithValue(fixture.database),
+        initialSettingsProvider.overrideWithValue(const AppSettings()),
+      ],
+    );
+    await fixture.controller.start();
+    expect(fixture.recorder.recordingMaxBytes, maxOpenAiTranscriptionBytes);
+    expect(fixture.state.boundary.maxDurationSec, 781);
+    await fixture.controller.start();
+    expect(fixture.recorder.startCalls, 1);
+  });
 
   testWidgets('native byte completion preserves audio and cannot resume', (
     tester,
@@ -85,7 +88,7 @@ void _registerStartTests(_RecordingFixture fixture) {
   test('cancel during native startup tears down late capture', () async {
     fixture.recorder.startRequest = Completer<String>();
     final starting = fixture.controller.start();
-    await Future<void>.microtask(() {});
+    await fixture.recorder.started.future;
     await fixture.controller.cancel();
     fixture.recorder.startRequest!.complete(fixture.recorder.path);
     expect(await starting, isFalse);
@@ -96,8 +99,9 @@ void _registerStartTests(_RecordingFixture fixture) {
 
 class _RecordingFixture {
   late Directory root;
+  late AppDatabase database;
   late ProviderContainer container;
-  late FakeAudioRecorderService recorder;
+  late _StartedRecorder recorder;
 
   Future<void> setUp() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -110,13 +114,12 @@ class _RecordingFixture {
       supportRoot: Directory('${root.path}/support'),
       cacheRoot: Directory('${root.path}/cache'),
     );
-    recorder = FakeAudioRecorderService(
-      AudioCacheManager(paths: Future.value(paths)),
-    );
+    database = createTestDatabase();
+    recorder = _StartedRecorder(AudioCacheManager(paths: Future.value(paths)));
     container = ProviderContainer(
       overrides: [
         audioRecorderProvider.overrideWithValue(recorder),
-        initialSettingsProvider.overrideWithValue(const AppSettings()),
+        settingsControllerProvider.overrideWith(TestSettingsController.new),
       ],
     );
   }
@@ -127,6 +130,7 @@ class _RecordingFixture {
 
   Future<void> tearDown() async {
     container.dispose();
+    await database.close();
     await recorder.dispose();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -134,5 +138,20 @@ class _RecordingFixture {
           null,
         );
     await root.delete(recursive: true);
+  }
+}
+
+final class _StartedRecorder extends FakeAudioRecorderService {
+  _StartedRecorder(super.cacheManager);
+
+  final started = Completer<void>();
+
+  @override
+  Future<String> start({int? maxBytes}) {
+    final result = maxBytes == null
+        ? super.start()
+        : super.start(maxBytes: maxBytes);
+    if (!started.isCompleted) started.complete();
+    return result;
   }
 }

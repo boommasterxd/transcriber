@@ -59,7 +59,7 @@ class RecordStatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

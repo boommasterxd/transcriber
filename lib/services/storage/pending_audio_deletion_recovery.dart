@@ -12,12 +12,12 @@ final class PendingAudioDeletionRecovery {
   /// Failed attempts move behind other queued paths for the next startup.
   /// Unrelated retained files stay untouched because they may belong to an
   /// unsaved share preview; remaining candidates wait for the next startup.
-  Future<void> recover() async {
+  Future<void> recover({Set<String> protectedPaths = const {}}) async {
     final paths = await _notesRepository.pendingAudioDeletionPaths(
       limit: NotesRepository.maxPendingAudioDeletionBatchSize,
     );
     for (final path in paths) {
-      await _process(path);
+      if (!protectedPaths.contains(path)) await _process(path);
     }
   }
 

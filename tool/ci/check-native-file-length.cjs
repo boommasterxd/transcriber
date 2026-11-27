@@ -15,7 +15,7 @@ function countLines(source) {
 /** Preserve the complete non-Dart file-size gate without installing Dart. */
 function checkNativeFileLengths(cwd = process.cwd()) {
   const output = childProcess.execFileSync('git', [
-    'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '*.kt', '*.kts', '*.sh',
+    'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '*.kt', '*.kts', '*.java', '*.sh',
   ], { cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 256 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
   if (output && !output.endsWith('\0')) throw new Error('Incomplete native source file list.');
   const files = output ? output.slice(0, -1).split('\0') : [];

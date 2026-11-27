@@ -37,9 +37,10 @@ void _registerRetryTests() {
   test('persistence failure preserves staging and allows retry', () async {
     final harness = await _Harness.create();
     addTearDown(harness.dispose);
+    final owner = Object();
     harness.notesRepository.failOnSave = true;
 
-    await harness.run(save: true);
+    await harness.run(save: true, owner: owner);
     expect(harness.state.error, isA<StateError>());
     expect(await harness.staging.exists(), isTrue);
     expect(await harness.notesRepository.load(), isEmpty);
@@ -48,7 +49,9 @@ void _registerRetryTests() {
     expect(await File(pending.audioPath!).exists(), isTrue);
 
     harness.notesRepository.failOnSave = false;
-    await harness.run(save: true);
+    expect(harness.controller.canRetryLocalSave(owner), isTrue);
+    expect(await harness.controller.retryLocalSave(Object()), isFalse);
+    expect(await harness.controller.retryLocalSave(owner), isTrue);
 
     expect(harness.state.error, isNull);
     expect(await harness.staging.exists(), isFalse);

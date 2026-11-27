@@ -9,7 +9,7 @@ const test = require('node:test');
 const { detectDocsOnly, detectChangeScope, classifyPaths, parseJvmClasses, createChangePlan } = require('../../../tool/ci/detect-change-scope.cjs');
 
 function scope(...checks) {
-  return { docs_only: checks.length === 0,
+  return { docs_only: checks.length === 0, gitleaks_updater_only: checks.includes('gitleaks_updater_only'),
     ...Object.fromEntries(['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit']
       .map((name) => [name, checks.includes(name)
         || (name === 'jvm' && checks.includes('native'))
@@ -73,6 +73,10 @@ test('known paths request precisely their relevant checks', () => {
     ['lib/ui/screens/home/home_screen.dart', ['dart', 'native', 'device', 'build']],
     ['lib/ui/screens/home/audio_import.dart', ['dart', 'native', 'device', 'build']],
     ['lib/ui/screens/home/audio_import_recovery_gate.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/screens/share/share_overlay_sheet.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/screens/share/widgets/share_processing_confirmation.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/keyboard/keyboard_components.dart', ['dart', 'native', 'device', 'build']],
+    ['lib/ui/widgets/keyboard_action_target.dart', ['dart', 'native', 'device', 'build']],
     ['lib/services/example.dart', ['dart', 'build']],
     ['test/services/example_test.dart', ['dart']],
     ['assets/images/example.png', ['dart', 'build']],
@@ -243,7 +247,7 @@ test('real deletions and cross-category renames include both affected check sets
   assert.equal(detectChangeScope('push', base, moved, cwd).docs_only, false);
 });
 
-test('plans carry the actual checkout and PR comparison revisions', (context) => {
+test('plans bind the checkout and narrow only a modified updater test with optional docs', (context) => {
   const { cwd, base } = fixture(context);
   write(cwd, 'docs/guide.md', 'Updated\n');
   const head = commit(cwd);
@@ -256,6 +260,24 @@ test('plans carry the actual checkout and PR comparison revisions', (context) =>
   });
   assert.throws(() => createChangePlan('pull_request', '', head, cwd), /valid.*revisions/);
   assert.throws(() => createChangePlan('pull_request', base, head, path.join(cwd, 'missing')));
+
+  const updaterTest = 'test/tool/ci/gitleaks-release.test.cjs';
+  const full = scope('workflow', 'dart', 'jvm', 'native', 'device', 'build');
+  write(cwd, updaterTest, '// New test\n');
+  const added = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', head, added, cwd), full);
+  write(cwd, updaterTest, '// Updated test\n');
+  const modified = commit(cwd);
+  const narrow = scope('workflow', 'gitleaks_updater_only');
+  assert.deepEqual(detectChangeScope('pull_request', added, modified, cwd), narrow);
+  write(cwd, 'docs/guide.md', 'Documented the change\n');
+  const documented = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', added, documented, cwd), narrow);
+  write(cwd, 'lib/example.dart', 'void main() {}\n');
+  const mixed = commit(cwd);
+  assert.deepEqual(detectChangeScope('pull_request', added, mixed, cwd), full);
+  fs.unlinkSync(path.join(cwd, updaterTest));
+  assert.deepEqual(detectChangeScope('pull_request', mixed, commit(cwd), cwd), full);
 });
 
 test('planning CLI cannot emit an unbound plan when comparison revisions are missing', (context) => {

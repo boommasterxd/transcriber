@@ -22,6 +22,8 @@ Repository-owned Node.js tooling must use the newest officially released Node.js
 
 Dependency direction is `UI -> state -> services/repositories -> models and external integrations`. Keep provider-specific behavior behind `TranscriptionProviderClient`, `SummaryProviderClient`, and `ModelCatalogClient`, transcription behind `TranscriptionService`, and summarization behind `SummarizationService`. Preserve the dedicated share entry point and explicit audio-ownership boundary.
 
+For UI changes, reuse or extend the shared theme and design values in [`lib/core/theme/`](lib/core/theme/) and the shared components in [`lib/ui/widgets/`](lib/ui/widgets/).
+
 See [`docs/architecture.md`](docs/architecture.md) for entry points, data flows, and integration boundaries.
 
 ## Naming and Layout
@@ -81,7 +83,9 @@ Keep permanent tests focused on critical outcomes. Add or update deterministic t
 
 Use isolated fixtures and mock external integrations at their boundaries. Keep device tests for outcomes that require Android, including external share intents, document-picker recovery after process death, and input-method behavior. Avoid fixed sleeps, order-dependent state, real provider requests, and production credentials.
 
-Run affected suites locally after locked dependency resolution. `dart run tool/ci/run_test_plan.dart` discovers the complete Dart suite. The [CI selection guide](docs/ci-test-selection.md) explains affected selection and full fallback. See [code quality](docs/code-quality.md#local-commands) for Kotlin, device, Node, and release checks. Verify each changed app flow directly with `flutter run` on a supported Android device or emulator.
+Run affected suites locally after locked dependency resolution. `dart run tool/ci/run_test_plan.dart` discovers the complete Dart suite. The [CI selection guide](docs/ci-test-selection.md) explains affected selection and full fallback. See [code quality](docs/code-quality.md#local-commands) for Kotlin, device, Node, and release checks.
+
+During implementation and on the final revision, exercise each changed app flow with `flutter run` on a supported Android device or emulator. Use isolated synthetic data and check affected layouts, input modes, accessibility, motion, recovery, and performance. Follow the [local validation guide](docs/operations.md#validation) and report the results and gaps in chat.
 
 ## Security and Privacy
 
@@ -123,6 +127,7 @@ See [`docs/security.md`](docs/security.md) for trust boundaries and current resi
 | [`docs/decisions/cloud-byok-and-drift.md`](docs/decisions/cloud-byok-and-drift.md) | Records the cloud-only BYOK and Drift persistence decision. |
 | [`docs/decisions/repository-admin-bypass.md`](docs/decisions/repository-admin-bypass.md) | Records the owner's accepted admin bypass and its effect on required checks. |
 | [`docs/operations.md`](docs/operations.md) | Provides local development, validation, build, and release operating procedures. |
+| [`docs/privacy-policy-en.md`](docs/privacy-policy-en.md) | Contains the English privacy policy for Transcriber. |
 | [`docs/privacy-policy.md`](docs/privacy-policy.md) | Contains the German privacy policy for Transcriber. |
 | [`docs/provider-setup.md`](docs/provider-setup.md) | Explains how to create and safely configure OpenAI and Gemini API keys. |
 | [`docs/security.md`](docs/security.md) | Describes protected assets, trust boundaries, controls, assumptions, and residual risks. |

@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
-import '../../../state/notes_controller.dart';
 import '../../../state/note_detail_provider.dart';
 import '../../../state/settings_controller.dart';
+import '../../widgets/ai_provenance_widgets.dart';
 import '../../widgets/surfaces.dart';
 import 'widgets/audio_deleted_notice.dart';
 import 'widgets/detail_audio_player.dart';
@@ -40,21 +40,26 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final t = ref.watch(stringsProvider);
-    final detail = ref.watch(noteDetailProvider(widget.noteId));
-    if (detail.isLoading || detail.hasError) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: NoteDetailStatus(
-          loading: detail.isLoading,
-          strings: t,
-          retry: () => ref.invalidate(noteDetailProvider(widget.noteId)),
-        ),
+    final provider = noteDetailProvider(widget.noteId);
+    final detail = ref.watch(provider);
+    final note = detail.value;
+    final strings = ref.watch(stringsProvider);
+    Widget status() => NoteDetailStatus(
+      loading: detail.isLoading,
+      strings: strings,
+      retry: () => ref.invalidate(provider),
+    );
+    if (note != null) {
+      return _detailScreen(
+        note,
+        strings,
+        refreshError: detail.hasError && !detail.isLoading ? status() : null,
       );
     }
-    final note = watchNote(widget.noteId);
-
-    return note == null ? _missingNote(t) : _detailScreen(note, t);
+    if (detail.isLoading || detail.hasError) {
+      return Scaffold(appBar: AppBar(), body: status());
+    }
+    return _missingNote(strings);
   }
 
   Widget _missingNote(AppStrings strings) {
@@ -68,7 +73,11 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
     );
   }
 
-  Widget _detailScreen(TranscriptNote note, AppStrings strings) {
+  Widget _detailScreen(
+    TranscriptNote note,
+    AppStrings strings, {
+    Widget? refreshError,
+  }) {
     return Scaffold(
       backgroundColor: context.palette.bg,
       body: SafeArea(
@@ -84,6 +93,7 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
                 onDelete: () => _delete(note),
               ),
             ),
+            ?refreshError,
             Expanded(
               child: FadeEdges(
                 topHeight: 16,
@@ -117,9 +127,8 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
         NoteTodos.phone(
           todos: note.todos,
           strings: strings,
-          onToggle: (index) => ref
-              .read(notesControllerProvider.notifier)
-              .toggleTodo(note.id, index),
+          onToggle: (index) =>
+              ref.read(noteDetailProvider(note.id).notifier).toggleTodo(index),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 12)),
       ],
@@ -171,6 +180,11 @@ class _TranscriptDetailScreenState extends ConsumerState<TranscriptDetailScreen>
       const SizedBox(height: 12),
       ProcessedWithCard(note: note, strings: strings),
       const SizedBox(height: 22),
+      AiSummaryItemsProvenance(
+        note: note,
+        strings: strings,
+        padding: const EdgeInsets.only(bottom: 8),
+      ),
     ];
   }
 }

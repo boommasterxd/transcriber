@@ -21,6 +21,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26.x"
@@ -37,18 +39,76 @@ jobs:
     if: >-
       ${{ !cancelled() && (needs.npm-preflight.result == 'success' ||
           (inputs.npm-preflight-passed && needs.npm-preflight.result == 'skipped')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
     permissions:
-      actions: read
       contents: read
-      security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@d3c1414ded37de590f207572e37a7d180f1d0ef7 # v2.7.1 + fail-closed scan guard
-    with:
-      scan-args: |-
-        --config=tool/quality/node/osv-scanner.toml
-        --lockfile=pubspec.lock
-        --lockfile=android/app/gradle.lockfile
-        --lockfile=tool/ci/jvm/gradle.lockfile
-        --lockfile=tool/ci/jvm/gradle/verification-metadata.xml
-        --lockfile=tool/quality/node/package-lock.json
-      upload-sarif: false
-      fail-on-vuln: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan explicitly listed dependencies with OSV
+        shell: bash
+        env:
+          OSV_VERSION: 2.7.1
+          OSV_SHA256: fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8
+        run: |
+          config=tool/quality/node/osv-scanner.toml
+          gradle_locks=(android/app/gradle.lockfile tool/ci/jvm/gradle.lockfile)
+          lockfiles=(
+            pubspec.lock
+            "${gradle_locks[@]}"
+            tool/ci/jvm/gradle/verification-metadata.xml
+            tool/quality/node/package-lock.json
+          )
+          workspace=$(pwd -P)
+          for input in "$config" "${lockfiles[@]}"; do
+            if [[ ! -f "$input" || ! -r "$input" || ! -s "$input" ||
+                  "$(realpath -e -- "$input")" != "$workspace/$input" ]]; then
+              printf 'OSV scan requires a readable, nonempty checkout file: %s\n' "$input" >&2
+              exit 1
+            fi
+          done
+
+          # OSV's Gradle extractor can skip individual malformed lock entries.
+          for lockfile in "${gradle_locks[@]}"; do
+            awk '
+              BEGIN { configurations = "[^[:space:],=]+(,[^[:space:],=]+)*" }
+              { sub(/\r$/, "") }
+              /^[[:space:]]*(#|$)/ { next }
+              $0 ~ ("^empty=(" configurations ")?$") { markers++; next }
+              split($0, fields, "=") == 2 &&
+                fields[1] ~ /^[^[:space:]:=,]+:[^[:space:]:=,]+:[^[:space:]:=,]+$/ &&
+                fields[2] ~ ("^" configurations "$") { modules++; next }
+              {
+                printf "%s:%d: invalid Gradle lock entry\n", FILENAME, FNR > "/dev/stderr"
+                invalid = 1
+                exit 1
+              }
+              END {
+                if (!invalid && (modules == 0 || markers != 1)) {
+                  printf "%s: incomplete Gradle lockfile\n", FILENAME > "/dev/stderr"
+                  exit 1
+                }
+              }
+            ' "$lockfile"
+          done
+
+          scanner_dir=$(mktemp -d "$RUNNER_TEMP/osv-scanner.XXXXXX")
+          scanner="$scanner_dir/osv-scanner"
+          cleanup() {
+            if [[ -e "$scanner" ]]; then unlink -- "$scanner"; fi
+            rmdir -- "$scanner_dir"
+          }
+          trap cleanup EXIT
+          scanner_url="https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/osv-scanner_linux_amd64"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 120 --output "$scanner" "$scanner_url"
+          printf '%s  %s\n' "$OSV_SHA256" "$scanner" | sha256sum --check --strict
+          chmod u+x "$scanner"
+
+          scan_args=(--config="$config")
+          for lockfile in "${lockfiles[@]}"; do
+            scan_args+=("--lockfile=$lockfile")
+          done
+          timeout --kill-after=5s 4m "$scanner" scan source "${scan_args[@]}"

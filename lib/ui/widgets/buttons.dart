@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_accent.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_theme.dart';
 import 'keyboard_action_target.dart';
 
 /// Wraps [child] so it scales down briefly while pressed, providing tactile feedback
@@ -124,7 +125,7 @@ class PillButton extends StatelessWidget {
                     ? Colors.transparent
                     : palette.accent
               : palette.chip,
-          borderRadius: BorderRadius.circular(9999),
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
           border: outlined
               ? Border.all(color: palette.line2, width: 1.5)
               : null,

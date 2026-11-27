@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
 import 'package:transcriber/data/repositories/notes_repository.dart';
+import 'package:transcriber/state/history_controller.dart';
+import 'package:transcriber/state/note_detail_provider.dart';
 import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/state/providers.dart';
 
@@ -47,8 +49,30 @@ void main() {
       final share = shareEngine.read(notesControllerProvider.notifier);
       await main.add(_note('main'));
       await share.add(_note('share'));
-      await main.toggleTodo('share', 0);
+      final detailProvider = noteDetailProvider('share');
+      final subscription = mainEngine.listen(detailProvider, (_, _) {});
+      addTearDown(subscription.close);
+      final initial = (await mainEngine.read(detailProvider.future))!;
+      final page = await mainEngine.read(historyControllerProvider.future);
+      await main.refresh();
+      expect(mainEngine.read(detailProvider).value, same(initial));
+      expect(
+        mainEngine.read(historyControllerProvider).value?.entries,
+        same(page.entries),
+      );
+
+      await mainEngine.read(detailProvider.notifier).toggleTodo(0);
+      final toggled = mainEngine.read(detailProvider).value!;
+      expect(toggled.todos.single.done, isTrue);
+      expect(toggled.transcript, same(initial.transcript));
       await share.toggleTodo('share', 0);
+      await main.refresh();
+      final refreshed = await mainEngine.read(detailProvider.future);
+      expect(refreshed?.todos.single.done, isFalse);
+      expect(
+        mainEngine.read(historyControllerProvider).value?.entries,
+        same(page.entries),
+      );
       await main.delete('main');
 
       final remaining = (await shareRepository.load()).single;
@@ -60,7 +84,7 @@ void main() {
   );
 
   test(
-    'an add failure rolls back note and child mutations together',
+    'a failed write rolls back both notes and their children',
     () => _verifyRollback(mainRepository, shareRepository, mainDatabase),
   );
 }
@@ -77,13 +101,15 @@ CREATE TEMP TRIGGER reject_note_points BEFORE INSERT ON note_points
 BEGIN SELECT RAISE(ABORT, 'injected write failure'); END
 ''');
 
-  await expectLater(
-    repository.add(_note('other')),
-    throwsA(
-      predicate<Object>(
-        (error) => error.toString().contains('injected write failure'),
-      ),
+  final rejected = throwsA(
+    predicate<Object>(
+      (error) => error.toString().contains('injected write failure'),
     ),
+  );
+  await expectLater(repository.add(_note('other')), rejected);
+  await expectLater(
+    repository.saveAll([for (var i = 0; i < 130; i++) _note('batch-$i')]),
+    rejected,
   );
   final loaded = (await peer.load()).single;
   expect(loaded.createdAt.isAtSameMomentAs(original.createdAt), isTrue);

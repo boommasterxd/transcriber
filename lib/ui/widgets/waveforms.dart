@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_theme.dart';
 
 /// Deterministic pseudo-waveform heights (0.2..1.0) used by the players.
 /// Cached per bar count: the values never change, and [PlayerWave] rebuilds on
@@ -108,7 +109,7 @@ class EqWave extends StatelessWidget {
                 height: 30 * scale,
                 decoration: BoxDecoration(
                   color: barColor,
-                  borderRadius: BorderRadius.circular(9999),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                 ),
               ),
             );
@@ -142,7 +143,7 @@ class MiniWave extends StatelessWidget {
                 height: h,
                 decoration: BoxDecoration(
                   color: c.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(9999),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                 ),
               ),
             ),
@@ -238,7 +239,7 @@ class PlayerWave extends StatelessWidget {
             height: heights[i] * 26 + 8,
             decoration: BoxDecoration(
               color: (i / count) <= progress ? palette.accent : palette.waveOff,
-              borderRadius: BorderRadius.circular(9999),
+              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             ),
           ),
       ],

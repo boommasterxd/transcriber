@@ -45,6 +45,7 @@ class AppStrings {
   String recLimitWarning(String duration) =>
       _string(_StringKey.recLimitWarning).replaceAll('{duration}', duration);
   String get recLimitReached => _string(_StringKey.recLimitReached);
+  String get recStartFailure => _string(_StringKey.recStartFailure);
   String get recFailure => _string(_StringKey.recFailure);
   String get recResume => _string(_StringKey.recResume);
   String get recPause => _string(_StringKey.recPause);
@@ -142,6 +143,11 @@ class AppStrings {
   String get shFrom => _string(_StringKey.shFrom);
   String get shSummary => _string(_StringKey.shSummary);
   String get aiGeneratedSummary => _string(_StringKey.aiGeneratedSummary);
+  String get aiGeneratedTitle => _string(_StringKey.aiGeneratedTitle);
+  String get aiGeneratedPoints => _string(_StringKey.aiGeneratedPoints);
+  String get aiGeneratedActions => _string(_StringKey.aiGeneratedActions);
+  String get aiGeneratedPointsAndActions =>
+      _string(_StringKey.aiGeneratedPointsAndActions);
   String get unknownSummaryOrigin =>
       _string(_StringKey.unknownSummaryOrigin)
           .replaceAll('{summary}', shSummary);
@@ -171,6 +177,9 @@ class AppStrings {
   String get processingTitle => _string(_StringKey.processingTitle);
   String get errorTitle => _string(_StringKey.errorTitle);
   String get processingFailedBody => _string(_StringKey.processingFailedBody);
+  String get geminiAudioDurationUnknown =>
+      _string(_StringKey.geminiAudioDurationUnknown);
+  String get geminiAudioTooLong => _string(_StringKey.geminiAudioTooLong);
   String get audioImportFailed => _string(_StringKey.audioImportFailed);
   String get recoveredAudioTitle => _string(_StringKey.recoveredAudioTitle);
   String get recoveredAudioBody => _string(_StringKey.recoveredAudioBody);

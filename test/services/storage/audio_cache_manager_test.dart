@@ -20,7 +20,7 @@ void main() {
 
   tearDown(() => harness.dispose());
 
-  _registerExternalImportTests(() => harness);
+  _registerExternalPathSafetyTest(() => harness);
   _registerOwnershipTests(() => harness);
   _registerCleanupTests(() => harness);
 }
@@ -76,47 +76,6 @@ final class _AudioCacheTestHarness {
   Future<void> dispose() async {
     if (await root.exists()) await root.delete(recursive: true);
   }
-}
-
-void _registerExternalImportTests(_HarnessGetter getHarness) {
-  group('external imports', () {
-    _registerExternalValidationTest(getHarness);
-    _registerExternalPathSafetyTest(getHarness);
-  });
-}
-
-void _registerExternalValidationTest(_HarnessGetter getHarness) {
-  test(
-    'rejects empty, unsupported, and oversized sources before import',
-    () async {
-      final harness = getHarness();
-      final empty = await _writeAudio(harness.externalRoot, 'empty.m4a', 0);
-      final unsupported = await _writeFile(
-        harness.externalRoot,
-        'notes.txt',
-        4,
-      );
-      final oversized = await _writeAudio(
-        harness.externalRoot,
-        'large.m4a',
-        11,
-      );
-
-      expect(
-        harness.manager.importExternal(empty.path),
-        throwsA(isA<FileSystemException>()),
-      );
-      expect(
-        harness.manager.importExternal(unsupported.path),
-        throwsA(isA<ArgumentError>()),
-      );
-      expect(
-        harness.manager.importExternal(oversized.path),
-        throwsA(isA<FileSystemException>()),
-      );
-      expect(await _files(await harness.paths.importCacheDir()), isEmpty);
-    },
-  );
 }
 
 void _registerExternalPathSafetyTest(_HarnessGetter getHarness) {
@@ -185,7 +144,7 @@ void _registerActiveCleanupTest(_HarnessGetter getHarness) {
     final active = await _writeAudio(directory, 'active.m4a', 6);
     final other = await _writeAudio(directory, 'other.m4a', 6);
     await active.setLastModified(harness.now.subtract(const Duration(days: 2)));
-    await other.setLastModified(harness.now.subtract(const Duration(days: 2)));
+    await other.setLastModified(harness.now.subtract(const Duration(hours: 1)));
     final activeManaged = ManagedAudioFile(
       path: active.path,
       ownership: AudioOwnership.temporary,
@@ -200,16 +159,8 @@ void _registerActiveCleanupTest(_HarnessGetter getHarness) {
   });
 }
 
-Future<File> _writeAudio(Directory directory, String name, int size) =>
-    _writeFile(directory, name, size);
-
-Future<File> _writeFile(Directory directory, String name, int size) async {
+Future<File> _writeAudio(Directory directory, String name, int size) async {
   final file = File(p.join(directory.path, name));
   await file.writeAsBytes(List<int>.filled(size, 0));
   return file;
 }
-
-Future<List<File>> _files(Directory directory) async => [
-  for (final entity in await directory.list().toList())
-    if (entity is File) entity,
-];

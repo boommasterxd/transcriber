@@ -95,7 +95,6 @@ Future<void> _pumpApp(
     appScope(
       database: appDatabase,
       settings: settings,
-      shareService: TestShareIntentService(),
       child: textScale == null
           ? app
           : MediaQuery(

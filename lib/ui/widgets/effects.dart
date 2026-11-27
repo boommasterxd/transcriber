@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_theme.dart';
 import 'waveforms.dart';
 
 /// Pulsing concentric rings around an animated equalizer for the processing and
@@ -142,7 +143,7 @@ class StepIndicator extends StatelessWidget {
             margin: const EdgeInsets.only(top: 16),
             decoration: BoxDecoration(
               color: palette.accentSoft,
-              borderRadius: BorderRadius.circular(9999),
+              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             ),
           ),
           Expanded(

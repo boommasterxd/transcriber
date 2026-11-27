@@ -1,11 +1,5 @@
 part of 'keyboard_screen.dart';
 
-final _keyboardIdleLevels = List<double>.filled(
-  DictationController.maximumLevels,
-  DictationController.initialWaveformLevel,
-  growable: false,
-);
-
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.state,
@@ -186,8 +180,7 @@ class _KeyboardActiveStatus extends StatelessWidget {
       Flexible(
         child: Text(
           status,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: context.palette.muted,
             fontSize: 11,
@@ -292,19 +285,20 @@ class _ConnectingStatus extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox.square(
-          dimension: 30,
-          child: CircularProgressIndicator(
-            value: animationsDisabled ? 0.7 : null,
-            strokeWidth: 3,
-            color: context.palette.accent,
-            backgroundColor: context.palette.accentSoft,
+        ExcludeSemantics(
+          child: SizedBox.square(
+            dimension: 30,
+            child: CircularProgressIndicator(
+              value: animationsDisabled ? 0.7 : null,
+              strokeWidth: 3,
+              color: context.palette.accent,
+              backgroundColor: context.palette.accentSoft,
+            ),
           ),
         ),
         const SizedBox(height: 12),
         Text(
           status,
-          maxLines: 2,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: context.palette.ink,
@@ -341,19 +335,6 @@ class _Timer extends StatelessWidget {
 }
 
 String _statusText(DictationState state, AppStrings strings) {
-  if (state.phase == DictationPhase.error) {
-    return switch (state.errorCode) {
-      'microphone_denied' => strings.keyboardMicMissing,
-      'api_key_missing' => strings.keyboardKeyMissing,
-      'authentication_failed' => strings.keyboardAuthenticationError,
-      'quota_exceeded' => strings.keyboardQuotaError,
-      'model_unavailable' ||
-      'provider_access_denied' => strings.keyboardModelError,
-      'configuration_rejected' => strings.keyboardConfigurationError,
-      'connection_timeout' => strings.keyboardTimeoutError,
-      _ => strings.keyboardConnectionError,
-    };
-  }
   return switch (state.phase) {
     DictationPhase.loading => strings.keyboardConnect,
     DictationPhase.ready => strings.keyboardReady,
@@ -364,6 +345,19 @@ String _statusText(DictationState state, AppStrings strings) {
     DictationPhase.reconnecting => strings.keyboardReconnect,
     DictationPhase.stopping => strings.keyboardStopping,
     DictationPhase.unavailable => strings.keyboardSensitiveField,
-    DictationPhase.error => strings.keyboardConnectionError,
+    DictationPhase.error => _errorStatusText(state.errorCode, strings),
   };
 }
+
+String _errorStatusText(String? errorCode, AppStrings strings) =>
+    switch (errorCode) {
+      'microphone_denied' => strings.keyboardMicMissing,
+      'api_key_missing' => strings.keyboardKeyMissing,
+      'authentication_failed' => strings.keyboardAuthenticationError,
+      'quota_exceeded' => strings.keyboardQuotaError,
+      'model_unavailable' ||
+      'provider_access_denied' => strings.keyboardModelError,
+      'configuration_rejected' => strings.keyboardConfigurationError,
+      'connection_timeout' => strings.keyboardTimeoutError,
+      _ => strings.keyboardConnectionError,
+    };

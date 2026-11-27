@@ -1,21 +1,21 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:transcriber/core/l10n/app_strings.dart';
-import 'package:transcriber/core/toast.dart';
 import 'package:transcriber/core/theme/app_theme.dart';
 import 'package:transcriber/data/models/app_accent.dart';
 import 'package:transcriber/data/models/app_settings.dart';
+import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/services/audio/audio_import_picker.dart';
+import 'package:transcriber/services/processing/processing_request.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
-import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/processing_controller.dart';
-import 'package:transcriber/services/processing/processing_request.dart';
+import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/ui/screens/home/audio_import_recovery_gate.dart';
 import 'package:transcriber/ui/screens/processing/processing_screen.dart';
 
@@ -23,11 +23,14 @@ import '../../../support/app_test_fakes.dart';
 
 const _channel = MethodChannel('app/audio_import');
 final _strings = AppStrings.of(AppLanguage.de);
+const _settings = AppSettings(
+  summary: SummarySettings(provider: RemoteProviderId.openai),
+);
 
 late AudioImportPickerService picker;
 late Completer<Object?> recovery;
 late List<String> calls;
-late Completer<void> processingPushed;
+late List<ProcessingInput> submitted;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +38,7 @@ void main() {
   setUp(() {
     picker = AudioImportPickerService();
     calls = [];
-    processingPushed = Completer<void>();
+    submitted = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, (call) {
           calls.add(call.method);
@@ -80,21 +83,32 @@ void _registerDialogTests() {
     final ready = ValueNotifier(true);
     addTearDown(ready.dispose);
     await _pumpGate(tester, picker, ready, manager: manager);
-    recovery.complete(_result(source.path));
+    await _showRecoveredApproval(tester, source.path);
     await tester.pumpAndSettle();
     expect(find.byType(ProcessingScreen), findsNothing);
-    await _confirmImport(tester);
+    expect(submitted, isEmpty);
+    expect(
+      find.text(_strings.shareAudioRecipient('Google Gemini')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(_strings.shareTranscriptRecipient('OpenAI')),
+      findsOneWidget,
+    );
+    await tester.runAsync(() async {
+      await tester.tap(find.text(_strings.recoveredAudioContinue));
+      await Future<void>(() {});
+    });
     await tester.pump();
+
+    final input = submitted.single;
     final screen = tester.widget<ProcessingScreen>(
-      find.byType(ProcessingScreen),
+      find.byType(ProcessingScreen, skipOffstage: false),
     );
     expect(screen.fileName, 'voice.wav');
-    expect(screen.audioPath, source.path);
-    expect(await tester.runAsync(() => File(screen.audioPath).readAsBytes()), [
-      1,
-      2,
-      3,
-    ]);
+    expect(input.settings, same(_settings));
+    expect(input.audioPath, source.path);
+    expect(await tester.runAsync(source.readAsBytes), [1, 2, 3]);
     expect(calls, ['recoverInterruptedPick']);
   });
 }
@@ -108,8 +122,6 @@ Future<void> _pumpGate(
   WidgetTester tester,
   AudioImportPickerService picker,
   ValueNotifier<bool> ready, {
-  bool dark = false,
-  bool largeText = false,
   AudioCacheManager? manager,
 }) async {
   final database = testDatabase();
@@ -117,27 +129,17 @@ Future<void> _pumpGate(
   await tester.pumpWidget(
     appScope(
       database: database,
-      settings: AppSettings.initial(),
+      settings: _settings,
       cacheManager: manager,
       child: ProviderScope(
         overrides: [
           audioImportPickerProvider.overrideWithValue(picker),
           processingControllerProvider.overrideWith(
-            _NoopProcessingController.new,
+            _CapturingProcessingController.new,
           ),
         ],
         child: MaterialApp(
-          scaffoldMessengerKey: scaffoldMessengerKey,
-          navigatorObservers: [_ProcessingObserver()],
-          theme: AppTheme.build(
-            dark ? Brightness.dark : Brightness.light,
-            AppAccent.blue,
-          ),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(largeText ? 2 : 1)),
-            child: child!,
-          ),
+          theme: AppTheme.build(Brightness.light, AppAccent.blue),
           home: ValueListenableBuilder<bool>(
             valueListenable: ready,
             builder: (context, value, _) => AudioImportRecoveryGate(
@@ -151,33 +153,24 @@ Future<void> _pumpGate(
   );
 }
 
-class _ProcessingObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (previousRoute != null &&
-        route is PageRoute &&
-        !processingPushed.isCompleted) {
-      processingPushed.complete();
-    }
-  }
-}
+Future<void> _showRecoveredApproval(WidgetTester tester, String path) =>
+    tester.runAsync(() async {
+      recovery.complete(_result(path));
+      final deadline = Stopwatch()..start();
+      final title = find.text(_strings.recoveredAudioTitle);
+      while (title.evaluate().isEmpty && deadline.elapsed.inSeconds < 10) {
+        await tester.pump();
+        await Future<void>(() {});
+      }
+      expect(title, findsOneWidget);
+    });
 
-Future<void> _confirmImport(WidgetTester tester) => tester.runAsync(() async {
-  await tester.tap(find.text(_strings.recoveredAudioContinue));
-  final deadline = Stopwatch()..start();
-  while (!processingPushed.isCompleted && deadline.elapsed.inSeconds < 10) {
-    await tester.pump();
-    await Future<void>(() {});
-  }
-  expect(processingPushed.isCompleted, isTrue);
-});
-
-class _NoopProcessingController extends ProcessingController {
+class _CapturingProcessingController extends ProcessingController {
   @override
   Future<void> run(
     ProcessingInput input, {
     String? fileName,
     bool save = true,
     Object? owner,
-  }) async {}
+  }) async => submitted.add(input);
 }

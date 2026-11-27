@@ -9,21 +9,12 @@ import 'package:transcriber/data/database/app_database.dart';
 import 'package:transcriber/data/models/app_settings.dart';
 import 'package:transcriber/data/models/remote_provider.dart';
 import 'package:transcriber/data/models/transcript_note.dart';
-import 'package:transcriber/services/share/share_intent_service.dart';
 import 'package:transcriber/services/storage/audio_cache_manager.dart';
 import 'package:transcriber/services/storage/storage_paths.dart';
 import 'package:transcriber/state/connections_controller.dart';
 import 'package:transcriber/state/notes_controller.dart';
 import 'package:transcriber/state/providers.dart';
 import 'package:transcriber/state/settings_controller.dart';
-
-final class TestShareIntentService extends ShareIntentService {
-  @override
-  Future<String?> initialSharedAudio() async => null;
-
-  @override
-  void listen(void Function(String path) onAudio) {}
-}
 
 final class TestSettingsController extends SettingsController {
   TestSettingsController([AppSettings? initial])
@@ -33,6 +24,9 @@ final class TestSettingsController extends SettingsController {
 
   @override
   AppSettings build() => _initial;
+
+  @override
+  Future<AppSettings> readCurrent() async => state;
 }
 
 final class TestConnectionsController extends ConnectionsController {
@@ -80,7 +74,6 @@ Widget appScope({
   required AppDatabase database,
   required AppSettings settings,
   AudioCacheManager? cacheManager,
-  TestShareIntentService? shareService,
   required Widget child,
 }) => ProviderScope(
   overrides: [
@@ -96,8 +89,6 @@ Widget appScope({
     ),
     connectionsControllerProvider.overrideWith(TestConnectionsController.new),
     notesControllerProvider.overrideWith(TestNotesController.new),
-    if (shareService != null)
-      shareIntentServiceProvider.overrideWithValue(shareService),
   ],
   child: child,
 );

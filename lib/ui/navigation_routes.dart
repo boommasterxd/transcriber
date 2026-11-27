@@ -28,6 +28,10 @@ Route<T> fadeSlideRoute<T>(Widget page) {
 }
 
 Future<void> openSettingsRoute(BuildContext context) {
-  FocusManager.instance.primaryFocus?.unfocus();
+  final focus = FocusManager.instance.primaryFocus;
+  if (focus != null &&
+      focus.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
+    focus.unfocus();
+  }
   return Navigator.of(context).push(fadeSlideRoute(const SettingsScreen()));
 }

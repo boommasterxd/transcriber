@@ -5,9 +5,11 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/storage/managed_audio_file.dart';
+import '../../../state/providers.dart';
 import '../../../state/recording_controller.dart';
 import '../../../state/settings_controller.dart';
 import '../../processing_navigation.dart';
+import '../../widgets/processing_approval_dialog.dart';
 import '../../widgets/recording_controls.dart';
 import 'widgets/record_body.dart';
 import 'widgets/record_header.dart';
@@ -22,6 +24,8 @@ class RecordScreen extends ConsumerStatefulWidget {
 }
 
 class _RecordScreenState extends ConsumerState<RecordScreen> {
+  bool _starting = false;
+  bool _startFailed = false;
   bool _busy = false;
   bool _cancelling = false;
 
@@ -32,7 +36,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _begin() async {
-    if (!mounted || _cancelling) return;
+    if (!mounted || _starting || _cancelling) return;
+    setState(() => _starting = true);
+    var startFailed = false;
     try {
       final permission = await Permission.microphone.request();
       if (!mounted || _cancelling) return;
@@ -43,13 +49,24 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       final ok = await ref.read(recordingControllerProvider.notifier).start();
       if (!ok && mounted && !_cancelling) _showPermissionError();
     } catch (_) {
-      if (mounted && !_cancelling) _showRecordingError();
+      startFailed = true;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _starting = false;
+          if (!_cancelling) _startFailed = startFailed;
+        });
+      }
     }
   }
 
   void _showRecordingError() {
+    final strings = ref.read(stringsProvider);
+    final hasAudio = ref.read(recordingControllerProvider).path != null;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ref.read(stringsProvider).recFailure)),
+      SnackBar(
+        content: Text(hasAudio ? strings.recFailure : strings.errorTitle),
+      ),
     );
   }
 
@@ -83,36 +100,68 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 
   Future<void> _finishRecording() async {
+    final cacheManager = ref.read(audioCacheManagerProvider);
     final result = await ref.read(recordingControllerProvider.notifier).stop();
-    if (!mounted) return;
     if (result == null) {
-      Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
       return;
     }
-    // Replace the record screen with processing so that, after processing swaps
-    // itself for the detail screen, back from detail returns to home, not to a
-    // lingering record screen.
-    await startProcessingRoute(
-      context,
-      ProcessingNavigationRequest(
-        audioPath: result.path,
-        ownership: AudioOwnership.temporary,
-        source: NoteSource.recording,
-        knownDurationSec: result.durationSec,
-      ),
-      replace: true,
-    );
+    var handedOff = false;
+    try {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final audio = await cacheManager.registerRecording(result.path);
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final settings = await ref
+          .read(settingsControllerProvider.notifier)
+          .readCurrent();
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final approved = await showProcessingApproval(
+        context,
+        settings: settings,
+      );
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (!approved) {
+        Navigator.of(context).pop();
+        return;
+      }
+      final processing = startProcessingRoute(
+        context,
+        ProcessingNavigationRequest(
+          audio: audio,
+          source: NoteSource.recording,
+          settings: settings,
+          knownDurationSec: result.durationSec,
+        ),
+        replace: true,
+      );
+      handedOff = true;
+      await processing;
+    } finally {
+      if (!handedOff) {
+        await cacheManager
+            .discard(
+              ManagedAudioFile(
+                path: result.path,
+                ownership: AudioOwnership.temporary,
+              ),
+            )
+            .catchError((Object _) {
+              // The native cache can retry a failed discard.
+            });
+      }
+    }
   }
 
   Future<void> _cancel() async {
     if (_busy || _cancelling) return;
-    _cancelling = true;
+    setState(() => _cancelling = true);
     try {
       await ref.read(recordingControllerProvider.notifier).cancel();
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
-      _cancelling = false;
-      if (mounted) _showRecordingError();
+      if (!mounted) return;
+      setState(() => _cancelling = false);
+      _showRecordingError();
     }
   }
 
@@ -153,6 +202,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               Expanded(
                 child: captured
                     ? RecordBody(paused: paused, strings: strings)
+                    : _startFailed
+                    ? _RecordingStartFailure(
+                        message: strings.recStartFailure,
+                        retryLabel: strings.retry,
+                        onRetry: _starting || _cancelling ? null : _begin,
+                      )
                     : const SizedBox.shrink(),
               ),
               RecordControls(
@@ -170,4 +225,35 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       ),
     );
   }
+}
+
+class _RecordingStartFailure extends StatelessWidget {
+  const _RecordingStartFailure({
+    required this.message,
+    required this.retryLabel,
+    required this.onRetry,
+  });
+
+  final String message;
+  final String retryLabel;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            container: true,
+            liveRegion: true,
+            child: Text(message, textAlign: TextAlign.center),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+        ],
+      ),
+    ),
+  );
 }

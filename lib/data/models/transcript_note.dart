@@ -128,6 +128,7 @@ class TranscriptNote with NoteDisplayMetadata {
     required this.origins,
     this.audioPath,
     this.audioOwnership = AudioOwnership.external,
+    this.titleIsAiGenerated,
   });
 
   @override
@@ -148,12 +149,18 @@ class TranscriptNote with NoteDisplayMetadata {
   List<TranscriptLine> get transcript => content.transcript;
   String? get summaryError => content.summaryError;
 
-  // Legacy notes without a recorded model and processing origin remain unknown.
-  bool get hasAiGeneratedSummary =>
-      summaryError == null &&
-      gist.trim().isNotEmpty &&
-      llmName.trim().isNotEmpty &&
-      llmSub.trim().isNotEmpty;
+  /// Null when the original title source was not recorded.
+  final bool? titleIsAiGenerated;
+
+  bool get hasAiGeneratedSummary {
+    if (summaryError != null) return false;
+    if (titleIsAiGenerated == true) return true;
+    final hasSummaryContent =
+        gist.trim().isNotEmpty || points.isNotEmpty || todos.isNotEmpty;
+    return hasSummaryContent &&
+        llmName.trim().isNotEmpty &&
+        llmSub.trim().isNotEmpty;
+  }
 
   /// Local path of the (optionally retained) source audio file.
   final String? audioPath;
@@ -179,11 +186,13 @@ class TranscriptNote with NoteDisplayMetadata {
     ),
     audioPath: audioPath ?? this.audioPath,
     audioOwnership: audioOwnership ?? this.audioOwnership,
+    titleIsAiGenerated: titleIsAiGenerated,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
+    'titleIsAiGenerated': titleIsAiGenerated,
     'speaker': speaker,
     'source': source.id,
     'durationSec': durationSec,
@@ -241,5 +250,6 @@ class TranscriptNote with NoteDisplayMetadata {
     ),
     audioPath: j['audioPath'] as String?,
     audioOwnership: AudioOwnership.fromId(j['audioOwnership'] as String?),
+    titleIsAiGenerated: j['titleIsAiGenerated'] as bool?,
   );
 }

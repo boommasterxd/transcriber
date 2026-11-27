@@ -42,7 +42,6 @@ class SettingsNavigationTile extends StatelessWidget {
           color: context.palette.muted,
         ),
         onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
           Navigator.of(context)
               .push<void>(MaterialPageRoute(builder: (_) => page));
         },

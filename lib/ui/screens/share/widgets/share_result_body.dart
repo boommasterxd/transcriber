@@ -5,6 +5,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/transcript_note.dart';
 import '../../../../state/settings_controller.dart';
+import '../../../widgets/ai_provenance_widgets.dart';
 import '../../../widgets/buttons.dart';
 import '../../../widgets/surfaces.dart';
 import '../../../widgets/waveforms.dart';
@@ -46,6 +47,9 @@ class _ShareResultBodyState extends ConsumerState<ShareResultBody> {
         _ResultHeader(
           title: note.title,
           label: strings.shFrom,
+          provenanceLabel: note.titleIsAiGenerated == true
+              ? strings.aiGeneratedTitle
+              : null,
           onClose: widget.onClose,
         ),
         Expanded(
@@ -83,6 +87,13 @@ class _ShareResultBodyState extends ConsumerState<ShareResultBody> {
   ) {
     return [
       SliverList.list(children: _leadingSections(note, strings, hasSummary)),
+      SliverToBoxAdapter(
+        child: AiSummaryItemsProvenance(
+          note: note,
+          strings: strings,
+          padding: const EdgeInsets.only(top: 16),
+        ),
+      ),
       if (note.summaryError == null && note.points.isNotEmpty) ...[
         const SliverToBoxAdapter(child: SizedBox(height: 22)),
         NoteKeyPoints(points: note.points, label: strings.shPoints),
@@ -143,11 +154,13 @@ class _ResultHeader extends StatelessWidget {
   const _ResultHeader({
     required this.title,
     required this.label,
+    required this.provenanceLabel,
     required this.onClose,
   });
 
   final String title;
   final String label;
+  final String? provenanceLabel;
   final VoidCallback onClose;
 
   @override
@@ -175,16 +188,22 @@ class _ResultHeader extends StatelessWidget {
                   label,
                   style: TextStyle(fontSize: 12.5, color: palette.muted),
                 ),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: palette.ink,
+                Semantics(
+                  container: true,
+                  header: true,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: palette.ink,
+                    ),
                   ),
                 ),
+                if (provenanceLabel case final provenance?)
+                  AiProvenanceLabel(provenance),
               ],
             ),
           ),

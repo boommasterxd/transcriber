@@ -10,6 +10,7 @@ import 'notes_history_query.dart';
 /// Persists notes and their ordered child collections in Drift.
 class NotesRepository {
   static const maxPendingAudioDeletionBatchSize = 128;
+  static const _snapshotBatchSize = 128;
 
   NotesRepository(this._database);
 
@@ -29,6 +30,23 @@ class NotesRepository {
       limit: limit,
     ),
   );
+
+  Future<int?> loadHistoryTotal(HistoryPage page) =>
+      _database.transaction(() => _history.loadTotal(page));
+
+  /// The history counter and this connection's view of other engines' commits.
+  Future<({int history, int peer})> readNotesRevision() async {
+    final row = await _database
+        .customSelect(
+          'SELECT revision, data_version '
+          'FROM notes_history_state CROSS JOIN pragma_data_version()',
+        )
+        .getSingle();
+    return (
+      history: row.read<int>('revision'),
+      peer: row.read<int>('data_version'),
+    );
+  }
 
   /// Explicit complete snapshots for imports and test fixtures only.
   Future<List<TranscriptNote>> load() => _database.transaction(_load);
@@ -222,40 +240,54 @@ class NotesRepository {
               row.read(_database.notesTable.audioOwnership),
             ),
           );
-    final audioPath = deleted?.audioPath;
-    if (deleted?.audioOwnership == AudioOwnership.retained &&
-        audioPath != null) {
-      await _database
-          .into(_database.pendingAudioDeletionsTable)
-          .insertOnConflictUpdate(
-            PendingAudioDeletionsTableCompanion.insert(path: audioPath),
-          );
+    if (deleted != null) {
+      await _remove(
+        id,
+        deleted.audioOwnership == AudioOwnership.retained
+            ? deleted.audioPath
+            : null,
+      );
+    }
+    return NotesDeletion(deleted);
+  });
+
+  /// Captures the row and its children in the same transaction that removes it.
+  Future<TranscriptNote?> removeForUndo(String id) => _database.transaction(
+    () async {
+      final note = await _findById(id);
+      if (note == null) return null;
+      await _remove(
+        id,
+        note.audioOwnership == AudioOwnership.retained ? note.audioPath : null,
+      );
+      return note;
+    },
+  );
+
+  Future<void> _remove(String id, String? retainedAudioPath) async {
+    if (retainedAudioPath != null) {
+      await _queuePendingAudioDeletion(retainedAudioPath);
     }
     await _deleteChildren(id);
     await (_database.delete(
       _database.notesTable,
     )..where((table) => table.id.equals(id))).go();
-    return NotesDeletion(deleted);
-  });
+  }
 
   /// Toggles a persisted item atomically without rewriting unrelated data.
-  Future<TranscriptNote?> toggleTodo(String noteId, int index) =>
-      _database.transaction(() async {
-        final query = _database.select(_database.noteTodosTable)
-          ..where(
-            (table) =>
-                table.noteId.equals(noteId) & table.position.equals(index),
-          );
-        final todo = await query.getSingleOrNull();
-        if (todo != null) {
-          await (_database.update(_database.noteTodosTable)..where(
-                (table) =>
-                    table.noteId.equals(noteId) & table.position.equals(index),
-              ))
-              .write(NoteTodosTableCompanion(done: Value(!todo.done)));
-        }
-        return _findById(noteId);
-      });
+  Future<TodoItem?> toggleTodo(String noteId, int index) async {
+    final table = _database.noteTodosTable;
+    final rows =
+        await (_database.update(table)..where(
+              (row) => row.noteId.equals(noteId) & row.position.equals(index),
+            ))
+            .writeReturning(
+              NoteTodosTableCompanion.custom(done: table.done.not()),
+            );
+    if (rows.isEmpty) return null;
+    final todo = rows.single;
+    return TodoItem(text: todo.content, done: todo.done);
+  }
 
   Future<void> _deleteChildren(String id) async {
     await (_database.delete(
@@ -287,15 +319,30 @@ class NotesRepository {
     await _database.delete(_database.noteTodosTable).go();
     await _database.delete(_database.transcriptSegmentsTable).go();
     await _database.delete(_database.notesTable).go();
-    await _database.batch((batch) {
-      batch.insertAll(
-        _database.notesTable,
-        notes.map(_toNoteCompanion).toList(),
-      );
-      batch.insertAll(_database.notePointsTable, _pointRows(notes));
-      batch.insertAll(_database.noteTodosTable, _todoRows(notes));
-      batch.insertAll(_database.transcriptSegmentsTable, _segmentRows(notes));
-    });
+    await _insertSnapshotBatches(
+      _database.notesTable,
+      notes.map(_toNoteCompanion),
+    );
+    await _insertSnapshotBatches(_database.notePointsTable, _pointRows(notes));
+    await _insertSnapshotBatches(_database.noteTodosTable, _todoRows(notes));
+    await _insertSnapshotBatches(
+      _database.transcriptSegmentsTable,
+      _segmentRows(notes),
+    );
+  }
+
+  Future<void> _insertSnapshotBatches<T extends Table, D>(
+    TableInfo<T, D> table,
+    Iterable<Insertable<D>> rows,
+  ) async {
+    final iterator = rows.iterator;
+    while (iterator.moveNext()) {
+      final chunk = [iterator.current];
+      while (chunk.length < _snapshotBatchSize && iterator.moveNext()) {
+        chunk.add(iterator.current);
+      }
+      await _database.batch((batch) => batch.insertAll(table, chunk));
+    }
   }
 
   TranscriptNote _fromRow(
@@ -329,6 +376,7 @@ class NotesRepository {
     ),
     audioPath: row.audioPath,
     audioOwnership: AudioOwnership.fromId(row.audioOwnership),
+    titleIsAiGenerated: row.titleIsAiGenerated,
   );
 
   NotesTableCompanion _toNoteCompanion(TranscriptNote note) =>
@@ -350,40 +398,43 @@ class NotesRepository {
         summaryError: Value(note.summaryError),
         audioPath: Value(note.audioPath),
         audioOwnership: note.audioOwnership.id,
+        titleIsAiGenerated: Value(note.titleIsAiGenerated),
       );
 
-  Iterable<NotePointsTableCompanion> _pointRows(List<TranscriptNote> notes) => [
-    for (final note in notes)
-      for (var index = 0; index < note.points.length; index++)
-        NotePointsTableCompanion.insert(
-          noteId: note.id,
-          position: index,
-          content: note.points[index],
+  Iterable<NotePointsTableCompanion> _pointRows(List<TranscriptNote> notes) =>
+      notes.expand(
+        (note) => note.points.indexed.map(
+          (point) => NotePointsTableCompanion.insert(
+            noteId: note.id,
+            position: point.$1,
+            content: point.$2,
+          ),
         ),
-  ];
+      );
 
-  Iterable<NoteTodosTableCompanion> _todoRows(List<TranscriptNote> notes) => [
-    for (final note in notes)
-      for (var index = 0; index < note.todos.length; index++)
-        NoteTodosTableCompanion.insert(
-          noteId: note.id,
-          position: index,
-          content: note.todos[index].text,
-          done: note.todos[index].done,
+  Iterable<NoteTodosTableCompanion> _todoRows(List<TranscriptNote> notes) =>
+      notes.expand(
+        (note) => note.todos.indexed.map(
+          (todo) => NoteTodosTableCompanion.insert(
+            noteId: note.id,
+            position: todo.$1,
+            content: todo.$2.text,
+            done: todo.$2.done,
+          ),
         ),
-  ];
+      );
 
   Iterable<TranscriptSegmentsTableCompanion> _segmentRows(
     List<TranscriptNote> notes,
-  ) => [
-    for (final note in notes)
-      for (var index = 0; index < note.transcript.length; index++)
-        TranscriptSegmentsTableCompanion.insert(
-          noteId: note.id,
-          position: index,
-          content: note.transcript[index].text,
-        ),
-  ];
+  ) => notes.expand(
+    (note) => note.transcript.indexed.map(
+      (line) => TranscriptSegmentsTableCompanion.insert(
+        noteId: note.id,
+        position: line.$1,
+        content: line.$2.text,
+      ),
+    ),
+  );
 
   Map<String, List<String>> _groupPoints(
     List<NotePointsTableData> rows,

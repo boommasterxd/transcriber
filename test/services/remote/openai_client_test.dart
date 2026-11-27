@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:test/test.dart';
 import 'package:http/http.dart' as http;
+import 'package:test/test.dart';
 import 'package:transcriber/services/remote/openai_client.dart';
 import 'package:transcriber/services/service_exceptions.dart';
 
 import 'http_test_client.dart';
 import 'remote_test_support.dart';
+
+const _audioChatModel = 'gpt-audio-1.5';
 
 void main() {
   _registerSummaryTest();
@@ -23,42 +26,71 @@ void _registerMultimodalTranscriptionTest() {
 }
 
 Future<void> _testMultimodalTranscription() async {
+  final audio = List.generate(64 * 1024 + 3, (index) => index % 256);
+  const languageCode = 'de "Ö"\\\n';
   await withTemporaryAudio(
     prefix: 'openai-audio-chat-',
-    bytes: [1, 2],
+    bytes: audio,
     action: (file) async {
-      final httpClient = scriptedHttpClient([
-        jsonResponse({
+      late List<int> body;
+      final httpClient = RecordingHttpClient(
+        (_) async => jsonResponse({
           'choices': [
             {
               'message': {'content': 'Multimodal transcript'},
             },
           ],
         }),
-      ]);
+        readBody: (stream) async {
+          await file.writeAsBytes([3, 4], mode: FileMode.append);
+          body = await stream.toBytes();
+        },
+      );
       final client = OpenAiClient(apiKey: 'secret-key', httpClient: httpClient);
 
       final result = await client.transcribe(
         file.path,
-        modelId: 'gpt-audio-1.5',
-        languageCode: 'de',
+        modelId: _audioChatModel,
+        languageCode: languageCode,
       );
-      final captured = httpClient.requests.single as http.Request;
-      final payload = jsonDecode(captured.body) as Map<String, dynamic>;
-      final messages = payload['messages'] as List;
-      final content = (messages.single as Map)['content'] as List;
-
+      final captured = httpClient.requests.single;
       expect(captured.url.path, '/v1/chat/completions');
-      expect(payload['model'], 'gpt-audio-1.5');
-      expect(payload['modalities'], ['text']);
-      expect((content.first as Map)['text'], contains('language is de'));
-      expect((content.last as Map)['input_audio'], {
-        'data': 'AQI=',
-        'format': 'wav',
-      });
+      expect(captured, isA<http.Abortable>());
+      expect(captured, isNot(isA<http.Request>()));
+      expect(captured.headers['Content-Type'], 'application/json');
+      expect(captured.contentLength, body.length);
+      _expectInlineAudioJson(body, audio, languageCode);
       expect(result.text, 'Multimodal transcript');
     },
   );
+}
+
+void _expectInlineAudioJson(
+  List<int> body,
+  List<int> audio,
+  String languageCode,
+) {
+  expect(jsonDecode(utf8.decode(body)), {
+    'model': _audioChatModel,
+    'modalities': ['text'],
+    'messages': [
+      {
+        'role': 'user',
+        'content': [
+          {
+            'type': 'text',
+            'text':
+                'Transcribe the attached audio verbatim. Return only the '
+                'transcript as plain text. The spoken language is $languageCode.',
+          },
+          {
+            'type': 'input_audio',
+            'input_audio': {'data': base64Encode(audio), 'format': 'wav'},
+          },
+        ],
+      },
+    ],
+  });
 }
 
 void _registerSummaryTest() {
@@ -98,7 +130,43 @@ Future<void> _testSummary() async {
 
 void _registerTranscriptionTest() {
   test('sends gpt-transcribe as multipart', _testTranscription);
+  test('rejects oversized transcription before upload', _testOversizedAudio);
 }
+
+Future<void> _testOversizedAudio() async {
+  await _expectOversizedAudio('gpt-transcribe', 25000001);
+  await _expectOversizedAudio(_audioChatModel, 20 * 1024 * 1024 + 1);
+}
+
+Future<void> _expectOversizedAudio(String modelId, int length) =>
+    withTemporaryAudio(
+      prefix: 'openai-audio-limit-',
+      action: (file) async {
+        final handle = await file.open(mode: FileMode.append);
+        try {
+          await handle.truncate(length);
+        } finally {
+          await handle.close();
+        }
+
+        final httpClient = scriptedHttpClient([]);
+        final client = OpenAiClient(
+          apiKey: 'secret-key',
+          httpClient: httpClient,
+        );
+        await expectLater(
+          client.transcribe(file.path, modelId: modelId),
+          throwsA(
+            isA<RemoteApiException>().having(
+              (error) => error.message,
+              'message',
+              'The audio file is too large.',
+            ),
+          ),
+        );
+        expect(httpClient.requests, isEmpty);
+      },
+    );
 
 Future<void> _testTranscription({
   String fileName = 'private-conversation.WAV',

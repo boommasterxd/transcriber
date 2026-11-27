@@ -22,7 +22,8 @@ void _registerPageTests(_HistoryFixture fixture) {
       expect(first.entries.map((entry) => entry.id), ['e', 'd']);
       expect(first.hasNext, isTrue);
       expect(first.hasPrevious, isFalse);
-      expect(first.totalCount, 5);
+      expect(first.totalCount, isNull);
+      expect(await repository.loadHistoryTotal(first), 5);
       final second = await repository.loadHistoryPage(
         cursor: HistoryCursor.fromEntry(first.entries.last),
         limit: 2,
@@ -30,6 +31,7 @@ void _registerPageTests(_HistoryFixture fixture) {
       expect(second.entries.map((entry) => entry.id), ['c', 'b']);
       expect(second.hasNext, isTrue);
       expect(second.hasPrevious, isTrue);
+      expect(second.totalCount, 5);
       final last = await repository.loadHistoryPage(
         cursor: HistoryCursor.fromEntry(second.entries.last),
         limit: 2,
@@ -58,10 +60,23 @@ void _registerPageTests(_HistoryFixture fixture) {
 void _registerQueryTests(_HistoryFixture fixture) {
   test('title filtering treats SQL wildcards and escapes literally', () async {
     final repository = fixture.repository;
-    await repository.add(_note('literal', title: r'100%_\meeting'));
+    final note = _note(
+      'literal',
+      title: r'100%_\meeting',
+      titleIsAiGenerated: true,
+    );
+    expect((await repository.add(note)).titleIsAiGenerated, isTrue);
     final page = await repository.loadHistoryPage(query: r'%_\MEETING');
     expect(page.entries.single.id, 'literal');
-    expect(page.totalCount, 1);
+    expect(page.entries.single.titleIsAiGenerated, isTrue);
+    expect(page.totalCount, isNull);
+    expect(await repository.loadHistoryTotal(page), 1);
+    final sameFilter = await repository.loadHistoryPage(query: r'%_\meeting');
+    expect(sameFilter.totalCount, 1);
+    await repository.remove(note.id);
+    expect(await repository.loadHistoryTotal(page), isNull);
+    final empty = await repository.loadHistoryPage(query: r'%_\meeting');
+    expect(await repository.loadHistoryTotal(empty), 0);
     final injection = await repository.loadHistoryPage(query: "' OR 1=1 --");
     expect(injection.entries, isEmpty);
     expect(
@@ -84,7 +99,11 @@ final class _HistoryFixture {
   }
 }
 
-TranscriptNote _note(String id, {required String title}) => TranscriptNote(
+TranscriptNote _note(
+  String id, {
+  required String title,
+  bool? titleIsAiGenerated,
+}) => TranscriptNote(
   metadata: NoteMetadata(
     id: id,
     title: title,
@@ -114,4 +133,5 @@ TranscriptNote _note(String id, {required String title}) => TranscriptNote(
     ],
   ),
   audioPath: '/external/$id.m4a',
+  titleIsAiGenerated: titleIsAiGenerated,
 );

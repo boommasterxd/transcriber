@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 
 enum HomeSearchStyle { phone, tablet }
 
@@ -73,11 +74,11 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     final palette = context.palette;
     final tablet = widget.style == HomeSearchStyle.tablet;
     return Container(
-      height: tablet ? 44 : 48,
+      constraints: BoxConstraints(minHeight: tablet ? 44 : 48),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: tablet ? palette.bg : palette.surface,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         boxShadow: tablet
             ? null
             : [
@@ -104,10 +105,11 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
               style: TextStyle(fontSize: tablet ? 14 : 15, color: palette.ink),
               cursorColor: palette.accent,
               decoration: InputDecoration(
-                isCollapsed: true,
+                isDense: true,
                 border: InputBorder.none,
-                hintText: widget.hint,
-                hintStyle: TextStyle(
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                labelText: widget.hint,
+                labelStyle: TextStyle(
                   fontSize: tablet ? 14 : 15,
                   color: palette.faint,
                 ),

@@ -23,6 +23,7 @@ const int maxRemoteResponseBytes = 4 * 1024 * 1024;
 /// Validates a provider upload and returns its size for streaming requests.
 Future<int> validateRemoteAudioFile(
   File file, {
+  int maxBytes = maxRemoteAudioBytes,
   RemoteCancellation? cancellation,
 }) async {
   cancellation?.throwIfCancelled();
@@ -31,7 +32,7 @@ Future<int> validateRemoteAudioFile(
   }
   final length = await file.length();
   cancellation?.throwIfCancelled();
-  if (length <= 0 || length > maxRemoteAudioBytes) {
+  if (length <= 0 || length > maxBytes) {
     throw const RemoteApiException('The audio file is too large.');
   }
   return length;

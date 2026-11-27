@@ -22,7 +22,7 @@ flutter pub get --enforce-lockfile
 flutter run
 ```
 
-On first launch, expand a provider row on **Connect a provider** to connect OpenAI or Google Gemini. Each provider key is shared by both tasks and is saved after its provider accepts an authenticated model-list request. The next screen shows **Speech to text** and optional **Summary** task cards. Tap a card's model row to open its available API models, choose a connected provider when needed, then tap a model to save it immediately and close the picker. Back, backdrop dismissal, or dragging the handle down without choosing a model preserves the saved selection. Pull the model list down to refresh it. F5 and the screen-reader refresh action offer the same operation. Continue after choosing available models and configuring appearance. The recording screen requests microphone access when you choose to record. File import and share remain available with microphone access denied. Later, **Settings > Model selection** offers the same cards without the wizard. Open its **Providers & API keys** entry to manage credentials. **Settings > General** combines language and region, appearance, and privacy. The overview footer shows the installed app version and build number.
+On first launch, expand a provider row on **Connect a provider** to connect OpenAI or Google Gemini. Each provider key is shared by both tasks and is saved after its provider accepts an authenticated model-list request. The next screen shows **Speech to text** and optional **Summary** task cards. Open a card's model row and choose a connected provider if needed. Tap a model or focus it and press Enter or Space to save it and close the picker. Moving focus and dismissing the picker preserve the saved model. Use **Refresh models**, pull to refresh, F5, or the TalkBack refresh action to reload the list. Continue after choosing available models and configuring appearance. The recording screen requests microphone access when you choose to record. File import and share remain available with microphone access denied. Later, **Settings > Model selection** offers the same cards without the wizard. Open its **Providers & API keys** entry to manage credentials. **Settings > General** combines language and region, appearance, and privacy. The overview footer shows the installed app version and build number.
 
 To enable keyboard dictation, open **Settings > Transcriber keyboard** and select **Start setup**. The setup screen shows the live provider and guides you through **Enable in Android** and **Select the keyboard**. Android owns the keyboard switcher shown by Samsung Keyboard and Gboard. Once selected, use the microphone permission control in keyboard setup to enable dictation. Return through **Manage keyboard** to review that permission later.
 
@@ -38,6 +38,8 @@ flutter analyze --fatal-infos
 dart run tool/ci/run_test_plan.dart
 flutter build bundle --debug
 ```
+
+Use synthetic notes and audio on an isolated test installation. Exercise the relevant phone or tablet layouts, touch or keyboard input, TalkBack, reduced motion, and error recovery for the changed flow. Measure performance when the change can affect it. Record the observed results and any gaps.
 
 For CI automation changes, run the applicable [CI helper regressions](code-quality.md#ci-helper-regressions) and validate workflows with the pinned actionlint and ShellCheck tools from `.github/workflows/ci.yml`. Required PR checks run before squash merge. See [CI test selection](ci-test-selection.md) for local selection commands, full fallback, and the documentation-only path.
 
@@ -56,14 +58,14 @@ For only the manifest-listed pure Kotlin tests, Flutter and an Android SDK are u
 JAVA_HOME=/path/to/jdk17 android/gradlew -p tool/ci/jvm test --no-daemon
 ```
 
-Run instrumented Android tests on an attached Android device or emulator with API 29 or later and `arm64-v8a` support:
+Run instrumented Android tests on an isolated device or emulator with API 29 or later and `arm64-v8a` support. Deny the test installation microphone access and leave another system keyboard selected before starting. The keyboard fixture temporarily selects Transcriber, exercises composing, committing and discarding synthetic text in an external editor, and restores the previous keyboard. It also checks the microphone-denied and protected-editor states. It needs no API keys or provider access.
 
 ```bash
 JAVA_HOME=/path/to/jdk17 android/gradlew -p android \
   :app:connectedDebugAndroidTest
 ```
 
-The CI device runner creates a disposable, offline emulator for instrumentation and process-death recovery. The picker fixture installs the debug APK and clears its own test package data before and after the scenario. Use the manual recovery procedure above on an ordinary device.
+The [CI device runner](../tool/ci/run_android_device_tests.sh) creates a disposable, offline API 35 emulator and runs instrumentation. It then runs the separate picker recovery fixture against the debug APK. That fixture clears its test package data before and after the scenario and requires the designated disposable emulator. For an attached test device, follow the [manual picker recovery procedure](#interrupted-android-audio-selection) separately from the Gradle instrumentation command.
 
 ## Android Gradle Migration
 
@@ -88,7 +90,8 @@ Use non-production speech without personal information. Verify the complete matr
 - verify partial and finalized segments remain one composing transcript without duplication until stop commits it once;
 - discard after multiple finalized segments and confirm the editor clears the confirmed composing region while pre-existing text remains. Check editors that delay or omit composition updates for unexplained changes to surrounding text;
 - tap backspace to delete one code point, delete a selected range, and hold it to verify accelerated repeat deletion stops immediately on release;
-- pause and resume dictation, confirming the timer and waveform freeze, no paused audio is sent, and the existing live session continues;
+- pause and resume dictation within one minute, confirming the timer and waveform freeze, no paused audio is sent, and the existing live session continues;
+- let a session reach its time limit or remain paused for one minute, and verify that capture stops and available text is committed to the same editor;
 - block network access before starting and confirm the keyboard leaves the connecting state with a timeout message within the bounded connection deadline;
 - stop while a partial segment exists and verify the last segment is finalized;
 - change fields, switch applications, hide or replace the keyboard, and confirm recording stops immediately;
@@ -102,7 +105,7 @@ Provider smoke tests must cover both `gpt-live-transcribe` and `gemini-3.5-trans
 
 ## Database Migration Verification
 
-Before releasing the first Drift-backed version, install the previous production version, create settings, notes, points, to-dos, and transcript segments, then upgrade in place. Verify:
+To verify the SharedPreferences import, start with [Transcriber v1.3.3](https://github.com/boommasterxd/transcriber/releases/tag/v1.3.3) on an isolated Android test installation. Create synthetic settings and notes with points, to-dos, and transcript segments, then upgrade in place to the Drift-backed version under test. Use the same package ID and compatible signing certificates for both builds so Android preserves the app data. Verify:
 
 - all valid legacy records appear once;
 - provider selections map to OpenAI or Google;
@@ -133,7 +136,7 @@ Force a summary failure after successful transcription and verify that the regul
 
 - Key validation fails: verify the key, project, API billing, quota, and network connection.
 - A model is absent from the live list: the provider must return it for the connected key and its name, description, and available API methods must pass purpose filtering. New versions do not require an app update. Confirm provider access and choose an available replacement for an unavailable saved model. Provider metadata cannot prove endpoint compatibility; unusually named specialists may require a filtering-rule correction.
-- Import is rejected: verify file size and supported extension.
+- Import is rejected: verify the supported extension and the [size and duration limits](configuration.md#audio-formats-and-limits) for the selected model.
 - A shared file is rejected: confirm the source provides a supported filename and a readable audio stream.
 - Processing times out: retry on a stable network and inspect provider status without logging credentials or transcript content.
 - Processing is interrupted after leaving the app: keep Transcriber visible and retry. Cloud requests intentionally do not run in an Android foreground service.
@@ -142,7 +145,7 @@ Force a summary failure after successful transcription and verify that the regul
 - Live setup is rejected: follow the keyboard's specific authentication, quota, model-access, configuration, or timeout message. Gemini language hints must use supported BCP-47 values such as `de-DE` and `en-US`; OpenAI live transcription may require billing or model access beyond basic key validation.
 - Live setup cannot connect on a proxy-only network: the keyboard uses a direct TLS connection to its provider. Try a network that permits that connection.
 - Live text stops updating: stop the session and retry on a stable network. Switching fields or hiding the keyboard intentionally terminates the current session.
-- Migration fails: preserve the original SharedPreferences payload and inspect the database transaction error before retrying.
+- Startup or migration fails: retry from the startup error screen. Preserve the original data if the error persists. The share startup screen also offers a way to close the overlay.
 
 ## Release
 
@@ -159,9 +162,11 @@ The [Release workflow](../.github/workflows/release.yml) builds an unsigned APK,
 
 Keep secret values out of source, logs, screenshots, and issue reports. The signing job writes the keystore to a restricted temporary directory, aligns and signs the APK, and removes its temporary files. It checks the `com.transcriber.app` package ID and the exact established certificate's SHA-256 fingerprint. Use the established signing key so the public APK can update existing installations. After completing the protected environment migration, retire the former repository-wide `ANDROID_*` signing secrets.
 
+Android Developer Verification uses the packaged `assets/adi-registration.properties` file as part of the proof of signing-key ownership. When the public package name or signing certificate changes, [check registration for the new package and certificate](https://developer.android.com/developer-verification/guides/check-registration-status) before distribution.
+
 ### Version and source selection
 
-Release starts only through manual dispatch from `boommasterxd` on protected `main`. The workflow checks the original account ID and the account requesting any rerun. Open **Actions > Release > Run workflow**, select `main`, and enter the required `version`. The version resolver accepts values such as `1.2.3`, `v1.2.3`, or `1.2.3-rc.1`. The Android version code adds 1,000 to the Release workflow run number, with Android's 2.1-billion limit enforced. This puts public releases above earlier test builds that shared the public package ID. See the [source guard](../tool/package/verify_release_source.sh) and [version code calculator](../tool/package/android_release_version_code.sh).
+Release starts only through manual dispatch from `boommasterxd` on protected `main`. The workflow checks the original account ID and the account requesting any rerun. Open **Actions > Release > Run workflow**, select `main`, and enter a stable `version` such as `1.2.3` or `v1.2.3`. A successful run publishes a regular GitHub release even when the version has a prerelease suffix. Use the [preview APK workflow](#preview-apk) for testing before a public release. The Android version code adds 1,000 to the Release workflow run number, with Android's 2.1-billion limit enforced. This puts public releases above earlier test builds that shared the public package ID. See the [source guard](../tool/package/verify_release_source.sh) and [version code calculator](../tool/package/android_release_version_code.sh).
 
 Publication jobs are serialized by the normalized version without interrupting an active publisher. The job targets the exact checked-out build commit. Existing lightweight or annotated remote tags must resolve to that commit, and a failed remote query prevents publication. The job compares the built workflow files with current `main` because GitHub requires a permission unavailable to the workflow token when they differ. If they differ, recover by starting a new release from current `main` with the same unpublished version. See the [version resolver](../tool/package/version.sh), [release-tag and workflow guard](../tool/package/verify_release_tag.sh), and [GitHub release API](https://docs.github.com/en/rest/releases/releases#create-a-release).
 

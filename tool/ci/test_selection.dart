@@ -170,17 +170,28 @@ Map<String, Object?> _fullPlan(Map<String, Object?> identity, String reason) =>
 Future<Map<String, Object?>> validateTestPlan({
   required String root,
   required Object? input,
+  required ({String base, String head, String checkout}) revisions,
 }) async {
   if (input is! Map<String, dynamic> ||
-      input['schemaVersion'] != testPlanVersion ||
-      input['base'] is! String ||
-      input['head'] is! String) {
+      input['schemaVersion'] != testPlanVersion) {
     throw const FormatException('Invalid test plan schema.');
+  }
+  if (![
+        revisions.base,
+        revisions.head,
+        revisions.checkout,
+      ].every(isCommitSha) ||
+      input['base'] != revisions.base ||
+      input['head'] != revisions.head ||
+      input['checkout'] != revisions.checkout) {
+    throw const FormatException(
+      'Test plan revisions must match the expected base, head and checkout.',
+    );
   }
   final expected = await createTestPlan(
     root: root,
-    base: input['base'] as String,
-    head: input['head'] as String,
+    base: revisions.base,
+    head: revisions.head,
   );
   if (jsonEncode(input) != jsonEncode(expected)) {
     throw const FormatException(

@@ -70,16 +70,24 @@ for (const [language, extension, config, source] of [
   test(`the real duplication CLI rejects empty scope and repeated maintained ${language}`, (context) => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'node-duplication-'));
     context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const dart = language === 'Dart';
+    const scope = dart ? 'lib' : '.';
+    const sources = path.join(directory, scope);
+    fs.mkdirSync(sources, { recursive: true });
     const scan = () => childProcess.spawnSync(path.join(quality, 'node_modules/.bin/jscpd'), [
-      '--config', path.join(quality, config), '--fail-on-empty', directory,
-    ], { cwd: repository, encoding: 'utf8', timeout: 10000 });
+      '--config', path.join(quality, config), '--fail-on-empty', scope,
+    ], { cwd: directory, encoding: 'utf8', timeout: 10000 });
     const empty = scan();
     assert.equal(empty.status, 1, empty.stdout + empty.stderr);
-    fs.writeFileSync(path.join(directory, `first.${extension}`), source);
-    if (language === 'Dart') fs.writeFileSync(path.join(directory, 'adapter.g.dart'), source);
+    fs.writeFileSync(path.join(sources, `first.${extension}`), source);
+    if (dart) {
+      const database = path.join(sources, 'data/database');
+      fs.mkdirSync(database, { recursive: true });
+      fs.writeFileSync(path.join(database, 'app_database.g.dart'), source);
+    }
     const clean = scan();
     assert.equal(clean.status, 0, clean.stdout + clean.stderr);
-    fs.writeFileSync(path.join(directory, `second.${extension}`), source);
+    fs.writeFileSync(path.join(sources, dart ? 'app_database.g.dart' : 'second.cjs'), source);
     const duplicated = scan();
     assert.equal(duplicated.status, 1, duplicated.stdout + duplicated.stderr);
     assert.match(duplicated.stdout + duplicated.stderr, /too many duplicates/);

@@ -10,6 +10,7 @@ class MainActivity : FlutterActivity() {
     private var recordingChannel: BoundedRecordingChannel? = null
     private var sensitiveClipboardChannel: SensitiveClipboardChannel? = null
     private var audioDocumentPickerChannel: AudioDocumentPickerChannel? = null
+    private var audioCacheChannel: AudioCacheChannel? = null
     private val audioDocumentPicker by lazy {
         AudioDocumentPicker(::launchAudioDocumentPicker, ::startAudioImport) {
             BoundedAudioImports.canRead(this, it)
@@ -23,8 +24,7 @@ class MainActivity : FlutterActivity() {
             Intent(it).setClass(this, ShareActivity::class.java)
         }
         if (shareIntent != null) {
-            // The sharing plugin handles the activity's initial intent as soon
-            // as Flutter attaches. Keep it away from untrusted media intents.
+            // Only ShareActivity should receive the media intent.
             setIntent(Intent())
         }
         super.onCreate(savedInstanceState)
@@ -63,9 +63,15 @@ class MainActivity : FlutterActivity() {
     private fun startAudioImport(uri: Uri, mimeType: String?): ShareImportCoordinator {
         val control = BoundedAudioImports.createControl()
         val context = applicationContext
-        val cache = ShareAudioCache(context.cacheDir, context.contentResolver) { /* The channel reports failure. */ }
+        val owner = audioCacheChannel?.owner
         return BoundedAudioImports.createCoordinator(control).also { coordinator ->
-            coordinator.start { cache.copy(uri, mimeType, control) }
+            coordinator.start {
+                owner?.let {
+                    ShareAudioCache(context.cacheDir, context.contentResolver, it) {
+                        /* The channel reports failure. */
+                    }.copy(uri, mimeType, control)
+                }
+            }
         }
     }
 
@@ -73,7 +79,9 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         KeyboardSettingsChannel(this, messenger).register()
-        recordingChannel = BoundedRecordingChannel(this, messenger).also { it.register() }
+        val owner = AudioCacheQuota.shared.owner(cacheDir)
+        audioCacheChannel = AudioCacheChannel(messenger, owner).also { it.register() }
+        recordingChannel = BoundedRecordingChannel(this, messenger, owner).also { it.register() }
         sensitiveClipboardChannel = SensitiveClipboardChannel(this, messenger).also { it.register() }
         audioDocumentPickerChannel = AudioDocumentPickerChannel(messenger, audioDocumentPicker).also { it.register() }
     }
@@ -85,6 +93,8 @@ class MainActivity : FlutterActivity() {
         sensitiveClipboardChannel = null
         recordingChannel?.dispose()
         recordingChannel = null
+        audioCacheChannel?.dispose()
+        audioCacheChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

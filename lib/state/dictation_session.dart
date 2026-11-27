@@ -1,6 +1,75 @@
 part of 'dictation_controller.dart';
 
 extension _DictationSession on DictationController {
+  void _startSessionLimits(String sessionId, int generation, int sampleRate) {
+    _remainingPcmBytes = LiveTranscriptionLimits.maximumPcmBytes(sampleRate);
+    _sessionDeadline = Timer(
+      LiveTranscriptionLimits.maximumSessionDuration,
+      () => _finishAtLimit(sessionId, generation),
+    );
+  }
+
+  void _startCaptureTimer(String sessionId, int generation) {
+    _pauseDeadline?.cancel();
+    _pauseDeadline = null;
+    _captureElapsed.start();
+    _lastPcmAt = _captureElapsed.elapsed;
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_canChangePause(sessionId, generation)) return;
+      final elapsed = _captureElapsed.elapsed;
+      if (elapsed - _lastPcmAt >= LiveTranscriptionLimits.maximumIdleDuration) {
+        _finishAtLimit(sessionId, generation);
+        return;
+      }
+      _setState(
+        _state.copyWith(progress: _state.progress.copyWith(elapsed: elapsed)),
+      );
+    });
+  }
+
+  void _pauseCaptureTimer(String sessionId, int generation) {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    _captureElapsed.stop();
+    _pauseDeadline = Timer(LiveTranscriptionLimits.maximumIdleDuration, () {
+      if (_capturePaused) _finishAtLimit(sessionId, generation);
+    });
+  }
+
+  void _finishAtLimit(String sessionId, int generation) {
+    if (_canChangePause(sessionId, generation)) {
+      unawaited(_stop(atLimit: true));
+    }
+  }
+
+  void _stopSessionTimers() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    _sessionDeadline?.cancel();
+    _sessionDeadline = null;
+    _pauseDeadline?.cancel();
+    _pauseDeadline = null;
+    _captureElapsed.stop();
+  }
+
+  Future<void> _finishClient() async {
+    if (!_connected) {
+      await _disconnectClient();
+      return;
+    }
+    try {
+      await _client?.finish();
+    } catch (error) {
+      final interrupted =
+          error is TimeoutException ||
+          (error is LiveConnectionException &&
+              error.code == 'connection_failed');
+      if (!_stoppingAtLimit || !interrupted || !_hasStagedText) rethrow;
+    }
+  }
+
+  bool get _hasStagedText => _finalized.isNotEmpty || _partial.isNotEmpty;
+
   Future<LiveTranscriptionConfig?> _readConfiguration(
     String sessionId,
     int generation,
@@ -25,6 +94,10 @@ extension _DictationSession on DictationController {
   }
 
   Future<void> _abortWithError(String code) async {
+    // A transport interruption at the limit can still leave text to commit.
+    if (_stoppingAtLimit && code == 'connection_failed' && _hasStagedText) {
+      return;
+    }
     final cleanup = _endSession(discard: true);
     _fail(code);
     await cleanup;
@@ -42,10 +115,13 @@ extension _DictationSession on DictationController {
     _partial = '';
     _config = null;
     _pendingAudio.clear();
+    _remainingPcmBytes = 0;
     _capturePaused = false;
+    _stoppingAtLimit = false;
     _reconnectAttempt = 0;
     _releaseReconnectDelay();
-    _stopTimer();
+    _stopSessionTimers();
+    _captureElapsed.reset();
     final sessionId = discard ? _editor?.sessionId : null;
     unawaited(_cleanupSession(sessionId, completed));
     return completed.future;
@@ -82,25 +158,25 @@ extension _DictationSession on DictationController {
     }
   }
 
-  Future<void> _stopRecording(String sessionId) async {
+  Future<bool> _stopRecording(String sessionId) async {
     final inFlight = _recordingStop;
     if (inFlight != null) return inFlight;
     final stopping = _stopAfterRecordingChange(sessionId);
     _recordingStop = stopping;
     try {
-      await stopping;
+      return await stopping;
     } finally {
       _recordingStop = null;
     }
   }
 
-  Future<void> _stopAfterRecordingChange(String sessionId) async {
+  Future<bool> _stopAfterRecordingChange(String sessionId) async {
     try {
       await _recordingChange;
     } catch (_) {
       // Stop also rolls back a partially completed platform transition.
     }
-    await _platform.stopRecording(sessionId);
+    return _platform.stopRecording(sessionId);
   }
 
   Future<void> _changeRecording(Future<void> Function() change) async {

@@ -30,21 +30,27 @@ void _registerDeletionQueueTests(NotesRepository Function() repository) {
 }
 
 void _registerRetainedRemovalTest(NotesRepository Function() repository) {
-  test('note removal queues retained audio until restore', () async {
-    final notes = repository();
-    final note = _retainedNote('undo', '/retained/undo.wav');
-    await notes.add(note);
+  test(
+    'undo restores the deleted version and preserves retained audio',
+    () async {
+      final notes = repository();
+      final note = _retainedNote('undo', '/retained/undo.wav');
+      await notes.add(note);
 
-    await notes.remove(note.id);
+      await notes.toggleTodo(note.id, 0);
+      final deleted = await notes.removeForUndo(note.id);
 
-    expect(await notes.pendingAudioDeletionPaths(), [note.audioPath]);
-    expect(await notes.findById(note.id), isNull);
+      expect(await notes.pendingAudioDeletionPaths(), [note.audioPath]);
+      expect(await notes.findById(note.id), isNull);
 
-    await notes.add(note);
+      await notes.add(deleted!);
 
-    expect(await notes.pendingAudioDeletionPaths(), isEmpty);
-    expect(await notes.findById(note.id), isNotNull);
-  });
+      expect(await notes.pendingAudioDeletionPaths(), isEmpty);
+      final restored = await notes.findById(note.id);
+      expect(restored?.todos.single.done, isFalse);
+      expect(restored?.audioPath, note.audioPath);
+    },
+  );
 }
 
 void _registerCrossConnectionRaceTest() {

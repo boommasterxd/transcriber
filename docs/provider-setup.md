@@ -24,11 +24,12 @@ Google limits Gemini API use to people aged 18 or older and to professional or b
 
 1. Open [Google AI Studio API keys](https://aistudio.google.com/app/apikey).
 2. Select or create the Google Cloud project that should own usage and billing.
-3. Create a Gemini API key.
-4. Review project quotas, billing, and available API restrictions. Apply the narrowest supported restriction without blocking the Gemini API.
-5. Copy the key.
-6. In Transcriber, open Settings, Model selection, Providers & API keys, expand Google Gemini, paste the key, and select Connect.
-7. After validation succeeds, use Test to recheck it, Replace to validate a new key before overwriting, or Disconnect to remove the key from this installation.
+3. Create a Gemini API key. AI Studio creates an authorization key restricted to the Gemini API by default.
+4. Review project quotas and billing, then copy the key.
+5. In Transcriber, open Settings, Model selection, Providers & API keys, expand Google Gemini, paste the key, and select Connect.
+6. After validation succeeds, use Test to recheck it, Replace to validate a new key before overwriting, or Disconnect to remove the key from this installation.
+
+Gemini API rejects unrestricted standard keys. For a standard key used only with Gemini, find the key in AI Studio and choose **Add restrictions**, then **Restrict to Gemini API only**. If other services use the same key, create a separate authorization key for Transcriber. Use **Replace** in Transcriber and confirm the new key works. See [Google's key restriction instructions](https://aistudio.google.com/docs/api-key#secure-unrestricted-keys).
 
 Official references: [Gemini API keys](https://ai.google.dev/gemini-api/docs/api-key), [Gemini libraries](https://ai.google.dev/gemini-api/docs/libraries), and [Gemini transcription](https://ai.google.dev/gemini-api/docs/transcribe).
 

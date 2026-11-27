@@ -21,6 +21,8 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
+  static const sqliteBusyTimeoutMs = 2000;
+
   AppDatabase.sanitized(DatabaseConnection connection)
     : super(connection.interceptWith(DatabaseErrorBoundary()));
 
@@ -28,12 +30,16 @@ class AppDatabase extends _$AppDatabase {
     : this.sanitized(
         driftDatabase(
           name: 'transcriber',
-          native: const DriftNativeOptions(shareAcrossIsolates: true),
+          native: DriftNativeOptions(
+            shareAcrossIsolates: true,
+            setup: (database) =>
+                database.execute('PRAGMA busy_timeout = $sqliteBusyTimeoutMs'),
+          ),
         ),
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -76,6 +82,9 @@ class AppDatabase extends _$AppDatabase {
     }
     if (from < 6) {
       await createHistorySearchSchema(this);
+    }
+    if (from < 7) {
+      await migrator.addColumn(notesTable, notesTable.titleIsAiGenerated);
     }
     // Drift writes this again after onUpgrade returns. Keeping it inside the
     // transaction makes schema changes and the version marker atomic.

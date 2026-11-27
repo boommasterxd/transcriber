@@ -7,14 +7,17 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mockConstruction
 import org.mockito.Mockito.never
+import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
@@ -26,7 +29,7 @@ class BoundedRecordingChannelTest {
 
     private fun call(method: String, arguments: Any? = null) = transport.call("app/recording", method, arguments)
     private fun progress() = call("progress") as Map<*, *>
-    private fun destination() = File(context.cacheDir, "audio/recording/test.wav").also {
+    private fun destination() = File(context.cacheDir, "audio/recording/recording_1_$recordingId.wav").also {
         it.parentFile?.mkdirs()
     }
     private fun start(file: File = destination(), maxBytes: Long = 48) =
@@ -43,13 +46,17 @@ class BoundedRecordingChannelTest {
     }
 
     @Test
-    fun enforcesNativeCapWithoutPollingAndPreservesAudioUntilExplicitStop() {
+    fun resumedCaptureEnforcesNativeCapWithoutPollingAndPreservesAudioUntilExplicitStop() {
         capture().use { captures ->
             val channel = BoundedRecordingChannel(context, transport).also { it.register() }
+            val recorder = captures.constructed().single()
             val file = destination()
             assertTrue("app/recording" in transport.backgroundChannels)
             assertEquals(file.path, start(file))
             chunk(byteArrayOf(1, 2), 0.5)
+            assertTrue(call("pause") as Boolean)
+            assertEquals(46L, file.length())
+            assertTrue(call("resume") as Boolean)
             chunk(byteArrayOf(3, 4, 5, 6), 0.7)
             assertEquals(48L, file.length())
             assertEquals(true, progress()["limited"])
@@ -57,7 +64,9 @@ class BoundedRecordingChannelTest {
             chunk(byteArrayOf(7, 8), 1.0)
             assertEquals(48L, file.length())
             assertFalse(call("resume") as Boolean)
-            verify(captures.constructed().single()).stop()
+            verify(recorder).pause()
+            verify(recorder).resume()
+            verify(recorder).stop()
             assertEquals(file.path, call("stop"))
             assertEquals(file.path, call("stop"))
             assertTrue(file.exists())
@@ -101,6 +110,39 @@ class BoundedRecordingChannelTest {
     }
 
     @Test
+    fun failedWaveFinalizationStopsCaptureAndAllowsRestartAfterCancel() {
+        capture().use { captures ->
+            mockConstruction(BoundedWaveWriter::class.java).use { writers ->
+                val channel = BoundedRecordingChannel(context, transport).also { it.register() }
+                val recorder = captures.constructed().single()
+                val file = destination()
+                try {
+                    assertEquals(file.path, start(file))
+                    val failedWriter = writers.constructed().single()
+                    doAnswer { throw IOException("Synthetic WAV finalization failure") }
+                        .`when`(failedWriter).finish()
+
+                    val error = assertThrows(FlutterException::class.java) { call("stop") }
+                    assertEquals("recording_failed", error.code)
+                    assertEquals(true, progress()["failed"])
+                    assertEquals(true, progress()["stopped"])
+                    verify(recorder).stop()
+
+                    call("cancel")
+                    verify(failedWriter).close()
+                    val retry = File(file.parentFile, "recording_2_$recordingId.wav")
+                    assertEquals(retry.path, start(retry))
+                    assertEquals(false, progress()["failed"])
+                    assertEquals(retry.path, call("stop"))
+                    verify(recorder, times(2)).start(16_000)
+                } finally {
+                    channel.dispose()
+                }
+            }
+        }
+    }
+
+    @Test
     fun staleQueuedCallsCannotRestartCaptureAfterDisposal() {
         capture().use { captures ->
             val channel = BoundedRecordingChannel(context, transport).also { it.register() }
@@ -121,5 +163,9 @@ class BoundedRecordingChannelTest {
             verify(recorder, never()).resume()
             verify(recorder, never()).start(16_000)
         }
+    }
+
+    private companion object {
+        const val recordingId = "00000000-0000-0000-0000-000000000001"
     }
 }

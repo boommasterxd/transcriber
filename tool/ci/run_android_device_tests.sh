@@ -13,6 +13,15 @@ hosted_runner() {
   [[ "${GITHUB_ACTIONS:-}" == true && "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]
 }
 
+run_native_units=false
+if (( $# > 0 )); then
+  if (( $# != 1 )) || [[ "$1" != --with-native-unit-tests ]] || ! hosted_runner; then
+    echo 'The --with-native-unit-tests option is for the isolated GitHub runner.' >&2
+    exit 1
+  fi
+  run_native_units=true
+fi
+
 prepare_host_runtime() {
   local package
   local -a missing=()
@@ -72,13 +81,41 @@ fi
 ANDROID_AVD_HOME=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/transcriber-avd.XXXXXX")
 export ANDROID_AVD_HOME
 emulator_pid=''
+gradle_pid=''
+stop_background() {
+  # The timeout supervisor owns the subprocess group and bounds its shutdown.
+  if [[ -n "$1" ]]; then
+    kill -TERM "$1" 2>/dev/null || true
+    wait "$1" 2>/dev/null || true
+  fi
+}
+
+start_gradle() {
+  timeout --kill-after=5s 20m android/gradlew -p android "$@" &
+  gradle_pid=$!
+}
+
+finish_gradle() {
+  local status=0
+  wait "$gradle_pid" || status=$?
+  gradle_pid=''
+  return "$status"
+}
+
 cleanup() {
+  stop_background "$gradle_pid"
   if [[ -n "$emulator_pid" ]]; then
-    timeout 10 "$adb" -s "$serial" emu kill >/dev/null 2>&1 || kill "$emulator_pid" 2>/dev/null || true
+    timeout --kill-after=5s 10 "$adb" -s "$serial" emu kill >/dev/null 2>&1 || true
+    stop_background "$emulator_pid"
+  fi
+  if [[ "$run_native_units" == true ]]; then
+    timeout --kill-after=5s 10 android/gradlew -p android --stop >/dev/null 2>&1 || true
   fi
   rm -rf -- "$ANDROID_AVD_HOME"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 report_device_failure() {
   df -hP "$ANDROID_AVD_HOME" "$sdk_root" | awk '
@@ -110,12 +147,16 @@ if ! timeout 20 xvfb-run --auto-servernum --error-file "$graphics_xvfb_log" glxi
   exit 1
 fi
 
+if [[ "$run_native_units" == true ]]; then
+  start_gradle :app:verifyAuditedAndroidDependencies :app:testDebugUnitTest
+fi
 printf 'no\n' | "$cmdline_tools/avdmanager" create avd --name "$avd" --package "$image"
-xvfb-run --auto-servernum --error-file "$emulator_xvfb_log" "$emulator" \
+timeout --kill-after=5s 24m xvfb-run --auto-servernum --error-file "$emulator_xvfb_log" "$emulator" \
   -avd "$avd" -port 5554 -no-audio -no-snapshot -no-boot-anim \
   -gpu host -feature -Vulkan -accel on > "$emulator_log" 2>&1 &
 emulator_pid=$!
-deadline=$((SECONDS + 180))
+boot_started=$SECONDS
+deadline=$((boot_started + 180))
 while :; do
   if readiness=$(timeout 5 "$adb" -s "$serial" shell getprop sys.boot_completed 2>/dev/null) && [[ "$readiness" == 1 ]]; then
     break
@@ -127,6 +168,7 @@ while :; do
   fi
   sleep 2
 done
+printf 'Android emulator boot completed in %d seconds.\n' "$((SECONDS - boot_started))"
 
 abi_list=$("$adb" -s "$serial" shell getprop ro.product.cpu.abilist)
 if [[ ",$abi_list," != *,arm64-v8a,* ]]; then
@@ -136,7 +178,11 @@ fi
 "$adb" -s "$serial" shell wm dismiss-keyguard
 "$adb" -s "$serial" shell cmd connectivity airplane-mode enable
 "$adb" -s "$serial" shell svc wifi disable
-android/gradlew -p android :app:connectedDebugAndroidTest || {
+if [[ "$run_native_units" == true ]]; then
+  finish_gradle
+fi
+start_gradle :app:connectedDebugAndroidTest
+finish_gradle || {
   status=$?
   report_device_failure "$emulator_log" "$emulator_xvfb_log"
   exit "$status"

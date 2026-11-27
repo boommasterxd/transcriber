@@ -3,5 +3,5 @@
   "minTokens": 50,
   "threshold": 0,
   "reporters": ["console"],
-  "ignore": ["**/*.g.dart"]
+  "ignore": ["lib/data/database/app_database.g.dart"]
 }

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/note_history.dart';
 
 class NoteModelBadge extends StatelessWidget {
@@ -66,7 +67,7 @@ class TodoCountBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: palette.coralSoft,
-        borderRadius: BorderRadius.circular(9999),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       ),
       child: Text(
         strings.todoLabel(count),

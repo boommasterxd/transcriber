@@ -55,16 +55,20 @@ mixin NoteDetailInteractionState<T extends ConsumerStatefulWidget>
   }
 
   void shareNote(TranscriptNote note) {
-    final body = noteShareText(note, ref.read(stringsProvider));
-    SharePlus.instance.share(ShareParams(text: body, subject: note.title));
+    final strings = ref.read(stringsProvider);
+    final subject = note.titleIsAiGenerated == false
+        ? note.title
+        : strings.voiceNote;
+    SharePlus.instance.share(
+      ShareParams(text: noteShareText(note, strings), subject: subject),
+    );
   }
 
   Future<bool> confirmAndDeleteNote(
     TranscriptNote note,
     AppStrings strings,
   ) async {
-    if (!await confirmDeleteNote(context, strings)) return false;
-    await deleteNoteWithUndo(ref, note, strings);
-    return true;
+    if (!await confirmDeleteNote(context, strings) || !mounted) return false;
+    return deleteNoteWithUndo(context, ref, note.id, strings);
   }
 }

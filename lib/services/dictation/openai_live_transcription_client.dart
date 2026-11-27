@@ -49,7 +49,7 @@ final class OpenAiLiveTranscriptionClient
 
   @override
   Future<void> connect() => connectWithSetup(
-    Uri.parse('wss://api.openai.com/v1/realtime?model=${_config.modelId}'),
+    Uri.parse('wss://api.openai.com/v1/realtime?intent=transcription'),
     {'Authorization': 'Bearer ${_config.apiKey}'},
     _sessionUpdate(),
   );

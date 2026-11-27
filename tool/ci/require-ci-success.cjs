@@ -3,7 +3,8 @@
 const REQUIRED_JOBS = [
   'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
 ];
-const FLAGS = ['docs_only', 'workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'];
+const FLAGS = ['docs_only', 'workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit',
+  'gitleaks_updater_only'];
 const REVISIONS = ['base_sha', 'head_sha', 'merge_sha'];
 
 function validateRevisionBinding(outputs, revisions) {
@@ -34,6 +35,10 @@ function jobPlan(outputs) {
   if (flags.device && !flags.native) {
     throw new Error('Android device tests require the Android quality job.');
   }
+  if (flags.gitleaks_updater_only
+    && (!flags.workflow || ['dart', 'jvm', 'native', 'device', 'build'].some((flag) => flags[flag]))) {
+    throw new Error('The Gitleaks updater test-only plan requires only workflow lint and dependency audit.');
+  }
   return {
     'workflow-lint': flags.workflow,
     'dart-quality': flags.dart || (flags.build && !flags.native),
@@ -57,6 +62,12 @@ function requireCiSuccess(needs, revisions) {
     const expected = plan[job] ? 'success' : 'skipped';
     if (needs[job]?.result !== expected) {
       throw new Error(`Required job ${job} must be ${expected}.`);
+    }
+  }
+  if (plan['workflow-lint']) {
+    const expected = needs.changes.outputs.gitleaks_updater_only === 'true' ? 'success' : 'skipped';
+    if (needs['workflow-lint'].outputs?.gitleaks_updater_tests !== expected) {
+      throw new Error(`The dedicated Gitleaks updater test step must be ${expected}.`);
     }
   }
   if (plan['kotlin-quality']) {

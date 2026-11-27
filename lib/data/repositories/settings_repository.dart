@@ -31,6 +31,23 @@ class SettingsRepository {
       .into(_database.appSettingsTable)
       .insert(_toCompanion(settings), mode: InsertMode.insertOrReplace);
 
+  Stream<Set<TableUpdate>> get updates => _database.tableUpdates(
+    TableUpdateQuery.onTable(_database.appSettingsTable),
+  );
+
+  /// Applies a user's change to the current row instead of an engine's seed.
+  /// Drift opens the native SQLite transaction with BEGIN IMMEDIATE.
+  Future<AppSettings> update(AppSettings Function(AppSettings) change) =>
+      _database.transaction(() async {
+        final next = _toCompanion(change(await load()));
+        final table = _database.into(_database.appSettingsTable);
+        final row = await table.insertReturning(
+          next,
+          onConflict: DoUpdate((_) => next),
+        );
+        return _fromRow(row);
+      });
+
   Future<String?> apiKey(RemoteProviderId provider) {
     _ensureSupported(provider);
     return _secure.read(key: _apiKeyKey(provider));

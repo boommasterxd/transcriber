@@ -9,16 +9,18 @@ const { requireCiSuccess } = require('../../../tool/ci/require-ci-success.cjs');
 const jobs = [
   'workflow-lint', 'dart-quality', 'jvm-quality', 'kotlin-quality', 'dependency-audit',
 ];
-const flags = ['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit'];
+const flags = ['workflow', 'dart', 'jvm', 'native', 'device', 'build', 'dependency_audit', 'gitleaks_updater_only'];
 const revisions = { base_sha: 'a'.repeat(40), head_sha: 'b'.repeat(40), merge_sha: 'c'.repeat(40) };
 
 function prerequisites(docsOnly = 'false') {
   return {
     changes: { result: 'success', outputs: { ...revisions, docs_only: docsOnly,
-      ...Object.fromEntries(flags.map((flag) => [flag, docsOnly === 'true' ? 'false' : 'true'])) } },
+      ...Object.fromEntries(flags.map((flag) => [flag,
+        flag === 'gitleaks_updater_only' || docsOnly === 'true' ? 'false' : 'true'])) } },
     ...Object.fromEntries(jobs.map((job) => [job, {
       result: docsOnly === 'true' || job === 'jvm-quality' ? 'skipped' : 'success',
       ...(job === 'kotlin-quality' ? { outputs: { device_tests: docsOnly === 'true' ? 'skipped' : 'success' } } : {}),
+      ...(job === 'workflow-lint' ? { outputs: { gitleaks_updater_tests: 'skipped' } } : {}),
     }])),
   };
 }
@@ -42,6 +44,7 @@ test('full CI requires all quality, build and security jobs', () => {
 test('scoped plans require only their exact jobs, and every other job must be skipped', () => {
   const cases = [
     [['workflow'], ['workflow-lint']],
+    [['workflow', 'gitleaks_updater_only'], ['workflow-lint']],
     [['dart'], ['dart-quality']],
     [['jvm'], ['jvm-quality']],
     [['jvm', 'native'], ['kotlin-quality']],
@@ -57,6 +60,8 @@ test('scoped plans require only their exact jobs, and every other job must be sk
     needs.changes.outputs.dependency_audit = 'true';
     needs['dependency-audit'].result = 'success';
     needs['kotlin-quality'].outputs.device_tests = selected.includes('device') ? 'success' : 'skipped';
+    const updaterOnly = selected.includes('gitleaks_updater_only');
+    if (updaterOnly) needs['workflow-lint'].outputs.gitleaks_updater_tests = 'success';
     for (const job of required) needs[job].result = 'success';
     assert.doesNotThrow(() => requireCiSuccess(needs, revisions));
     for (const job of jobs) {
@@ -67,6 +72,13 @@ test('scoped plans require only their exact jobs, and every other job must be sk
         assert.throws(() => requireCiSuccess(needs, revisions), new RegExp(job));
       }
       needs[job].result = expected;
+    }
+    if (updaterOnly) {
+      const outputs = needs['workflow-lint'].outputs;
+      for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
+        outputs.gitleaks_updater_tests = result;
+        assert.throws(() => requireCiSuccess(needs, revisions), /Gitleaks updater test step must be success/);
+      }
     }
   }
 });
@@ -109,6 +121,9 @@ test('invalid, contradictory, additional and incomplete plans cannot pass', () =
   const empty = prerequisites('true');
   empty.changes.outputs.docs_only = 'false';
   assert.throws(() => requireCiSuccess(empty, revisions));
+  const contradictoryUpdater = prerequisites();
+  contradictoryUpdater.changes.outputs.gitleaks_updater_only = 'true';
+  assert.throws(() => requireCiSuccess(contradictoryUpdater, revisions), /Gitleaks updater test-only plan/);
   const extraOutput = prerequisites();
   extraOutput.changes.outputs.unknown = 'true';
   assert.throws(() => requireCiSuccess(extraOutput, revisions));

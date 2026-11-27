@@ -6,12 +6,14 @@ final class NoteHistoryEntry with NoteDisplayMetadata {
     required this.metadata,
     required this.origins,
     required this.todoCount,
+    this.titleIsAiGenerated,
   });
 
   factory NoteHistoryEntry.fromNote(TranscriptNote note) => NoteHistoryEntry(
     metadata: note.metadata,
     origins: note.origins,
     todoCount: note.todos.length,
+    titleIsAiGenerated: note.titleIsAiGenerated,
   );
 
   @override
@@ -19,6 +21,7 @@ final class NoteHistoryEntry with NoteDisplayMetadata {
   @override
   final NoteOrigins origins;
   final int todoCount;
+  final bool? titleIsAiGenerated;
 }
 
 /// Stable boundary for descending creation date and ID ordering.
@@ -37,11 +40,24 @@ final class HistoryPage {
     required this.entries,
     required this.hasNext,
     required this.hasPrevious,
-    required this.totalCount,
+    required this.filter,
+    required this.revision,
+    this.totalCount,
   });
 
   final List<NoteHistoryEntry> entries;
   final bool hasNext;
   final bool hasPrevious;
-  final int totalCount;
+  final String filter;
+  final int revision;
+  final int? totalCount;
+
+  HistoryPage withTotal(int total) => HistoryPage(
+    entries: entries,
+    hasNext: hasNext,
+    hasPrevious: hasPrevious,
+    filter: filter,
+    revision: revision,
+    totalCount: total,
+  );
 }

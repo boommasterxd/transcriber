@@ -61,23 +61,28 @@ class AudioRecorderService {
     final generation = ++_generation;
     final path = await _recordingDestination();
     if (generation != _generation) throw StateError('Recording was cancelled.');
-    await _channel.invokeMethod<String>('start', {
-      'path': path,
-      'maxBytes': limits.captureBytes,
-    });
+    final startedPath =
+        await _channel.invokeMethod<String>('start', {
+          'path': path,
+          'maxBytes': limits.captureBytes,
+        }) ??
+        path;
     if (generation != _generation) {
       await _channel.invokeMethod<void>('cancel');
       await _cacheManager.discard(
-        ManagedAudioFile(path: path, ownership: AudioOwnership.temporary),
+        ManagedAudioFile(
+          path: startedPath,
+          ownership: AudioOwnership.temporary,
+        ),
       );
       throw StateError('Recording was cancelled.');
     }
-    _currentPath = path;
+    _currentPath = startedPath;
     _poller = _periodicTimer(
       const Duration(milliseconds: 120),
       (_) => _pollProgress(),
     );
-    return path;
+    return startedPath;
   }
 
   Future<void> pause() => _changeCapture('pause');

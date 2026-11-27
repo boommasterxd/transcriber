@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,10 +6,8 @@ import '../../../data/models/app_settings.dart';
 import '../../../data/models/transcript_note.dart';
 import '../../../services/processing/processing_profile.dart';
 import '../../../services/processing/processing_request.dart';
-import '../../../services/storage/audio_cache_manager.dart';
 import '../../../services/storage/managed_audio_file.dart';
 import '../../../state/processing_controller.dart';
-import '../../../state/providers.dart';
 import '../../../state/settings_controller.dart';
 import '../../navigation.dart';
 import '../../widgets/app_bottom_sheet.dart';
@@ -23,34 +19,22 @@ import 'widgets/share_result_body.dart';
 
 Future<void> presentShareSheet({
   required BuildContext context,
-  required String audioPath,
+  required ManagedAudioFile audio,
   String? fileName,
 }) {
   return showAppBottomSheet<void>(
     context,
     builder: (sheetContext) => ShareSheetContent(
-      audioPath: audioPath,
+      audio: audio,
       fileName: fileName,
-      onFinished: () => Navigator.of(sheetContext).pop(),
+      onFinished: () {
+        if (sheetContext.mounted &&
+            ModalRoute.of(sheetContext)?.isCurrent == true) {
+          Navigator.of(sheetContext).pop();
+        }
+      },
     ),
   );
-}
-
-/// Presents the share overlay as an in-app modal bottom sheet when audio is
-/// shared into or opened with the app.
-abstract final class ShareOverlay {
-  static Future<void> show({
-    required String audioPath,
-    String? fileName,
-  }) async {
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
-    await presentShareSheet(
-      context: context,
-      audioPath: audioPath,
-      fileName: fileName,
-    );
-  }
 }
 
 /// Runs a non-persisting share pipeline and requires explicit confirmation
@@ -58,12 +42,12 @@ abstract final class ShareOverlay {
 class ShareSheetContent extends ConsumerStatefulWidget {
   const ShareSheetContent({
     super.key,
-    required this.audioPath,
+    required this.audio,
     required this.onFinished,
     this.fileName,
   });
 
-  final String audioPath;
+  final ManagedAudioFile audio;
   final String? fileName;
   final VoidCallback onFinished;
 
@@ -73,32 +57,51 @@ class ShareSheetContent extends ConsumerStatefulWidget {
 
 class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
     with ProcessingControllerLifecycle<ShareSheetContent> {
-  late final AudioCacheManager _cacheManager;
-  late final ManagedAudioFile _audio;
   AppSettings? _approvedSettings;
   bool _submitted = false;
   bool _saving = false;
   bool _finishing = false;
   bool _openingSettings = false;
+  bool _checkingSettings = false;
 
   @override
   bool get startsProcessingOnMount => false;
 
-  @override
-  void initState() {
-    super.initState();
-    _cacheManager = ref.read(audioCacheManagerProvider);
-    _audio = ManagedAudioFile(
-      path: widget.audioPath,
-      ownership: AudioOwnership.temporary,
-    );
+  Future<void> _approve(AppSettings settings) async {
+    if (_checkingSettings || _finishing || _saving) return;
+    _checkingSettings = true;
+    try {
+      final current = await ref
+          .read(settingsControllerProvider.notifier)
+          .readCurrent();
+      if (!mounted || _finishing || ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      final matches =
+          _processingChoices(current) == _processingChoices(settings);
+      setState(() => _approvedSettings = matches ? settings : null);
+      if (matches) startProcessing();
+    } catch (_) {
+      if (!_finishing) _showError();
+    } finally {
+      _checkingSettings = false;
+    }
   }
 
-  void _approve(AppSettings settings) {
-    if (_approvedSettings != null || _finishing) return;
-    setState(() => _approvedSettings = settings);
-    startProcessing();
-  }
+  // Compare the inputs that change recipients, provider work, or audio retention.
+  Object _processingChoices(AppSettings settings) => (
+    settings.asrProvider,
+    settings.asrModelId(settings.asrProvider),
+    settings.transcriptionLanguage,
+    settings.language,
+    settings.summarizeEnabled
+        ? (
+            settings.summaryProvider,
+            settings.summaryModelId(settings.summaryProvider),
+          )
+        : null,
+    settings.autoDeleteAudio,
+  );
 
   @override
   void startProcessing() {
@@ -109,7 +112,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
       ..reset()
       ..run(
         ProcessingInput(
-          audio: _audio,
+          audio: widget.audio,
           source: NoteSource.shared,
           settings: settings,
         ),
@@ -140,8 +143,6 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
     try {
       if (_submitted) {
         await processingController.discardCurrent(owner: processingOwner);
-      } else {
-        await _cacheManager.discard(_audio);
       }
       if (mounted) widget.onFinished();
     } catch (_) {
@@ -152,12 +153,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
 
   @override
   void discardProcessing() {
-    if (_finishing) return;
-    if (_submitted) {
-      super.discardProcessing();
-    } else {
-      unawaited(_cacheManager.discard(_audio).catchError((Object _) {}));
-    }
+    if (!_finishing && _submitted) super.discardProcessing();
   }
 
   void _showError() {
@@ -215,7 +211,7 @@ class _ShareSheetContentState extends ConsumerState<ShareSheetContent>
               strings,
             ),
             actions: ProcessingErrorActions(
-              onRetry: startProcessing,
+              onRetry: () => _approve(approvedSettings),
               onClose: _finish,
               onOpenSettings: _openSettings,
             ),

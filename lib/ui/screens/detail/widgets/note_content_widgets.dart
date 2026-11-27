@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/transcript_note.dart';
 import '../../../widgets/todo_tile.dart';
 
@@ -12,13 +13,17 @@ class NoteSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.4,
-        color: context.palette.ink,
+    return Semantics(
+      container: true,
+      header: true,
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+          color: context.palette.ink,
+        ),
       ),
     );
   }
@@ -92,7 +97,7 @@ class NoteTodoHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 5),
           decoration: BoxDecoration(
             color: palette.coralSoft,
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
           ),
           child: Center(
             widthFactor: 1,

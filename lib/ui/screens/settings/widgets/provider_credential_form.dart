@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/catalog/remote_catalog.dart';
 import '../../../../data/models/remote_provider.dart';
 import '../../../../state/settings_controller.dart';
 
@@ -39,16 +40,26 @@ class ProviderCredentialForm extends ConsumerWidget {
           busy: status.busy,
           connected: status.connected,
         ),
-        if (status.verified || status.failed) ...[
-          const SizedBox(height: 8),
-          Text(
-            status.verified ? strings.keyVerified : strings.keyCheckFailed,
-            style: TextStyle(
-              fontSize: 12,
-              color: status.verified ? palette.mintInk : palette.coralInk,
-            ),
-          ),
-        ],
+        Semantics(
+          container: true,
+          liveRegion: true,
+          child: status.verified || status.failed
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    status.verified
+                        ? strings.keyVerified
+                        : strings.keyCheckFailed,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: status.verified
+                          ? palette.mintInk
+                          : palette.coralInk,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         const SizedBox(height: 9),
         Text(strings.keyHint, style: hintStyle),
         const SizedBox(height: 4),
@@ -222,6 +233,8 @@ class _ProviderApiKeyField extends ConsumerWidget {
             borderRadius: BorderRadius.circular(13),
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          labelText:
+              '${RemoteCatalog.provider(provider).name} ${strings.apiKey}',
           hintText: placeholder,
           hintStyle: TextStyle(fontSize: 14, color: palette.faint),
         ),

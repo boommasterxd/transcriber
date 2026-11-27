@@ -18,7 +18,7 @@ class RemoteCatalog {
   /// Default chat/summary model id per provider (used until the user picks one).
   static const Map<RemoteProviderId, String> defaultChatModelId = {
     RemoteProviderId.openai: 'gpt-5.6-luna',
-    RemoteProviderId.google: 'gemini-3.7-flash',
+    RemoteProviderId.google: 'gemini-3.8-flash',
   };
 
   /// Default transcription model id per ASR-capable provider.
